@@ -15,14 +15,26 @@
   }
 %>
 
-<main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+<style>
+  .ceo-page {
+    padding-left: max(1.5rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.5rem, env(safe-area-inset-right, 0px));
+  }
+  @media (min-width: 640px) {
+    .ceo-page {
+      padding-left: max(2rem, env(safe-area-inset-left, 0px));
+      padding-right: max(2rem, env(safe-area-inset-right, 0px));
+    }
+  }
+</style>
+<main class="ceo-page max-w-7xl mx-auto py-8">
   <!-- Header -->
   <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
-    <div>
+    <div class="min-w-0">
       <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
         <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Automation reports</span>
       </div>
-      <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">
+      <h1 class="font-display font-extrabold text-3xl sm:text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white break-words">
         Automate <span class="text-brand-muted dark:text-slate-500">prospecting</span>
       </h1>
       <p class="text-sm font-bold text-brand-muted dark:text-slate-400 mt-2">Folder outreach, scheduled searches, and cadence messages</p>
