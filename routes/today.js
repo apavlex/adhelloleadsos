@@ -33,6 +33,7 @@ const workspaceLeadOverview = require('../services/workspaceLeadOverview');
 const appointmentPackages = require('../services/appointmentPackages');
 const networkStore = require('../services/networkStore');
 const teamFieldWork = require('../services/teamFieldWork');
+const { buildBestRoiActivity } = require('../services/bestRoiActivity');
 const { canAssignWork, roleForEmail } = require('../services/workspaceService');
 function firstNameFromUser(user) {
   const raw =
@@ -277,21 +278,40 @@ router.get('/', async (req, res, next) => {
       leadSources = null;
     }
     let fieldWorkHome = null;
+    let networkMemberCount = 0;
+    let pendingApplications = 0;
     const role = roleForEmail(req.workspace, userEmail(req));
     const canSeeFieldWork = canAssignWork(role) || req.canAssignWork === true || req.canManageWorkspace === true;
-    if (canSeeFieldWork) {
-      try {
-        const network = await networkStore.getOrCreateNetworkForWorkspace(wid, {
-          name: req.workspace && req.workspace.name ? `${req.workspace.name} network` : 'Referral network',
-          ownerEmail: userEmail(req),
-        });
-        const members = await networkStore.listMembers(network.id);
+    try {
+      const network = await networkStore.getOrCreateNetworkForWorkspace(wid, {
+        name: req.workspace && req.workspace.name ? `${req.workspace.name} network` : 'Referral network',
+        ownerEmail: userEmail(req),
+      });
+      const [members, applications] = await Promise.all([
+        networkStore.listMembers(network.id),
+        networkStore.listApplications(network.id).catch(() => []),
+      ]);
+      networkMemberCount = Array.isArray(members) ? members.length : 0;
+      pendingApplications = (applications || []).filter((a) => a && a.status === 'pending').length;
+      if (canSeeFieldWork) {
         fieldWorkHome = await teamFieldWork.summarizeTeamFieldWork(network.id, members);
-      } catch (err) {
-        console.warn('[today] field-work summary:', err && err.message);
-        fieldWorkHome = null;
       }
+    } catch (err) {
+      console.warn('[today] network / field-work summary:', err && err.message);
+      fieldWorkHome = null;
     }
+    const bestRoiActivity = buildBestRoiActivity({
+      repliesWaiting,
+      queueNeedingAction,
+      nextActions,
+      followUpTasksToday,
+      leadSources,
+      opportunityBoard,
+      fieldWorkHome,
+      callWarmQueue,
+      networkMemberCount,
+      pendingApplications,
+    });
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -308,6 +328,7 @@ router.get('/', async (req, res, next) => {
       streak,
       repliesWaiting,
       queueNeedingAction,
+      bestRoiActivity,
       leadSources,
       fieldWorkHome,
       totalLeads: businessLeads.length,
