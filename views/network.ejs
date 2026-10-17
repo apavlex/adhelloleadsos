@@ -253,7 +253,7 @@
     %>
     <p class="fw-pulse" aria-label="Network pulse">
       <span><strong><%= totals.members %></strong> members<% if (totals.members) { %> · <%= totals.freeMembers %> free · <%= totals.partnerMembers %> partners<% } %></span>
-      <span><strong><%= totals.heldSeats %></strong> / <%= totals.openSeats %> seats held</span>
+      <span><strong><%= totals.heldSeats %></strong> held · <strong><%= totals.openSeats %></strong> open seats</span>
     </p>
 
     <% if (combinedSources.length) { %>
