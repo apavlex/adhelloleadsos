@@ -96,10 +96,10 @@ function buildBestRoiActivity(input = {}) {
   const networkReferralsHref = '/network?tab=referrals';
   const networkMembersHref = '/network?tab=members';
   const networkAppsHref = '/network?tab=applications';
-  const engagementHref = firstHref(input.callWarmQueue, '/engagement');
+  const warmFocusHref = firstHref(input.callWarmQueue, '');
   const followHref = firstHref(nextActions, firstHref(followUps, '/tasks'));
 
-  // 1) Warm replies — highest ROI clock
+  // 1) Warm replies — highest ROI clock (count must match /engagement last-7-days replies)
   if (replies > 0) {
     return {
       id: 'replies',
@@ -108,15 +108,15 @@ function buildBestRoiActivity(input = {}) {
         replies === 1
           ? '1 warm reply is waiting — answer before it cools.'
           : `${replies} warm replies are waiting — answer before they cool.`,
-      detail: 'Inbound replies convert faster than cold dials. Handle these first, then resume prospecting.',
+      detail: 'Inbound SMS/email replies from the last 7 days. Open the engagement inbox to work them.',
       count: replies,
       ringLabel: 'Replies',
       primaryLabel: 'Answer replies',
-      primaryHref: engagementHref,
-      secondaryLabel: 'Open pipeline',
-      secondaryHref: pipelineHref,
-      altLabel: 'Network leads',
-      altHref: networkReferralsHref,
+      primaryHref: '/engagement',
+      secondaryLabel: warmFocusHref ? 'Start with first' : 'Open pipeline',
+      secondaryHref: warmFocusHref || pipelineHref,
+      altLabel: warmFocusHref ? 'Open pipeline' : 'Network leads',
+      altHref: warmFocusHref ? pipelineHref : networkReferralsHref,
     };
   }
 

@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   buildEngagementInbox,
+  countWarmReplyLeads,
   inferSignalTypeFromUpdate,
   DEFAULT_WINDOW_DAYS,
 } = require('../services/engagementInbox');
@@ -77,6 +78,58 @@ test('buildEngagementInbox excludes stale signals outside window', () => {
   ];
   const inbox = buildEngagementInbox(leads, { now: NOW, windowDays: DEFAULT_WINDOW_DAYS });
   assert.equal(inbox.events.length, 0);
+});
+
+test('countWarmReplyLeads matches engagement inbox reply leads in window', () => {
+  const leads = [
+    leadWithSignals('lead:a', [
+      {
+        type: 'engagement_signal',
+        signalType: 'sms_reply',
+        timestamp: '2026-08-04T10:00:00.000Z',
+        value: 'SMS reply',
+      },
+    ]),
+    leadWithSignals('lead:b', [
+      {
+        type: 'engagement_signal',
+        signalType: 'email_reply',
+        timestamp: '2026-08-04T11:00:00.000Z',
+        value: 'Email reply',
+      },
+      {
+        type: 'engagement_signal',
+        signalType: 'link_click',
+        timestamp: '2026-08-04T12:00:00.000Z',
+        value: 'Link click',
+      },
+    ]),
+    leadWithSignals('lead:c', [
+      {
+        type: 'engagement_signal',
+        signalType: 'email_open',
+        timestamp: '2026-08-04T12:00:00.000Z',
+        value: 'Email open',
+      },
+    ]),
+    leadWithSignals('lead:old', [
+      {
+        type: 'engagement_signal',
+        signalType: 'sms_reply',
+        timestamp: '2026-07-01T10:00:00.000Z',
+        value: 'Old reply',
+      },
+    ]),
+    // Historic log text must NOT inflate Today replies (previous bug).
+    {
+      key: 'lead:log-only',
+      title: 'Log only',
+      logs: [{ type: 'note', message: 'Customer replied last year', timestamp: '2025-01-01T00:00:00.000Z' }],
+      updates: [],
+      engagementSignals: {},
+    },
+  ];
+  assert.equal(countWarmReplyLeads(leads, { now: NOW, windowDays: 7 }), 2);
 });
 
 test('buildEngagementInbox sorts by priority then recency', () => {

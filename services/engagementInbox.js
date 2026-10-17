@@ -178,6 +178,26 @@ function summarizeEvents(events) {
 }
 
 /**
+ * Unique leads with a recent SMS/email reply signal — same window as /engagement.
+ * Use this for Today “replies waiting” so the count matches the inbox (not historic logs).
+ * @param {object[]} leads
+ * @param {{ windowDays?: number, now?: Date }} [opts]
+ * @returns {number}
+ */
+function countWarmReplyLeads(leads, opts = {}) {
+  const inbox = buildEngagementInbox(leads, {
+    windowDays: opts.windowDays,
+    now: opts.now,
+    limit: 5000,
+  });
+  const replyLeads = new Set();
+  for (const ev of inbox.events || []) {
+    if (REPLY_SIGNALS.has(ev.signalType) && ev.leadKey) replyLeads.add(ev.leadKey);
+  }
+  return replyLeads.size;
+}
+
+/**
  * @param {object[]} leads
  * @param {{ windowDays?: number, signalType?: string, limit?: number, now?: Date }} [opts]
  */
@@ -222,5 +242,6 @@ module.exports = {
   DEFAULT_WINDOW_DAYS,
   SIGNAL_TYPES,
   buildEngagementInbox,
+  countWarmReplyLeads,
   inferSignalTypeFromUpdate,
 };
