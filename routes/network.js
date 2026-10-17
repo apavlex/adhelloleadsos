@@ -206,6 +206,7 @@ router.get('/', async (req, res, next) => {
     }
 
     let fieldWork = null;
+    let fieldWorkSummary = null;
     const fieldWorkView = teamFieldWork.VIEWS.includes(String(req.query.fw || ''))
       ? String(req.query.fw)
       : 'open';
@@ -213,22 +214,41 @@ router.get('/', async (req, res, next) => {
     const fieldWorkStatus = memberWork.JOB_STATUSES.includes(String(req.query.jobStatus || ''))
       ? String(req.query.jobStatus)
       : '';
-    if (tab === 'field-work' && canManage(req)) {
-      const baseUrl = notify.baseUrlFromReq(req);
-      const portalBaseByMember = {};
-      members.forEach((m) => {
+    const fieldWorkDay = String(req.query.day || '').trim();
+    const fieldWorkMonth = String(req.query.month || '').trim();
+    if (canManage(req)) {
+      if (tab === 'field-work') {
+        const baseUrl = notify.baseUrlFromReq(req);
+        const portalBaseByMember = {};
+        members.forEach((m) => {
+          try {
+            portalBaseByMember[m.id] = notify.memberPortalLink(baseUrl, network, m);
+          } catch (_) {
+            portalBaseByMember[m.id] = '';
+          }
+        });
+        fieldWork = await teamFieldWork.listTeamFieldWork(network.id, members, {
+          view: fieldWorkView,
+          day: fieldWorkDay,
+          month: fieldWorkMonth,
+          memberId: fieldWorkMemberId,
+          status: fieldWorkStatus,
+          portalBaseByMember,
+        });
+        fieldWorkSummary = {
+          today: fieldWork.today,
+          totals: fieldWork.totals,
+          sources: fieldWork.sources,
+          needAttention: (fieldWork.totals.today || 0) + (fieldWork.totals.overdue || 0),
+        };
+      } else {
         try {
-          portalBaseByMember[m.id] = notify.memberPortalLink(baseUrl, network, m);
-        } catch (_) {
-          portalBaseByMember[m.id] = '';
+          fieldWorkSummary = await teamFieldWork.summarizeTeamFieldWork(network.id, members);
+        } catch (err) {
+          console.warn('[network] field-work summary:', err && err.message);
+          fieldWorkSummary = null;
         }
-      });
-      fieldWork = await teamFieldWork.listTeamFieldWork(network.id, members, {
-        view: fieldWorkView,
-        memberId: fieldWorkMemberId,
-        status: fieldWorkStatus,
-        portalBaseByMember,
-      });
+      }
     }
 
     const totals = ex.networkTotals(referrals);
@@ -275,9 +295,12 @@ router.get('/', async (req, res, next) => {
       prefillTrade: networkTrades.some((t) => t.slug === req.query.trade) ? String(req.query.trade) : '',
       candidates,
       fieldWork,
+      fieldWorkSummary,
       fieldWorkView,
       fieldWorkMemberId,
       fieldWorkStatus,
+      fieldWorkDay: fieldWork ? fieldWork.day : fieldWorkDay,
+      fieldWorkMonth: fieldWork ? fieldWork.month : fieldWorkMonth,
       fieldWorkMembers: members,
       fieldWorkStatuses: memberWork.JOB_STATUSES.map((s) => ({
         id: s,

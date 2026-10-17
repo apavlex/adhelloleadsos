@@ -35,6 +35,21 @@ describe('teamFieldWork helpers', () => {
     assert.equal(teamFieldWork.whenLabel({ date: '2099-01-15', time: '14:30' }, '2099-01-14'), 'Tomorrow · 2:30 PM');
     assert.equal(teamFieldWork.whenLabel({ date: '2099-01-14', time: '' }, '2099-01-14'), 'Today');
   });
+
+  it('builds home/network active number cards', () => {
+    const cards = teamFieldWork.buildActiveNumbers({
+      today: 2,
+      overdue: 1,
+      open: 5,
+      thisWeek: 3,
+      membersWithWork: 2,
+    });
+    assert.equal(cards.length, 4);
+    assert.equal(cards[0].id, 'today');
+    assert.equal(cards[0].count, 2);
+    assert.equal(cards[1].id, 'overdue');
+    assert.match(cards[2].href, /tab=field-work/);
+  });
 });
 
 describe('teamFieldWork.listTeamFieldWork', () => {
@@ -139,6 +154,32 @@ describe('teamFieldWork.listTeamFieldWork', () => {
         { today: '2026-05-01', view: 'all' },
       );
       assert.equal(all.rows.length, 3);
+
+      const dayView = await teamFieldWork.listTeamFieldWork(
+        'net1',
+        [
+          { id: 'm1', companyName: 'Brightline Electric' },
+          { id: 'm2', companyName: 'Fence Pros' },
+        ],
+        { today: '2026-05-01', view: 'day', day: '2099-06-01' },
+      );
+      assert.equal(dayView.rows.length, 1);
+      assert.equal(dayView.day, '2099-06-01');
+      assert.ok(dayView.calendar);
+      assert.ok(dayView.calendar.weeks);
+
+      const summary = await teamFieldWork.summarizeTeamFieldWork(
+        'net1',
+        [
+          { id: 'm1', companyName: 'Brightline Electric' },
+          { id: 'm2', companyName: 'Fence Pros' },
+        ],
+        { today: '2026-05-01' },
+      );
+      assert.equal(summary.totals.open, 2);
+      assert.equal(summary.totals.upcoming, 1);
+      assert.equal(summary.sources.length, 4);
+      assert.equal(summary.needAttention, summary.totals.today + summary.totals.overdue);
     } finally {
       work.listCustomers = origCustomers;
       work.listJobs = origJobs;
