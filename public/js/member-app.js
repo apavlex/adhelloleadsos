@@ -644,6 +644,161 @@
 
   initPhotoNoteSheet();
 
+  /** Lightroom-style fullscreen gallery viewer (dark stage + filmstrip). */
+  function initPhotoLightroomViewer() {
+    var root = document.querySelector('[data-ma-lr]');
+    if (!root || root.getAttribute('data-ma-ready') === '1') return;
+    var img = root.querySelector('[data-ma-lr-img]');
+    var captionEl = root.querySelector('[data-ma-lr-caption]');
+    var countEl = root.querySelector('[data-ma-lr-count]');
+    var film = root.querySelector('[data-ma-lr-film]');
+    var openTab = root.querySelector('[data-ma-lr-open-tab]');
+    var prevBtn = root.querySelector('[data-ma-lr-prev]');
+    var nextBtn = root.querySelector('[data-ma-lr-next]');
+    var stage = root.querySelector('[data-ma-lr-stage]');
+    if (!img || !film) return;
+
+    var items = [];
+    var index = 0;
+    var touchX = null;
+
+    function decodeAttr(raw) {
+      var el = document.createElement('textarea');
+      el.innerHTML = String(raw == null ? '' : raw);
+      return el.value.replace(/\u00a0/g, ' ');
+    }
+
+    function collectFrom(anchor) {
+      var gallery = anchor.closest('[data-ma-lr-gallery]') || document;
+      var list = [];
+      gallery.querySelectorAll('[data-ma-lr-open]').forEach(function (a) {
+        var src = a.getAttribute('data-ma-lr-src') || a.getAttribute('href') || '';
+        if (!src) return;
+        list.push({
+          src: src,
+          caption: decodeAttr(a.getAttribute('data-ma-lr-caption') || ''),
+          el: a,
+        });
+      });
+      return list;
+    }
+
+    function renderFilm() {
+      film.innerHTML = '';
+      if (items.length < 2) {
+        film.hidden = true;
+        return;
+      }
+      film.hidden = false;
+      items.forEach(function (item, i) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ma-lr__thumb' + (i === index ? ' is-on' : '');
+        btn.setAttribute('aria-label', 'Photo ' + (i + 1));
+        btn.innerHTML = '<img src="' + item.src + '" alt="" loading="lazy">';
+        btn.addEventListener('click', function () { show(i); });
+        film.appendChild(btn);
+      });
+      var on = film.querySelector('.ma-lr__thumb.is-on');
+      if (on && on.scrollIntoView) {
+        try { on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); } catch (e) { /* ignore */ }
+      }
+    }
+
+    function show(i) {
+      if (!items.length) return;
+      index = (i + items.length) % items.length;
+      var item = items[index];
+      root.classList.add('is-switching');
+      img.onload = function () { root.classList.remove('is-switching'); };
+      img.onerror = function () { root.classList.remove('is-switching'); };
+      img.src = item.src;
+      img.alt = item.caption || 'Job photo';
+      if (captionEl) captionEl.textContent = item.caption || 'Job photo';
+      if (countEl) countEl.textContent = (index + 1) + ' / ' + items.length;
+      if (openTab) openTab.href = item.src;
+      if (prevBtn) prevBtn.hidden = items.length < 2;
+      if (nextBtn) nextBtn.hidden = items.length < 2;
+      renderFilm();
+      setTimeout(function () { root.classList.remove('is-switching'); }, 220);
+    }
+
+    function openAt(anchor) {
+      items = collectFrom(anchor);
+      if (!items.length) return;
+      var start = parseInt(anchor.getAttribute('data-ma-lr-index'), 10);
+      if (!Number.isFinite(start)) {
+        start = items.findIndex(function (it) { return it.el === anchor; });
+      }
+      if (start < 0) start = 0;
+      if (root.parentNode !== document.body) document.body.appendChild(root);
+      root.hidden = false;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.classList.add('ma-lr-open');
+      document.body.classList.add('ma-photo-open');
+      show(start);
+    }
+
+    function closeViewer() {
+      root.hidden = true;
+      document.documentElement.style.overflow = '';
+      document.body.classList.remove('ma-lr-open');
+      document.body.classList.remove('ma-photo-open');
+      items = [];
+    }
+
+    document.addEventListener('click', function (e) {
+      var open = e.target.closest('[data-ma-lr-open]');
+      if (open) {
+        e.preventDefault();
+        openAt(open);
+        return;
+      }
+      if (e.target.closest('[data-ma-lr-close]')) {
+        e.preventDefault();
+        closeViewer();
+        return;
+      }
+      if (e.target.closest('[data-ma-lr-prev]')) {
+        e.preventDefault();
+        show(index - 1);
+        return;
+      }
+      if (e.target.closest('[data-ma-lr-next]')) {
+        e.preventDefault();
+        show(index + 1);
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (root.hidden) return;
+      if (e.key === 'Escape') closeViewer();
+      else if (e.key === 'ArrowLeft') show(index - 1);
+      else if (e.key === 'ArrowRight') show(index + 1);
+    });
+
+    if (stage) {
+      stage.addEventListener('touchstart', function (e) {
+        var t = e.changedTouches && e.changedTouches[0];
+        touchX = t ? t.clientX : null;
+      }, { passive: true });
+      stage.addEventListener('touchend', function (e) {
+        if (touchX == null) return;
+        var t = e.changedTouches && e.changedTouches[0];
+        if (!t) return;
+        var dx = t.clientX - touchX;
+        touchX = null;
+        if (Math.abs(dx) < 48) return;
+        if (dx > 0) show(index - 1);
+        else show(index + 1);
+      }, { passive: true });
+    }
+
+    root.setAttribute('data-ma-ready', '1');
+  }
+
+  initPhotoLightroomViewer();
+
   document.addEventListener('click', function (event) {
     var openBtn = event.target.closest('[data-ma-install-open]');
     if (openBtn) {

@@ -42,7 +42,7 @@
       <% } %>
     </div>
     <% if (_photo) { %>
-    <a class="fw-job__shot" href="<%= _photo.href %>" target="_blank" rel="noopener" title="<%= _photo.caption || 'Job photo' %>">
+    <a class="fw-job__shot" href="<%= _photo.href %>" data-os-lr-open data-os-lr-src="<%= _photo.href %>" data-os-lr-caption="<%= String(_photo.caption || 'Job photo').replace(/"/g, '&quot;') %>" title="<%= _photo.caption || 'Job photo' %>">
       <img src="<%= _photo.href %>" alt="<%= _photo.caption || 'Job photo' %>" loading="lazy" decoding="async" width="72" height="72" />
     </a>
     <% } %>

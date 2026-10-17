@@ -182,10 +182,10 @@
         <span class="ma-count"><%= (job.photos || []).length %>/<%= maxJobPhotos || 12 %></span>
       </div>
       <% if (job.photos && job.photos.length) { %>
-      <div class="ma-photos">
-        <% job.photos.forEach(function (p) { %>
+      <div class="ma-photos" data-ma-lr-gallery>
+        <% job.photos.forEach(function (p, pi) { %>
         <figure class="ma-photos__item" data-ma-photo-item>
-          <a href="<%= p.href %>" target="_blank" rel="noopener"><img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy"></a>
+          <a href="<%= p.href %>" class="ma-photos__thumb" data-ma-lr-open data-ma-lr-index="<%= pi %>" data-ma-lr-src="<%= p.href %>" data-ma-lr-caption="<%= String(p.caption || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') %>" aria-label="View photo<%= p.caption ? ': ' + String(p.caption).replace(/"/g, '') : '' %>"><img src="<%= p.href %>" alt="<%= p.caption || 'Job photo' %>" loading="lazy"></a>
           <figcaption data-ma-photo-caption><%= p.caption || 'Add a note' %></figcaption>
           <button
             type="button"
@@ -215,6 +215,7 @@
       }) %>
       <% } %>
       <%- include('_photo_note_sheet') %>
+      <%- include('_photo_viewer') %>
     </section>
 
     <form method="post" action="<%= base %>/customers/jobs/<%= job.id %>/delete" class="ma-section" data-ma-confirm="Delete this job?">

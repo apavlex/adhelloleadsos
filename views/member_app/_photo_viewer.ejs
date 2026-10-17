@@ -1,0 +1,25 @@
+<%# Lightroom-style fullscreen photo viewer (job + customer galleries) %>
+<div class="ma-lr" id="maLrViewer" data-ma-lr hidden role="dialog" aria-modal="true" aria-label="Photo viewer">
+  <div class="ma-lr__chrome">
+    <button type="button" class="ma-lr__icon-btn" data-ma-lr-close aria-label="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="ma-lr__meta">
+      <p class="ma-lr__count" data-ma-lr-count></p>
+      <p class="ma-lr__caption" data-ma-lr-caption></p>
+    </div>
+    <a class="ma-lr__icon-btn" data-ma-lr-open-tab href="#" target="_blank" rel="noopener" aria-label="Open original">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 3h7v7M10 14L21 3M21 14v7H3V3h7"/></svg>
+    </a>
+  </div>
+  <div class="ma-lr__stage" data-ma-lr-stage>
+    <button type="button" class="ma-lr__nav ma-lr__nav--prev" data-ma-lr-prev aria-label="Previous photo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <img class="ma-lr__img" data-ma-lr-img alt="" decoding="async" />
+    <button type="button" class="ma-lr__nav ma-lr__nav--next" data-ma-lr-next aria-label="Next photo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </button>
+  </div>
+  <div class="ma-lr__film" data-ma-lr-film aria-hidden="true"></div>
+</div>
