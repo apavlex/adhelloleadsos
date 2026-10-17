@@ -186,10 +186,81 @@
     .fw-cal-day.has-jobs { background: rgba(15, 23, 42, 0.04); }
     html.dark .fw-cal-day.has-jobs { background: rgba(255, 255, 255, 0.05); }
     .fw-cal-count { font-size: 9px; font-weight: 800; color: #64748b; }
+    .fw-cal-layout { display: grid; gap: 1rem; }
+    .fw-cal-events { min-width: 0; }
+    /* Desktop: full-page Team calendar (Today / This week deep-links land here) */
+    @media (min-width: 960px) {
+      body.net-tab-calendar main.max-wide {
+        max-width: none;
+        width: 100%;
+        padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+        padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+        padding-top: 1.25rem;
+        padding-bottom: 2rem;
+      }
+      body.net-tab-calendar .fw-active { display: none; }
+      body.net-tab-calendar > main > header { margin-bottom: 0.75rem; }
+      body.net-tab-calendar > main > header h1 { font-size: 1.75rem; }
+      body.net-tab-calendar > main > header p.max-w-2xl { display: none; }
+      body.net-tab-calendar .net-tabs { margin-bottom: 0.75rem; }
+      .fw-cal-page__intro { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; }
+      .fw-cal-page__intro h2 { font-size: 1.65rem; }
+      .fw-cal-layout {
+        grid-template-columns: minmax(0, 1.7fr) minmax(22rem, 0.95fr);
+        gap: 1.25rem;
+        align-items: stretch;
+        min-height: calc(100vh - 14rem);
+      }
+      .fw-cal {
+        margin-bottom: 0;
+        padding: 1.35rem 1.5rem 1.5rem;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .fw-cal-head { margin-bottom: 0.85rem; }
+      .fw-cal-head h3 { font-size: 1.25rem; }
+      .fw-cal-grid { gap: 0.4rem; flex: 1; }
+      .fw-cal-grid + .fw-cal-grid { flex: 1; align-content: stretch; }
+      .fw-cal-dow { font-size: 11px; padding: 0.35rem 0; }
+      .fw-cal-day {
+        min-height: 5.75rem;
+        height: 100%;
+        align-items: flex-start;
+        justify-content: flex-start;
+        gap: 0.35rem;
+        padding: 0.55rem 0.6rem;
+        border-radius: 0.95rem;
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        font-size: 0.95rem;
+        font-weight: 800;
+        background: rgba(248, 250, 252, 0.65);
+      }
+      html.dark .fw-cal-day { border-color: rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.03); }
+      .fw-cal-day.is-out { background: transparent; border-color: transparent; }
+      .fw-cal-day.has-jobs { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 10%, #fff); }
+      html.dark .fw-cal-day.has-jobs { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 12%, rgba(15, 23, 42, 0.9)); }
+      .fw-cal-count {
+        margin-top: auto;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 0.15rem 0.45rem;
+        background: rgba(15, 23, 42, 0.08);
+        color: #334155;
+      }
+      html.dark .fw-cal-count { background: rgba(255, 255, 255, 0.1); color: #e2e8f0; }
+      .fw-cal-events .net-card { min-height: 100%; }
+    }
+    @media (min-width: 1280px) {
+      .fw-cal-day { min-height: 6.75rem; }
+    }
   </style>
   <%- include('partials/tailwind_css') %>
 </head>
-<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden<%= typeof tab !== 'undefined' && tab === 'calendar' ? ' net-tab-calendar' : '' %>">
   <%- include('partials/navbar') %>
   <%
     const noticeBad = notice && /^(Could not|Only|Pick|Name|Add|Confirm|That|Member not|Zone not|Referral not|Can't|Unknown|Write|This referral|The sender)/.test(notice);
@@ -590,67 +661,73 @@
       <% } else { %>
       <% const fw = fieldWork || { rows: [], totals: { showing: 0 }, calendar: null, day: '', dayHeading: '', month: '' }; %>
       <% const fwCal = fw.calendar; %>
-      <div class="mb-4">
-        <h2 class="font-display font-bold text-xl">Team calendar</h2>
-        <p class="mt-1 max-w-2xl text-sm text-brand-muted">Scheduled jobs across every teammate’s Reviews app — tap a day to see that day’s events.</p>
-      </div>
-      <form method="get" action="/network" class="fw-filters" id="fwCalFilters">
-        <input type="hidden" name="tab" value="calendar" />
-        <input type="hidden" name="fw" value="<%= fieldWorkView === 'day' ? 'day' : 'calendar' %>" />
-        <% if (fw.day) { %><input type="hidden" name="day" value="<%= fw.day %>" /><% } %>
-        <% if (fw.month) { %><input type="hidden" name="month" value="<%= fw.month %>" /><% } %>
-        <label class="sr-only" for="fwCalMember">Member</label>
-        <select id="fwCalMember" name="member" class="fw-select" onchange="this.form.submit()">
-          <option value="">All members</option>
-          <% (typeof fieldWorkMembers !== 'undefined' ? fieldWorkMembers : []).forEach(function (m) { %>
-          <option value="<%= m.id %>" <%= fieldWorkMemberId === m.id ? 'selected' : '' %>><%= m.companyName || m.contactName || m.id %></option>
-          <% }); %>
-        </select>
-        <label class="sr-only" for="fwCalStatus">Status</label>
-        <select id="fwCalStatus" name="jobStatus" class="fw-select" onchange="this.form.submit()">
-          <option value="">Any status</option>
-          <% (fieldWorkStatuses || []).forEach(function (s) { %>
-          <option value="<%= s.id %>" <%= fieldWorkStatus === s.id ? 'selected' : '' %>><%= s.label %></option>
-          <% }); %>
-        </select>
-      </form>
-      <% if (fwCal) { %>
-      <section class="net-card fw-cal" aria-label="Team calendar">
-        <div class="fw-cal-head">
-          <a class="net-btn net-btn-ghost" href="/network?tab=calendar&fw=calendar&month=<%= fwCal.prev %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>">‹</a>
-          <h3 class="font-display font-bold text-base"><%= fwCal.label %></h3>
-          <a class="net-btn net-btn-ghost" href="/network?tab=calendar&fw=calendar&month=<%= fwCal.next %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>">›</a>
+      <div class="fw-cal-page__intro">
+        <div class="min-w-0">
+          <h2 class="font-display font-bold text-xl">Team calendar</h2>
+          <p class="mt-1 max-w-2xl text-sm text-brand-muted">Scheduled jobs across every teammate’s Reviews app — tap a day to see that day’s events.</p>
         </div>
-        <div class="fw-cal-grid" aria-hidden="true">
-          <% ['S','M','T','W','T','F','S'].forEach(function (d) { %><div class="fw-cal-dow"><%= d %></div><% }); %>
-        </div>
-        <div class="fw-cal-grid">
-          <% fwCal.weeks.forEach(function (week) { %>
-            <% week.forEach(function (d) { %>
-            <a href="/network?tab=calendar&fw=day&day=<%= d.date %>&month=<%= fwCal.month %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>"
-               class="fw-cal-day<%= d.inMonth ? '' : ' is-out' %><%= d.isToday ? ' is-today' : '' %><%= d.isSelected ? ' is-on' : '' %><%= d.count ? ' has-jobs' : '' %>"
-               aria-label="<%= d.date %><%= d.count ? ', ' + d.count + ' jobs' : '' %>">
-              <span><%= d.day %></span>
-              <% if (d.count) { %><span class="fw-cal-count"><%= d.count %></span><% } %>
-            </a>
+        <form method="get" action="/network" class="fw-filters" id="fwCalFilters" style="margin-bottom:0">
+          <input type="hidden" name="tab" value="calendar" />
+          <input type="hidden" name="fw" value="<%= fieldWorkView === 'day' ? 'day' : 'calendar' %>" />
+          <% if (fw.day) { %><input type="hidden" name="day" value="<%= fw.day %>" /><% } %>
+          <% if (fw.month) { %><input type="hidden" name="month" value="<%= fw.month %>" /><% } %>
+          <label class="sr-only" for="fwCalMember">Member</label>
+          <select id="fwCalMember" name="member" class="fw-select" onchange="this.form.submit()">
+            <option value="">All members</option>
+            <% (typeof fieldWorkMembers !== 'undefined' ? fieldWorkMembers : []).forEach(function (m) { %>
+            <option value="<%= m.id %>" <%= fieldWorkMemberId === m.id ? 'selected' : '' %>><%= m.companyName || m.contactName || m.id %></option>
             <% }); %>
-          <% }); %>
-        </div>
-        <p class="mt-3 text-[12px] font-semibold text-brand-muted">Events for <strong class="text-brand-dark dark:text-white"><%= fw.dayHeading || fw.day %></strong> — tap a day to switch.</p>
-      </section>
-      <% } %>
-      <% if (!fw.rows.length) { %>
-      <div class="net-card text-center py-10">
-        <p class="text-sm text-brand-muted">No scheduled jobs on this day<%= fieldWorkMemberId || fieldWorkStatus ? ' for these filters' : '' %>.</p>
+          </select>
+          <label class="sr-only" for="fwCalStatus">Status</label>
+          <select id="fwCalStatus" name="jobStatus" class="fw-select" onchange="this.form.submit()">
+            <option value="">Any status</option>
+            <% (fieldWorkStatuses || []).forEach(function (s) { %>
+            <option value="<%= s.id %>" <%= fieldWorkStatus === s.id ? 'selected' : '' %>><%= s.label %></option>
+            <% }); %>
+          </select>
+        </form>
       </div>
-      <% } else { %>
-      <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> event<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %> on this day</p>
-      <div class="space-y-3">
-        <% fw.rows.forEach(function (row) { %>
-        <%- include('partials/network_fw_job_card', { row: row }) %>
-        <% }); %>
+      <div class="fw-cal-layout">
+        <% if (fwCal) { %>
+        <section class="net-card fw-cal" aria-label="Team calendar">
+          <div class="fw-cal-head">
+            <a class="net-btn net-btn-ghost" href="/network?tab=calendar&fw=calendar&month=<%= fwCal.prev %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>">‹</a>
+            <h3 class="font-display font-bold text-base"><%= fwCal.label %></h3>
+            <a class="net-btn net-btn-ghost" href="/network?tab=calendar&fw=calendar&month=<%= fwCal.next %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>">›</a>
+          </div>
+          <div class="fw-cal-grid" aria-hidden="true">
+            <% ['S','M','T','W','T','F','S'].forEach(function (d) { %><div class="fw-cal-dow"><%= d %></div><% }); %>
+          </div>
+          <div class="fw-cal-grid">
+            <% fwCal.weeks.forEach(function (week) { %>
+              <% week.forEach(function (d) { %>
+              <a href="/network?tab=calendar&fw=day&day=<%= d.date %>&month=<%= fwCal.month %><%= fieldWorkMemberId ? '&member=' + encodeURIComponent(fieldWorkMemberId) : '' %><%= fieldWorkStatus ? '&jobStatus=' + encodeURIComponent(fieldWorkStatus) : '' %>"
+                 class="fw-cal-day<%= d.inMonth ? '' : ' is-out' %><%= d.isToday ? ' is-today' : '' %><%= d.isSelected ? ' is-on' : '' %><%= d.count ? ' has-jobs' : '' %>"
+                 aria-label="<%= d.date %><%= d.count ? ', ' + d.count + ' jobs' : '' %>">
+                <span><%= d.day %></span>
+                <% if (d.count) { %><span class="fw-cal-count"><%= d.count %> job<%= d.count === 1 ? '' : 's' %></span><% } %>
+              </a>
+              <% }); %>
+            <% }); %>
+          </div>
+        </section>
+        <% } %>
+        <aside class="fw-cal-events" aria-label="Events for selected day">
+          <p class="mb-3 text-[12px] font-bold text-brand-muted">Events for <strong class="text-brand-dark dark:text-white"><%= fw.dayHeading || fw.day || 'this day' %></strong></p>
+          <% if (!fw.rows.length) { %>
+          <div class="net-card text-center py-10">
+            <p class="text-sm text-brand-muted">No scheduled jobs on this day<%= fieldWorkMemberId || fieldWorkStatus ? ' for these filters' : '' %>.</p>
+          </div>
+          <% } else { %>
+          <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> event<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %></p>
+          <div class="space-y-3">
+            <% fw.rows.forEach(function (row) { %>
+            <%- include('partials/network_fw_job_card', { row: row }) %>
+            <% }); %>
+          </div>
+          <% } %>
+        </aside>
       </div>
-      <% } %>
       <% } %>
     <% } %>
 
