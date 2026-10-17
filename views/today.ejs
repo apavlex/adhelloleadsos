@@ -266,54 +266,14 @@
     <% const _hasAgentOps = !!( _agentOps && _agentOps.roles && _agentOps.roles.length ); %>
     <% const _leadSources = typeof leadSources !== 'undefined' && leadSources ? leadSources : null; %>
     <% const _srcList = _leadSources && Array.isArray(_leadSources.sources) ? _leadSources.sources : []; %>
-    <% if (_srcList.length) { %>
-    <section class="today-viz today-viz-reveal mb-6 md:mb-8" aria-label="Lead sources">
-      <div class="flex items-baseline justify-between gap-3 mb-3">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Lead sources</p>
-          <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white leading-tight">
-            <span class="tabular-nums"><%= Number(_leadSources.needYou) || 0 %></span> need you
-            <span class="text-brand-muted font-semibold text-sm md:text-base"> · website, agency, referrals &amp; purchased</span>
-          </h2>
-        </div>
-        <a href="/appointments" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Manage</a>
-      </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-        <% _srcList.forEach(function (s) { %>
-        <a href="<%= s.href %>" class="group rounded-2xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0">
-          <p class="font-display font-extrabold text-2xl tabular-nums text-brand-dark dark:text-white leading-none mb-1"><%= s.count %></p>
-          <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.label %></p>
-          <p class="text-[11px] font-semibold text-brand-muted truncate mt-0.5"><%= s.hint %></p>
-        </a>
-        <% }); %>
-      </div>
-    </section>
-    <% } %>
     <% const _fwHome = typeof fieldWorkHome !== 'undefined' && fieldWorkHome ? fieldWorkHome : null; %>
     <% const _fwSrc = _fwHome && Array.isArray(_fwHome.sources) ? _fwHome.sources : []; %>
-    <% if (_fwSrc.length) { %>
-    <section class="today-viz today-viz-reveal mb-6 md:mb-8" aria-label="Team field work">
-      <div class="flex items-baseline justify-between gap-3 mb-3">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Team field work</p>
-          <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white leading-tight">
-            <span class="tabular-nums"><%= Number(_fwHome.needAttention) || 0 %></span> need attention
-            <span class="text-brand-muted font-semibold text-sm md:text-base"> · today &amp; overdue across the team</span>
-          </h2>
-        </div>
-        <a href="/network?tab=field-work&fw=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a>
-      </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
-        <% _fwSrc.forEach(function (s) { %>
-        <a href="<%= s.href %>" class="group rounded-2xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0<%= s.id === 'overdue' && s.count ? ' border-rose-300/60 dark:border-rose-400/30' : '' %>">
-          <p class="font-display font-extrabold text-2xl tabular-nums text-brand-dark dark:text-white leading-none mb-1"><%= s.count %></p>
-          <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.label %></p>
-          <p class="text-[11px] font-semibold text-brand-muted truncate mt-0.5"><%= s.hint %></p>
-        </a>
-        <% }); %>
-      </div>
-    </section>
-    <% } %>
+    <% const _combinedHome = _srcList.map(function (s) {
+      return { kind: 'lead', count: s.count, label: s.label, hint: s.hint, href: s.href, hot: false };
+    }).concat(_fwSrc.map(function (s) {
+      return { kind: 'team', count: s.count, label: s.label, hint: s.hint, href: s.href, hot: !!(s.id === 'overdue' && s.count) };
+    })); %>
+    <% const _combinedNeed = (Number(_leadSources && _leadSources.needYou) || 0) + (Number(_fwHome && _fwHome.needAttention) || 0); %>
     <% if (!empty) { %>
     <section id="todayMainTabs" class="today-viz today-viz-hero today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 p-6 md:p-8 shadow-sm" aria-label="Today main">
       <div class="today-viz-grid" aria-hidden="true"></div>
@@ -762,6 +722,31 @@
       </div>
     </section>
 
+    <% if (_combinedHome.length) { %>
+    <section class="today-viz today-viz-reveal mb-8 md:mb-10" aria-label="Lead and team sources">
+      <div class="flex items-baseline justify-between gap-3 mb-3">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Active numbers</p>
+          <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white leading-tight">
+            <span class="tabular-nums"><%= _combinedNeed %></span> need attention
+            <span class="text-brand-muted font-semibold text-sm md:text-base"> · leads &amp; field work</span>
+          </h2>
+        </div>
+        <a href="/network?tab=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <% _combinedHome.forEach(function (s) { %>
+        <a href="<%= s.href %>" class="group rounded-2xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0<%= s.hot ? ' border-rose-300/60 dark:border-rose-400/30' : '' %>">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= s.kind === 'lead' ? 'Lead' : 'Team' %></p>
+          <p class="font-display font-extrabold text-2xl tabular-nums text-brand-dark dark:text-white leading-none mb-1"><%= s.count %></p>
+          <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.label %></p>
+          <p class="text-[11px] font-semibold text-brand-muted truncate mt-0.5"><%= s.hint %></p>
+        </a>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
+
     <% const _bm = typeof bookmarkSessions !== 'undefined' && bookmarkSessions ? bookmarkSessions : { total: 0, callable: 0, href: '/focus', folders: [] }; %>
     <% const _rw2 = typeof recentlyWorked !== 'undefined' && recentlyWorked ? recentlyWorked : { total: 0, items: [], href: '/focus', sinceDays: 14 }; %>
     <details class="today-resume today-viz today-viz-reveal today-viz-reveal-delay-1 mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
@@ -1065,6 +1050,30 @@
         <button type="submit" class="text-sm font-bold text-brand-yellow hover:underline">Load sample data</button>
       </form>
     </section>
+    <% if (_combinedHome.length) { %>
+    <section class="today-viz today-viz-reveal mb-8 md:mb-10" aria-label="Lead and team sources">
+      <div class="flex items-baseline justify-between gap-3 mb-3">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Active numbers</p>
+          <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white leading-tight">
+            <span class="tabular-nums"><%= _combinedNeed %></span> need attention
+            <span class="text-brand-muted font-semibold text-sm md:text-base"> · leads &amp; field work</span>
+          </h2>
+        </div>
+        <a href="/network?tab=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+        <% _combinedHome.forEach(function (s) { %>
+        <a href="<%= s.href %>" class="group rounded-2xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0<%= s.hot ? ' border-rose-300/60 dark:border-rose-400/30' : '' %>">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= s.kind === 'lead' ? 'Lead' : 'Team' %></p>
+          <p class="font-display font-extrabold text-2xl tabular-nums text-brand-dark dark:text-white leading-none mb-1"><%= s.count %></p>
+          <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.label %></p>
+          <p class="text-[11px] font-semibold text-brand-muted truncate mt-0.5"><%= s.hint %></p>
+        </a>
+        <% }); %>
+      </div>
+    </section>
+    <% } %>
     <% } %>
 
     <% if (_underProvisioned) { %>
