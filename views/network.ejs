@@ -201,8 +201,13 @@
       border-radius: 999px; padding: 0.12rem 0.4rem; background: rgba(15, 23, 42, 0.08); color: #334155;
     }
     html.dark .fw-cal-count { background: rgba(255, 255, 255, 0.1); color: #e2e8f0; }
-    .fw-cal-layout { display: grid; gap: 1rem; }
+    /* Calendar on top, selected-day events stacked underneath (no side panel gap). */
+    .fw-cal-layout { display: flex; flex-direction: column; gap: 1.15rem; }
     .fw-cal-events { min-width: 0; }
+    .fw-cal-events__head {
+      display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+      gap: 0.5rem 1rem; margin-bottom: 0.75rem;
+    }
     .fw-cal-page__intro { margin-bottom: 0.85rem; }
     @media (min-width: 640px) {
       .fw-cal-day { min-height: 4.5rem; font-size: 0.95rem; padding: 0.5rem; }
@@ -210,7 +215,7 @@
       .fw-cal-page__intro { display: flex; align-items: end; justify-content: space-between; gap: 1rem; }
       .fw-cal-page__intro h2 { font-size: 1.45rem; }
     }
-    /* Desktop: full-page Team calendar (Today / This week deep-links land here) */
+    /* Desktop: full-width Team calendar; events stay under the month grid */
     @media (min-width: 960px) {
       body.net-tab-calendar main.max-wide {
         max-width: none;
@@ -226,37 +231,26 @@
       body.net-tab-calendar > main > header p.max-w-2xl { display: none; }
       body.net-tab-calendar .net-tabs { margin-bottom: 0.75rem; }
       .fw-cal-page__intro h2 { font-size: 1.65rem; }
-      .fw-cal-layout {
-        grid-template-columns: minmax(0, 1.7fr) minmax(22rem, 0.95fr);
-        gap: 1.25rem;
-        align-items: stretch;
-        min-height: calc(100vh - 14rem);
-      }
+      .fw-cal-layout { gap: 1.35rem; }
       .fw-cal {
         margin-bottom: 0;
         padding: 1.35rem 1.5rem 1.5rem;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
       }
       .fw-cal-head { margin-bottom: 0.85rem; }
       .fw-cal-head h3 { font-size: 1.25rem; }
-      .fw-cal-grid { gap: 0.45rem; flex: 1; }
-      .fw-cal-grid + .fw-cal-grid { flex: 1; align-content: stretch; }
+      .fw-cal-grid { gap: 0.45rem; }
       .fw-cal-dow { font-size: 11px; padding: 0.35rem 0; }
       .fw-cal-day {
         min-height: 5.75rem;
-        height: 100%;
         gap: 0.35rem;
         padding: 0.55rem 0.6rem;
         border-radius: 0.95rem;
         font-size: 1rem;
       }
       .fw-cal-count { font-size: 11px; padding: 0.15rem 0.45rem; }
-      .fw-cal-events .net-card { min-height: 100%; }
     }
     @media (min-width: 1280px) {
-      .fw-cal-day { min-height: 7.25rem; font-size: 1.05rem; }
+      .fw-cal-day { min-height: 6.5rem; font-size: 1.05rem; }
     }
   </style>
   <%- include('partials/tailwind_css') %>
@@ -665,7 +659,7 @@
       <div class="fw-cal-page__intro">
         <div class="min-w-0">
           <h2 class="font-display font-bold text-xl">Team calendar</h2>
-          <p class="mt-1 max-w-2xl text-sm text-brand-muted">Scheduled jobs across every teammate’s Reviews app — tap a day to see that day’s events.</p>
+          <p class="mt-1 max-w-2xl text-sm text-brand-muted">Scheduled jobs across every teammate’s Reviews app — tap a day, then see that day’s events under the calendar. Opens on today.</p>
         </div>
         <form method="get" action="/network" class="fw-filters" id="fwCalFilters" style="margin-bottom:0">
           <input type="hidden" name="tab" value="calendar" />
@@ -713,14 +707,16 @@
           </div>
         </section>
         <% } %>
-        <aside class="fw-cal-events" aria-label="Events for selected day">
-          <p class="mb-3 text-[12px] font-bold text-brand-muted">Events for <strong class="text-brand-dark dark:text-white"><%= fw.dayHeading || fw.day || 'this day' %></strong></p>
+        <aside class="fw-cal-events" aria-label="Events for <%= fw.dayHeading || fw.day || 'selected day' %>">
+          <div class="fw-cal-events__head">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Events for <%= fw.dayHeading || fw.day || 'this day' %></h3>
+            <p class="text-[12px] font-bold text-brand-muted tabular-nums"><%= fw.totals.showing || fw.rows.length %> event<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %></p>
+          </div>
           <% if (!fw.rows.length) { %>
-          <div class="net-card text-center py-10">
-            <p class="text-sm text-brand-muted">No scheduled jobs on this day<%= fieldWorkMemberId || fieldWorkStatus ? ' for these filters' : '' %>.</p>
+          <div class="net-card text-center py-8">
+            <p class="text-sm text-brand-muted">No scheduled jobs on <%= (fw.dayHeading || 'this day').toLowerCase() === 'today' ? 'today' : 'this day' %><%= fieldWorkMemberId || fieldWorkStatus ? ' for these filters' : '' %>. Tap another day above to browse.</p>
           </div>
           <% } else { %>
-          <p class="mb-3 text-[12px] font-bold text-brand-muted"><%= fw.totals.showing || fw.rows.length %> event<%= (fw.totals.showing || fw.rows.length) === 1 ? '' : 's' %></p>
           <div class="space-y-3">
             <% fw.rows.forEach(function (row) { %>
             <%- include('partials/network_fw_job_card', { row: row }) %>
