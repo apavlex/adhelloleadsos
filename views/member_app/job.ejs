@@ -33,12 +33,6 @@
       <button type="submit" name="status" value="<%= s.value %>" class="ma-step<%= s.value === job.status ? ' is-on' : '' %> ma-step--<%= s.value %>" <%= s.value === job.status ? 'aria-pressed=true' : '' %>><%= s.label %></button>
       <% }); %>
     </form>
-    <div class="ma-actions" style="margin-top:0">
-      <% if (job.date) { %><a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/customers/jobs/<%= job.id %>/calendar.ics"><%- icons.calendar %> Add to calendar</a><% } %>
-      <% if (customer && customer.phone) { %><a class="ma-btn ma-btn--sm ma-btn--ghost" href="tel:<%= String(customer.phone).replace(/[^0-9+]/g, '') %>"><%- icons.phone %> Call</a><% } %>
-      <% const jobMapsHref = customer ? googleMapsSearchUrl({ name: customer.name, address: customer.address }) : ''; %>
-      <% if (jobMapsHref) { %><a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= jobMapsHref %>" target="_blank" rel="noopener"><%- icons.mapPin %> Directions</a><% } %>
-    </div>
     <% if (job.sharedFromMemberId) { %>
     <p class="ma-hint" style="margin:10px 0 0">Shared onto your calendar by a teammate. Your other jobs stay private to you.</p>
     <% } %>
