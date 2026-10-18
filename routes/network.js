@@ -264,7 +264,13 @@ router.get('/', async (req, res, next) => {
     const heldSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => s.holders.length).length, 0);
 
     res.render('network', {
-      title: 'Referral network',
+      title:
+        tab === 'referrals' ||
+        tab === 'field-work' ||
+        tab === 'calendar' ||
+        tab === 'members'
+          ? 'Leads Network'
+          : 'Referral Network',
       activePage: 'network',
       navPrimary: 'network',
       tab,
