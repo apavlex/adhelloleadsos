@@ -452,9 +452,10 @@
       const leadOpen = fwTotals ? (Number(fwTotals.leads) || 0) : 0;
       const leadDealsLabel = (fwTotals && fwTotals.dealsValueLabel) ? fwTotals.dealsValueLabel : '$0';
       const leadDealsWon = fwTotals ? (Number(fwTotals.dealsWon) || 0) : 0;
+      const leadOpenJobs = fwTotals ? (Number(fwTotals.open) || 0) : 0;
       const leadMembers = fwTotals ? (Number(fwTotals.membersWithLeads) || 0) : 0;
     %>
-    <section class="fw-active fw-active--leads" aria-label="Lead count, deals value, and teammate stats">
+    <section class="fw-active fw-active--leads" aria-label="Lead count, project value, and teammate stats">
       <div class="flex items-baseline justify-between gap-3 mb-2">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Active numbers</p>
@@ -472,11 +473,11 @@
           <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Open leads</p>
           <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= leadMembers ? (leadMembers + (leadMembers === 1 ? ' teammate' : ' teammates')) : 'in field work' %></p>
         </a>
-        <a href="/network?tab=field-work&fw=all&jobStatus=completed" class="fw-active-card">
+        <a href="/network?tab=field-work&fw=open" class="fw-active-card">
           <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
           <p class="font-display font-black text-xl tabular-nums leading-none truncate"><%= leadDealsLabel %></p>
-          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Deals value</p>
-          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= leadDealsWon %> <%= leadDealsWon === 1 ? 'lead won' : 'leads won' %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Project value</p>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= leadOpenJobs %> open · <%= leadDealsWon %> won</p>
         </a>
         <% if (typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
         <% fieldWorkSummary.sources.forEach(function (s) { %>
