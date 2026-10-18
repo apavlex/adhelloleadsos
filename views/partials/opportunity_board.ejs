@@ -181,17 +181,33 @@
   }
   .opp-compact .opp-drop { min-height: 6.25rem; }
 
-  /* Full Opportunities page — board is the page (no floating card), columns fill height */
+  /* Full Opportunities page — board is the page (no floating card), columns fill height.
+     Beat head.ejs `html:not(.dark) body { #FAF7ED }` so a short 100dvh paint cannot flash a cream band.
+     On iPhone, rubber-band settle used to grow dvh and "remove" that gap — lock to the visual viewport instead. */
+  html:has(body.opp-page),
+  html:has(body.opp-page) body.opp-page {
+    background: #fff;
+    background-color: #fff;
+  }
+  html.dark:has(body.opp-page),
+  html.dark:has(body.opp-page) body.opp-page {
+    background: #0f172a;
+    background-color: #0f172a;
+  }
   body.opp-page {
     height: 100dvh;
     max-height: 100dvh;
     background: #fff;
+    background-color: #fff;
   }
   html.dark body.opp-page {
     background: #0f172a;
+    background-color: #0f172a;
   }
   body.opp-page .app-shell-content {
+    height: 100%;
     height: 100dvh;
+    max-height: 100%;
     max-height: 100dvh;
     min-height: 0;
     overflow: hidden;
@@ -400,7 +416,28 @@
   body.opp-stage-zoom-open { overflow: hidden; }
   /* Phones: board fills the screen — no side/bottom cream gutters. */
   @media (max-width: 767px) {
-    body.opp-page { padding-bottom: 0 !important; }
+    html:has(body.opp-page) {
+      height: 100%;
+      overflow: hidden;
+    }
+    /* Pin to the visible viewport so a stale 100dvh cannot leave a cream shelf under the board. */
+    body.opp-page {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      height: 100dvh;
+      height: -webkit-fill-available;
+      max-height: none;
+      overflow: hidden;
+      overscroll-behavior: none;
+      padding-bottom: 0 !important;
+    }
+    body.opp-page .app-shell-content {
+      height: 100%;
+      max-height: 100%;
+      min-height: 0;
+    }
     /* Kill shell safe-area padding that left a cream band under the board. */
     body.opp-page.app-with-sidebar .app-shell-content > main.opp-page-main,
     body.opp-page .app-shell-content > main.opp-page-main {
