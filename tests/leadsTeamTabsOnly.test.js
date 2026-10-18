@@ -1,6 +1,7 @@
 /**
- * Leads Network = team tabs + Send lead + open leads / won + teammate cards.
- * Referral Network = seats / referrals / members + same open leads / won cards.
+ * Separate Active Numbers:
+ * - Referral Network = open referrals + won $
+ * - Leads Network = teammate field-work cards only
  */
 const fs = require('fs');
 const path = require('path');
@@ -38,27 +39,29 @@ test('leads network CTA says Send lead; referral keeps Send referral', () => {
   assert.match(html, /onLeadsNetwork \? 'Send lead' : 'Send referral'/);
 });
 
-test('referral network shows open leads and won value', () => {
+test('referral network active numbers are open referrals and won only', () => {
   assert.match(html, /!onLeadsNetwork && !onSettingsTab && canManage/);
   assert.match(html, /fw-active--network/);
   const netStart = html.indexOf('fw-active--network');
   const netEnd = html.indexOf('</section>', netStart);
   const netBlock = html.slice(netStart, netEnd);
-  assert.match(netBlock, /Open leads/);
+  assert.match(netBlock, /Open referrals/);
   assert.match(netBlock, /wonValueLabel/);
   assert.match(netBlock, />Won</);
-  assert.match(netBlock, />Lead</);
+  assert.match(netBlock, />Referral</);
   assert.doesNotMatch(netBlock, /fieldWorkSummary\.sources/);
+  assert.doesNotMatch(netBlock, />Lead</);
 });
 
-test('leads network shows open leads, won value, and teammate cards', () => {
-  assert.match(html, /onLeadsNetwork && canManage/);
+test('leads network active numbers are teammate stats only', () => {
+  assert.match(html, /onLeadsNetwork && canManage && typeof fieldWorkSummary/);
   assert.match(html, /fw-active--leads/);
   const leadsStart = html.indexOf('fw-active--leads');
   const leadsEnd = html.indexOf('</section>', leadsStart);
   const leadsBlock = html.slice(leadsStart, leadsEnd);
-  assert.match(leadsBlock, /Open leads/);
-  assert.match(leadsBlock, /wonValueLabel/);
-  assert.match(leadsBlock, /fieldWorkSummary\.sources/);
+  assert.match(leadsBlock, /fieldWorkSummary\.sources\.forEach/);
   assert.match(leadsBlock, />Lead</);
+  assert.doesNotMatch(leadsBlock, /Open referrals/);
+  assert.doesNotMatch(leadsBlock, /wonValueLabel/);
+  assert.doesNotMatch(leadsBlock, />Referral</);
 });
