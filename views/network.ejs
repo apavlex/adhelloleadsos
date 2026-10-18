@@ -337,9 +337,15 @@
   <main class="max-wide px-6 py-8 md:py-12">
     <header class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0">
+        <% if (tab === 'referrals') { %>
+        <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Leads network</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Leads Network</h1>
+        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400">Referrals routed through <%= network.name %> — accept and report outcomes from a text link, no login needed.</p>
+        <% } else { %>
         <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral network</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight"><%= network.name %></h1>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (network.seatLimit === 1) { %>One company per trade in each zone. Referrals go to the seat holder<% } else { %><%= network.seatLimit ? 'Up to ' + network.seatLimit : 'Any number of' %> companies per trade in each zone. Referrals rotate between them<% } %>, who accept and report the outcome from a text link — no login needed.</p>
+        <% } %>
       </div>
       <details class="net-settings<%= onSettingsTab ? ' is-on' : '' %> shrink-0 self-end sm:self-start" id="netSettingsMenu">
         <summary class="net-settings__btn" aria-label="App branding and setup" title="App branding and setup">
