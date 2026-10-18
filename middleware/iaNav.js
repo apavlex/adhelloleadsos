@@ -77,14 +77,9 @@ function iaNav(req, res, next) {
   let navNetworkTab = '';
   if (navPrimary === 'network') {
     const networkTab = String(req.query.tab || '').toLowerCase();
-    // Leads Network = routed leads + teammates (field work / calendar / members).
-    // Referral Network = seats, applications, branding, setup.
-    if (
-      networkTab === 'referrals' ||
-      networkTab === 'field-work' ||
-      networkTab === 'calendar' ||
-      networkTab === 'members'
-    ) {
+    // Leads Network = teammates (field work / calendar).
+    // Referral Network = seats, referrals, members, applications, branding, setup.
+    if (networkTab === 'field-work' || networkTab === 'calendar') {
       navNetworkTab = 'leads';
     } else {
       navNetworkTab = 'referral';

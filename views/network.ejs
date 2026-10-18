@@ -335,8 +335,8 @@
     ];
     const settingsTabIds = settingsTabs.map(function (t) { return t.id; });
     const onSettingsTab = settingsTabIds.indexOf(tab) >= 0;
-    /* Leads Network = routed leads + teammates. Referral Network = seats / apps / branding. */
-    const leadsNetworkTabIds = { referrals: 1, 'field-work': 1, calendar: 1, members: 1 };
+    /* Leads Network = teammates (field work / calendar). Referral Network = seats / referrals / members / apps. */
+    const leadsNetworkTabIds = { 'field-work': 1, calendar: 1 };
     const onLeadsNetwork = !!leadsNetworkTabIds[tab];
     const _wlTitle = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : null;
     const titleIconSrc =
@@ -344,13 +344,13 @@
       (_wlTitle ? (_wlTitle.hasLogo ? _wlTitle.iconUrl(192) : _wlTitle.logoUrl) : '') ||
       '/images/adhello-app-icon.png';
     const leadsTabs = [
-      { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
-      { id: 'members', label: 'Members (' + totals.members + (totals.freeMembers ? ' · ' + totals.freeMembers + ' free' : '') + ')' },
       { id: 'field-work', label: 'Team field work' + (fwTotals ? ' (' + fwTotals.open + ')' : '') },
       { id: 'calendar', label: 'Team calendar' + (fwTotals && fwTotals.thisWeek != null ? ' (' + fwTotals.thisWeek + ')' : '') },
     ];
     const referralTabs = [
       { id: 'seats', label: 'Seats' },
+      { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
+      { id: 'members', label: 'Members (' + totals.members + (totals.freeMembers ? ' · ' + totals.freeMembers + ' free' : '') + ')' },
       { id: 'applications', label: 'Applications' + (pendingApplications ? ' (' + pendingApplications + ')' : '') },
     ];
     const tabs = onLeadsNetwork ? leadsTabs : referralTabs;
@@ -373,11 +373,11 @@
           <% if (onLeadsNetwork) { %>
           <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Leads network</p>
           <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Leads Network</h1>
-          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (tab === 'referrals') { %>Routed leads through <%= network.name %> — accept and report outcomes from a text link, no login needed.<% } else if (tab === 'members') { %>Teammates in <%= network.name %> — seats, plans, and Reviews-app access.<% } else { %>Teammate field work across <%= network.name %> — jobs, photos, and the team calendar.<% } %></p>
+          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400">Teammate field work across <%= network.name %> — jobs, photos, and the team calendar.</p>
           <% } else { %>
           <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral network</p>
           <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight"><%= network.name %></h1>
-          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (network.seatLimit === 1) { %>One company per trade in each zone. Referrals go to the seat holder<% } else { %><%= network.seatLimit ? 'Up to ' + network.seatLimit : 'Any number of' %> companies per trade in each zone. Referrals rotate between them<% } %>, who accept and report the outcome from a text link — no login needed.</p>
+          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (tab === 'referrals') { %>Routed leads through <%= network.name %> — accept and report outcomes from a text link, no login needed.<% } else if (tab === 'members') { %>Members in <%= network.name %> — seats, plans, and Reviews-app access.<% } else if (network.seatLimit === 1) { %>One company per trade in each zone. Referrals go to the seat holder<% } else { %><%= network.seatLimit ? 'Up to ' + network.seatLimit : 'Any number of' %> companies per trade in each zone. Referrals rotate between them<% } %><% if (tab !== 'referrals' && tab !== 'members') { %>, who accept and report the outcome from a text link — no login needed.<% } %></p>
           <% } %>
         </div>
       </div>
@@ -396,10 +396,12 @@
       </details>
     </header>
 
+    <% if (!onLeadsNetwork) { %>
     <p class="mb-4 flex flex-wrap gap-x-4 gap-y-1 text-[12px] font-bold text-brand-muted" aria-label="Network pulse">
       <span><span class="tabular-nums text-brand-dark dark:text-white"><%= totals.members %></span> members<% if (totals.members) { %> · <%= totals.freeMembers %> free · <%= totals.partnerMembers %> partners<% } %></span>
       <span><span class="tabular-nums text-brand-dark dark:text-white"><%= totals.heldSeats %></span> held · <span class="tabular-nums text-brand-dark dark:text-white"><%= totals.openSeats %></span> open seats</span>
     </p>
+    <% } %>
 
     <% if (!onLeadsNetwork && !onSettingsTab && canManage) { %>
     <section class="fw-active fw-active--network" aria-label="Network referral stats">
@@ -461,7 +463,7 @@
       <% }); %>
       <a href="/network?tab=send" class="net-tab-cta <%= tab === 'send' ? 'is-on' : '' %>" data-open-send-referral <%= tab === 'send' ? 'aria-current=page' : '' %>>
         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.27 3.13a59.77 59.77 0 0118.22 8.87 59.77 59.77 0 01-18.22 8.88L6 12zm0 0h7.5" /></svg>
-        Send referral
+        <%= onLeadsNetwork ? 'Send lead' : 'Send referral' %>
       </a>
     </nav>
     <% if (onSettingsTab) { %>
