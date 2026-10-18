@@ -197,7 +197,7 @@
     .fw-cal-day.has-jobs { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 10%, #fff); }
     html.dark .fw-cal-day.has-jobs { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 12%, rgba(15, 23, 42, 0.9)); }
     .fw-cal-count {
-      margin-top: auto; font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+      margin-top: auto; font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: 0;
       border-radius: 999px; padding: 0.12rem 0.4rem; background: rgba(15, 23, 42, 0.08); color: #334155;
     }
     html.dark .fw-cal-count { background: rgba(255, 255, 255, 0.1); color: #e2e8f0; }
@@ -701,7 +701,7 @@
                  class="fw-cal-day<%= d.inMonth ? '' : ' is-out' %><%= d.isToday ? ' is-today' : '' %><%= d.isSelected ? ' is-on' : '' %><%= d.count ? ' has-jobs' : '' %>"
                  aria-label="<%= d.date %><%= d.count ? ', ' + d.count + ' jobs' : '' %>">
                 <span><%= d.day %></span>
-                <% if (d.count) { %><span class="fw-cal-count"><%= d.count %> job<%= d.count === 1 ? '' : 's' %></span><% } %>
+                <% if (d.count) { %><span class="fw-cal-count"><%= d.count %></span><% } %>
               </a>
               <% }); %>
             <% }); %>
