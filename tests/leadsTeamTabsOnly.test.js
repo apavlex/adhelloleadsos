@@ -69,8 +69,9 @@ test('leads network shows open leads, lead deals value, and teammates separately
   assert.doesNotMatch(leadsBlock, /referrals won/);
 });
 
-test('settings gear is top-right in the page header row', () => {
-  assert.match(html, /header class="mb-6 flex flex-row items-start justify-between gap-3"/);
-  assert.match(html, /net-settings[^"]*shrink-0 self-start/);
-  assert.doesNotMatch(html, /net-settings[^"]*self-end/);
+test('settings gear lives in the app top bar on network pages', () => {
+  const navbar = fs.readFileSync(path.join(__dirname, '../views/partials/navbar.ejs'), 'utf8');
+  assert.match(navbar, /net-settings--topbar/);
+  assert.match(navbar, /id="netSettingsMenu"/);
+  assert.doesNotMatch(html, /id="netSettingsMenu"/);
 });
