@@ -1,5 +1,5 @@
 /* AdHello PWA — cache shell assets; network-first for app pages. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.547';
+const CACHE_VERSION = 'adhello-pwa-v1.0.548';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -53,6 +53,23 @@ self.addEventListener('notificationclick', (event) => {
         return win.focus().then((w) => (w && 'navigate' in w ? w.navigate(target) : null));
       }
       return self.clients.openWindow(target);
+    })
+  );
+});
+
+/** Clear stacked phone/desktop alerts when the user marks notifications reviewed. */
+self.addEventListener('message', (event) => {
+  const data = event && event.data;
+  if (!data || data.type !== 'CLEAR_NOTIFICATIONS') return;
+  event.waitUntil(
+    self.registration.getNotifications().then((list) => {
+      (list || []).forEach((n) => {
+        try {
+          n.close();
+        } catch (e) {
+          /* ignore */
+        }
+      });
     })
   );
 });
