@@ -785,6 +785,34 @@ html.ws-settings-navigating .ws-settings-main {
     display: flex;
     align-items: center;
     justify-content: center;
+    /* Full viewport — do not inherit sidebar grid cell sizing */
+    width: 100vw;
+    width: 100dvw;
+    height: 100vh;
+    height: 100dvh;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+/* Desktop sidebar shell: keep loader a true viewport portal (not content-column only). */
+@media (min-width: 768px) {
+    body.app-with-sidebar > #adhelloNavLoading.app-body-portal {
+        grid-column: auto;
+        grid-row: auto;
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        width: 100dvw;
+        height: 100vh;
+        height: 100dvh;
+        min-height: 0;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        overflow: visible;
+        pointer-events: none;
+    }
 }
 #adhelloNavLoading.is-on {
     opacity: 1;
