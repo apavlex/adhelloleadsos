@@ -15,6 +15,9 @@ test('network page exposes branding and setup via top-right settings icon', () =
   assert.match(network, /id:\s*'brand',\s*label:\s*'App branding'/);
   assert.match(network, /id:\s*'setup',\s*label:\s*'Setup'/);
   assert.match(network, /href="\/network\?tab=<%= t\.id %>"/);
+  assert.match(network, /header class="mb-6 flex flex-row items-start justify-between gap-3"/);
+  assert.match(network, /net-settings[^"]*self-start/);
+  assert.doesNotMatch(network, /net-settings[^"]*self-end/);
 });
 
 test('main network tabs array no longer lists brand or setup', () => {

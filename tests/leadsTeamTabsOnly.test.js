@@ -1,7 +1,8 @@
 /**
- * Separate Active Numbers:
- * - Referral Network = open referrals + won $
- * - Leads Network = teammate field-work cards only
+ * Separate Active Numbers labels, with lead open/won cards on Leads Network:
+ * - Referral Network = Referral open referrals + won $
+ * - Leads Network = Lead open referrals + won $ + teammate cards
+ * Settings gear stays top-right of the page header.
  */
 const fs = require('fs');
 const path = require('path');
@@ -39,7 +40,7 @@ test('leads network CTA says Send lead; referral keeps Send referral', () => {
   assert.match(html, /onLeadsNetwork \? 'Send lead' : 'Send referral'/);
 });
 
-test('referral network active numbers are open referrals and won only', () => {
+test('referral network active numbers are referral open and won', () => {
   assert.match(html, /!onLeadsNetwork && !onSettingsTab && canManage/);
   assert.match(html, /fw-active--network/);
   const netStart = html.indexOf('fw-active--network');
@@ -47,21 +48,25 @@ test('referral network active numbers are open referrals and won only', () => {
   const netBlock = html.slice(netStart, netEnd);
   assert.match(netBlock, /Open referrals/);
   assert.match(netBlock, /wonValueLabel/);
-  assert.match(netBlock, />Won</);
   assert.match(netBlock, />Referral</);
   assert.doesNotMatch(netBlock, /fieldWorkSummary\.sources/);
-  assert.doesNotMatch(netBlock, />Lead</);
 });
 
-test('leads network active numbers are teammate stats only', () => {
-  assert.match(html, /onLeadsNetwork && canManage && typeof fieldWorkSummary/);
+test('leads network active numbers include open referrals, won, and teammates', () => {
+  assert.match(html, /onLeadsNetwork && canManage/);
   assert.match(html, /fw-active--leads/);
   const leadsStart = html.indexOf('fw-active--leads');
   const leadsEnd = html.indexOf('</section>', leadsStart);
   const leadsBlock = html.slice(leadsStart, leadsEnd);
-  assert.match(leadsBlock, /fieldWorkSummary\.sources\.forEach/);
+  assert.match(leadsBlock, /Open referrals/);
+  assert.match(leadsBlock, /wonValueLabel/);
+  assert.match(leadsBlock, /fieldWorkSummary\.sources/);
   assert.match(leadsBlock, />Lead</);
-  assert.doesNotMatch(leadsBlock, /Open referrals/);
-  assert.doesNotMatch(leadsBlock, /wonValueLabel/);
   assert.doesNotMatch(leadsBlock, />Referral</);
+});
+
+test('settings gear is top-right in the page header row', () => {
+  assert.match(html, /header class="mb-6 flex flex-row items-start justify-between gap-3"/);
+  assert.match(html, /net-settings[^"]*shrink-0 self-start/);
+  assert.doesNotMatch(html, /net-settings[^"]*self-end/);
 });

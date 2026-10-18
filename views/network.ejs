@@ -219,10 +219,10 @@
     .fw-active-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
     .fw-active-grid--network { max-width: 28rem; }
     @media (min-width: 640px) {
-      .fw-active-grid--leads { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .fw-active-grid--leads { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (min-width: 960px) {
-      .fw-active-grid--leads { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .fw-active-grid--leads { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     }
     .net-title-row { display: flex; align-items: flex-start; gap: 0.85rem; min-width: 0; }
     .net-title-icon {
@@ -366,7 +366,7 @@
     }
   %>
   <main class="max-wide px-6 py-8 md:py-12">
-    <header class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <header class="mb-6 flex flex-row items-start justify-between gap-3">
       <div class="net-title-row min-w-0 flex-1">
         <img class="net-title-icon" src="<%= titleIconSrc %>" alt="" width="56" height="56" decoding="async" />
         <div class="min-w-0">
@@ -381,7 +381,7 @@
           <% } %>
         </div>
       </div>
-      <details class="net-settings<%= onSettingsTab ? ' is-on' : '' %> shrink-0 self-end sm:self-start" id="netSettingsMenu">
+      <details class="net-settings<%= onSettingsTab ? ' is-on' : '' %> shrink-0 self-start mt-0.5" id="netSettingsMenu">
         <summary class="net-settings__btn" aria-label="App branding and setup" title="App branding and setup">
           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -432,19 +432,32 @@
     </section>
     <% } %>
 
-    <% if (onLeadsNetwork && canManage && typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
-    <section class="fw-active fw-active--leads" aria-label="Teammate field work stats">
+    <% if (onLeadsNetwork && canManage) { %>
+    <section class="fw-active fw-active--leads" aria-label="Lead open referrals, won value, and teammate stats">
       <div class="flex items-baseline justify-between gap-3 mb-2">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Active numbers</p>
           <p class="text-sm font-semibold text-brand-dark dark:text-white">
-            <span class="tabular-nums font-black"><%= Number(fieldWorkSummary.needAttention) || 0 %></span> need attention
-            <span class="text-brand-muted font-semibold"> · teammates</span>
+            <span class="tabular-nums font-black"><%= (typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary ? (Number(fieldWorkSummary.needAttention) || 0) : 0) + (Number(totals.unrouted) || 0) %></span> need attention
+            <span class="text-brand-muted font-semibold"> · leads &amp; teammates</span>
           </p>
         </div>
         <a href="/network?tab=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a>
       </div>
       <div class="fw-active-grid fw-active-grid--leads">
+        <a href="/network?tab=referrals" class="fw-active-card<%= totals.unrouted ? ' is-hot' : '' %>">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none"><%= totals.open %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Open referrals</p>
+          <p class="mt-0.5 text-[11px] font-semibold truncate<%= totals.unrouted ? ' text-rose-600' : ' text-brand-muted' %>"><%= totals.unrouted ? (totals.unrouted + ' need a member') : 'in the network' %></p>
+        </a>
+        <a href="/network?tab=referrals&status=won" class="fw-active-card">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none truncate"><%= totals.wonValueLabel %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Won</p>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= totals.won %> <%= totals.won === 1 ? 'job' : 'jobs' %></p>
+        </a>
+        <% if (typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
         <% fieldWorkSummary.sources.forEach(function (s) { %>
         <a href="<%= s.href %>" class="fw-active-card<%= s.id === 'overdue' && s.count ? ' is-hot' : '' %>">
           <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
@@ -453,6 +466,7 @@
           <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= s.hint %></p>
         </a>
         <% }); %>
+        <% } %>
       </div>
     </section>
     <% } %>
