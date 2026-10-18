@@ -96,7 +96,7 @@
 
     <% if (_can('network') || _can('referrals') || _can('appointments')) { %>
     <div class="sidebar-nav-group">
-      <p class="sidebar-nav-group-label">Referrals</p>
+      <p class="sidebar-nav-group-label">Leads &amp; Referrals</p>
       <div class="sidebar-nav-group-items">
         <% if (_can('network')) { %>
         <a href="/network" class="sidebar-nav-link <%= np === 'network' && _nt !== 'leads' ? 'active' : '' %>" title="Referral network — seats, members, referrals">
