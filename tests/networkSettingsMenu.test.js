@@ -1,23 +1,26 @@
 /**
- * App branding + Setup are under the top-right settings gear, not the main tab strip.
+ * App branding + Setup are under the top-bar settings gear, not the main tab strip.
  */
 const fs = require('fs');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const network = fs.readFileSync(path.join(__dirname, '../views/network.ejs'), 'utf8');
+const root = path.join(__dirname, '..');
+const network = fs.readFileSync(path.join(root, 'views/network.ejs'), 'utf8');
+const navbar = fs.readFileSync(path.join(root, 'views/partials/navbar.ejs'), 'utf8');
 
-test('network page exposes branding and setup via top-right settings icon', () => {
-  assert.match(network, /id="netSettingsMenu"/);
-  assert.match(network, /aria-label="App branding and setup"/);
+test('network page exposes branding and setup via top-bar settings icon', () => {
+  assert.match(navbar, /id="netSettingsMenu"/);
+  assert.match(navbar, /net-settings--topbar/);
+  assert.match(navbar, /np === 'network'/);
+  assert.match(navbar, /aria-label="App branding and setup"/);
+  assert.match(navbar, /href="\/network\?tab=brand"/);
+  assert.match(navbar, /href="\/network\?tab=setup"/);
   assert.match(network, /settingsTabs/);
   assert.match(network, /id:\s*'brand',\s*label:\s*'App branding'/);
   assert.match(network, /id:\s*'setup',\s*label:\s*'Setup'/);
-  assert.match(network, /href="\/network\?tab=<%= t\.id %>"/);
-  assert.match(network, /header class="mb-6 flex flex-row items-start justify-between gap-3"/);
-  assert.match(network, /net-settings[^"]*self-start/);
-  assert.doesNotMatch(network, /net-settings[^"]*self-end/);
+  assert.doesNotMatch(network, /id="netSettingsMenu"/);
 });
 
 test('main network tabs array no longer lists brand or setup', () => {

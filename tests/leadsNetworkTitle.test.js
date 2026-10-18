@@ -54,7 +54,9 @@ test('Referral Leads page uses the new name', () => {
 });
 
 test('app branding and setup remain behind the settings gear', () => {
-  assert.match(networkView, /id="netSettingsMenu"/);
+  const navbar = fs.readFileSync(path.join(root, 'views/partials/navbar.ejs'), 'utf8');
+  assert.match(navbar, /id="netSettingsMenu"/);
+  assert.match(navbar, /net-settings--topbar/);
   const leadsStart = networkView.indexOf('const leadsTabs = [');
   const leadsBlock = networkView.slice(leadsStart, networkView.indexOf('];', leadsStart) + 2);
   const refStart = networkView.indexOf('const referralTabs = [');
