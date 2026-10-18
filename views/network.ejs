@@ -217,12 +217,11 @@
     html.dark .fw-pill-completed { color: #6ee7b7; }
     .fw-active { margin: 0 0 1rem; }
     .fw-active-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
-    .fw-active-grid--network { max-width: 28rem; }
     @media (min-width: 640px) {
-      .fw-active-grid--leads { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .fw-active-grid--leads { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (min-width: 960px) {
-      .fw-active-grid--leads { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .fw-active-grid--leads { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     }
     .net-title-row { display: flex; align-items: flex-start; gap: 0.85rem; min-width: 0; }
     .net-title-icon {
@@ -403,48 +402,32 @@
     </p>
     <% } %>
 
-    <% if (!onLeadsNetwork && !onSettingsTab && canManage) { %>
-    <section class="fw-active fw-active--network" aria-label="Network referral stats">
+    <% if (onLeadsNetwork && canManage) { %>
+    <section class="fw-active fw-active--leads" aria-label="Lead open referrals, won value, and teammate stats">
       <div class="flex items-baseline justify-between gap-3 mb-2">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Active numbers</p>
           <p class="text-sm font-semibold text-brand-dark dark:text-white">
-            <span class="tabular-nums font-black"><%= Number(totals.unrouted) || 0 %></span> need a member
-            <span class="text-brand-muted font-semibold"> · referrals</span>
-          </p>
-        </div>
-        <a href="/network?tab=referrals" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Referrals</a>
-      </div>
-      <div class="fw-active-grid fw-active-grid--network">
-        <a href="/network?tab=referrals" class="fw-active-card<%= totals.unrouted ? ' is-hot' : '' %>">
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Network</p>
-          <p class="font-display font-black text-xl tabular-nums leading-none"><%= totals.open %></p>
-          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Open referrals</p>
-          <p class="mt-0.5 text-[11px] font-semibold truncate<%= totals.unrouted ? ' text-rose-600' : ' text-brand-muted' %>"><%= totals.unrouted ? (totals.unrouted + ' need a member') : 'in the network' %></p>
-        </a>
-        <a href="/network?tab=referrals&status=won" class="fw-active-card">
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Network</p>
-          <p class="font-display font-black text-xl tabular-nums leading-none truncate"><%= totals.wonValueLabel %></p>
-          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Won</p>
-          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= totals.won %> <%= totals.won === 1 ? 'job' : 'jobs' %></p>
-        </a>
-      </div>
-    </section>
-    <% } %>
-
-    <% if (onLeadsNetwork && canManage && typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
-    <section class="fw-active fw-active--leads" aria-label="Teammate field work stats">
-      <div class="flex items-baseline justify-between gap-3 mb-2">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Active numbers</p>
-          <p class="text-sm font-semibold text-brand-dark dark:text-white">
-            <span class="tabular-nums font-black"><%= Number(fieldWorkSummary.needAttention) || 0 %></span> need attention
-            <span class="text-brand-muted font-semibold"> · teammates</span>
+            <span class="tabular-nums font-black"><%= (typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary ? (Number(fieldWorkSummary.needAttention) || 0) : 0) + (Number(totals.unrouted) || 0) %></span> need attention
+            <span class="text-brand-muted font-semibold"> · leads &amp; teammates</span>
           </p>
         </div>
         <a href="/network?tab=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a>
       </div>
       <div class="fw-active-grid fw-active-grid--leads">
+        <a href="/network?tab=referrals" class="fw-active-card<%= totals.unrouted ? ' is-hot' : '' %>">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none"><%= totals.open %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Open referrals</p>
+          <p class="mt-0.5 text-[11px] font-semibold truncate<%= totals.unrouted ? ' text-rose-600' : ' text-brand-muted' %>"><%= totals.unrouted ? (totals.unrouted + ' need a member') : 'in the network' %></p>
+        </a>
+        <a href="/network?tab=referrals&status=won" class="fw-active-card">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none truncate"><%= totals.wonValueLabel %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Won</p>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= totals.won %> <%= totals.won === 1 ? 'job' : 'jobs' %></p>
+        </a>
+        <% if (typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
         <% fieldWorkSummary.sources.forEach(function (s) { %>
         <a href="<%= s.href %>" class="fw-active-card<%= s.id === 'overdue' && s.count ? ' is-hot' : '' %>">
           <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Lead</p>
@@ -453,6 +436,7 @@
           <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= s.hint %></p>
         </a>
         <% }); %>
+        <% } %>
       </div>
     </section>
     <% } %>
