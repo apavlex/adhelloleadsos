@@ -159,20 +159,26 @@ function computeTotals(allJobs, today) {
   let photos = 0;
   let leads = 0;
   let dealsWon = 0;
-  let dealsValue = 0;
+  let openValue = 0;
+  let wonValue = 0;
   const membersWithOpen = new Set();
   const membersWithLeads = new Set();
 
   allJobs.forEach(({ memberId, job }) => {
     const isOpen = work.isOpen(job);
+    const value = Number(job.value) || 0;
     photos += (job.photos || []).length;
     if (job.status === 'lead') {
       leads += 1;
       membersWithLeads.add(memberId);
     }
+    // Project value tracks open + completed jobs (not cancelled), so editing
+    // Value $ on an open Reviews-app job updates Leads Network Active Numbers.
     if (job.status === 'completed') {
       dealsWon += 1;
-      dealsValue += Number(job.value) || 0;
+      wonValue += value;
+    } else if (isOpen) {
+      openValue += value;
     }
     if (!isOpen) return;
     open += 1;
@@ -194,7 +200,9 @@ function computeTotals(allJobs, today) {
     membersWithLeads: membersWithLeads.size,
     leads,
     dealsWon,
-    dealsValue,
+    openValue,
+    wonValue,
+    dealsValue: openValue + wonValue,
     jobs: allJobs.length,
   };
 }

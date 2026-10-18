@@ -61,7 +61,7 @@ test('referral network shows open, deals, leads sent, and partners cards', () =>
   assert.doesNotMatch(netBlock, /fieldWorkSummary\.sources/);
 });
 
-test('leads network shows open leads, lead deals value, and teammates separately', () => {
+test('leads network shows open leads, project value, and teammates separately', () => {
   assert.match(html, /onLeadsNetwork && canManage/);
   // Include the leadOpen / leadDeals* locals declared just above the section.
   const leadsStart = html.indexOf('<%\n      const leadOpen = fwTotals');
@@ -69,8 +69,9 @@ test('leads network shows open leads, lead deals value, and teammates separately
   const leadsEnd = html.indexOf('</section>', html.indexOf('fw-active--leads'));
   const leadsBlock = html.slice(leadsStart, leadsEnd);
   assert.match(leadsBlock, /Open leads/);
-  assert.match(leadsBlock, /Deals value/);
-  assert.match(leadsBlock, /leads won/);
+  assert.match(leadsBlock, /Project value/);
+  assert.match(leadsBlock, /open ·/);
+  assert.match(leadsBlock, /fwTotals\.open/);
   assert.match(leadsBlock, />Lead</);
   assert.match(leadsBlock, />Teammate</);
   assert.match(leadsBlock, /fieldWorkSummary\.sources/);
