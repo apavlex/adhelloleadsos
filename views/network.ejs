@@ -224,6 +224,22 @@
     @media (min-width: 960px) {
       .fw-active-grid--leads { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
+    .net-title-row { display: flex; align-items: flex-start; gap: 0.85rem; min-width: 0; }
+    .net-title-icon {
+      flex-shrink: 0;
+      width: 3rem;
+      height: 3rem;
+      margin-top: 0.15rem;
+      border-radius: 22%;
+      object-fit: cover;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    html.dark .net-title-icon { border-color: rgba(255, 255, 255, 0.12); background: rgba(15, 23, 42, 0.78); }
+    @media (min-width: 768px) {
+      .net-title-icon { width: 3.5rem; height: 3.5rem; margin-top: 0.2rem; }
+    }
     .fw-active-card { display: block; text-decoration: none; color: inherit; border-radius: 1rem; border: 1px solid rgba(15, 23, 42, 0.08); background: #fff; padding: 0.75rem 0.85rem; transition: border-color 0.12s ease; }
     html.dark .fw-active-card { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.08); }
     .fw-active-card:hover { border-color: var(--brand-yellow, #FFD644); }
@@ -322,6 +338,11 @@
     /* Leads Network = routed leads + teammates. Referral Network = seats / apps / branding. */
     const leadsNetworkTabIds = { referrals: 1, 'field-work': 1, calendar: 1, members: 1 };
     const onLeadsNetwork = !!leadsNetworkTabIds[tab];
+    const _wlTitle = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : null;
+    const titleIconSrc =
+      (typeof brand !== 'undefined' && brand && brand.logoUrl) ||
+      (_wlTitle ? (_wlTitle.hasLogo ? _wlTitle.iconUrl(192) : _wlTitle.logoUrl) : '') ||
+      '/images/adhello-app-icon.png';
     const leadsTabs = [
       { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
       { id: 'members', label: 'Members (' + totals.members + (totals.freeMembers ? ' · ' + totals.freeMembers + ' free' : '') + ')' },
@@ -346,16 +367,19 @@
   %>
   <main class="max-wide px-6 py-8 md:py-12">
     <header class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div class="min-w-0">
-        <% if (onLeadsNetwork) { %>
-        <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Leads network</p>
-        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Leads Network</h1>
-        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (tab === 'referrals') { %>Routed leads through <%= network.name %> — accept and report outcomes from a text link, no login needed.<% } else if (tab === 'members') { %>Teammates in <%= network.name %> — seats, plans, and Reviews-app access.<% } else { %>Teammate field work across <%= network.name %> — jobs, photos, and the team calendar.<% } %></p>
-        <% } else { %>
-        <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral network</p>
-        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight"><%= network.name %></h1>
-        <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (network.seatLimit === 1) { %>One company per trade in each zone. Referrals go to the seat holder<% } else { %><%= network.seatLimit ? 'Up to ' + network.seatLimit : 'Any number of' %> companies per trade in each zone. Referrals rotate between them<% } %>, who accept and report the outcome from a text link — no login needed.</p>
-        <% } %>
+      <div class="net-title-row min-w-0 flex-1">
+        <img class="net-title-icon" src="<%= titleIconSrc %>" alt="" width="56" height="56" decoding="async" />
+        <div class="min-w-0">
+          <% if (onLeadsNetwork) { %>
+          <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Leads network</p>
+          <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Leads Network</h1>
+          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (tab === 'referrals') { %>Routed leads through <%= network.name %> — accept and report outcomes from a text link, no login needed.<% } else if (tab === 'members') { %>Teammates in <%= network.name %> — seats, plans, and Reviews-app access.<% } else { %>Teammate field work across <%= network.name %> — jobs, photos, and the team calendar.<% } %></p>
+          <% } else { %>
+          <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral network</p>
+          <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight"><%= network.name %></h1>
+          <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (network.seatLimit === 1) { %>One company per trade in each zone. Referrals go to the seat holder<% } else { %><%= network.seatLimit ? 'Up to ' + network.seatLimit : 'Any number of' %> companies per trade in each zone. Referrals rotate between them<% } %>, who accept and report the outcome from a text link — no login needed.</p>
+          <% } %>
+        </div>
       </div>
       <details class="net-settings<%= onSettingsTab ? ' is-on' : '' %> shrink-0 self-end sm:self-start" id="netSettingsMenu">
         <summary class="net-settings__btn" aria-label="App branding and setup" title="App branding and setup">

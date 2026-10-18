@@ -18,13 +18,18 @@ test('network page exposes branding and setup via top-right settings icon', () =
 });
 
 test('main network tabs array no longer lists brand or setup', () => {
-  const start = network.indexOf('const tabs = [');
-  assert.ok(start >= 0);
-  const block = network.slice(start, network.indexOf('];', start) + 2);
-  assert.doesNotMatch(block, /id:\s*'brand'/);
-  assert.doesNotMatch(block, /id:\s*'setup'/);
-  assert.match(block, /id:\s*'seats'/);
-  assert.match(block, /id:\s*'calendar'/);
+  const leadsStart = network.indexOf('const leadsTabs = [');
+  const leadsBlock = network.slice(leadsStart, network.indexOf('];', leadsStart) + 2);
+  const refStart = network.indexOf('const referralTabs = [');
+  const refBlock = network.slice(refStart, network.indexOf('];', refStart) + 2);
+  assert.ok(leadsStart >= 0);
+  assert.ok(refStart >= 0);
+  assert.doesNotMatch(leadsBlock, /id:\s*'brand'/);
+  assert.doesNotMatch(leadsBlock, /id:\s*'setup'/);
+  assert.doesNotMatch(refBlock, /id:\s*'brand'/);
+  assert.doesNotMatch(refBlock, /id:\s*'setup'/);
+  assert.match(refBlock, /id:\s*'seats'/);
+  assert.match(leadsBlock, /id:\s*'calendar'/);
 });
 
 test('settings sub-nav appears when brand or setup is active', () => {
