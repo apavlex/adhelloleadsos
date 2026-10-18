@@ -2571,22 +2571,37 @@
     var recentBellCache = { at: 0, items: [], unreadCount: 0, caughtUp: false, loading: false };
 
     function clearOsNotifications() {
+      // Never block Mark all reviewed waiting for an active worker — that wait
+      // never settles when registration failed or has not run yet (common on first load).
       try {
-        if (!('serviceWorker' in navigator)) return Promise.resolve();
-        return navigator.serviceWorker.ready
+        if (!('serviceWorker' in navigator) || typeof navigator.serviceWorker.getRegistration !== 'function') {
+          return Promise.resolve();
+        }
+        var timedOut = false;
+        var timeout = new Promise(function (resolve) {
+          setTimeout(function () {
+            timedOut = true;
+            resolve();
+          }, 1500);
+        });
+        var clear = navigator.serviceWorker
+          .getRegistration()
           .then(function (reg) {
-            if (reg && reg.active) reg.active.postMessage({ type: 'CLEAR_NOTIFICATIONS' });
-            if (reg && typeof reg.getNotifications === 'function') {
-              return reg.getNotifications().then(function (list) {
-                (list || []).forEach(function (n) {
-                  try {
-                    n.close();
-                  } catch (_) {}
-                });
+            if (timedOut || !reg) return;
+            try {
+              if (reg.active) reg.active.postMessage({ type: 'CLEAR_NOTIFICATIONS' });
+            } catch (_) {}
+            if (typeof reg.getNotifications !== 'function') return;
+            return reg.getNotifications().then(function (list) {
+              (list || []).forEach(function (n) {
+                try {
+                  n.close();
+                } catch (_) {}
               });
-            }
+            });
           })
           .catch(function () {});
+        return Promise.race([clear, timeout]).then(function () {}, function () {});
       } catch (_) {
         return Promise.resolve();
       }
@@ -2700,6 +2715,23 @@
         });
     }
 
+    function applyCaughtUpBellUi() {
+      recentBellCache = {
+        at: Date.now(),
+        items: [],
+        unreadCount: 0,
+        caughtUp: true,
+        loading: false,
+      };
+      if (notificationPing) {
+        notificationPing.classList.add('hidden');
+        notificationPing.classList.remove('animate-ping');
+      }
+      if (notificationList) {
+        notificationList.innerHTML = buildRecentBellHtml([], { caughtUp: true });
+      }
+    }
+
     function markAllNotificationsReviewed() {
       markClientBellNotificationsRead();
       return fetch('/notifications/reviewed', {
@@ -2715,37 +2747,30 @@
         })
         .then(function (data) {
           if (!data || !data.success) throw new Error((data && data.error) || 'Could not mark reviewed.');
-          return clearOsNotifications().then(function () {
-            return data;
-          });
-        })
-        .then(function (data) {
-          recentBellCache = {
-            at: 0,
-            items: [],
-            unreadCount: 0,
-            caughtUp: true,
-            loading: false,
-          };
-          if (notificationPing) {
-            notificationPing.classList.add('hidden');
-            notificationPing.classList.remove('animate-ping');
-          }
-          if (notificationList) {
-            notificationList.innerHTML = buildRecentBellHtml([], { caughtUp: true });
-          }
+          // Update bell immediately — do not wait on OS tray clear.
+          applyCaughtUpBellUi();
           if (typeof window.showAppToast === 'function') {
             window.showAppToast('Notifications reviewed — phone alerts on this device were cleared.', {
               variant: 'success',
               duration: 4500,
             });
           }
+          clearOsNotifications();
           return loadRecentBellNotifications(true).then(function () {
-            if (notificationList) {
-              notificationList.innerHTML = buildRecentBellHtml(recentBellCache.items, {
-                unreadCount: recentBellCache.unreadCount,
-                caughtUp: recentBellCache.caughtUp,
-              });
+            // Keep the caught-up empty state after mark; only re-show rows if something new arrived.
+            if (recentBellCache.unreadCount > 0) {
+              if (notificationPing) {
+                notificationPing.classList.remove('hidden');
+                notificationPing.classList.add('animate-ping');
+              }
+              if (notificationList) {
+                notificationList.innerHTML = buildRecentBellHtml(recentBellCache.items, {
+                  unreadCount: recentBellCache.unreadCount,
+                  caughtUp: recentBellCache.caughtUp,
+                });
+              }
+            } else {
+              applyCaughtUpBellUi();
             }
             return data;
           });

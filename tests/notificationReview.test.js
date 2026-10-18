@@ -33,6 +33,13 @@ test('bell and history templates expose Mark reviewed', () => {
   assert.match(sw, /CLEAR_NOTIFICATIONS/);
   assert.match(js, /loadRecentBellNotifications/);
   assert.match(js, /Keep unread search\/client items visible until Mark all reviewed/);
+  assert.match(js, /getRegistration/);
+  assert.match(js, /applyCaughtUpBellUi/);
+  assert.match(js, /Update bell immediately/);
+  // Must use getRegistration (not .ready) — ready hangs when no SW is registered.
+  const clearFn = js.slice(js.indexOf('function clearOsNotifications'), js.indexOf('function escBell'));
+  assert.match(clearFn, /getRegistration/);
+  assert.doesNotMatch(clearFn, /\.ready\b/);
   assert.doesNotMatch(
     js.slice(js.indexOf('processingIndicator.addEventListener(\'click\''), js.indexOf('var markReviewedBtn')),
     /\/api\/notifications\/read/,
