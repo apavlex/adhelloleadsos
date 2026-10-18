@@ -72,10 +72,17 @@ function readJsonReply(r) {
 
   function ensureNavLoadingEl() {
     var el = document.getElementById('adhelloNavLoading');
-    if (el && el.querySelector('img.adhello-nav-loader-icon')) return el;
+    if (el && el.querySelector('img.adhello-nav-loader-icon')) {
+      // Keep portal class so desktop sidebar grid does not shove this off-center.
+      el.classList.add('app-body-portal');
+      return el;
+    }
     if (el) el.remove();
     el = document.createElement('div');
     el.id = 'adhelloNavLoading';
+    // app-body-portal: desktop body.app-with-sidebar crushes other body children into
+    // grid-column 2 / height:0 — without this the loader sits off-center in the content pane.
+    el.className = 'app-body-portal';
     el.setAttribute('role', 'status');
     el.setAttribute('aria-live', 'polite');
     el.setAttribute('aria-label', 'Loading');
