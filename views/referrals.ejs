@@ -21,8 +21,8 @@
     .ref-btn:active { transform: scale(0.96); }
     .ref-btn:disabled { opacity: 0.7; cursor: default; }
     .ref-btn.is-done { background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); border-color: transparent; }
+    /* Count cards only (Sent / Received). Connected + Intro live as pills above. */
     .ref-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; margin-top: 0.9rem; }
-    @media (min-width: 640px) { .ref-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
     .ref-metric { min-width: 0; border-radius: 0.85rem; padding: 0.45rem 0.6rem; background: rgba(15, 23, 42, 0.03); }
     html.dark .ref-metric { background: rgba(255, 255, 255, 0.04); }
     .ref-metric span { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #64748b; }
@@ -338,16 +338,6 @@
         </div>
         <% } else { %>
         <div class="ref-metrics">
-          <div class="ref-metric" data-ref-metric="connected">
-            <span>Connected</span>
-            <strong data-ref-connected><%= partner.connectedWhen ? 'Yes' : '—' %></strong>
-            <em data-ref-connected-when><%= partner.connectedWhen || 'Not yet' %></em>
-          </div>
-          <div class="ref-metric" data-ref-metric="intro">
-            <span>Intro</span>
-            <strong data-ref-intro><%= partner.introWhen ? 'Sent' : '—' %></strong>
-            <em data-ref-intro-when><%= partner.introWhen || 'Not yet' %></em>
-          </div>
           <div class="ref-metric" data-ref-metric="sent">
             <span>Sent<%= (partner.countsFromNetwork || isNetMember) ? ' · Network' : '' %></span>
             <strong data-ref-sent><%= partner.sent %></strong>
@@ -739,10 +729,6 @@
         setField(article, '[data-ref-received]', String(card.received || 0));
         setField(article, '[data-ref-sent-when]', card.sentWhen || 'None yet');
         setField(article, '[data-ref-received-when]', card.receivedWhen || 'None yet');
-        setField(article, '[data-ref-connected]', card.connectedWhen ? 'Yes' : '—');
-        setField(article, '[data-ref-connected-when]', card.connectedWhen || 'Not yet');
-        setField(article, '[data-ref-intro]', card.introWhen ? 'Sent' : '—');
-        setField(article, '[data-ref-intro-when]', card.introWhen || 'Not yet');
         article.setAttribute('data-ref-sent-count', String(card.sent || 0));
         article.setAttribute('data-ref-received-count', String(card.received || 0));
         setPill(article, card.status || '');
@@ -804,18 +790,12 @@
           bumpTotal('received', 1);
           flashButton(button, 'Logged');
         } else if (action === 'connect' && article) {
-          setField(article, '[data-ref-connected]', 'Yes');
-          setField(article, '[data-ref-connected-when]', when);
-          heat(article, 'connected');
           if (article.getAttribute('data-ref-status') !== 'connected') bumpTotal('connected', 1);
           setPill(article, 'connected');
           button.hidden = true;
           var introBtn = article.querySelector('[data-ref-track="intro"]');
           if (introBtn) introBtn.hidden = true;
         } else if (action === 'intro' && article) {
-          setField(article, '[data-ref-intro]', 'Sent');
-          setField(article, '[data-ref-intro-when]', when);
-          heat(article, 'intro');
           setPill(article, 'intro_sent');
           button.hidden = true;
         } else if (action === 'note' && article) {
