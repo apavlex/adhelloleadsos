@@ -37,7 +37,8 @@ test('Leads Network nav is active for leads and teammate tabs', () => {
 test('Leads Network page title covers leads and teammates', () => {
   assert.match(networkRoute, /'Leads Network'/);
   assert.match(networkRoute, /tab === 'field-work'/);
-  assert.match(networkView, /leadsNetworkTabs/);
+  assert.match(networkView, /leadsNetworkTabIds/);
+  assert.match(networkView, /const leadsTabs = \[/);
   assert.match(networkView, />Leads Network</);
 });
 
@@ -53,8 +54,12 @@ test('Referral Leads page uses the new name', () => {
 
 test('app branding and setup remain behind the settings gear', () => {
   assert.match(networkView, /id="netSettingsMenu"/);
-  const start = networkView.indexOf('const tabs = [');
-  const block = networkView.slice(start, networkView.indexOf('];', start) + 2);
-  assert.doesNotMatch(block, /id:\s*'brand'/);
-  assert.doesNotMatch(block, /id:\s*'setup'/);
+  const leadsStart = networkView.indexOf('const leadsTabs = [');
+  const leadsBlock = networkView.slice(leadsStart, networkView.indexOf('];', leadsStart) + 2);
+  const refStart = networkView.indexOf('const referralTabs = [');
+  const refBlock = networkView.slice(refStart, networkView.indexOf('];', refStart) + 2);
+  assert.doesNotMatch(leadsBlock, /id:\s*'brand'/);
+  assert.doesNotMatch(leadsBlock, /id:\s*'setup'/);
+  assert.doesNotMatch(refBlock, /id:\s*'brand'/);
+  assert.doesNotMatch(refBlock, /id:\s*'setup'/);
 });
