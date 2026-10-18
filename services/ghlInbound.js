@@ -319,17 +319,20 @@ async function handleInboundCall({ lead, workspaceId, outcome, at, eventId, dura
     ...(recordingUrl ? { recordingUrl } : {}),
   });
 
+  const callEvent = {
+    id: id ? `${kind}:${id}` : '',
+    type: kind,
+    at: atIso,
+    label: label || '',
+    preview: recordingUrl ? 'Voicemail recording in GHL' : '',
+    source: source || 'ghl',
+    ghlContactId: lead.ghlContactId || '',
+  };
+  const priorCallEvents = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+  const callEventIsNew = !callEvent.id || !priorCallEvents.some((e) => e && e.id === callEvent.id);
   const patch = {
     updates,
-    inboundEvents: appendInboundEvent(lead.inboundEvents, {
-      id: id ? `${kind}:${id}` : '',
-      type: kind,
-      at: atIso,
-      label: label || '',
-      preview: recordingUrl ? 'Voicemail recording in GHL' : '',
-      source: source || 'ghl',
-      ghlContactId: lead.ghlContactId || '',
-    }),
+    inboundEvents: appendInboundEvent(priorCallEvents, callEvent),
     logs: [{ type: 'call_inbound', message: `${summary} from ${lead.phone || 'caller'}`, timestamp: atIso }],
   };
 
@@ -357,7 +360,7 @@ async function handleInboundCall({ lead, workspaceId, outcome, at, eventId, dura
   }
 
   const updated = await dbService.updateLead(lead.key, patch, workspaceId);
-  if (kind !== 'call') {
+  if (kind !== 'call' && callEventIsNew) {
     notifyInboundEvent({ workspaceId, lead: updated || lead, event: { type: kind, label: label || '' } });
     // Same GHL connection as Focus / lead-panel SMS: optional auto text-back + sync.
     try {
@@ -422,10 +425,12 @@ async function processWorkflowWebhook(body, opts = {}) {
       preview: parsed.answers.slice(0, 3).map((x) => `${x.q}: ${x.a}`).join(' · '),
       source: 'ghl',
     };
+    const priorFormEvents = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+    const formEventIsNew = !formEvent.id || !priorFormEvents.some((e) => e && e.id === formEvent.id);
     const patch = {
       inboundSource: source,
       inboundAt: parsed.at,
-      inboundEvents: appendInboundEvent(lead.inboundEvents, formEvent),
+      inboundEvents: appendInboundEvent(priorFormEvents, formEvent),
       logs: [{ type: 'inbound_form', message: formLogMessage(parsed), timestamp: parsed.at }],
     };
     if (parsed.label) patch.inboundFormName = parsed.label;
@@ -464,7 +469,7 @@ async function processWorkflowWebhook(body, opts = {}) {
     } catch (e) {
       console.warn('[ghlInbound] contractor portal form attach failed:', e && e.message);
     }
-    notifyInboundEvent({ workspaceId: wid, lead, event: formEvent });
+    if (formEventIsNew) notifyInboundEvent({ workspaceId: wid, lead, event: formEvent });
     return {
       ok: true,
       workspaceId: wid,

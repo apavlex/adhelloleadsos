@@ -136,20 +136,23 @@ async function handleInboundReply(ctx) {
     }
   }
 
+  const replyEvent = {
+    id: messageId ? `${channel}:${messageId}` : '',
+    type: channel,
+    at: atIso,
+    label: replyLabel,
+    preview: body,
+    source: provider,
+    ghlContactId: ctx.ghlContactId || lead.ghlContactId || '',
+    conversationId: ctx.conversationId || '',
+  };
+  const priorReplyEvents = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+  const replyEventIsNew = !replyEvent.id || !priorReplyEvents.some((e) => e && e.id === replyEvent.id);
   const patch = {
     lastTouchChannel: channel,
     nextActionAt: respondBy,
     ghlContactId: lead.ghlContactId || ctx.ghlContactId || undefined,
-    inboundEvents: appendInboundEvent(lead.inboundEvents, {
-      id: messageId ? `${channel}:${messageId}` : '',
-      type: channel,
-      at: atIso,
-      label: replyLabel,
-      preview: body,
-      source: provider,
-      ghlContactId: ctx.ghlContactId || lead.ghlContactId || '',
-      conversationId: ctx.conversationId || '',
-    }),
+    inboundEvents: appendInboundEvent(priorReplyEvents, replyEvent),
     updates,
     logs: [
       {
@@ -187,11 +190,13 @@ async function handleInboundReply(ctx) {
   }
 
   const updated = await dbService.updateLead(lead.key, patch, workspaceId);
-  notifyInboundEvent({
-    workspaceId,
-    lead: updated || lead,
-    event: { type: channel, label: replyLabel, preview: body },
-  });
+  if (replyEventIsNew) {
+    notifyInboundEvent({
+      workspaceId,
+      lead: updated || lead,
+      event: { type: channel, label: replyLabel, preview: body },
+    });
+  }
 
   if (provider === 'ghl') {
     try {

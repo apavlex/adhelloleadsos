@@ -44,10 +44,16 @@
         <p class="text-brand-muted font-medium mt-2">Inbound leads, calls, texts and emails, finished searches, and background jobs from the last 30 days.</p>
       </div>
       <div class="flex flex-wrap items-center gap-3">
+        <button type="button" id="notificationsPageMarkReviewed" class="btn-pill border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" title="Catch up so the same phone alerts do not keep repeating when you switch workspaces">Mark all reviewed</button>
         <a href="/notifications/ghl" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">GHL calls &amp; texts</a>
         <a href="/history" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow">Search history →</a>
       </div>
     </div>
+    <% if (typeof unreadCount === 'number' && unreadCount > 0) { %>
+    <p class="mb-4 text-sm font-semibold text-brand-dark dark:text-white"><span class="text-brand-yellow tabular-nums"><%= unreadCount %></span> since your last review — open each, or tap <strong>Mark all reviewed</strong> to clear the phone tray.</p>
+    <% } else if (typeof reviewedAt !== 'undefined' && reviewedAt) { %>
+    <p class="mb-4 text-sm text-brand-muted">You're caught up. Mark reviewed again anytime to dismiss leftover phone alerts on this device.</p>
+    <% } %>
 
     <nav class="flex flex-wrap gap-2 mb-6" aria-label="Filter notifications">
       <% _tabs.forEach(function (t) { const on = kind === t.id; %>
@@ -110,6 +116,33 @@
         head.textContent = label;
         row.parentNode.insertBefore(head, row);
       });
+
+      var markBtn = document.getElementById('notificationsPageMarkReviewed');
+      if (markBtn) {
+        markBtn.addEventListener('click', function () {
+          markBtn.disabled = true;
+          var run =
+            typeof window.markAllNotificationsReviewed === 'function'
+              ? window.markAllNotificationsReviewed()
+              : fetch('/notifications/reviewed', {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                  body: JSON.stringify({ at: Date.now() }),
+                }).then(function (r) { return r.json(); }).then(function (data) {
+                  if (!data || !data.success) throw new Error((data && data.error) || 'Failed');
+                  if (typeof window.clearOsNotifications === 'function') return window.clearOsNotifications();
+                });
+          Promise.resolve(run)
+            .then(function () { window.location.reload(); })
+            .catch(function (err) {
+              markBtn.disabled = false;
+              if (typeof window.showAppToast === 'function') {
+                window.showAppToast((err && err.message) || 'Could not mark reviewed.', { variant: 'error' });
+              }
+            });
+        });
+      }
     })();
   </script>
   <%- include('/partials/app_shell_close') %>

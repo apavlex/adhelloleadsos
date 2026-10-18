@@ -1631,7 +1631,7 @@
         const href = n.href || '/leads';
         const linkLabel = escapeBellHtml(n.linkLabel || 'Open →');
         return (
-          '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif border-b border-brand-border/10 last:border-0" onclick="window.location.href=\'' +
+          '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif border-b border-brand-border/10 last:border-0" data-bell-live="client" onclick="window.location.href=\'' +
           href +
           '\'">' +
           '<div class="flex items-start gap-3">' +
@@ -2568,6 +2568,193 @@
       }
     }
 
+    var recentBellCache = { at: 0, items: [], unreadCount: 0, caughtUp: false, loading: false };
+
+    function clearOsNotifications() {
+      try {
+        if (!('serviceWorker' in navigator)) return Promise.resolve();
+        return navigator.serviceWorker.ready
+          .then(function (reg) {
+            if (reg && reg.active) reg.active.postMessage({ type: 'CLEAR_NOTIFICATIONS' });
+            if (reg && typeof reg.getNotifications === 'function') {
+              return reg.getNotifications().then(function (list) {
+                (list || []).forEach(function (n) {
+                  try {
+                    n.close();
+                  } catch (_) {}
+                });
+              });
+            }
+          })
+          .catch(function () {});
+      } catch (_) {
+        return Promise.resolve();
+      }
+    }
+
+    function escBell(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function buildRecentBellHtml(items, meta) {
+      meta = meta || {};
+      if (!items || !items.length) {
+        return (
+          '<div class="p-6 text-center">' +
+          '<p class="text-brand-muted dark:text-slate-500 italic text-[11px] mb-2">' +
+          (meta.caughtUp
+            ? 'You\'re caught up — no new notifications since your last review.'
+            : 'No new notifications') +
+          '</p>' +
+          '<p class="text-[10px] text-brand-muted dark:text-slate-500 leading-relaxed px-2">' +
+          'Phone alerts on this device stay until you tap <strong class="text-brand-dark dark:text-slate-300">Mark all reviewed</strong> above.' +
+          '</p>' +
+          '<a href="/notifications" class="inline-block mt-3 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open all notifications</a>' +
+          '</div>'
+        );
+      }
+      var head =
+        meta.unreadCount > 0
+          ? '<div class="px-4 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-brand-muted">' +
+            meta.unreadCount +
+            ' to review</div>'
+          : '<div class="px-4 pt-3 pb-1 text-[10px] font-black uppercase tracking-widest text-brand-muted">Recent</div>';
+      var rows = items
+        .map(function (n) {
+          var href = n.href ? escBell(n.href) : '/notifications';
+          var status =
+            n.status === 'open'
+              ? '<span class="shrink-0 px-1.5 rounded-full bg-brand-yellow text-brand-dark text-[8px] font-black uppercase">Open</span>'
+              : '';
+          return (
+            '<a href="' +
+            href +
+            '" class="block px-4 py-3 border-t border-brand-border dark:border-white/5 first:border-0 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">' +
+            '<div class="flex items-baseline gap-2">' +
+            '<span class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight truncate min-w-0">' +
+            escBell(n.title || 'Notification') +
+            '</span>' +
+            status +
+            '</div>' +
+            (n.body
+              ? '<p class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight mt-0.5 line-clamp-2">' +
+                escBell(n.body) +
+                '</p>'
+              : '') +
+            '</a>'
+          );
+        })
+        .join('');
+      return head + rows;
+    }
+
+    function renderRecentIntoList(notificationList, notificationPing, autoOutreachHtml) {
+      if (!notificationList) return false;
+      var html = buildRecentBellHtml(recentBellCache.items, {
+        unreadCount: recentBellCache.unreadCount,
+        caughtUp: recentBellCache.caughtUp,
+      });
+      notificationList.innerHTML = (autoOutreachHtml || '') + html;
+      if (notificationPing) {
+        if (recentBellCache.unreadCount > 0) {
+          notificationPing.classList.remove('hidden');
+          notificationPing.classList.add('animate-ping');
+        }
+      }
+      return true;
+    }
+
+    function loadRecentBellNotifications(force) {
+      var now = Date.now();
+      if (!force && recentBellCache.loading) return Promise.resolve(recentBellCache);
+      if (!force && now - recentBellCache.at < 8000) return Promise.resolve(recentBellCache);
+      recentBellCache.loading = true;
+      return fetch('/notifications/recent.json', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) {
+          return r.ok ? r.json() : null;
+        })
+        .then(function (data) {
+          if (data && data.success) {
+            recentBellCache = {
+              at: Date.now(),
+              items: Array.isArray(data.items) ? data.items : [],
+              unreadCount: Number(data.unreadCount) || 0,
+              caughtUp: !!data.caughtUp,
+              loading: false,
+            };
+          } else {
+            recentBellCache.loading = false;
+          }
+          return recentBellCache;
+        })
+        .catch(function () {
+          recentBellCache.loading = false;
+          return recentBellCache;
+        });
+    }
+
+    function markAllNotificationsReviewed() {
+      markClientBellNotificationsRead();
+      return fetch('/notifications/reviewed', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ at: Date.now() }),
+      })
+        .then(function (r) {
+          return r.json().catch(function () {
+            return {};
+          });
+        })
+        .then(function (data) {
+          if (!data || !data.success) throw new Error((data && data.error) || 'Could not mark reviewed.');
+          return clearOsNotifications().then(function () {
+            return data;
+          });
+        })
+        .then(function (data) {
+          recentBellCache = {
+            at: 0,
+            items: [],
+            unreadCount: 0,
+            caughtUp: true,
+            loading: false,
+          };
+          if (notificationPing) {
+            notificationPing.classList.add('hidden');
+            notificationPing.classList.remove('animate-ping');
+          }
+          if (notificationList) {
+            notificationList.innerHTML = buildRecentBellHtml([], { caughtUp: true });
+          }
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Notifications reviewed — phone alerts on this device were cleared.', {
+              variant: 'success',
+              duration: 4500,
+            });
+          }
+          return loadRecentBellNotifications(true).then(function () {
+            if (notificationList) {
+              notificationList.innerHTML = buildRecentBellHtml(recentBellCache.items, {
+                unreadCount: recentBellCache.unreadCount,
+                caughtUp: recentBellCache.caughtUp,
+              });
+            }
+            return data;
+          });
+        });
+    }
+
+    window.markAllNotificationsReviewed = markAllNotificationsReviewed;
+    window.clearOsNotifications = clearOsNotifications;
+
     const pollStatus = async function () {
       try {
         const res = await fetch('/api/status');
@@ -2665,7 +2852,7 @@
                 : '/history';
             notificationList.innerHTML =
               autoOutreachHtml +
-              '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif" onclick="window.location.href=\'' +
+              '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif" data-bell-live="search" onclick="window.location.href=\'' +
               notifHref +
               '\'">' +
               '<div class="flex items-start gap-3">' +
@@ -2721,14 +2908,17 @@
             isArtworkGenJobRunning() ||
             isBulkOutreachJobRunning() ||
             readClientBellNotifications().some((n) => !n.isRead);
-          if (notificationPing && !keepPingForClientWork) {
-            notificationPing.classList.remove('animate-ping');
-            notificationPing.classList.add('hidden');
-          }
-          if (notificationList) {
-            notificationList.innerHTML =
-              '<div class="p-8 text-center text-brand-muted dark:text-slate-500 italic text-[11px]">No new notifications</div>';
-          }
+          loadRecentBellNotifications(false).then(function () {
+            const hasUnreadRecent = recentBellCache.unreadCount > 0;
+            if (notificationPing && !keepPingForClientWork && !hasUnreadRecent) {
+              notificationPing.classList.remove('animate-ping');
+              notificationPing.classList.add('hidden');
+            } else if (notificationPing && hasUnreadRecent) {
+              notificationPing.classList.remove('hidden');
+              notificationPing.classList.add('animate-ping');
+            }
+            renderRecentIntoList(notificationList, null, autoOutreachHtml);
+          });
         }
       } catch (err) {
         console.warn('[STATUS-POLL] Failed to fetch status:', err);
@@ -2737,6 +2927,7 @@
 
     setInterval(pollStatus, 5000);
     pollStatus();
+    loadRecentBellNotifications(true);
 
     const desktopRow = document.getElementById('notificationDesktopRow');
     const navNotifyEnable = document.getElementById('navNotifyEnable');
@@ -2882,23 +3073,35 @@
           notificationList.innerHTML = buildBulkOutreachProgressBellHtml(readBulkOutreachJob());
         } else if (isArtworkGenJobRunning() && notificationList) {
           notificationList.innerHTML = buildArtworkGenProgressBellHtml(readArtworkGenJob());
-        }
-        try {
-          await fetch('/api/notifications/read', { method: 'POST' });
-        } catch (_) {}
-        markClientBellNotificationsRead();
-        if (
-          notificationPing &&
-          !isGhlSyncJobRunning() &&
-          !isArtworkGenJobRunning() &&
-          !isBulkOutreachJobRunning()
-        ) {
-          notificationPing.classList.add('hidden');
+        } else {
+          // Keep unread search/client items visible until Mark all reviewed — do not auto-clear on open.
+          await loadRecentBellNotifications(true);
+          if (notificationList && !notificationList.querySelector('[data-bell-live]')) {
+            renderRecentIntoList(notificationList, notificationPing, '');
+          }
         }
       } else {
         notificationDropdown.classList.add('hidden');
       }
     });
+
+    var markReviewedBtn = document.getElementById('notificationMarkReviewed');
+    if (markReviewedBtn) {
+      markReviewedBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        markReviewedBtn.disabled = true;
+        markAllNotificationsReviewed()
+          .catch(function (err) {
+            if (typeof window.showAppToast === 'function') {
+              window.showAppToast((err && err.message) || 'Could not mark reviewed.', { variant: 'error' });
+            }
+          })
+          .then(function () {
+            markReviewedBtn.disabled = false;
+          });
+      });
+    }
 
     document.addEventListener('click', function (e) {
       if (
