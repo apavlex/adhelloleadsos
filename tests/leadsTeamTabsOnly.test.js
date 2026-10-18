@@ -40,7 +40,7 @@ test('leads network CTA says Send lead; referral keeps Send referral', () => {
   assert.match(html, /onLeadsNetwork \? 'Send lead' : 'Send referral'/);
 });
 
-test('referral network shows open, deals, leads sent, partners, and network cards', () => {
+test('referral network shows open, deals, leads sent, and partners cards', () => {
   assert.match(html, /!onLeadsNetwork && !onSettingsTab && canManage/);
   const netStart = html.indexOf('fw-active--network');
   const netEnd = html.indexOf('</section>', netStart);
@@ -52,10 +52,10 @@ test('referral network shows open, deals, leads sent, partners, and network card
   assert.match(netBlock, /totals\.leadsSent/);
   assert.match(netBlock, /Referral partners/);
   assert.match(netBlock, /totals\.partnerMembers/);
-  assert.match(netBlock, /Referral network/);
   assert.match(netBlock, />Partner</);
-  assert.match(netBlock, />Network</);
   assert.match(netBlock, />Referral</);
+  assert.doesNotMatch(netBlock, /Referral network/);
+  assert.doesNotMatch(netBlock, />Network</);
   assert.doesNotMatch(netBlock, /Open leads/);
   assert.doesNotMatch(netBlock, /Teammate/);
   assert.doesNotMatch(netBlock, /fieldWorkSummary\.sources/);

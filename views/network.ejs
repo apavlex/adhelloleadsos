@@ -232,7 +232,7 @@
       .fw-active-grid--leads { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (min-width: 960px) {
-      .fw-active-grid--network { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .fw-active-grid--network { grid-template-columns: repeat(4, minmax(0, 1fr)); }
       .fw-active-grid--leads { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     }
     .net-title-row { display: flex; align-items: flex-start; gap: 0.85rem; min-width: 0; }
@@ -437,12 +437,6 @@
           <p class="font-display font-black text-xl tabular-nums leading-none"><%= Number(totals.partnerMembers) || 0 %></p>
           <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Referral partners</p>
           <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= totals.freeMembers ? (totals.freeMembers + ' on free app') : 'in the network' %></p>
-        </a>
-        <a href="/network?tab=members" class="fw-active-card">
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Network</p>
-          <p class="font-display font-black text-xl tabular-nums leading-none"><%= Number(totals.members) || 0 %></p>
-          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Referral network</p>
-          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= Number(totals.heldSeats) || 0 %> seats held</p>
         </a>
       </div>
     </section>
