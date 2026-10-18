@@ -1,5 +1,6 @@
 /**
- * Team field work / Team calendar / Active Numbers stay on Leads Network only.
+ * Team field work / Team calendar stay on Leads Network.
+ * Active Numbers: Network = referral stats; Leads = teammate stats — not mixed.
  */
 const fs = require('fs');
 const path = require('path');
@@ -30,6 +31,32 @@ test('team field work and calendar are leads tabs only', () => {
   assert.doesNotMatch(refBlock, /calendar/);
 });
 
-test('active numbers with team cards only render on leads network', () => {
+test('referral network active numbers are open referrals and won only', () => {
+  assert.match(html, /!onLeadsNetwork && !onSettingsTab && canManage/);
+  assert.match(html, /aria-label="Network referral stats"/);
+  assert.match(html, /fw-active--network/);
+  assert.match(html, /fw-active-grid--network/);
+  const netStart = html.indexOf('fw-active--network');
+  const netEnd = html.indexOf('</section>', netStart);
+  const netBlock = html.slice(netStart, netEnd);
+  assert.match(netBlock, /Open referrals/);
+  assert.match(netBlock, />Won</);
+  assert.match(netBlock, />Network</);
+  assert.doesNotMatch(netBlock, /fieldWorkSummary\.sources/);
+  assert.doesNotMatch(netBlock, />Team</);
+  assert.doesNotMatch(netBlock, />Lead</);
+});
+
+test('leads network active numbers are teammate stats only', () => {
   assert.match(html, /onLeadsNetwork && canManage && typeof fieldWorkSummary/);
+  assert.match(html, /aria-label="Teammate field work stats"/);
+  assert.match(html, /fw-active--leads/);
+  const leadsStart = html.indexOf('fw-active--leads');
+  const leadsEnd = html.indexOf('</section>', leadsStart);
+  const leadsBlock = html.slice(leadsStart, leadsEnd);
+  assert.match(leadsBlock, /fieldWorkSummary\.sources\.forEach/);
+  assert.match(leadsBlock, />Lead</);
+  assert.doesNotMatch(leadsBlock, /Open referrals/);
+  assert.doesNotMatch(leadsBlock, /wonValueLabel/);
+  assert.doesNotMatch(leadsBlock, />Network</);
 });
