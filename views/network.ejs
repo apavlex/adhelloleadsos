@@ -226,11 +226,13 @@
     html.dark .fw-pill-completed { color: #6ee7b7; }
     .fw-active { margin: 0 0 1rem; }
     .fw-active-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; }
-    .fw-active-grid--network { max-width: 28rem; }
+    .fw-active-grid--network { max-width: none; }
     @media (min-width: 640px) {
+      .fw-active-grid--network { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .fw-active-grid--leads { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (min-width: 960px) {
+      .fw-active-grid--network { grid-template-columns: repeat(5, minmax(0, 1fr)); }
       .fw-active-grid--leads { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     }
     .net-title-row { display: flex; align-items: flex-start; gap: 0.85rem; min-width: 0; }
@@ -400,7 +402,7 @@
     <% } %>
 
     <% if (!onLeadsNetwork && !onSettingsTab && canManage) { %>
-    <section class="fw-active fw-active--network" aria-label="Referral count and deals value">
+    <section class="fw-active fw-active--network" aria-label="Referral leads sent, partners, and network">
       <div class="flex items-baseline justify-between gap-3 mb-2">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Active numbers</p>
@@ -423,6 +425,24 @@
           <p class="font-display font-black text-xl tabular-nums leading-none truncate"><%= totals.wonValueLabel %></p>
           <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Deals value</p>
           <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= totals.won %> <%= totals.won === 1 ? 'referral won' : 'referrals won' %></p>
+        </a>
+        <a href="/network?tab=referrals&status=sent" class="fw-active-card">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Referral</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none"><%= Number(totals.leadsSent) || 0 %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Leads sent</p>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate">routed to partners</p>
+        </a>
+        <a href="/network?tab=members&plan=partner" class="fw-active-card">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Partner</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none"><%= Number(totals.partnerMembers) || 0 %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Referral partners</p>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= totals.freeMembers ? (totals.freeMembers + ' on free app') : 'in the network' %></p>
+        </a>
+        <a href="/network?tab=members" class="fw-active-card">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Network</p>
+          <p class="font-display font-black text-xl tabular-nums leading-none"><%= Number(totals.members) || 0 %></p>
+          <p class="mt-1 text-[10px] font-black uppercase tracking-widest">Referral network</p>
+          <p class="mt-0.5 text-[11px] font-semibold text-brand-muted truncate"><%= Number(totals.heldSeats) || 0 %> seats held</p>
         </a>
       </div>
     </section>
