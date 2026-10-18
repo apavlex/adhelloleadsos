@@ -1,6 +1,7 @@
 <%# Shared Lightroom-style photo viewer for Agency OS (Network field work, etc.)
     Galleries are scoped per [data-os-lr-gallery] so job cards don’t mix projects. %>
-<div class="os-lr" id="osLrViewer" data-os-lr hidden role="dialog" aria-modal="true" aria-label="Photo viewer">
+<%# app-body-portal: desktop sidebar shell crushes other body children to height:0 %>
+<div class="os-lr app-body-portal" id="osLrViewer" data-os-lr hidden role="dialog" aria-modal="true" aria-label="Photo viewer">
   <div class="os-lr__chrome">
     <button type="button" class="os-lr__icon-btn" data-os-lr-close aria-label="Close">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>
@@ -22,9 +23,11 @@
   <div class="os-lr__film" data-os-lr-film></div>
 </div>
 <style>
-.os-lr{position:fixed;inset:0;z-index:400;display:flex;flex-direction:column;background:#0a0a0a;color:#f5f5f5}
-.os-lr[hidden]{display:none!important}
+.os-lr{position:fixed;inset:0;z-index:600;display:flex;flex-direction:column;background:#0a0a0a;color:#f5f5f5;pointer-events:auto}
+.os-lr[hidden]{display:none!important;pointer-events:none}
 body.os-lr-open{overflow:hidden}
+/* Survive desktop body.app-with-sidebar grid crush when portaled to document.body */
+body.app-with-sidebar>.os-lr.app-body-portal{grid-column:auto;grid-row:auto;height:auto;min-height:0;width:auto;max-width:none;margin:0;padding:0;overflow:visible;pointer-events:auto}
 .os-lr__chrome{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top,0px)) 12px 10px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.5) 70%,transparent)}
 .os-lr__meta{flex:1;min-width:0;text-align:center}
 .os-lr__project{margin:0;font-size:12px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -149,6 +152,9 @@ body.os-lr-open{overflow:hidden}
       if (!items.length) return;
       var start = items.findIndex(function (it) { return it.el === anchor; });
       if (start < 0) start = 0;
+      // Portal to body so the viewer escapes main/overflow; keep app-body-portal so the
+      // desktop sidebar grid does not crush this node to height:0 / pointer-events:none.
+      if (!root.classList.contains('app-body-portal')) root.classList.add('app-body-portal');
       if (root.parentNode !== document.body) document.body.appendChild(root);
       root.hidden = false;
       document.body.classList.add('os-lr-open');
