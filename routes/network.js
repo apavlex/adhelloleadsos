@@ -257,6 +257,16 @@ router.get('/', async (req, res, next) => {
           fieldWorkSummary = null;
         }
       }
+      // Lead Active Numbers use teammate field-work rollups — never referral won $.
+      if (fieldWorkSummary && fieldWorkSummary.totals) {
+        fieldWorkSummary = {
+          ...fieldWorkSummary,
+          totals: {
+            ...fieldWorkSummary.totals,
+            dealsValueLabel: money(fieldWorkSummary.totals.dealsValue),
+          },
+        };
+      }
     }
 
     const totals = ex.networkTotals(referrals);

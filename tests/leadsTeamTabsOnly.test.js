@@ -56,8 +56,10 @@ test('referral network shows open referrals and referral deals value only', () =
 
 test('leads network shows open leads, lead deals value, and teammates separately', () => {
   assert.match(html, /onLeadsNetwork && canManage/);
-  const leadsStart = html.indexOf('fw-active--leads');
-  const leadsEnd = html.indexOf('</section>', leadsStart);
+  // Include the leadOpen / leadDeals* locals declared just above the section.
+  const leadsStart = html.indexOf('<%\n      const leadOpen = fwTotals');
+  assert.ok(leadsStart >= 0, 'lead locals from fwTotals');
+  const leadsEnd = html.indexOf('</section>', html.indexOf('fw-active--leads'));
   const leadsBlock = html.slice(leadsStart, leadsEnd);
   assert.match(leadsBlock, /Open leads/);
   assert.match(leadsBlock, /Deals value/);
@@ -65,6 +67,14 @@ test('leads network shows open leads, lead deals value, and teammates separately
   assert.match(leadsBlock, />Lead</);
   assert.match(leadsBlock, />Teammate</);
   assert.match(leadsBlock, /fieldWorkSummary\.sources/);
+  // Must use teammate field-work rollups — never referral networkTotals.
+  assert.match(leadsBlock, /fwTotals\.leads/);
+  assert.match(leadsBlock, /fwTotals\.dealsValueLabel/);
+  assert.match(leadsBlock, /fwTotals\.dealsWon/);
+  assert.doesNotMatch(leadsBlock, /totals\.wonValueLabel/);
+  assert.doesNotMatch(leadsBlock, /totals\.open/);
+  assert.doesNotMatch(leadsBlock, /totals\.won\b/);
+  assert.doesNotMatch(leadsBlock, /tab=referrals/);
   assert.doesNotMatch(leadsBlock, /Open referrals/);
   assert.doesNotMatch(leadsBlock, /referrals won/);
 });
