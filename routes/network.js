@@ -257,11 +257,23 @@ router.get('/', async (req, res, next) => {
           fieldWorkSummary = null;
         }
       }
+      // Lead Active Numbers use teammate field-work rollups — never referral won $.
+      if (fieldWorkSummary && fieldWorkSummary.totals) {
+        fieldWorkSummary = {
+          ...fieldWorkSummary,
+          totals: {
+            ...fieldWorkSummary.totals,
+            dealsValueLabel: money(fieldWorkSummary.totals.dealsValue),
+          },
+        };
+      }
     }
 
     const totals = ex.networkTotals(referrals);
     const openSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => !s.holders.length).length, 0);
     const heldSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => s.holders.length).length, 0);
+    // Leads sent = referrals routed to a member (same idea as Referral Leads partner "sent").
+    const leadsSent = referrals.filter((r) => String(r && r.toMemberId || '').trim()).length;
 
     res.render('network', {
       title: tab === 'field-work' || tab === 'calendar' ? 'Leads Network' : 'Referral Network',
@@ -289,6 +301,7 @@ router.get('/', async (req, res, next) => {
       totals: {
         ...totals,
         wonValueLabel: money(totals.wonValue),
+        leadsSent,
         openSeats,
         heldSeats,
         members: members.length,

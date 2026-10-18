@@ -150,11 +150,23 @@ function computeTotals(allJobs, today) {
   let overdue = 0;
   let thisWeek = 0;
   let photos = 0;
+  let leads = 0;
+  let dealsWon = 0;
+  let dealsValue = 0;
   const membersWithOpen = new Set();
+  const membersWithLeads = new Set();
 
   allJobs.forEach(({ memberId, job }) => {
     const isOpen = work.isOpen(job);
     photos += (job.photos || []).length;
+    if (job.status === 'lead') {
+      leads += 1;
+      membersWithLeads.add(memberId);
+    }
+    if (job.status === 'completed') {
+      dealsWon += 1;
+      dealsValue += Number(job.value) || 0;
+    }
     if (!isOpen) return;
     open += 1;
     membersWithOpen.add(memberId);
@@ -172,6 +184,10 @@ function computeTotals(allJobs, today) {
     thisWeek,
     photos,
     membersWithWork: membersWithOpen.size,
+    membersWithLeads: membersWithLeads.size,
+    leads,
+    dealsWon,
+    dealsValue,
     jobs: allJobs.length,
   };
 }
@@ -434,4 +450,5 @@ module.exports = {
   cleanDay,
   cleanMonth,
   buildActiveNumbers,
+  computeTotals,
 };

@@ -52,6 +52,23 @@ describe('teamFieldWork helpers', () => {
     assert.match(cards[2].href, /tab=field-work/);
     assert.match(cards[3].href, /tab=calendar/);
   });
+
+  it('rolls lead count and completed deals value separately from open jobs', () => {
+    const totals = teamFieldWork.computeTotals(
+      [
+        { memberId: 'm1', job: { status: 'lead', value: 400, date: '', photos: [] } },
+        { memberId: 'm1', job: { status: 'lead', value: 600, date: '', photos: [] } },
+        { memberId: 'm2', job: { status: 'completed', value: 1000, date: '2026-01-01', photos: [] } },
+        { memberId: 'm2', job: { status: 'in_progress', value: 5000, date: '2026-05-02', photos: [] } },
+      ],
+      '2026-05-01',
+    );
+    assert.equal(totals.leads, 2);
+    assert.equal(totals.membersWithLeads, 1);
+    assert.equal(totals.dealsWon, 1);
+    assert.equal(totals.dealsValue, 1000);
+    assert.equal(totals.open, 3);
+  });
 });
 
 describe('teamFieldWork.listTeamFieldWork', () => {
