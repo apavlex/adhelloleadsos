@@ -1,7 +1,7 @@
 /**
  * Naming split:
- * - Leads Network = routed leads + teammates
- * - Referral Network = seats / branding / setup
+ * - Leads Network = teammate field work / calendar
+ * - Referral Network = seats / referrals / members / branding / setup
  * - Referral Leads = partner send/receive page
  */
 const fs = require('fs');
@@ -25,21 +25,22 @@ test('sidebar labels: Leads Network, Referral Network, Referral Leads', () => {
   assert.doesNotMatch(nav, /<span>Referral Partners<\/span>/);
 });
 
-test('Leads Network nav is active for leads and teammate tabs', () => {
-  assert.match(iaNav, /networkTab === 'referrals'/);
+test('Leads Network nav is active for teammate tabs only', () => {
   assert.match(iaNav, /networkTab === 'field-work'/);
   assert.match(iaNav, /networkTab === 'calendar'/);
-  assert.match(iaNav, /networkTab === 'members'/);
   assert.match(iaNav, /navNetworkTab = 'leads'/);
   assert.match(iaNav, /navNetworkTab = 'referral'/);
+  assert.doesNotMatch(iaNav, /networkTab === 'referrals'/);
+  assert.doesNotMatch(iaNav, /networkTab === 'members'/);
 });
 
-test('Leads Network page title covers leads and teammates', () => {
+test('Leads Network page title covers teammate tabs', () => {
   assert.match(networkRoute, /'Leads Network'/);
-  assert.match(networkRoute, /tab === 'field-work'/);
+  assert.match(networkRoute, /tab === 'field-work' \|\| tab === 'calendar'/);
   assert.match(networkView, /leadsNetworkTabIds/);
   assert.match(networkView, /const leadsTabs = \[/);
   assert.match(networkView, />Leads Network</);
+  assert.match(nav, /href="\/network\?tab=field-work"/);
 });
 
 test('Referral Network title used outside leads/teammate tabs', () => {

@@ -1,6 +1,6 @@
 /**
- * Team field work / Team calendar stay on Leads Network.
- * Active Numbers: Network = referral stats; Leads = teammate stats — not mixed.
+ * Leads Network = team field work / calendar + Send lead.
+ * Referral Network = seats / referrals / members / applications.
  */
 const fs = require('fs');
 const path = require('path');
@@ -20,15 +20,24 @@ test('team field work and calendar are leads tabs only', () => {
   const leadsBlock = html.slice(leadsStart, html.indexOf('];', leadsStart) + 2);
   assert.match(leadsBlock, /id: 'field-work'/);
   assert.match(leadsBlock, /id: 'calendar'/);
-  assert.match(leadsBlock, /id: 'referrals'/);
-  assert.match(leadsBlock, /id: 'members'/);
+  assert.doesNotMatch(leadsBlock, /id: 'referrals'/);
+  assert.doesNotMatch(leadsBlock, /id: 'members'/);
+  assert.doesNotMatch(leadsBlock, /id: 'seats'/);
+});
 
+test('referrals and members live on referral network tabs', () => {
   const refStart = html.indexOf('const referralTabs = [');
   const refBlock = html.slice(refStart, html.indexOf('];', refStart) + 2);
   assert.match(refBlock, /id: 'seats'/);
+  assert.match(refBlock, /id: 'referrals'/);
+  assert.match(refBlock, /id: 'members'/);
   assert.match(refBlock, /id: 'applications'/);
   assert.doesNotMatch(refBlock, /field-work/);
   assert.doesNotMatch(refBlock, /calendar/);
+});
+
+test('leads network CTA says Send lead; referral keeps Send referral', () => {
+  assert.match(html, /onLeadsNetwork \? 'Send lead' : 'Send referral'/);
 });
 
 test('referral network active numbers are open referrals and won only', () => {
