@@ -1,0 +1,72 @@
+/**
+ * Leads Network Send lead — teammate multi-select / all, via referral accept path.
+ */
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const networkLeadSend = require('../services/networkLeadSend');
+
+test('listLeadTeammates only includes active members', () => {
+  const rows = networkLeadSend.listLeadTeammates([
+    { id: 'a', companyName: 'Alpha Co', status: 'active', email: 'a@x.com' },
+    { id: 'b', companyName: 'Beta Co', status: 'paused', email: 'b@x.com' },
+    { id: 'c', contactName: 'Casey', status: 'active' },
+  ]);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].id, 'a');
+  assert.equal(rows[0].name, 'Alpha Co');
+  assert.equal(rows[1].id, 'c');
+  assert.equal(rows[1].name, 'Casey');
+});
+
+test('sendLeadToTeammates requires name and phone or email', async () => {
+  const noName = await networkLeadSend.sendLeadToTeammates({
+    network: { id: 'n1', trades: ['hvac'] },
+    members: [{ id: 'm1', companyName: 'Mate', status: 'active' }],
+    memberIds: ['m1'],
+    lead: { phone: '555' },
+  });
+  assert.equal(noName.ok, false);
+  assert.match(noName.error, /name/i);
+
+  const noContact = await networkLeadSend.sendLeadToTeammates({
+    network: { id: 'n1', trades: ['hvac'] },
+    members: [{ id: 'm1', companyName: 'Mate', status: 'active' }],
+    memberIds: ['m1'],
+    lead: { name: 'Pat' },
+  });
+  assert.equal(noContact.ok, false);
+  assert.match(noContact.error, /phone or email/i);
+});
+
+test('sendLeadToTeammates requires a teammate selection', async () => {
+  const result = await networkLeadSend.sendLeadToTeammates({
+    network: { id: 'n1', trades: ['hvac'] },
+    members: [{ id: 'm1', companyName: 'Mate', status: 'active' }],
+    memberIds: [],
+    sendAll: false,
+    lead: { name: 'Pat', phone: '555' },
+  });
+  assert.equal(result.ok, false);
+  assert.match(result.error, /teammate/i);
+});
+
+test('Leads Network CTA opens send-lead modal, not referral trade form', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../views/network.ejs'), 'utf8');
+  const modal = fs.readFileSync(path.join(__dirname, '../views/partials/send_lead_modal.ejs'), 'utf8');
+  assert.match(html, /data-open-send-lead/);
+  assert.match(modal, /Send lead/);
+  assert.match(modal, /Send to all/);
+  assert.match(modal, /sendLeadTeammateList/);
+  assert.match(modal, /See accepts/);
+  assert.doesNotMatch(modal, /Trade needed/);
+  assert.doesNotMatch(modal, /Pick a trade/);
+});
+
+test('network routes expose lead-send options and send endpoint', () => {
+  const route = fs.readFileSync(path.join(__dirname, '../routes/network.js'), 'utf8');
+  assert.match(route, /\/lead-send-options/);
+  assert.match(route, /\/leads\/send/);
+  assert.match(route, /networkLeadSend\.sendLeadToTeammates/);
+});
