@@ -119,7 +119,7 @@ function presentReferral(ref, membersById, zonesById, network) {
 router.get('/', async (req, res, next) => {
   try {
     const network = await loadNetwork(req);
-    const tab = TABS.has(String(req.query.tab || '')) ? String(req.query.tab) : 'seats';
+    const tab = TABS.has(String(req.query.tab || '')) ? String(req.query.tab) : 'referrals';
     const [zones, members, referrals, applications] = await Promise.all([
       store.listZones(network.id),
       store.listMembers(network.id),
