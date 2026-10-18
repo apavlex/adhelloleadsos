@@ -29,6 +29,9 @@
     <h3 class="fw-job__title font-display"><%= row.title %></h3>
     <div class="fw-job__status">
       <span class="net-pill fw-pill-<%= row.status %><%= row.overdue ? ' fw-pill-overdue' : '' %>"><%= row.statusLabel %><%= row.overdue ? ' · overdue' : '' %></span>
+      <% if (row.valueLabel) { %>
+      <span class="fw-job__value" title="Project value"><%= row.valueLabel %></span>
+      <% } %>
     </div>
   </div>
 

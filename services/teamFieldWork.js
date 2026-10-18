@@ -36,6 +36,13 @@ function whenLabel(job, today) {
   return [dayLabel(job.date, today), timeLabel(job.time)].filter(Boolean).join(' · ');
 }
 
+/** Same empty-when-zero style as the Reviews app job list. */
+function valueLabel(value) {
+  const n = Number(value) || 0;
+  if (!n) return '';
+  return `$${Math.round(n).toLocaleString('en-US')}`;
+}
+
 function latestNote(job, customer) {
   const jobNote = String((job && job.notes) || '').trim();
   if (jobNote) return jobNote;
@@ -293,6 +300,8 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
         timeLabel: timeLabel(job.time),
         notes: String(job.notes || '').trim(),
         latestNote: latestNote(job, customer),
+        value: Number(job.value) || 0,
+        valueLabel: valueLabel(job.value),
         photoCount: photosMeta.length,
         photos,
         updatedAt: job.updatedAt || '',
@@ -372,7 +381,8 @@ async function getFieldWorkJob(networkId, member, jobId, opts = {}) {
     whenLabel: whenLabel(job, today),
     notes: String(job.notes || '').trim(),
     latestNote: latestNote(job, customer),
-    value: job.value || 0,
+    value: Number(job.value) || 0,
+    valueLabel: valueLabel(job.value),
     photoCount: photosMeta.length,
     photos,
     overdue: !!(job.date && today && job.date < today && open && job.status !== 'on_hold'),
@@ -451,4 +461,5 @@ module.exports = {
   cleanMonth,
   buildActiveNumbers,
   computeTotals,
+  valueLabel,
 };

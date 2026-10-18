@@ -69,6 +69,13 @@ describe('teamFieldWork helpers', () => {
     assert.equal(totals.dealsValue, 1000);
     assert.equal(totals.open, 3);
   });
+
+  it('formats project value like the Reviews app', () => {
+    assert.equal(teamFieldWork.valueLabel(0), '');
+    assert.equal(teamFieldWork.valueLabel(''), '');
+    assert.equal(teamFieldWork.valueLabel(4800), '$4,800');
+    assert.equal(teamFieldWork.valueLabel('1250.4'), '$1,250');
+  });
 });
 
 describe('teamFieldWork.listTeamFieldWork', () => {
@@ -91,6 +98,7 @@ describe('teamFieldWork.listTeamFieldWork', () => {
           status: 'in_progress',
           date: '',
           time: '',
+          value: 4800,
           notes: 'Waiting on parts',
           photos: [{ id: 'ph001abc', caption: 'Kitchen', createdAt: '2026-01-01' }],
           updatedAt: '2026-01-02T00:00:00.000Z',
@@ -152,6 +160,8 @@ describe('teamFieldWork.listTeamFieldWork', () => {
       assert.equal(rollup.rows[0].isUpcoming, true);
       assert.equal(rollup.rows[1].customerName, 'Taylor Brooks');
       assert.equal(rollup.rows[1].latestNote, 'Waiting on parts');
+      assert.equal(rollup.rows[1].value, 4800);
+      assert.equal(rollup.rows[1].valueLabel, '$4,800');
       assert.equal(rollup.rows[1].photos[0].href, '/network/field-work/photos/m1/jobopen01/ph001abc');
       assert.equal(rollup.rows[1].ownerJobHref, '/network/field-work/jobs/m1/jobopen01');
       assert.equal(rollup.rows[1].ownerCustomerHref, '/network/field-work/customers/m1/c1');
