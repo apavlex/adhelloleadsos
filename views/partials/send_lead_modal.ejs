@@ -1,0 +1,86 @@
+<%
+  const _slField = 'w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-white placeholder:text-brand-muted/50';
+  const _slLabel = 'block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5';
+%>
+<div id="sendLeadModal" class="fixed inset-0 z-[210] hidden items-center justify-center p-4" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="sendLeadTitle">
+  <div class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm" data-send-lead-close></div>
+  <div class="relative max-w-lg w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl z-10 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-start justify-between gap-3 mb-5">
+      <div>
+        <h2 id="sendLeadTitle" class="font-display font-black text-xl text-brand-dark dark:text-white">Send lead</h2>
+        <p class="text-sm text-brand-muted mt-1">Pick teammates in the Reviews app. They get a notification to accept — same accept flow as referrals.</p>
+      </div>
+      <button type="button" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center shrink-0" aria-label="Close" data-send-lead-close>
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+
+    <p id="sendLeadLoading" class="text-sm text-brand-muted py-6 text-center">Loading teammates…</p>
+
+    <div id="sendLeadEmpty" class="hidden py-2">
+      <p class="text-sm text-brand-dark dark:text-white">No active teammates yet. Add members on Referral Network so they show up here with a Reviews app.</p>
+      <div class="flex flex-col sm:flex-row gap-3 pt-5">
+        <a href="/network?tab=members" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest text-center">Add members</a>
+        <button type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white" data-send-lead-close>Cancel</button>
+      </div>
+    </div>
+
+    <div id="sendLeadDone" class="hidden py-2">
+      <p id="sendLeadDoneText" class="text-sm font-semibold text-brand-dark dark:text-white"></p>
+      <div class="flex flex-col sm:flex-row gap-3 pt-5">
+        <a href="/network?tab=referrals&status=sent" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest text-center">See accepts</a>
+        <button type="button" id="sendLeadAnother" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Send another</button>
+      </div>
+    </div>
+
+    <form id="sendLeadForm" class="space-y-4 hidden" novalidate>
+      <div>
+        <div class="flex items-center justify-between gap-2 mb-1.5">
+          <label class="<%= _slLabel %> mb-0">Teammates <span class="text-red-500">*</span></label>
+          <label class="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-dark dark:text-white cursor-pointer">
+            <input type="checkbox" id="sendLeadAll" name="sendAll" value="1" class="h-3.5 w-3.5 rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" />
+            Send to all
+          </label>
+        </div>
+        <div id="sendLeadTeammateList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto rounded-xl border border-brand-border dark:border-white/10 p-2 bg-brand-cream/20 dark:bg-slate-800/40"></div>
+      </div>
+      <div>
+        <label for="sendLeadName" class="<%= _slLabel %>">Lead name <span class="text-red-500">*</span></label>
+        <input type="text" id="sendLeadName" name="name" required maxlength="200" autocomplete="off" class="<%= _slField %> font-semibold" placeholder="e.g. Maria Lopez" />
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="sendLeadPhone" class="<%= _slLabel %>">Phone</label>
+          <input type="tel" id="sendLeadPhone" name="phone" autocomplete="off" class="<%= _slField %>" placeholder="Phone or email needed" />
+        </div>
+        <div>
+          <label for="sendLeadEmail" class="<%= _slLabel %>">Email</label>
+          <input type="email" id="sendLeadEmail" name="email" autocomplete="off" class="<%= _slField %>" placeholder="Phone or email needed" />
+        </div>
+      </div>
+      <div>
+        <label for="sendLeadAddress" class="<%= _slLabel %>">Street address</label>
+        <input type="text" id="sendLeadAddress" name="address" autocomplete="off" class="<%= _slField %>" placeholder="Optional" />
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <div class="col-span-2 sm:col-span-2">
+          <label for="sendLeadCity" class="<%= _slLabel %>">City</label>
+          <input type="text" id="sendLeadCity" name="city" autocomplete="off" class="<%= _slField %>" />
+        </div>
+        <div class="col-span-2 sm:col-span-1">
+          <label for="sendLeadZip" class="<%= _slLabel %>">ZIP</label>
+          <input type="text" id="sendLeadZip" name="zip" inputmode="numeric" maxlength="10" autocomplete="off" class="<%= _slField %>" />
+        </div>
+      </div>
+      <div>
+        <label for="sendLeadNote" class="<%= _slLabel %>">What they need</label>
+        <textarea id="sendLeadNote" name="note" rows="3" maxlength="1000" class="<%= _slField %> resize-y" placeholder="e.g. Wants a quote this week"></textarea>
+      </div>
+      <p id="sendLeadError" class="text-sm text-red-600 dark:text-red-400 hidden" role="alert"></p>
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <button type="submit" id="sendLeadSubmit" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Send lead</button>
+        <button type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white" data-send-lead-close>Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>

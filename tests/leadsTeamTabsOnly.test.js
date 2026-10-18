@@ -39,6 +39,7 @@ test('referrals and members live on referral network tabs', () => {
 
 test('leads network CTA says Send lead; referral keeps Send referral', () => {
   assert.match(html, /onLeadsNetwork \? 'Send lead' : 'Send referral'/);
+  assert.match(html, /onLeadsNetwork \? 'data-open-send-lead' : 'data-open-send-referral'/);
 });
 
 test('referral network shows open, deals, leads sent, and partners cards', () => {

@@ -17,6 +17,7 @@ const { ICONS: MEMBER_APP_ICONS } = require('../services/memberAppIcons');
 const teamFieldWork = require('../services/teamFieldWork');
 const memberWork = require('../services/memberWork');
 const memberJobMedia = require('../services/memberJobMedia');
+const networkLeadSend = require('../services/networkLeadSend');
 const multer = require('multer');
 
 const TABS = new Set(['seats', 'members', 'applications', 'referrals', 'send', 'brand', 'setup', 'field-work', 'calendar']);
@@ -913,6 +914,96 @@ router.get('/send-options', async (req, res) => {
   } catch (err) {
     console.error('[network] send options failed:', err.message);
     return res.status(500).json({ success: false, error: 'Could not load the referral form.' });
+  }
+});
+
+/** Leads Network — teammates available for Send lead (Reviews-app members). */
+router.get('/lead-send-options', async (req, res) => {
+  try {
+    if (!canManage(req)) {
+      return res.status(403).json({ success: false, error: 'Only owners, admins, and managers can send leads to teammates.' });
+    }
+    const network = await loadNetwork(req);
+    const members = await store.listMembers(network.id);
+    const teammates = networkLeadSend.listLeadTeammates(members);
+    return res.json({
+      success: true,
+      networkName: network.name,
+      teammates,
+      ready: teammates.length > 0,
+    });
+  } catch (err) {
+    console.error('[network] lead send options failed:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not load teammates.' });
+  }
+});
+
+/**
+ * Leads Network — send a lead to one or more Reviews-app teammates (or all).
+ * Creates network referrals so accept / decline works like partner referrals,
+ * and fires SMS + in-app + push notifications.
+ */
+router.post('/leads/send', express.urlencoded({ extended: true }), express.json(), async (req, res) => {
+  try {
+    if (!canManage(req)) {
+      return reply(req, res, {
+        ok: false,
+        tab: 'field-work',
+        notice: 'Only owners, admins, and managers can send leads to teammates.',
+        status: 403,
+      });
+    }
+    const network = await loadNetwork(req);
+    const body = req.body || {};
+    const sendAll = body.sendAll === '1' || body.sendAll === 'on' || body.sendAll === true || body.sendAll === 'true';
+    let memberIds = body.memberIds;
+    if (typeof memberIds === 'string') {
+      memberIds = memberIds.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    if (!Array.isArray(memberIds)) memberIds = [];
+    // Checkbox group posts as memberIds[] or repeated memberIds.
+    if (!memberIds.length && Array.isArray(body['memberIds[]'])) {
+      memberIds = body['memberIds[]'];
+    }
+
+    const members = await store.listMembers(network.id);
+    const result = await networkLeadSend.sendLeadToTeammates({
+      network,
+      members,
+      memberIds,
+      sendAll,
+      lead: {
+        name: body.name,
+        phone: body.phone,
+        email: body.email,
+        city: body.city,
+        zip: body.zip,
+        address: body.address,
+        note: body.note,
+      },
+      by: userEmail(req) || 'operator',
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+
+    if (!result.ok) {
+      return reply(req, res, { ok: false, tab: 'field-work', notice: result.error, status: 400, data: result });
+    }
+
+    const n = result.count;
+    const skipped = (result.skipped && result.skipped.length) || 0;
+    let notice = n === 1
+      ? `Lead sent to ${result.delivered[0].name}. They get a Reviews-app alert to accept.`
+      : `Lead sent to ${n} teammates. They get Reviews-app alerts to accept.`;
+    if (skipped) notice += ` (${skipped} skipped.)`;
+    return reply(req, res, {
+      ok: true,
+      tab: 'referrals',
+      notice,
+      data: { count: result.count, delivered: result.delivered, skipped: result.skipped },
+    });
+  } catch (err) {
+    console.error('[network] send lead to teammates failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'field-work', notice: 'Could not send that lead.', status: 500 });
   }
 });
 
