@@ -1,8 +1,8 @@
 /**
- * Separate Active Numbers labels, with lead open/won cards on Leads Network:
- * - Referral Network = Referral open referrals + won $
- * - Leads Network = Lead open referrals + won $ + teammate cards
- * Settings gear stays top-right of the page header.
+ * Separate Active Numbers — do not combine lead count with lead deals value as one idea,
+ * and do not reuse referral wording on Leads:
+ * - Referral Network = open referrals + referral deals value only
+ * - Leads Network = open leads + lead deals value + teammate cards
  */
 const fs = require('fs');
 const path = require('path');
@@ -40,29 +40,33 @@ test('leads network CTA says Send lead; referral keeps Send referral', () => {
   assert.match(html, /onLeadsNetwork \? 'Send lead' : 'Send referral'/);
 });
 
-test('referral network active numbers are referral open and won', () => {
+test('referral network shows open referrals and referral deals value only', () => {
   assert.match(html, /!onLeadsNetwork && !onSettingsTab && canManage/);
-  assert.match(html, /fw-active--network/);
   const netStart = html.indexOf('fw-active--network');
   const netEnd = html.indexOf('</section>', netStart);
   const netBlock = html.slice(netStart, netEnd);
   assert.match(netBlock, /Open referrals/);
-  assert.match(netBlock, /wonValueLabel/);
+  assert.match(netBlock, /Deals value/);
+  assert.match(netBlock, /referrals won/);
   assert.match(netBlock, />Referral</);
+  assert.doesNotMatch(netBlock, /Open leads/);
+  assert.doesNotMatch(netBlock, /Teammate/);
   assert.doesNotMatch(netBlock, /fieldWorkSummary\.sources/);
 });
 
-test('leads network active numbers include open referrals, won, and teammates', () => {
+test('leads network shows open leads, lead deals value, and teammates separately', () => {
   assert.match(html, /onLeadsNetwork && canManage/);
-  assert.match(html, /fw-active--leads/);
   const leadsStart = html.indexOf('fw-active--leads');
   const leadsEnd = html.indexOf('</section>', leadsStart);
   const leadsBlock = html.slice(leadsStart, leadsEnd);
-  assert.match(leadsBlock, /Open referrals/);
-  assert.match(leadsBlock, /wonValueLabel/);
-  assert.match(leadsBlock, /fieldWorkSummary\.sources/);
+  assert.match(leadsBlock, /Open leads/);
+  assert.match(leadsBlock, /Deals value/);
+  assert.match(leadsBlock, /leads won/);
   assert.match(leadsBlock, />Lead</);
-  assert.doesNotMatch(leadsBlock, />Referral</);
+  assert.match(leadsBlock, />Teammate</);
+  assert.match(leadsBlock, /fieldWorkSummary\.sources/);
+  assert.doesNotMatch(leadsBlock, /Open referrals/);
+  assert.doesNotMatch(leadsBlock, /referrals won/);
 });
 
 test('settings gear is top-right in the page header row', () => {
