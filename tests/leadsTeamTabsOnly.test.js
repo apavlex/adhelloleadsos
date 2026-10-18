@@ -29,9 +29,10 @@ test('team field work and calendar are leads tabs only', () => {
 test('referrals and members live on referral network tabs', () => {
   const refStart = html.indexOf('const referralTabs = [');
   const refBlock = html.slice(refStart, html.indexOf('];', refStart) + 2);
-  assert.match(refBlock, /id: 'seats'/);
   assert.match(refBlock, /id: 'referrals'/);
+  assert.match(refBlock, /id: 'seats'/);
   assert.match(refBlock, /id: 'members'/);
+  assert.ok(refBlock.indexOf("id: 'referrals'") < refBlock.indexOf("id: 'seats'"), 'referrals tab first');
   assert.doesNotMatch(refBlock, /field-work/);
   assert.doesNotMatch(refBlock, /calendar/);
 });
