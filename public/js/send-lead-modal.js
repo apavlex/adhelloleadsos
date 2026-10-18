@@ -114,6 +114,13 @@
       var mobileMenu = document.getElementById('mobileMenu');
       var closeMobile = document.getElementById('closeMobileMenu');
       if (mobileMenu && !mobileMenu.classList.contains('hidden') && closeMobile) closeMobile.click();
+      document.querySelectorAll('[data-sidebar-new].is-open').forEach(function (wrap) {
+        wrap.classList.remove('is-open');
+        var toggle = wrap.querySelector('[data-sidebar-new-toggle]');
+        var menu = wrap.querySelector('.sidebar-new-menu');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        if (menu) menu.hidden = true;
+      });
       open();
       return;
     }
