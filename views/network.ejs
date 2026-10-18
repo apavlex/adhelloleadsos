@@ -314,14 +314,20 @@
     ];
     const settingsTabIds = settingsTabs.map(function (t) { return t.id; });
     const onSettingsTab = settingsTabIds.indexOf(tab) >= 0;
-    const tabs = [
-      { id: 'seats', label: 'Seats' },
+    /* Leads Network = routed leads + teammates. Referral Network = seats / apps / branding. */
+    const leadsNetworkTabIds = { referrals: 1, 'field-work': 1, calendar: 1, members: 1 };
+    const onLeadsNetwork = !!leadsNetworkTabIds[tab];
+    const leadsTabs = [
+      { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
       { id: 'members', label: 'Members (' + totals.members + (totals.freeMembers ? ' · ' + totals.freeMembers + ' free' : '') + ')' },
       { id: 'field-work', label: 'Team field work' + (fwTotals ? ' (' + fwTotals.open + ')' : '') },
       { id: 'calendar', label: 'Team calendar' + (fwTotals && fwTotals.thisWeek != null ? ' (' + fwTotals.thisWeek + ')' : '') },
-      { id: 'applications', label: 'Applications' + (pendingApplications ? ' (' + pendingApplications + ')' : '') },
-      { id: 'referrals', label: 'Referrals (' + totals.total + ')' },
     ];
+    const referralTabs = [
+      { id: 'seats', label: 'Seats' },
+      { id: 'applications', label: 'Applications' + (pendingApplications ? ' (' + pendingApplications + ')' : '') },
+    ];
+    const tabs = onLeadsNetwork ? leadsTabs : referralTabs;
     function tradeChecks(name, selected) {
       return networkTrades.map(function (t) {
         return '<label class="net-check"><input type="checkbox" name="' + name + '" value="' + t.slug + '"' + (selected.indexOf(t.slug) >= 0 ? ' checked' : '') + ' />' + t.name + '</label>';
@@ -336,8 +342,7 @@
   <main class="max-wide px-6 py-8 md:py-12">
     <header class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div class="min-w-0">
-        <% const leadsNetworkTabs = { referrals: 1, 'field-work': 1, calendar: 1, members: 1 }; %>
-        <% if (leadsNetworkTabs[tab]) { %>
+        <% if (onLeadsNetwork) { %>
         <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Leads network</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Leads Network</h1>
         <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (tab === 'referrals') { %>Routed leads through <%= network.name %> — accept and report outcomes from a text link, no login needed.<% } else if (tab === 'members') { %>Teammates in <%= network.name %> — seats, plans, and Reviews-app access.<% } else { %>Teammate field work across <%= network.name %> — jobs, photos, and the team calendar.<% } %></p>
@@ -367,7 +372,7 @@
       <span><span class="tabular-nums text-brand-dark dark:text-white"><%= totals.heldSeats %></span> held · <span class="tabular-nums text-brand-dark dark:text-white"><%= totals.openSeats %></span> open seats</span>
     </p>
 
-    <% if (canManage && typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
+    <% if (onLeadsNetwork && canManage && typeof fieldWorkSummary !== 'undefined' && fieldWorkSummary && fieldWorkSummary.sources) { %>
     <section class="fw-active" aria-label="Lead and team sources">
       <div class="flex items-baseline justify-between gap-3 mb-2">
         <div>
