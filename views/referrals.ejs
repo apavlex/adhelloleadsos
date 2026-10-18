@@ -160,7 +160,6 @@
     const counts = totals || { partners: 0, connected: 0, intros: 0, sent: 0, received: 0 };
     const showFreePaid = typeof showFreePaidUi !== 'undefined' && !!showFreePaidUi;
     const freeCount = showFreePaid && typeof freePartnerCount === 'number' ? freePartnerCount : 0;
-    const paidCount = showFreePaid && typeof paidPartnerCount === 'number' ? paidPartnerCount : 0;
     const noticeBad = notice && /^(Could not|That partner|Unknown|Write a note|Only an owner|Describe your business|AI was busy)/.test(notice);
     const net = (typeof networkSetup !== 'undefined' && networkSetup) ? networkSetup : { trades: [], zones: [], memberLeadKeys: [] };
     const netMembers = new Set(net.memberLeadKeys || []);
@@ -179,7 +178,7 @@
       <% } %>
     </header>
 
-    <div class="grid grid-cols-2 <%= showFreePaid ? 'sm:grid-cols-3' : 'lg:grid-cols-4' %> gap-3 mb-6">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
       <div class="ref-stat">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Partners</p>
         <p class="font-display font-black text-2xl" data-ref-total="partners"><%= counts.partners %></p>
@@ -188,16 +187,6 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Connected</p>
         <p class="font-display font-black text-2xl" data-ref-total="connected"><%= counts.connected %></p>
       </div>
-      <% if (showFreePaid) { %>
-      <div class="ref-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Free</p>
-        <p class="font-display font-black text-2xl" data-ref-total="free"><%= freeCount %></p>
-      </div>
-      <div class="ref-stat">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Paid</p>
-        <p class="font-display font-black text-2xl" data-ref-total="paid"><%= paidCount %></p>
-      </div>
-      <% } %>
       <div class="ref-stat">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Leads sent</p>
         <p class="font-display font-black text-2xl" data-ref-total="sent"><%= counts.sent %></p>
