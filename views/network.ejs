@@ -128,14 +128,13 @@
     html.dark .fw-job__when.is-overdue { color: #fda4af; }
     .fw-job__when-sub { display: block; margin-top: 0.15rem; font-size: 0.7rem; font-weight: 700; color: #94a3b8; }
     .fw-job__team {
-      display: inline-flex; align-items: center; max-width: 48%;
-      border-radius: 0.65rem; padding: 0.35rem 0.55rem;
-      background: rgba(15, 23, 42, 0.04); border: 1px solid rgba(15, 23, 42, 0.06);
-      font-size: 0.7rem; font-weight: 800; color: #334155; line-height: 1.2; text-align: right;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 0.1rem;
+      max-width: 48%; margin: 0; padding: 0; border: 0; background: transparent;
+      font-size: 0.75rem; font-weight: 800; color: #0f172a; line-height: 1.15; text-align: right;
     }
-    html.dark .fw-job__team { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.1); color: #e2e8f0; }
-    .fw-job__team small { display: block; font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8; margin-bottom: 0.1rem; }
-    .fw-job__team span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    html.dark .fw-job__team { background: transparent; color: #f8fafc; }
+    .fw-job__team small { display: block; font-size: 8px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: #94a3b8; margin: 0; }
+    .fw-job__team span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
     .fw-job__title { margin: 0; font-size: 1.05rem; font-weight: 800; line-height: 1.25; overflow-wrap: anywhere; }
     .fw-job__status { margin-top: 0.4rem; }
     .fw-job__body { display: grid; gap: 0.65rem; }
