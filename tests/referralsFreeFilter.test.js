@@ -29,10 +29,11 @@ test('Referral Partners marks free accounts and supports hide-free filter', () =
   assert.match(view, /Hide free accounts/);
   assert.match(view, /name="hideFree"/);
   assert.match(view, /data-ref-free/);
-  assert.match(view, /data-ref-total="free"/);
-  assert.match(view, /data-ref-total="paid"/);
+  assert.doesNotMatch(view, /data-ref-total="free"/);
+  assert.doesNotMatch(view, /data-ref-total="paid"/);
+  assert.doesNotMatch(view, />Free</);
+  assert.doesNotMatch(view, />Paid</);
   assert.match(view, /showFreePaid && partner\.isAppFree/);
-  assert.match(view, /if \(showFreePaid\)/);
   assert.match(view, /Joined/);
   assert.match(view, /joinedWhen|data-ref-joined/);
   assert.match(view, /data-ref-place|partner\.zip/);
