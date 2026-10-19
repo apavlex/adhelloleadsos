@@ -1,0 +1,69 @@
+/* Contractor portal PWA — scoped to /p/ so workspace Agency OS pushes stay separate. */
+const CACHE_VERSION = 'adhello-portal-sw-v1';
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(self.skipWaiting());
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k.startsWith('adhello-portal-sw-') && k !== CACHE_VERSION).map((k) => caches.delete(k)))
+    ).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'AdHello', {
+      body: data.body || '',
+      tag: data.tag || undefined,
+      icon: '/images/adhello-app-icon-192.png',
+      badge: '/images/adhello-app-icon-192.png',
+      data: { url: data.url || '/p' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const raw = (event.notification.data && event.notification.data.url) || '/p';
+  const target = new URL(raw, self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      const win = wins.find((w) => {
+        try {
+          return new URL(w.url).pathname.startsWith('/p/');
+        } catch (e) {
+          return false;
+        }
+      });
+      if (win) {
+        return win.focus().then((w) => (w && 'navigate' in w ? w.navigate(target) : null));
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});
+
+self.addEventListener('message', (event) => {
+  const data = event && event.data;
+  if (!data || data.type !== 'CLEAR_NOTIFICATIONS') return;
+  event.waitUntil(
+    self.registration.getNotifications().then((list) => {
+      (list || []).forEach((n) => {
+        try {
+          n.close();
+        } catch (e) {
+          /* ignore */
+        }
+      });
+    })
+  );
+});

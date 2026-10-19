@@ -64,8 +64,9 @@
   }
 
   function registration() {
-    return navigator.serviceWorker.register('/sw.js').then(function () {
-      return navigator.serviceWorker.ready;
+    // Scoped SW under /p/ so the contractor app does not share workspace Agency OS pushes.
+    return navigator.serviceWorker.register('/p/sw.js', { scope: '/p/' }).then(function (reg) {
+      return reg;
     });
   }
 
