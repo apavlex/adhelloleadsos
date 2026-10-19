@@ -205,6 +205,11 @@ function normalizeMember(raw) {
      * personal customers/reviews for that teammate under the same workspace brand.
      */
     workspaceStaff: m.workspaceStaff === true || m.source === 'workspace_staff',
+    /**
+     * Reviews-app opt-in: show GHL missed calls / texts in the member bell and
+     * phone alerts. Off by default; owners and workspace staff only.
+     */
+    ghlAlertsEnabled: m.ghlAlertsEnabled === true,
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
   };

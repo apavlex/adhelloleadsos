@@ -63,12 +63,29 @@ function notifyMissedCallTextSent({ workspaceId, lead, preview, outcome }) {
 function notifyInboundEvent({ workspaceId, lead, event }) {
   const wid = String(workspaceId || (lead && lead.workspaceId) || '').trim();
   const payload = wid ? inboundPushPayload(lead, event, wid) : null;
-  if (!payload) return Promise.resolve({ sent: 0 });
+  if (!payload) {
+    // Still fan out to Reviews members who opted into GHL alerts (missed call / SMS).
+    try {
+      require('./memberGhlAlerts').notifyEnabledMembers({ workspaceId: wid, lead, event });
+    } catch (_) { /* ignore */ }
+    return Promise.resolve({ sent: 0 });
+  }
   return (async () => {
-    if (!push.matchingSubscriptions({ workspaceId: wid }).length) return { sent: 0 };
-    const ws = await dbService.getWorkspace(wid);
-    if (!ws) return { sent: 0 };
-    return push.sendPush({ workspaceId: wid, allowEmail: (email) => userCanAccessWorkspace(ws, email) }, payload);
+    let sent = 0;
+    if (push.matchingSubscriptions({ workspaceId: wid }).length) {
+      const ws = await dbService.getWorkspace(wid);
+      if (ws) {
+        const result = await push.sendPush(
+          { workspaceId: wid, allowEmail: (email) => userCanAccessWorkspace(ws, email) },
+          payload,
+        );
+        sent = (result && result.sent) || 0;
+      }
+    }
+    try {
+      require('./memberGhlAlerts').notifyEnabledMembers({ workspaceId: wid, lead, event });
+    } catch (_) { /* ignore */ }
+    return { sent };
   })().catch((e) => {
     console.warn('[inboundPush] failed:', e && e.message);
     return { sent: 0 };

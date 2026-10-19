@@ -82,6 +82,8 @@ describe('member lead bell UI + routes', () => {
     assert.match(top, /Lead notifications/);
     assert.match(top, /data-ma-bell-scrim/);
     assert.match(top, /data-ma-bell-push-enable/);
+    assert.match(top, /data-ma-bell-ghl-toggle/);
+    assert.match(top, /GHL calls &amp; texts/);
     assert.match(top, /Turn off on this device/);
     assert.match(top, /All leads &amp; referrals/);
     assert.match(tab, /member-app-notifications\.js/);
@@ -89,10 +91,12 @@ describe('member lead bell UI + routes', () => {
     assert.match(js, /on · Send test/);
     assert.match(js, /ma-bell-open/);
     assert.match(js, /\/activity\.json/);
+    assert.match(js, /\/activity\/ghl-alerts/);
     assert.match(js, /\/push\/subscribe/);
     assert.match(js, /\/push\/unsubscribe/);
     assert.match(css, /\.ma-bell__panel/);
     assert.match(css, /\.ma-bell__scrim/);
+    assert.match(css, /\.ma-bell__ghl/);
     assert.match(css, /background:\s*#ffffff/);
     assert.match(css, /position:\s*fixed/);
     assert.match(icons, /bell:/);
@@ -101,8 +105,11 @@ describe('member lead bell UI + routes', () => {
   it('memberApp exposes activity feed + push subscribe routes', () => {
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     assert.match(route, /require\('\.\.\/services\/memberActivity'\)/);
+    assert.match(route, /require\('\.\.\/services\/memberGhlAlerts'\)/);
     assert.match(route, /\/m\/:token\/activity\.json/);
     assert.match(route, /\/m\/:token\/activity\/read/);
+    assert.match(route, /\/m\/:token\/activity\/ghl-alerts/);
+    assert.match(route, /\/m\/:token\/activity\/ghl-done/);
     assert.match(route, /\/m\/:token\/push\/subscribe/);
     assert.match(route, /\/m\/:token\/push\/unsubscribe/);
     assert.match(route, /\/m\/:token\/push\/test/);
