@@ -2747,7 +2747,24 @@
         })
         .then(function (data) {
           if (!data || !data.success) throw new Error((data && data.error) || 'Could not mark reviewed.');
-          // Update bell immediately — do not wait on OS tray clear.
+          // Stamp local task reminders so overdue "Task reminder" alerts do not re-fire
+          // after the tray is cleared (or after a workspace switch prunes the old map).
+          var reviewedMs = data.reviewedAt ? Date.parse(data.reviewedAt) : Date.now();
+          function stampTaskReminders() {
+            if (
+              window.AgencyTaskReminders &&
+              typeof window.AgencyTaskReminders.markAllCaughtUp === 'function'
+            ) {
+              try {
+                window.AgencyTaskReminders.markAllCaughtUp(reviewedMs);
+              } catch (_) {}
+            }
+          }
+          var refreshReminders =
+            window.AgencyTaskReminders && typeof window.AgencyTaskReminders.refresh === 'function'
+              ? window.AgencyTaskReminders.refresh()
+              : Promise.resolve();
+          // Update bell immediately — do not wait on OS tray clear or task refresh.
           applyCaughtUpBellUi();
           if (typeof window.showAppToast === 'function') {
             window.showAppToast('Notifications reviewed — phone alerts on this device were cleared.', {
@@ -2756,7 +2773,11 @@
             });
           }
           clearOsNotifications();
-          return loadRecentBellNotifications(true).then(function () {
+          stampTaskReminders();
+          return Promise.all([
+            refreshReminders.finally(stampTaskReminders),
+            loadRecentBellNotifications(true),
+          ]).then(function () {
             // Keep the caught-up empty state after mark; only re-show rows if something new arrived.
             if (recentBellCache.unreadCount > 0) {
               if (notificationPing) {

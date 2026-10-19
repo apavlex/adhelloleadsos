@@ -36,6 +36,7 @@ test('bell and history templates expose Mark reviewed', () => {
   assert.match(js, /getRegistration/);
   assert.match(js, /applyCaughtUpBellUi/);
   assert.match(js, /Update bell immediately/);
+  assert.match(js, /AgencyTaskReminders\.markAllCaughtUp/);
   // Must use getRegistration (not .ready) — ready hangs when no SW is registered.
   const clearFn = js.slice(js.indexOf('function clearOsNotifications'), js.indexOf('function escBell'));
   assert.match(clearFn, /getRegistration/);
@@ -44,4 +45,9 @@ test('bell and history templates expose Mark reviewed', () => {
     js.slice(js.indexOf('processingIndicator.addEventListener(\'click\''), js.indexOf('var markReviewedBtn')),
     /\/api\/notifications\/read/,
   );
+
+  const taskReminders = fs.readFileSync(path.join(__dirname, '../public/js/task-reminders.js'), 'utf8');
+  assert.match(taskReminders, /markAllCaughtUp/);
+  assert.match(taskReminders, /agencyOsTaskRemindersReviewedAt/);
+  assert.match(taskReminders, /Never wipe the fired map when the task list is empty/);
 });

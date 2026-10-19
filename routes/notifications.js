@@ -9,6 +9,7 @@ const { pendingInboundItems, listGhlCallSmsItems } = require('../services/inboun
 const { buildNotificationHistory } = require('../services/notificationHistory');
 const notificationLog = require('../services/notificationLog');
 const notificationReview = require('../services/notificationReview');
+const { catchUpReviewed } = require('../services/taskPushReminders');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 
 async function workspaceLeads(req) {
@@ -85,10 +86,18 @@ router.post('/reviewed', express.json({ limit: '4kb' }), async (req, res, next) 
     if (!email) return res.status(401).json({ success: false, error: 'Sign in required.' });
     const requestedAt = parseInt(req.body && req.body.at, 10);
     const { reviewedAt } = notificationReview.markReviewed(email, requestedAt);
+    const reviewedMs = Date.parse(reviewedAt) || Date.now();
     try {
       await dbService.markNotificationRead(req.workspaceId || undefined);
     } catch (_) {
       /* ignore — search bell may already be clear */
+    }
+    try {
+      await catchUpReviewed(email, reviewedMs, {
+        workspaceIds: req.workspaceId ? [req.workspaceId] : [],
+      });
+    } catch (_) {
+      /* ignore — client still stamps local task reminders */
     }
     res.json({ success: true, reviewedAt });
   } catch (e) {

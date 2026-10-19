@@ -9,7 +9,8 @@ const assert = require('node:assert/strict');
 const webpush = require('web-push');
 const dbService = require('../services/database');
 const push = require('../services/pushNotifications');
-const { runTaskPushReminders, dueReminders } = require('../services/taskPushReminders');
+const notificationReview = require('../services/notificationReview');
+const { runTaskPushReminders, dueReminders, catchUpReviewed } = require('../services/taskPushReminders');
 
 const subscription = (n) => ({
   endpoint: `https://push.example.com/send/${n}`,
@@ -118,4 +119,52 @@ test('the reminder job pushes a due task to its owner exactly once', async (t) =
   assert.equal(sent.length, 1);
   assert.equal(sent[0].title, 'Task reminder');
   assert.equal(sent[0].body, 'Call back Studio Nine');
+});
+
+test('Mark all reviewed stamps due tasks so the push job does not re-alert', async (t) => {
+  const sent = [];
+  t.mock.method(webpush, 'sendNotification', async (sub, body) => sent.push(JSON.parse(body)));
+  push.saveSubscription({
+    subscription: subscription(99),
+    userEmail: 'catchup@example.com',
+    workspaceId: 'ws_catch',
+  });
+  const now = Date.now();
+  const scheduledAt = new Date(now - 60 * 1000).toISOString();
+  await dbService.saveUserTask('ws_catch', 'catchup@example.com', {
+    id: 'task_catchup_1',
+    title: 'Retry call — Best Build',
+    column: 'todo',
+    source: 'manual',
+    scheduledAt,
+  });
+
+  notificationReview.markReviewed('catchup@example.com', now);
+  const stamped = await catchUpReviewed('catchup@example.com', now, { workspaceIds: ['ws_catch'] });
+  assert.ok(stamped.stamped >= 1);
+
+  await runTaskPushReminders(now);
+  assert.equal(sent.length, 0);
+});
+
+test('review watermark alone suppresses overdue task pushes', async (t) => {
+  const sent = [];
+  t.mock.method(webpush, 'sendNotification', async (sub, body) => sent.push(JSON.parse(body)));
+  push.saveSubscription({
+    subscription: subscription(100),
+    userEmail: 'watermark@example.com',
+    workspaceId: 'ws_wm',
+  });
+  const now = Date.now();
+  await dbService.saveUserTask('ws_wm', 'watermark@example.com', {
+    id: 'task_wm_1',
+    title: 'Follow up',
+    column: 'todo',
+    source: 'manual',
+    scheduledAt: new Date(now - 90 * 1000).toISOString(),
+  });
+  notificationReview.markReviewed('watermark@example.com', now);
+
+  await runTaskPushReminders(now);
+  assert.equal(sent.length, 0);
 });
