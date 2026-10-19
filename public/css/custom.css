@@ -242,6 +242,23 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
     padding: 0;
     overflow: visible;
     pointer-events: none;
+    /* Stable compositing — iOS Safari otherwise leaves fixed bottom widgets mid-page. */
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+}
+
+/* Alex FAB host: pin explicitly so nested portals / page transforms cannot unstick it. */
+#ceoChatFloat.app-floating-layer {
+    position: fixed !important;
+    z-index: 155;
+    bottom: max(1.25rem, env(safe-area-inset-bottom, 0px)) !important;
+    right: max(1.25rem, env(safe-area-inset-right, 0px)) !important;
+    left: auto !important;
+    top: auto !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 .app-floating-layer > * {
