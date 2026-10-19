@@ -150,9 +150,25 @@ function escapeXml(value) {
 }
 
 /**
+ * True when a logo is too wide or too tall to fill a square icon without
+ * letterboxing — those get the accent tile. Near-square marks go edge-to-edge.
+ * @param {number} width
+ * @param {number} height
+ */
+function logoNeedsAccentTile(width, height) {
+  const w = Number(width) || 0;
+  const h = Number(height) || 0;
+  if (!(w > 0 && h > 0)) return true;
+  const ratio = w / h;
+  // ~±20% of square. Wider wordmarks / tall marks sit on the accent bg.
+  return ratio > 1.2 || ratio < 1 / 1.2;
+}
+
+/**
  * Square app / Home Screen icon.
  * - photo mode: cover-crop the image to fill the icon (profile photos)
- * - logo mode: contain the logo on the brand accent (so light logos stay visible)
+ * - logo mode: edge-to-edge for near-square marks; accent tile only when
+ *   the logo is too wide or tall to fill the square cleanly
  * - fallback: initials on the accent color
  */
 async function renderIcon({ brand, logo, size, mode }) {
@@ -167,13 +183,22 @@ async function renderIcon({ brand, logo, size, mode }) {
         .png()
         .toBuffer();
     }
-    const inner = Math.round(px * 0.72);
+    const meta = await sharp(logo.buffer).rotate().metadata();
+    if (!logoNeedsAccentTile(meta.width, meta.height)) {
+      // Square-ish logo: fill the icon edge to edge (no accent gutter).
+      return sharp(logo.buffer)
+        .rotate()
+        .resize(px, px, { fit: 'cover', position: 'centre' })
+        .png()
+        .toBuffer();
+    }
+    // Wide or tall: contain on the accent tile so pale marks stay readable.
+    const inner = Math.round(px * 0.82);
     const fitted = await sharp(logo.buffer)
       .rotate()
       .resize(inner, inner, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
       .png()
       .toBuffer();
-    // Accent tile behind the mark — white tiles hide pale / white logos on Home Screen.
     return sharp({ create: { width: px, height: px, channels: 4, background: accent } })
       .composite([{ input: fitted, gravity: 'center' }])
       .png()
@@ -210,6 +235,7 @@ module.exports = {
   normalizeImageUrl,
   onAccentColor,
   brandView,
+  logoNeedsAccentTile,
   renderIcon,
   prepareImage,
   initials,
