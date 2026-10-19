@@ -127,10 +127,31 @@
     }).then(function (r) { return r.json().catch(function () { return {}; }); });
   }
 
+  function dropWorkspaceWorker() {
+    if (!navigator.serviceWorker.getRegistrations) return Promise.resolve();
+    return navigator.serviceWorker.getRegistrations().then(function (regs) {
+      return Promise.all(
+        (regs || []).map(function (reg) {
+          var script =
+            (reg.active && reg.active.scriptURL) ||
+            (reg.waiting && reg.waiting.scriptURL) ||
+            (reg.installing && reg.installing.scriptURL) ||
+            '';
+          try {
+            if (new URL(script).pathname === '/sw.js') return reg.unregister();
+          } catch (e) {
+            /* ignore */
+          }
+          return null;
+        }),
+      );
+    }).catch(function () {});
+  }
+
   function registration() {
     // Scoped SW under /m/ — do not share /sw.js with the workspace Agency OS app.
-    return navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).then(function (reg) {
-      return reg;
+    return dropWorkspaceWorker().then(function () {
+      return navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' });
     });
   }
 

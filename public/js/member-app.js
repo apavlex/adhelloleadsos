@@ -1,5 +1,26 @@
 /* Member referral app: Add-to-Home-Screen modal, copy and share buttons. */
 (function () {
+  // Reviews used to register the Agency OS root /sw.js. That single worker received
+  // workspace task reminders + search alerts, so they showed on the Reviews icon.
+  // Drop the root worker here; Reviews keeps /m/sw.js only. Agency OS re-registers
+  // /sw.js the next time the workspace app is opened.
+  if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+    navigator.serviceWorker.getRegistrations().then(function (regs) {
+      (regs || []).forEach(function (reg) {
+        var script =
+          (reg.active && reg.active.scriptURL) ||
+          (reg.waiting && reg.waiting.scriptURL) ||
+          (reg.installing && reg.installing.scriptURL) ||
+          '';
+        try {
+          if (new URL(script).pathname === '/sw.js') reg.unregister();
+        } catch (e) {
+          /* ignore */
+        }
+      });
+    }).catch(function () {});
+  }
+
   var standalone =
     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
     window.navigator.standalone === true;

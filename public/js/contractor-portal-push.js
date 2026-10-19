@@ -63,10 +63,31 @@
     });
   }
 
+  function dropWorkspaceWorker() {
+    if (!navigator.serviceWorker.getRegistrations) return Promise.resolve();
+    return navigator.serviceWorker.getRegistrations().then(function (regs) {
+      return Promise.all(
+        (regs || []).map(function (reg) {
+          var script =
+            (reg.active && reg.active.scriptURL) ||
+            (reg.waiting && reg.waiting.scriptURL) ||
+            (reg.installing && reg.installing.scriptURL) ||
+            '';
+          try {
+            if (new URL(script).pathname === '/sw.js') return reg.unregister();
+          } catch (e) {
+            /* ignore */
+          }
+          return null;
+        }),
+      );
+    }).catch(function () {});
+  }
+
   function registration() {
     // Scoped SW under /p/ so the contractor app does not share workspace Agency OS pushes.
-    return navigator.serviceWorker.register('/p/sw.js', { scope: '/p/' }).then(function (reg) {
-      return reg;
+    return dropWorkspaceWorker().then(function () {
+      return navigator.serviceWorker.register('/p/sw.js', { scope: '/p/' });
     });
   }
 
