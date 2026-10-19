@@ -30,23 +30,47 @@ test('brandForWorkspace exposes preferredTheme and accent-busted icon URLs', () 
   assert.match(brand.iconUrl(512), /0[fF]4[cC][aA][eE]/);
 });
 
-test('renderIcon paints logos on the accent tile (not flat white)', async () => {
-  // 1×1 near-white PNG so a white tile would hide it; accent blue must remain in the output.
-  const whiteLogo = Buffer.from(
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-    'base64',
-  );
+test('logoNeedsAccentTile only for wide or tall marks', () => {
+  assert.equal(networkBrand.logoNeedsAccentTile(512, 512), false);
+  assert.equal(networkBrand.logoNeedsAccentTile(100, 100), false);
+  assert.equal(networkBrand.logoNeedsAccentTile(120, 100), false); // 1.2 boundary still square-ish
+  assert.equal(networkBrand.logoNeedsAccentTile(121, 100), true);
+  assert.equal(networkBrand.logoNeedsAccentTile(100, 121), true);
+  assert.equal(networkBrand.logoNeedsAccentTile(800, 200), true);
+  assert.equal(networkBrand.logoNeedsAccentTile(0, 100), true);
+});
+
+test('renderIcon is edge-to-edge for square logos (no accent gutter)', async () => {
+  const sharp = require('sharp');
+  // Solid red square — corners of the icon must stay red, not the accent.
+  const squareLogo = await sharp({
+    create: { width: 64, height: 64, channels: 3, background: { r: 220, g: 40, b: 40 } },
+  }).png().toBuffer();
   const png = await networkBrand.renderIcon({
     brand: { accent: '#0F4CAE', initials: 'TI' },
-    logo: { buffer: whiteLogo, contentType: 'image/png' },
+    logo: { buffer: squareLogo, contentType: 'image/png' },
+    size: 64,
+  });
+  const { data } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const r = data[0];
+  const g = data[1];
+  const b = data[2];
+  assert.ok(r > 180 && g < 80 && b < 80, `expected red edge-to-edge corner, got rgb(${r},${g},${b})`);
+});
+
+test('renderIcon paints wide logos on the accent tile', async () => {
+  const sharp = require('sharp');
+  // Wide near-white bar — corners must be accent blue.
+  const wideLogo = await sharp({
+    create: { width: 120, height: 40, channels: 3, background: { r: 250, g: 250, b: 250 } },
+  }).png().toBuffer();
+  const png = await networkBrand.renderIcon({
+    brand: { accent: '#0F4CAE', initials: 'TI' },
+    logo: { buffer: wideLogo, contentType: 'image/png' },
     size: 64,
   });
   assert.ok(Buffer.isBuffer(png) && png.length > 80);
-  // Sharp PNG of solid #0F4CAE includes those RGB bytes in the IDAT stream often compressed —
-  // assert via a re-sample average color instead.
-  const sharp = require('sharp');
   const { data } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  // Corner pixel should be accent blue, not white.
   const r = data[0];
   const g = data[1];
   const b = data[2];
@@ -61,6 +85,8 @@ test('white-label settings UI has appearance + dual phone previews', () => {
   assert.match(html, /data-wl-phone="light"/);
   assert.match(html, /data-wl-phone="dark"/);
   assert.match(html, /data-wl-icon-tile/);
+  assert.match(html, /logoNeedsAccentTile/);
+  assert.match(html, /edge to edge/i);
   assert.match(html, /preferredTheme/);
   assert.match(html, /name="hero"/);
   assert.match(html, /Home banner/);

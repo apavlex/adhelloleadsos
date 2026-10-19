@@ -16,7 +16,8 @@
   const _wlOpenPath = typeof appOpenPath !== 'undefined' ? appOpenPath : _wlOpenUrl;
   const _wlOpenHost = typeof reviewAppHost !== 'undefined' && reviewAppHost ? reviewAppHost : String(_wlOpenUrl).replace(/^https?:\/\//, '');
   const _wlHeroUrl = typeof reviewHeroUrl !== 'undefined' && reviewHeroUrl ? String(reviewHeroUrl) : '';
-  const _wlIconSrc = _wlBrand.hasLogo ? _wlBrand.logoUrl : _wlBrand.iconUrl(512);
+  // Always the composed Home Screen icon (edge-to-edge or accent tile) — not the raw upload.
+  const _wlIconSrc = _wlBrand.iconUrl(512);
   const _wlQrSrc = (typeof reviewAppQrDataUrl !== 'undefined' && reviewAppQrDataUrl)
     ? String(reviewAppQrDataUrl)
     : '/workspace/white-label/qr.png';
@@ -24,7 +25,7 @@
 <div class="space-y-6">
 <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Logo &amp; app name</h2>
-  <p class="text-sm text-brand-muted mb-5">Shown in the CRM sidebar, the Review app Home badge, the browser tab, and the Home Screen icon. Light logos sit on your accent color so they stay visible.</p>
+  <p class="text-sm text-brand-muted mb-5">Shown in the CRM sidebar, the Review app Home badge, the browser tab, and the Home Screen icon. Square logos fill the icon edge to edge; wide or tall logos sit on your accent color so they stay readable.</p>
   <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(240px,280px)] items-start">
     <% if (_wlCan) { %>
     <form id="wlForm" class="space-y-4" enctype="multipart/form-data" novalidate>
@@ -78,8 +79,8 @@
             <span class="w-9 h-9 rounded-[20%] bg-white/70"></span><span class="w-9 h-9 rounded-[20%] bg-white/70"></span><span class="w-9 h-9 rounded-[20%] bg-white/70"></span>
           </div>
           <div class="flex flex-col items-center gap-1 mt-1">
-            <span class="wl-icon-tile w-14 h-14 rounded-[22%] shadow-md overflow-hidden flex items-center justify-center p-1.5" style="background-color: <%= _accentCur %>" data-wl-icon-tile>
-              <img id="wlIconPreviewLight" src="<%= _wlIconSrc %>" alt="" width="56" height="56" class="w-full h-full object-contain" data-wl-icon-img />
+            <span class="wl-icon-tile w-14 h-14 rounded-[22%] shadow-md overflow-hidden flex items-center justify-center p-0" style="background-color: transparent" data-wl-icon-tile data-wl-icon-mode="cover" data-wl-accent="<%= _accentCur %>">
+              <img id="wlIconPreviewLight" src="<%= _wlIconSrc %>" alt="" width="56" height="56" class="w-full h-full object-cover" data-wl-icon-img />
             </span>
             <span class="wl-name-preview max-w-[72px] truncate text-[10px] font-semibold text-slate-800" data-wl-name><%= _wlBrand.appName %></span>
           </div>
@@ -90,14 +91,14 @@
             <span class="w-9 h-9 rounded-[20%] bg-white/20"></span><span class="w-9 h-9 rounded-[20%] bg-white/20"></span><span class="w-9 h-9 rounded-[20%] bg-white/20"></span>
           </div>
           <div class="flex flex-col items-center gap-1 mt-1">
-            <span class="wl-icon-tile w-14 h-14 rounded-[22%] shadow-md overflow-hidden flex items-center justify-center p-1.5" style="background-color: <%= _accentCur %>" data-wl-icon-tile>
-              <img id="wlIconPreviewDark" src="<%= _wlIconSrc %>" alt="" width="56" height="56" class="w-full h-full object-contain" data-wl-icon-img />
+            <span class="wl-icon-tile w-14 h-14 rounded-[22%] shadow-md overflow-hidden flex items-center justify-center p-0" style="background-color: transparent" data-wl-icon-tile data-wl-icon-mode="cover" data-wl-accent="<%= _accentCur %>">
+              <img id="wlIconPreviewDark" src="<%= _wlIconSrc %>" alt="" width="56" height="56" class="w-full h-full object-cover" data-wl-icon-img />
             </span>
             <span class="wl-name-preview max-w-[72px] truncate text-[10px] font-semibold text-white drop-shadow" data-wl-name><%= _wlBrand.appName %></span>
           </div>
         </div>
       </div>
-      <p class="text-[11px] text-brand-muted leading-relaxed">Icon tile uses your accent color so pale logos stay readable on both wallpapers.</p>
+      <p class="text-[11px] text-brand-muted leading-relaxed">Square logos go edge to edge. Wide or tall logos use your accent color so they stay readable on both wallpapers.</p>
     </div>
   </div>
 </section>
@@ -293,22 +294,64 @@
       namePreviews.forEach(function (el) { el.textContent = name; });
     }
 
-    function syncTileAccent() {
+    function currentAccent() {
       var accentEl = document.getElementById('wsAccentCustomHex') || document.getElementById('wsAccentCustom');
       var hex = accentEl && accentEl.value ? String(accentEl.value).trim() : '';
-      if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
-      iconTiles.forEach(function (tile) { tile.style.backgroundColor = hex; });
+      return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '';
+    }
+
+    /** Match server logoNeedsAccentTile: only wide/tall logos use the accent bg. */
+    function logoNeedsAccentTile(w, h) {
+      if (!(w > 0 && h > 0)) return true;
+      var ratio = w / h;
+      return ratio > 1.2 || ratio < 1 / 1.2;
+    }
+
+    function applyIconTileMode(needsAccent) {
+      var fromTile = iconTiles[0] && iconTiles[0].getAttribute('data-wl-accent');
+      var accent = currentAccent() || fromTile || '#CA8A04';
+      iconTiles.forEach(function (tile) {
+        tile.style.backgroundColor = needsAccent ? accent : 'transparent';
+        tile.classList.toggle('p-1.5', !!needsAccent);
+        tile.classList.toggle('p-0', !needsAccent);
+        tile.setAttribute('data-wl-icon-mode', needsAccent ? 'accent' : 'cover');
+      });
+      iconImgs.forEach(function (img) {
+        img.classList.toggle('object-contain', !!needsAccent);
+        img.classList.toggle('object-cover', !needsAccent);
+      });
+    }
+
+    function syncTileAccent() {
+      var mode = iconTiles[0] && iconTiles[0].getAttribute('data-wl-icon-mode');
+      if (mode === 'accent') applyIconTileMode(true);
+    }
+
+    function previewLogoFile(file, fallbackSrc) {
+      if (!file) {
+        setIconSrc(fallbackSrc);
+        // Saved composed icons are already edge-to-edge or accent-baked.
+        applyIconTileMode(false);
+        return;
+      }
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      blobUrl = URL.createObjectURL(file);
+      setIconSrc(blobUrl);
+      var probe = new Image();
+      probe.onload = function () {
+        applyIconTileMode(logoNeedsAccentTile(probe.naturalWidth, probe.naturalHeight));
+      };
+      probe.onerror = function () { applyIconTileMode(true); };
+      probe.src = blobUrl;
     }
 
     nameInput.addEventListener('input', function () {
       setNames(nameInput.value.trim() || 'AdHello');
     });
     fileInput.addEventListener('change', function () {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
       var file = fileInput.files && fileInput.files[0];
-      blobUrl = file ? URL.createObjectURL(file) : '';
       fileLabel.textContent = file ? file.name : 'Choose a logo';
-      setIconSrc(blobUrl || savedIcon);
+      previewLogoFile(file || null, savedIcon);
       if (file && remove) remove.checked = false;
     });
     if (heroInput) {
@@ -323,9 +366,16 @@
     }
     if (remove) {
       remove.addEventListener('change', function () {
-        setIconSrc(remove.checked ? defaultIcon : (blobUrl || savedIcon));
+        if (remove.checked) {
+          setIconSrc(defaultIcon);
+          applyIconTileMode(false);
+        } else {
+          previewLogoFile(fileInput.files && fileInput.files[0], savedIcon);
+        }
       });
     }
+    // Initial phone tiles: composed icon fills edge to edge.
+    applyIconTileMode(false);
     if (removeHero) {
       removeHero.addEventListener('change', function () {
         setHeroSrc(removeHero.checked ? defaultHero : (heroBlobUrl || savedHero), !removeHero.checked && !!(heroBlobUrl || (savedHero && savedHero !== defaultHero)));

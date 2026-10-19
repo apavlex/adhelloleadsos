@@ -42,7 +42,7 @@ function brandForWorkspace(ws) {
   const appName = s.appName || DEFAULT_NAME;
   const hasLogo = !!(id && s.logoVersion);
   const base = id ? `/brand/ws/${encodeURIComponent(id)}` : '';
-  // Bust cache when accent changes — icons paint the logo on the accent tile.
+  // Bust cache when accent changes — wide/tall logos paint on the accent tile.
   const accentKey = String((ws && ws.accentColor) || '').replace(/[^0-9a-f]/gi, '').slice(0, 8) || 'a';
   const v = encodeURIComponent(`${s.logoVersion || 'default'}-${accentKey}`);
   const custom = hasLogo || !!s.appName;
