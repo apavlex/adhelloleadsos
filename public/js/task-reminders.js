@@ -1,10 +1,13 @@
 /**
  * Browser notifications for scheduled tasks (polls /tasks/api globally).
  * Respects Notification.permission and agencyOsTaskRemindersPaused in localStorage.
+ * Mark all reviewed (AgencyTaskReminders.markAllCaughtUp) stamps due reminders so the
+ * same overdue alerts do not keep reappearing after the tray is cleared.
  */
 (function () {
   var STORAGE_KEY = 'agencyOsTaskReminderFired';
   var PAUSE_KEY = 'agencyOsTaskRemindersPaused';
+  var REVIEW_KEY = 'agencyOsTaskRemindersReviewedAt';
   var INTERVAL_MS = 25000;
   var cache = [];
   var refreshInflight = null;
@@ -22,6 +25,23 @@
       if (paused) localStorage.setItem(PAUSE_KEY, '1');
       else localStorage.removeItem(PAUSE_KEY);
     } catch (e) {}
+  }
+
+  function getReviewedAt() {
+    try {
+      var n = parseInt(localStorage.getItem(REVIEW_KEY) || '0', 10);
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  function setReviewedAt(atMs) {
+    var at = Number.isFinite(atMs) && atMs > 0 ? Math.min(atMs, Date.now()) : Date.now();
+    try {
+      localStorage.setItem(REVIEW_KEY, String(at));
+    } catch (e) {}
+    return at;
   }
 
   function loadMap() {
@@ -52,8 +72,11 @@
   }
 
   function pruneMap(tasks) {
+    // Never wipe the fired map when the task list is empty (loading / wrong workspace
+    // flash) — that made every overdue reminder fire again after Mark all reviewed.
+    if (!tasks || !tasks.length) return;
     var ids = {};
-    (tasks || []).forEach(function (t) {
+    tasks.forEach(function (t) {
       ids[firedKey(t, 'due')] = true;
       if (earlyMinutes(t) > 0) ids[firedKey(t, 'early')] = true;
     });
@@ -121,12 +144,37 @@
     };
   }
 
+  /**
+   * Stamp every reminder that is already due (or past its early window) so tick()
+   * and workspace switches do not recreate the same phone alerts.
+   * @returns {number} reviewed-at ms used
+   */
+  function markAllCaughtUp(atMs) {
+    var at = setReviewedAt(atMs);
+    var tasks = getTasks() || [];
+    var fired = loadMap();
+    tasks.forEach(function (task) {
+      if (!task || !task.scheduledAt || task.column === 'done') return;
+      var due = Date.parse(task.scheduledAt);
+      if (!Number.isFinite(due)) return;
+      var earlyMin = earlyMinutes(task);
+      if (earlyMin > 0) {
+        var earlyAt = due - earlyMin * 60 * 1000;
+        if (earlyAt <= at) fired[firedKey(task, 'early')] = at;
+      }
+      if (due <= at) fired[firedKey(task, 'due')] = at;
+    });
+    saveMap(fired);
+    return at;
+  }
+
   function tick() {
     if (remindersPaused()) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     var tasks = getTasks() || [];
     pruneMap(tasks);
     var fired = loadMap();
+    var reviewedAt = getReviewedAt();
     var now = Date.now();
 
     tasks.forEach(function (task) {
@@ -140,19 +188,28 @@
         var earlyAt = due - earlyMin * 60 * 1000;
         if (now >= earlyAt && now < due) {
           var ek = firedKey(task, 'early');
-          if (!fired[ek]) {
+          if (fired[ek]) return;
+          if (earlyAt <= reviewedAt) {
             fired[ek] = now;
             saveMap(fired);
-            try {
-              notifyTask(task, 'early');
-            } catch (e) {}
+            return;
           }
+          fired[ek] = now;
+          saveMap(fired);
+          try {
+            notifyTask(task, 'early');
+          } catch (e) {}
         }
       }
 
       if (due > now) return;
       var k = firedKey(task, 'due');
       if (fired[k]) return;
+      if (due <= reviewedAt) {
+        fired[k] = now;
+        saveMap(fired);
+        return;
+      }
       fired[k] = now;
       saveMap(fired);
       try {
@@ -211,6 +268,8 @@
     ensurePermissionForScheduledTask: ensurePermissionForScheduledTask,
     isPaused: remindersPaused,
     setPaused: setRemindersPaused,
+    markAllCaughtUp: markAllCaughtUp,
+    getReviewedAt: getReviewedAt,
   };
 
   function boot() {
