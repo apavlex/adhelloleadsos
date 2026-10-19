@@ -39,3 +39,13 @@ test('scoped SW files exist and handle push', () => {
   assert.match(pSw, /addEventListener\('push'/);
   assert.match(pSw, /scoped to \/p\//i);
 });
+
+test('Reviews unregisters the Agency OS root worker so task reminders stop landing there', () => {
+  const memberApp = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+  const memberPush = fs.readFileSync(path.join(root, 'public/js/member-app-push.js'), 'utf8');
+  assert.match(memberApp, /pathname === '\/sw\.js'/);
+  assert.match(memberApp, /reg\.unregister/);
+  assert.match(memberApp, /task reminders/);
+  assert.match(memberPush, /dropWorkspaceWorker/);
+  assert.match(memberPush, /pathname === '\/sw\.js'/);
+});
