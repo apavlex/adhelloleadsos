@@ -5,6 +5,7 @@
 const dbService = require('./database');
 const push = require('./pushNotifications');
 const { userCanAccessWorkspace } = require('./workspaceBootstrap');
+const ghlNotificationPrefs = require('./ghlNotificationPrefs');
 
 const TITLES = {
   form: 'New lead',
@@ -75,8 +76,16 @@ function notifyInboundEvent({ workspaceId, lead, event }) {
     if (push.matchingSubscriptions({ workspaceId: wid }).length) {
       const ws = await dbService.getWorkspace(wid);
       if (ws) {
+        const eventType = event && event.type;
         const result = await push.sendPush(
-          { workspaceId: wid, allowEmail: (email) => userCanAccessWorkspace(ws, email) },
+          {
+            workspaceId: wid,
+            allowEmail: (email) => ghlNotificationPrefs.allowPushEmail(
+              email,
+              eventType,
+              (em) => userCanAccessWorkspace(ws, em),
+            ),
+          },
           payload,
         );
         sent = (result && result.sent) || 0;
