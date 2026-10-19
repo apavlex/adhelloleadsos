@@ -295,9 +295,63 @@
       root.style.setProperty('--acw-vv-top', Math.round(vv.offsetTop) + 'px');
       if (document.activeElement === chatInputFloat) scrollToBottom();
     }
+
+    /**
+     * Keep the yellow chat bubble glued to the visible lower-right corner.
+     * iOS Safari often leaves position:fixed; bottom floating mid-page after load,
+     * URL-bar show/hide, or visualViewport pan — same fix as the Money-mode dock.
+     * Clear the pin while the phone sheet is open so its own fixed panel is
+     * not trapped by a transformed ancestor.
+     */
+    function pinChatFloat() {
+      if (!root) return;
+      root.style.top = 'auto';
+      root.style.left = 'auto';
+      root.style.right = '';
+      root.style.bottom = '';
+      if (chatOpen && isPhone()) {
+        root.style.transform = '';
+        return;
+      }
+      if (!vv) {
+        root.style.transform = '';
+        return;
+      }
+      var tx = Math.round(vv.offsetLeft) || 0;
+      var ty = Math.round(vv.offsetTop) || 0;
+      root.style.transform = tx || ty ? 'translate3d(' + tx + 'px,' + ty + 'px,0)' : '';
+    }
+
+    function scheduleChatFloatPin() {
+      pinChatFloat();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(function () {
+          pinChatFloat();
+          requestAnimationFrame(pinChatFloat);
+        });
+      }
+    }
+
+    function onViewportChange() {
+      syncViewport();
+      pinChatFloat();
+    }
+
     if (vv) {
-      vv.addEventListener('resize', syncViewport);
-      vv.addEventListener('scroll', syncViewport);
+      vv.addEventListener('resize', onViewportChange);
+      vv.addEventListener('scroll', onViewportChange);
+    }
+    window.addEventListener('resize', scheduleChatFloatPin);
+    window.addEventListener('orientationchange', scheduleChatFloatPin);
+    window.addEventListener('pageshow', scheduleChatFloatPin);
+
+    // Escape any accidental transformed ancestor (page shells / lightroom / etc.).
+    if (root && root.parentNode !== document.body) {
+      try {
+        document.body.appendChild(root);
+      } catch (_) {
+        /* ignore */
+      }
     }
 
     function setChatOpen(open) {
@@ -315,6 +369,7 @@
         document.documentElement.classList.add('acw-open');
         if (chatBackdrop) chatBackdrop.hidden = false;
         if (chatBubbleDot) chatBubbleDot.classList.add('hidden');
+        pinChatFloat();
         syncViewport();
         setTimeout(function () {
           scrollToBottom();
@@ -330,6 +385,7 @@
         closeTimer = setTimeout(function () {
           if (!chatOpen) chatWindow.classList.add('hidden');
         }, 220);
+        scheduleChatFloatPin();
         if (hadFocus) chatBubble.focus();
       }
     }
@@ -399,6 +455,7 @@
       }
     });
 
+    scheduleChatFloatPin();
     loadChatHistory();
   }
 
