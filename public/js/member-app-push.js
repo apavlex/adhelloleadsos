@@ -47,8 +47,10 @@
   }
 
   function registration() {
-    return navigator.serviceWorker.register('/sw.js').then(function () {
-      return navigator.serviceWorker.ready;
+    // Scoped SW under /m/ so Reviews does not share the workspace Agency OS worker
+    // (shared /sw.js made Search failed / task alerts land on the Reviews home-screen app).
+    return navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).then(function (reg) {
+      return reg;
     });
   }
 

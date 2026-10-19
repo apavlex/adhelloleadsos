@@ -128,8 +128,9 @@
   }
 
   function registration() {
-    return navigator.serviceWorker.register('/sw.js').then(function () {
-      return navigator.serviceWorker.ready;
+    // Scoped SW under /m/ — do not share /sw.js with the workspace Agency OS app.
+    return navigator.serviceWorker.register('/m/sw.js', { scope: '/m/' }).then(function (reg) {
+      return reg;
     });
   }
 

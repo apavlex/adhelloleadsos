@@ -1,4 +1,6 @@
-/* AdHello PWA — cache shell assets; network-first for app pages. */
+/* AdHello Agency OS PWA — cache shell assets; network-first for app pages.
+ * Reviews (/m/sw.js) and contractor portal (/p/sw.js) use separate workers so
+ * workspace search/task pushes do not show on those home-screen apps. */
 const CACHE_VERSION = 'adhello-pwa-v1.0.548';
 const SHELL = [
   '/offline.html',
