@@ -18,6 +18,9 @@
   var pushEnable = root.querySelector('[data-ma-bell-push-enable]');
   var pushOff = root.querySelector('[data-ma-bell-push-off]');
   var pushStatus = root.querySelector('[data-ma-bell-push-status]');
+  var ghlRow = root.querySelector('[data-ma-bell-ghl]');
+  var ghlToggle = root.querySelector('[data-ma-bell-ghl-toggle]');
+  var ghlStatus = root.querySelector('[data-ma-bell-ghl-status]');
 
   var ua = navigator.userAgent || '';
   var isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -26,6 +29,7 @@
     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
   var supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   var label = isMobile ? 'phone alerts' : 'desktop alerts';
+  var ghlEnabled = false;
 
   function setOpen(on) {
     if (!panel || !openBtn) return;
@@ -34,8 +38,7 @@
     openBtn.setAttribute('aria-expanded', on ? 'true' : 'false');
     document.body.classList.toggle('ma-bell-open', !!on);
     if (on) {
-      loadFeed();
-      markAllRead();
+      loadFeed().then(function () { markAllRead(); });
     }
   }
 
@@ -57,26 +60,100 @@
     if (kind === 'pool') return 'Pool';
     if (kind === 'agency') return 'Agency lead';
     if (kind === 'form') return 'Website lead';
+    if (kind === 'missed_call') return 'Missed call';
+    if (kind === 'voicemail') return 'Voicemail';
+    if (kind === 'sms') return 'Text';
     return 'Lead';
   }
 
-  function renderList(items) {
+  function ago(iso) {
+    var ms = Date.now() - Date.parse(iso || '');
+    if (!isFinite(ms)) return '';
+    var m = Math.max(0, Math.round(ms / 60000));
+    if (m < 1) return 'just now';
+    if (m < 60) return m + 'm ago';
+    var h = Math.round(m / 60);
+    if (h < 24) return h + 'h ago';
+    return Math.round(h / 24) + 'd ago';
+  }
+
+  function activityHtml(item) {
+    var href = item.href || (base + '/referrals');
+    var cls = 'ma-bell__item' + (item.read ? '' : ' is-unread');
+    return (
+      '<a class="' + cls + '" href="' + esc(href) + '">' +
+        '<strong>' + esc(item.title) + '</strong>' +
+        (item.body ? '<span>' + esc(item.body) + '</span>' : '') +
+        '<small>' + esc(kindLabel(item.kind)) + ' · Open</small>' +
+      '</a>'
+    );
+  }
+
+  function ghlHtml(item) {
+    var callLabel = item.callOpensLeadConnector
+      ? (item.kind === 'sms' ? 'Lead Connector' : 'Call in LC')
+      : (item.kind === 'sms' ? 'Reply' : 'Call back');
+    var callAttrs = item.callOpensLeadConnector ? ' target="_blank" rel="noopener noreferrer"' : '';
+    var openAttrs = item.openHref && /^https?:/i.test(item.openHref)
+      ? ' target="_blank" rel="noopener noreferrer"'
+      : '';
+    var meta = esc(item.typeLabel || kindLabel(item.kind)) +
+      (item.label ? ' · ' + esc(item.label) : '') +
+      (item.at ? ' · ' + esc(ago(item.at)) : '');
+    return (
+      '<div class="ma-bell__item ma-bell__item--ghl is-unread" data-ma-bell-ghl-row="' + esc(item.leadKey) + '">' +
+        '<strong>' + esc(item.title) + '</strong>' +
+        '<span>' + meta + '</span>' +
+        (item.preview ? '<span>' + esc(item.preview) + '</span>' : '') +
+        '<div class="ma-bell__ghl-actions">' +
+          (item.callHref
+            ? '<a class="ma-bell__ghl-btn" href="' + esc(item.callHref) + '"' + callAttrs + '>' + esc(callLabel) + '</a>'
+            : '') +
+          (item.openHref
+            ? '<a class="ma-bell__ghl-link" href="' + esc(item.openHref) + '"' + openAttrs + '>Open</a>'
+            : '') +
+          '<button type="button" class="ma-bell__ghl-link" data-ma-bell-ghl-done="' + esc(item.leadKey) + '">Done</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function renderList(items, ghlItems) {
     if (!listEl) return;
-    if (!items || !items.length) {
-      listEl.innerHTML = '<p class="ma-bell__empty">No new lead alerts</p>';
+    var activity = Array.isArray(items) ? items : [];
+    var ghl = Array.isArray(ghlItems) ? ghlItems : [];
+    if (!activity.length && !ghl.length) {
+      listEl.innerHTML = '<p class="ma-bell__empty">' +
+        (ghlEnabled ? 'No new alerts' : 'No new lead alerts') +
+        '</p>';
       return;
     }
-    listEl.innerHTML = items.map(function (item) {
-      var href = item.href || (base + '/referrals');
-      var cls = 'ma-bell__item' + (item.read ? '' : ' is-unread');
-      return (
-        '<a class="' + cls + '" href="' + esc(href) + '">' +
-          '<strong>' + esc(item.title) + '</strong>' +
-          (item.body ? '<span>' + esc(item.body) + '</span>' : '') +
-          '<small>' + esc(kindLabel(item.kind)) + ' · Open</small>' +
-        '</a>'
-      );
-    }).join('');
+    var html = '';
+    if (ghl.length) {
+      html += '<p class="ma-bell__section">Waiting on a reply</p>';
+      html += ghl.map(ghlHtml).join('');
+    }
+    if (activity.length) {
+      if (ghl.length) html += '<p class="ma-bell__section">Leads &amp; referrals</p>';
+      html += activity.map(activityHtml).join('');
+    }
+    listEl.innerHTML = html;
+  }
+
+  function renderGhlToggle(available, enabled) {
+    ghlEnabled = !!enabled;
+    if (!ghlRow) return;
+    if (!available) {
+      ghlRow.hidden = true;
+      return;
+    }
+    ghlRow.hidden = false;
+    if (ghlToggle) ghlToggle.checked = !!enabled;
+    if (ghlStatus) {
+      ghlStatus.textContent = enabled
+        ? 'Missed calls and texts from Lead Connector show here and on phone alerts.'
+        : 'Show missed calls and texts from Lead Connector in this app.';
+    }
   }
 
   function loadFeed() {
@@ -88,10 +165,38 @@
       .then(function (data) {
         if (!data || !data.success) return;
         setPing(data.unread || 0);
-        renderList(data.items || []);
+        renderGhlToggle(!!data.ghlAlertsAvailable, !!data.ghlAlertsEnabled);
+        renderList(data.items || [], data.ghlItems || []);
         if (pushRow) {
           pushRow.hidden = !(data.pushAvailable || pushOk);
         }
+      })
+      .catch(function () { /* ignore */ });
+  }
+
+  function setGhlAlerts(enabled) {
+    if (ghlToggle) ghlToggle.disabled = true;
+    return post('/activity/ghl-alerts', { enabled: !!enabled })
+      .then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || 'Could not update GHL alerts.');
+        renderGhlToggle(true, !!data.ghlAlertsEnabled);
+        return loadFeed();
+      })
+      .catch(function (err) {
+        if (ghlToggle) ghlToggle.checked = ghlEnabled;
+        if (ghlStatus) ghlStatus.textContent = (err && err.message) || 'Could not update GHL alerts.';
+      })
+      .then(function () {
+        if (ghlToggle) ghlToggle.disabled = false;
+      });
+  }
+
+  function markGhlDone(leadKey) {
+    return post('/activity/ghl-done', { leadKey: leadKey })
+      .then(function (data) {
+        if (!data || !data.success) return;
+        setPing(data.unread || 0);
+        return loadFeed();
       })
       .catch(function () { /* ignore */ });
   }
@@ -188,14 +293,22 @@
       setPushStatus('Allow notifications for this site in Settings, then try again.');
     } else if (state === 'on') {
       pushEnable.textContent = (label.charAt(0).toUpperCase() + label.slice(1)) + ' on · Send test';
-      setPushStatus('New leads, agency assignments, and referrals arrive on this device, even when the app is closed.');
+      setPushStatus(
+        ghlEnabled
+          ? 'New leads, referrals, and GHL calls & texts arrive on this device, even when the app is closed.'
+          : 'New leads, agency assignments, and referrals arrive on this device, even when the app is closed.',
+      );
       if (pushOff) pushOff.hidden = false;
     } else if (state === 'working') {
       pushEnable.textContent = 'Working…';
       pushEnable.disabled = true;
     } else {
       pushEnable.textContent = 'Turn on ' + label;
-      setPushStatus('Turn on ' + label + ' for website forms, agency leads, and referrals that need you now.');
+      setPushStatus(
+        ghlEnabled
+          ? 'Turn on ' + label + ' for leads, referrals, and GHL calls & texts that need you now.'
+          : 'Turn on ' + label + ' for website forms, agency leads, and referrals that need you now.',
+      );
     }
   }
 
@@ -285,6 +398,19 @@
 
   if (pushEnable) pushEnable.addEventListener('click', enablePush);
   if (pushOff) pushOff.addEventListener('click', disablePush);
+  if (ghlToggle) {
+    ghlToggle.addEventListener('change', function () {
+      setGhlAlerts(!!ghlToggle.checked);
+    });
+  }
+  if (listEl) {
+    listEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-ma-bell-ghl-done]');
+      if (!btn) return;
+      e.preventDefault();
+      markGhlDone(btn.getAttribute('data-ma-bell-ghl-done'));
+    });
+  }
 
   // Initial badge + push state
   loadFeed();

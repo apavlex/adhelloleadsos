@@ -10,6 +10,7 @@ const webpush = require('web-push');
 const dbService = require('../services/database');
 const push = require('../services/pushNotifications');
 const { inboundPushPayload, notifyInboundEvent } = require('../services/inboundPush');
+const ghlNotificationPrefs = require('../services/ghlNotificationPrefs');
 const ghlSync = require('../services/ghlSync');
 
 const WID = 'ws_push_inbound';
@@ -26,6 +27,13 @@ test.before(async () => {
   push.saveSubscription({ subscription: sub(2), userEmail: 'rep@example.com', workspaceId: WID });
   push.saveSubscription({ subscription: sub(3), userEmail: 'removed@example.com', workspaceId: WID });
   push.saveSubscription({ subscription: sub(4), userEmail: 'other@example.com', workspaceId: 'ws_other' });
+});
+
+test.afterEach(() => {
+  for (const email of ['owner@example.com', 'rep@example.com']) {
+    const key = ghlNotificationPrefs.PREFIX + dbService._emailKeyFragment(email);
+    if (key) dbService.deleteKvSync(key);
+  }
 });
 
 test('payload wording and deep link per event type', () => {
@@ -58,6 +66,19 @@ test('notifies every current workspace member with alerts on, nobody else', asyn
   assert.equal(r.sent, 2);
   assert.deepEqual(sent.map((s) => s.endpoint.split('/').pop()).sort(), ['1', '2']);
   assert.equal(sent[0].body.title, 'New voicemail: Dana Roofer');
+});
+
+test('skips workspace users who paused GHL call/text notifications', async (t) => {
+  ghlNotificationPrefs.setPaused('owner@example.com', true);
+  const sent = [];
+  t.mock.method(webpush, 'sendNotification', async (s, body) => sent.push({ endpoint: s.endpoint, body: JSON.parse(body) }));
+  const r = await notifyInboundEvent({
+    workspaceId: WID,
+    lead: { key: 'lead:abc', title: 'Dana Roofer' },
+    event: { type: 'missed_call', label: 'New caller' },
+  });
+  assert.equal(r.sent, 1);
+  assert.deepEqual(sent.map((s) => s.endpoint.split('/').pop()), ['2']);
 });
 
 test('a GHL missed call webhook sends the push', async (t) => {

@@ -37,6 +37,7 @@ const reviewAsk = require('../services/reviewAsk');
 const reviewReferralReward = require('../services/reviewReferralReward');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const memberActivity = require('../services/memberActivity');
+const memberGhlAlerts = require('../services/memberGhlAlerts');
 const freeAppSignup = require('../services/freeAppSignup');
 const memberShareInvite = require('../services/memberShareInvite');
 const jobMedia = require('../services/memberJobMedia');
@@ -2891,27 +2892,73 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
 
 // ── In-app lead activity bell (member PWA) ───────────────────────────────────
 
-router.get('/m/:token/activity.json', withMember((req, res, ctx) => {
+router.get('/m/:token/activity.json', withMember(async (req, res, ctx) => {
   noStore(res);
   const items = memberActivity.list(ctx.network.id, ctx.member.id).slice(0, 40);
+  const ghlAvailable = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network);
+  const ghlEnabled = ghlAvailable && memberGhlAlerts.isEnabled(ctx.member);
+  const ghlItems = ghlEnabled
+    ? await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)
+    : [];
+  const activityUnread = memberActivity.unreadCount(ctx.network.id, ctx.member.id);
   return res.json({
     success: true,
-    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id),
+    unread: activityUnread + ghlItems.length,
     items,
+    ghlItems,
+    ghlAlertsAvailable: ghlAvailable,
+    ghlAlertsEnabled: ghlEnabled,
     pushAvailable: !!(ctx.appointment && ctx.appointment.packageId),
   });
 }));
 
-router.post('/m/:token/activity/read', express.json(), withMember((req, res, ctx) => {
+router.post('/m/:token/activity/read', express.json(), withMember(async (req, res, ctx) => {
   noStore(res);
   const ids = req.body && req.body.ids;
   const result = ids == null || ids === 'all'
     ? memberActivity.markAllRead(ctx.network.id, ctx.member.id)
     : memberActivity.markRead(ctx.network.id, ctx.member.id, ids);
+  const ghlEnabled = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network)
+    && memberGhlAlerts.isEnabled(ctx.member);
+  const ghlPending = ghlEnabled
+    ? (await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)).length
+    : 0;
   return res.json({
     success: true,
     updated: result.updated,
-    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id),
+    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id) + ghlPending,
+  });
+}));
+
+/** Opt in/out of GHL missed-call & text alerts in the Reviews app. */
+router.post('/m/:token/activity/ghl-alerts', express.json(), withMember(async (req, res, ctx) => {
+  noStore(res);
+  const enabled = !!(req.body && req.body.enabled);
+  const result = await memberGhlAlerts.setEnabled(ctx.network, ctx.member, enabled);
+  if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+  ctx.member = result.member;
+  const ghlItems = result.enabled
+    ? await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)
+    : [];
+  return res.json({
+    success: true,
+    ghlAlertsEnabled: result.enabled,
+    ghlAlertsAvailable: true,
+    ghlItems,
+    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id) + ghlItems.length,
+  });
+}));
+
+/** Mark a GHL inbound lead done from the Reviews bell (same as Agency OS Done). */
+router.post('/m/:token/activity/ghl-done', express.json(), withMember(async (req, res, ctx) => {
+  noStore(res);
+  const done = await memberGhlAlerts.markLeadDone(ctx.member, ctx.network, req.body && req.body.leadKey);
+  if (!done.ok) return res.status(400).json({ success: false, error: done.error });
+  const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);
+  return res.json({
+    success: true,
+    ghlItems,
+    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id) + ghlItems.length,
   });
 }));
 

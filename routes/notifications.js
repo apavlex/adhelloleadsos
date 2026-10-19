@@ -5,10 +5,11 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
-const { pendingInboundItems, listGhlCallSmsItems } = require('../services/inboundEvents');
+const { pendingInboundItems, listGhlCallSmsItems, GHL_ACTIVITY_TYPES } = require('../services/inboundEvents');
 const { buildNotificationHistory } = require('../services/notificationHistory');
 const notificationLog = require('../services/notificationLog');
 const notificationReview = require('../services/notificationReview');
+const ghlNotificationPrefs = require('../services/ghlNotificationPrefs');
 const { catchUpReviewed } = require('../services/taskPushReminders');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 
@@ -110,10 +111,42 @@ router.get('/inbound', async (req, res, next) => {
   try {
     res.set('Cache-Control', 'no-store');
     const ghl = await ghlLinkContext(req.workspaceId);
+    const email = userEmail(req);
+    const ghlPaused = ghlNotificationPrefs.isPaused(email);
+    let items = pendingInboundItems(await workspaceLeads(req), ghl);
+    if (ghlPaused) {
+      items = items.filter((it) => !it || !GHL_ACTIVITY_TYPES.has(it.type));
+    }
     res.json({
       success: true,
-      items: pendingInboundItems(await workspaceLeads(req), ghl),
+      items,
       ghlActivityUrl: '/notifications/ghl',
+      ghlNotificationsPaused: ghlPaused,
+      ghlNotificationsEnabled: !ghlPaused,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Pause or resume GHL call & text notifications for this signed-in user
+ * (phone push + inbound bell rows). Form/ad lead alerts stay on.
+ */
+router.post('/ghl-alerts', express.json({ limit: '4kb' }), (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) return res.status(401).json({ success: false, error: 'Sign in required.' });
+    const body = req.body || {};
+    let paused;
+    if (Object.prototype.hasOwnProperty.call(body, 'paused')) paused = !!body.paused;
+    else if (Object.prototype.hasOwnProperty.call(body, 'enabled')) paused = !body.enabled;
+    else return res.status(400).json({ success: false, error: 'paused or enabled is required.' });
+    const result = ghlNotificationPrefs.setPaused(email, paused);
+    res.json({
+      success: true,
+      ghlNotificationsPaused: result.paused,
+      ghlNotificationsEnabled: result.enabled,
     });
   } catch (e) {
     next(e);

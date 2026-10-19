@@ -19,9 +19,10 @@
     email: 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
   };
 
-  var section, list, count, badge, dropdown;
+  var section, list, count, badge, dropdown, ghlToggle, ghlStatus;
   var seen = null;
   var loading = false;
+  var ghlPaused = false;
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -102,13 +103,57 @@
     setCount(items.length);
   }
 
-  function refresh() {
-    if (loading || document.visibilityState === 'hidden') return;
+  function renderGhlToggle(paused) {
+    ghlPaused = !!paused;
+    if (ghlToggle) {
+      ghlToggle.textContent = ghlPaused ? 'Paused' : 'On';
+      ghlToggle.setAttribute('aria-pressed', ghlPaused ? 'false' : 'true');
+      ghlToggle.title = ghlPaused
+        ? 'Resume GHL call and text notifications'
+        : 'Pause GHL call and text notifications';
+      ghlToggle.classList.toggle('text-brand-muted', ghlPaused);
+      ghlToggle.classList.toggle('border-dashed', ghlPaused);
+    }
+    if (ghlStatus) {
+      ghlStatus.textContent = ghlPaused
+        ? 'Paused — missed calls and texts will not alert this account.'
+        : 'Missed calls and texts alert this device.';
+    }
+  }
+
+  function setGhlPaused(paused) {
+    if (ghlToggle) ghlToggle.disabled = true;
+    return fetch('/notifications/ghl-alerts', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ paused: !!paused }),
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || 'Could not update.');
+        renderGhlToggle(!!data.ghlNotificationsPaused);
+        return refresh(true);
+      })
+      .catch(function (err) {
+        renderGhlToggle(ghlPaused);
+        if (ghlStatus) ghlStatus.textContent = (err && err.message) || 'Could not update GHL alerts.';
+      })
+      .then(function () {
+        if (ghlToggle) ghlToggle.disabled = false;
+      });
+  }
+
+  function refresh(force) {
+    if (loading || (!force && document.visibilityState === 'hidden')) return;
     loading = true;
     fetch('/notifications/inbound', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (!data || !Array.isArray(data.items)) return;
+        if (typeof data.ghlNotificationsPaused === 'boolean') {
+          renderGhlToggle(data.ghlNotificationsPaused);
+        }
         announceNew(data.items);
         render(data.items);
       })
@@ -140,6 +185,8 @@
   function init() {
     section = document.getElementById('navInboundSection');
     list = document.getElementById('navInboundList');
+    ghlToggle = document.getElementById('navGhlAlertsToggle');
+    ghlStatus = document.getElementById('navGhlAlertsStatus');
     if (!section || !list) return;
     window.__navInboundBound = true;
     count = document.getElementById('navInboundCount');
@@ -153,6 +200,13 @@
       e.stopPropagation();
       markDone(btn);
     });
+    if (ghlToggle) {
+      ghlToggle.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setGhlPaused(!ghlPaused);
+      });
+    }
     document.addEventListener('adhello:nav-popover', function (e) {
       if (e.detail && e.detail.id === 'notifications') refresh();
     });
