@@ -9,8 +9,13 @@
   var PAUSE_KEY = 'agencyOsTaskRemindersPaused';
   var REVIEW_KEY = 'agencyOsTaskRemindersReviewedAt';
   var INTERVAL_MS = 25000;
+  /** Match server taskPushReminders — do not re-alert ancient overdue tasks in a burst. */
+  var LOOKBACK_MS = 30 * 60 * 1000;
+  /** Keep fired stamps across workspace switches (prune used to wipe them). */
+  var KEEP_FIRED_MS = 3 * 24 * 60 * 60 * 1000;
   var cache = [];
   var refreshInflight = null;
+  var reviewSyncInflight = null;
 
   function remindersPaused() {
     try {
@@ -39,6 +44,8 @@
   function setReviewedAt(atMs) {
     var at = Number.isFinite(atMs) && atMs > 0 ? Math.min(atMs, Date.now()) : Date.now();
     try {
+      var prev = getReviewedAt();
+      if (at < prev) at = prev;
       localStorage.setItem(REVIEW_KEY, String(at));
     } catch (e) {}
     return at;
@@ -72,18 +79,21 @@
   }
 
   function pruneMap(tasks) {
-    // Never wipe the fired map when the task list is empty (loading / wrong workspace
-    // flash) — that made every overdue reminder fire again after Mark all reviewed.
-    if (!tasks || !tasks.length) return;
-    var ids = {};
-    tasks.forEach(function (t) {
-      ids[firedKey(t, 'due')] = true;
-      if (earlyMinutes(t) > 0) ids[firedKey(t, 'early')] = true;
-    });
+    // Keep fired stamps for KEEP_FIRED_MS even when the task is not in the current
+    // workspace list — otherwise switching workspaces makes every overdue task
+    // notify again when you come back.
+    var now = Date.now();
     var m = loadMap();
     var next = {};
+    var current = {};
+    (tasks || []).forEach(function (t) {
+      if (!t) return;
+      current[firedKey(t, 'due')] = true;
+      if (earlyMinutes(t) > 0) current[firedKey(t, 'early')] = true;
+    });
     Object.keys(m).forEach(function (k) {
-      if (ids[k]) next[k] = m[k];
+      var at = Number(m[k]) || 0;
+      if (current[k] || (at > 0 && now - at < KEEP_FIRED_MS)) next[k] = m[k];
     });
     if (Object.keys(next).length !== Object.keys(m).length) saveMap(next);
   }
@@ -119,6 +129,28 @@
     return refreshInflight;
   }
 
+  /** Pull Mark-all-reviewed watermark from the server so it survives device/workspace hops. */
+  function syncReviewedFromServer() {
+    if (reviewSyncInflight) return reviewSyncInflight;
+    reviewSyncInflight = fetch('/notifications/recent.json', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (r) {
+        return r.ok ? r.json() : null;
+      })
+      .then(function (data) {
+        if (!data || !data.success || !data.reviewedAt) return;
+        var ms = Date.parse(data.reviewedAt);
+        if (Number.isFinite(ms) && ms > 0) setReviewedAt(ms);
+      })
+      .catch(function () {})
+      .finally(function () {
+        reviewSyncInflight = null;
+      });
+    return reviewSyncInflight;
+  }
+
   function notifyTask(task, kind) {
     var body = task.title || 'Scheduled task';
     if (task.leadTitle) body += ' — ' + task.leadTitle;
@@ -128,6 +160,7 @@
     var n = new Notification(kind === 'early' ? 'Upcoming task' : 'Task reminder', {
       body: body,
       tag: firedKey(task, kind),
+      renotify: false,
       silent: false,
     });
     n.onclick = function () {
@@ -168,6 +201,11 @@
     return at;
   }
 
+  function stampQuiet(fired, key, now) {
+    fired[key] = now;
+    saveMap(fired);
+  }
+
   function tick() {
     if (remindersPaused()) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -188,30 +226,28 @@
         var earlyAt = due - earlyMin * 60 * 1000;
         if (now >= earlyAt && now < due) {
           var ek = firedKey(task, 'early');
-          if (fired[ek]) return;
-          if (earlyAt <= reviewedAt) {
-            fired[ek] = now;
-            saveMap(fired);
-            return;
+          if (fired[ek]) {
+            /* already notified */
+          } else if (earlyAt <= reviewedAt || now - earlyAt >= LOOKBACK_MS) {
+            stampQuiet(fired, ek, now);
+          } else {
+            stampQuiet(fired, ek, now);
+            try {
+              notifyTask(task, 'early');
+            } catch (e) {}
           }
-          fired[ek] = now;
-          saveMap(fired);
-          try {
-            notifyTask(task, 'early');
-          } catch (e) {}
         }
       }
 
       if (due > now) return;
       var k = firedKey(task, 'due');
       if (fired[k]) return;
-      if (due <= reviewedAt) {
-        fired[k] = now;
-        saveMap(fired);
+      // Reviewed, or too old to alert (avoids re-spamming 20+ overdue follow-ups).
+      if (due <= reviewedAt || now - due >= LOOKBACK_MS) {
+        stampQuiet(fired, k, now);
         return;
       }
-      fired[k] = now;
-      saveMap(fired);
+      stampQuiet(fired, k, now);
       try {
         notifyTask(task, 'due');
       } catch (e) {}
@@ -220,6 +256,7 @@
 
   function start() {
     if (window.__agencyTaskReminderTimer) return;
+    syncReviewedFromServer();
     window.__agencyTaskReminderTimer = setInterval(function () {
       refreshTasks().finally(tick);
     }, INTERVAL_MS);
@@ -270,6 +307,9 @@
     setPaused: setRemindersPaused,
     markAllCaughtUp: markAllCaughtUp,
     getReviewedAt: getReviewedAt,
+    syncReviewedFromServer: syncReviewedFromServer,
+    LOOKBACK_MS: LOOKBACK_MS,
+    KEEP_FIRED_MS: KEEP_FIRED_MS,
   };
 
   function boot() {

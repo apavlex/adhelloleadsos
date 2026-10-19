@@ -49,5 +49,9 @@ test('bell and history templates expose Mark reviewed', () => {
   const taskReminders = fs.readFileSync(path.join(__dirname, '../public/js/task-reminders.js'), 'utf8');
   assert.match(taskReminders, /markAllCaughtUp/);
   assert.match(taskReminders, /agencyOsTaskRemindersReviewedAt/);
-  assert.match(taskReminders, /Never wipe the fired map when the task list is empty/);
+  assert.match(taskReminders, /KEEP_FIRED_MS/);
+  assert.match(taskReminders, /LOOKBACK_MS/);
+  assert.match(taskReminders, /switching workspaces/);
+  assert.match(taskReminders, /syncReviewedFromServer/);
+  assert.match(taskReminders, /renotify:\s*false/);
 });
