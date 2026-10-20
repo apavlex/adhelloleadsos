@@ -39,6 +39,8 @@ const REAL_ESTATE_SCRAPER_LABELS = {
   listings: 'Multi-source listings',
 };
 
+const listingMarket = require('./listingMarket');
+
 function parseAutoTags(raw) {
   if (Array.isArray(raw)) {
     return raw.map((s) => String(s || '').trim()).filter(Boolean);
@@ -85,6 +87,7 @@ function normalizeListingFields(raw, jobType) {
   if (jobType === JOB_TYPES.REAL_ESTATE) {
     const scraper = String(raw.scraper || 'listings').trim().toLowerCase();
     out.scraper = REAL_ESTATE_SCRAPER_LABELS[scraper] ? scraper : 'listings';
+    out.listingMarket = listingMarket.normalizeListingMarket(raw.listingMarket);
     const flip = parseFlipFilter({ flipFilter: raw.flipFilter || raw });
     out.flipFilter = flip.enabled
       ? {
@@ -176,6 +179,10 @@ function describeSearchPreset(preset) {
         label: 'Property scraper',
         value: REAL_ESTATE_SCRAPER_LABELS[p.scraper] || REAL_ESTATE_SCRAPER_LABELS.listings,
       });
+      rows.push({
+        label: 'Listing market',
+        value: listingMarket.listingMarketLabel(p.listingMarket),
+      });
       if (p.flipFilter && p.flipFilter.enabled) {
         rows.push({ label: 'Flip filter', value: 'On — AI scoring enabled' });
         rows.push({
@@ -256,6 +263,7 @@ function parseSearchPresetFromForm(body) {
     raw.sources = listingSearch.parseSourcesFromBody(body);
     if (jobType === JOB_TYPES.REAL_ESTATE) {
       raw.scraper = body.scraper || body.realEstateScraper || 'listings';
+      raw.listingMarket = body.listingMarket;
       raw.flipFilter = parseFlipFilter(body);
     }
   } else {
@@ -296,6 +304,7 @@ function schedulePayloadFromFolder(folder, location = {}) {
     if (preset.jobType === JOB_TYPES.REAL_ESTATE) {
       payload.flipFilter = preset.flipFilter;
       payload.scraper = preset.scraper;
+      payload.listingMarket = preset.listingMarket;
     }
     return payload;
   }
@@ -514,6 +523,7 @@ function rememberFieldsFromSearchRecord(searchRecord = {}) {
       minPrice: searchRecord.minPrice,
       maxPrice: searchRecord.maxPrice,
       scraper: searchRecord.scraper,
+      listingMarket: searchRecord.listingMarket,
       flipFilter: searchRecord.flipFilter,
       lastSearchKey: searchRecord.searchKey || searchRecord.key,
     },

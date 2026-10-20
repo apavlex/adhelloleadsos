@@ -4,6 +4,7 @@
  */
 
 const { ApifyClient } = require('apify-client');
+const listingMarket = require('./listingMarket');
 
 const DEFAULT_ACTOR = 'cirkit/zillow-search-scraper';
 
@@ -36,7 +37,11 @@ function parsePrice(value) {
 }
 
 function listingPrice(item) {
-  const raw = item.price ?? item.unformattedPrice ?? item.listPrice ?? item.priceValue;
+  const status = listingMarket.classifyListingStatus(item);
+  const raw =
+    status === 'sold'
+      ? item.soldPrice ?? item.price ?? item.unformattedPrice ?? item.listPrice ?? item.priceValue
+      : item.price ?? item.unformattedPrice ?? item.listPrice ?? item.priceValue ?? item.soldPrice;
   if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
   return parsePrice(raw);
 }
@@ -64,9 +69,18 @@ function normalizeListing(item, { city, state }) {
     beds != null || baths != null
       ? `${beds != null ? beds : '?'}bd · ${baths != null ? baths : '?'}ba`
       : '';
+  const status =
+    listingMarket.classifyListingStatus(item) ||
+    item.status ||
+    item.homeStatus ||
+    item.listingStatus ||
+    '';
+  const statusLabel = String(status).toLowerCase().includes('sold') ? 'Sold' : '';
 
   return {
-    title: [address !== 'N/A' ? address : listingCity, priceLabel, bedsBaths].filter(Boolean).join(' · '),
+    title: [address !== 'N/A' ? address : listingCity, priceLabel, bedsBaths, statusLabel]
+      .filter(Boolean)
+      .join(' · '),
     phone: item.agentPhone || item.brokerPhone || item.phone || 'N/A',
     website: url || 'N/A',
     email: item.agentEmail || item.brokerEmail || item.email || 'N/A',
@@ -89,8 +103,8 @@ function normalizeListing(item, { city, state }) {
       beds,
       baths,
       sqft,
-      status: item.status || item.homeStatus || item.listingStatus || '',
-      listDate: item.datePosted || item.listDate || item.timeOnZillow || '',
+      status,
+      listDate: item.datePosted || item.listDate || item.timeOnZillow || item.dateSold || '',
       brokerName: item.brokerName || item.brokerageName || '',
       agentName: item.agentName || item.listingAgentName || '',
       propertyType: item.homeType || item.propertyType || '',
@@ -122,12 +136,22 @@ function applyPriceFilters(listings, { minPrice, maxPrice }) {
  * @param {number|string} [params.maxPrice]
  * @param {Record<string,string>} [params.integrationEnv]
  */
-async function searchListings({ city, state, maxResults, minPrice, maxPrice, integrationEnv }) {
+async function searchListings({
+  city,
+  state,
+  maxResults,
+  minPrice,
+  maxPrice,
+  listingMarket: market,
+  query,
+  integrationEnv,
+}) {
   const oxylabsRealEstate = require('./oxylabsRealEstate');
   const preferOxylabs =
     String((integrationEnv && integrationEnv.REAL_ESTATE_PRIMARY) || process.env.REAL_ESTATE_PRIMARY || '')
       .trim()
       .toLowerCase() === 'oxylabs';
+  const resolvedMarket = listingMarket.normalizeListingMarket(market);
 
   if (preferOxylabs && oxylabsRealEstate.isConfigured(integrationEnv)) {
     return oxylabsRealEstate.searchListings({
@@ -136,6 +160,8 @@ async function searchListings({ city, state, maxResults, minPrice, maxPrice, int
       maxResults,
       minPrice,
       maxPrice,
+      listingMarket: resolvedMarket,
+      query,
       integrationEnv,
     });
   }
@@ -148,6 +174,7 @@ async function searchListings({ city, state, maxResults, minPrice, maxPrice, int
         maxResults,
         minPrice,
         maxPrice,
+        listingMarket: resolvedMarket,
         integrationEnv,
       });
     } catch (err) {
@@ -159,6 +186,8 @@ async function searchListings({ city, state, maxResults, minPrice, maxPrice, int
           maxResults,
           minPrice,
           maxPrice,
+          listingMarket: resolvedMarket,
+          query,
           integrationEnv,
         });
       }
@@ -173,6 +202,8 @@ async function searchListings({ city, state, maxResults, minPrice, maxPrice, int
       maxResults,
       minPrice,
       maxPrice,
+      listingMarket: resolvedMarket,
+      query,
       integrationEnv,
     });
   }
@@ -180,7 +211,15 @@ async function searchListings({ city, state, maxResults, minPrice, maxPrice, int
   throw new Error('Real estate search requires Apify or Oxylabs credentials.');
 }
 
-async function searchListingsViaApify({ city, state, maxResults, minPrice, maxPrice, integrationEnv }) {
+async function searchListingsViaApify({
+  city,
+  state,
+  maxResults,
+  minPrice,
+  maxPrice,
+  listingMarket: market,
+  integrationEnv,
+}) {
   const client = clientFor(integrationEnv);
   const cap = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
   const locationQuery = `${String(city || '').trim()}, ${String(state || '').trim()}`.replace(/^,\s*|,\s*$/g, '').trim();
@@ -188,14 +227,18 @@ async function searchListingsViaApify({ city, state, maxResults, minPrice, maxPr
     throw new Error('City and state are required for real estate search.');
   }
 
+  const urls = listingMarket.zillowSearchUrls(city, state, market);
   const input = {
-    locationQueries: [locationQuery],
+    searchUrls: urls.map(({ url }) => ({ url })),
+    locationQueries: urls.length ? [] : [locationQuery],
     extractionMethod: 'PAGINATION',
-    maxItems: cap,
+    maxItems: Math.min(cap * (urls.length > 1 ? 2 : 1), 500),
     maxPagesPerSearch: Math.min(20, Math.max(1, Math.ceil(cap / 41))),
   };
 
-  console.log(`[REAL-ESTATE] Starting Apify actor ${actorId()} for "${locationQuery}" (max ${cap})`);
+  console.log(
+    `[REAL-ESTATE] Starting Apify actor ${actorId()} for "${locationQuery}" (${listingMarket.listingMarketLabel(market)}, max ${cap})`,
+  );
 
   const run = await client.actor(actorId()).call(input);
   const { items } = await client.dataset(run.defaultDatasetId).listItems();

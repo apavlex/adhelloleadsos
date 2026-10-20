@@ -104,6 +104,7 @@ async function runListingJob(schedule, integrationEnv) {
     maxResults: schedule.maxResults || 20,
     minPrice: schedule.minPrice,
     maxPrice: schedule.maxPrice,
+    listingMarket: schedule.listingMarket,
     integrationEnv,
     jobType,
   });
@@ -152,6 +153,8 @@ async function runRealEstateJob(schedule, integrationEnv) {
     maxResults: schedule.maxResults || 20,
     minPrice: schedule.minPrice,
     maxPrice: schedule.maxPrice,
+    listingMarket: schedule.listingMarket,
+    query: schedule.query || schedule.keyword,
     integrationEnv,
   });
 
@@ -268,6 +271,7 @@ function buildSearchRecord(schedule, results, timestampIso) {
       maxPrice: schedule.maxPrice || null,
       flipFilter: flipFilter.enabled ? flipFilter : null,
       scraper: schedule.scraper || null,
+      listingMarket: schedule.listingMarket || null,
     };
     if (schedule._flipStats) record.flipStats = schedule._flipStats;
     if (jobType !== JOB_TYPES.REAL_ESTATE) {

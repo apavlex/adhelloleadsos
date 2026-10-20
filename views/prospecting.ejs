@@ -522,6 +522,14 @@
           </div>
           <div id="folderSearchReExtras" class="space-y-3 hidden">
             <div>
+              <label for="folderSearchListingMarket" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Listing market</label>
+              <select id="folderSearchListingMarket" name="listingMarket" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+                <option value="both" selected>Active for sale + recently sold</option>
+                <option value="active">Active for sale only</option>
+                <option value="sold">Recently sold only</option>
+              </select>
+            </div>
+            <div>
               <label for="folderSearchReScraper" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Property scraper mode</label>
               <select id="folderSearchReScraper" name="scraper" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
                 <option value="listings">Multi-source listings (recommended)</option>
@@ -1575,8 +1583,9 @@
         $('folderSearchDirectorySupplement').checked = p.directorySupplement !== false;
       }
       if ($('folderSearchReScraper')) $('folderSearchReScraper').value = p.scraper || 'listings';
+      if ($('folderSearchListingMarket')) $('folderSearchListingMarket').value = p.listingMarket || 'both';
       if ($('folderSearchQuery')) {
-        var defaults = { real_estate: 'homes for sale', home_owners: 'property owner', products: '', wholesale: 'wholesale' };
+        var defaults = { real_estate: 'homes for sale and recently sold', home_owners: 'property owner', products: '', wholesale: 'wholesale' };
         $('folderSearchQuery').value = p.query || defaults[jt] || '';
       }
       if ($('folderSearchMinPrice')) $('folderSearchMinPrice').value = p.minPrice != null ? String(p.minPrice) : '';
@@ -1657,6 +1666,7 @@
         }
         if (jt === 'real_estate') {
           body.scraper = ($('folderSearchReScraper') && $('folderSearchReScraper').value) || 'listings';
+          body.listingMarket = ($('folderSearchListingMarket') && $('folderSearchListingMarket').value) || 'both';
           if ($('folderSearchFlipEnabled') && $('folderSearchFlipEnabled').checked) {
             body.flipFilterEnabled = 'on';
             body.minFlipScore = ($('folderSearchMinFlipScore') && $('folderSearchMinFlipScore').value) || '7';

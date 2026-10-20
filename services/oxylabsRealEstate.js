@@ -3,6 +3,7 @@
  */
 
 const oxylabs = require('./oxylabsClient');
+const listingMarket = require('./listingMarket');
 
 function parsePriceFromText(text) {
   if (!text) return null;
@@ -30,7 +31,7 @@ function hostFromUrl(url) {
   }
 }
 
-function isRealEstateListingUrl(url) {
+function isRealEstateListingUrl(url, marketId) {
   const u = String(url || '').toLowerCase();
   if (!u.startsWith('http')) return false;
   const hosts = [
@@ -43,11 +44,14 @@ function isRealEstateListingUrl(url) {
     'landandfarm.com',
   ];
   if (!hosts.some((h) => u.includes(h))) return false;
+  if (marketId === 'sold') {
+    return /sold|sale-price|closed|homedetails|\/home\/|\/property\//.test(u);
+  }
   const hints = ['homedetails', 'for_sale', 'for-sale', '/home/', '/property/', '/realestate/', '/homes/'];
   return hints.some((h) => u.includes(h));
 }
 
-function normalizeOrganicListing(result, { city, state }) {
+function normalizeOrganicListing(result, { city, state, marketId }) {
   const { normalizeListing } = require('./realEstateSearch');
   const url = result.url || result.link || '';
   const title = result.title || result.name || url;
@@ -55,6 +59,9 @@ function normalizeOrganicListing(result, { city, state }) {
   const price = parsePriceFromText(`${title} ${snippet}`);
   const { beds, baths } = parseBedsBaths(`${title} ${snippet}`);
   const host = hostFromUrl(url);
+  const statusHint =
+    marketId ||
+    (/sold/i.test(`${title} ${snippet} ${url}`) ? 'sold' : 'for_sale');
 
   const item = {
     url,
@@ -63,7 +70,7 @@ function normalizeOrganicListing(result, { city, state }) {
     beds,
     baths,
     homeType: host.includes('zillow') ? 'Zillow listing' : 'Listing',
-    status: 'for_sale',
+    status: statusHint === 'sold' ? 'sold' : 'for_sale',
   };
 
   const row = normalizeListing(item, { city, state });
@@ -79,13 +86,9 @@ function isConfigured(integrationEnv) {
   return oxylabs.isConfigured(integrationEnv);
 }
 
-/**
- * @param {Object} params
- */
-async function searchListings({ city, state, maxResults, minPrice, maxPrice, query, integrationEnv }) {
+async function searchOneQuery({ city, state, maxResults, minPrice, maxPrice, terms, marketId, integrationEnv }) {
   const cap = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
   const loc = [String(city || '').trim(), String(state || '').trim()].filter(Boolean).join(', ');
-  const terms = String(query || 'homes for sale').trim() || 'homes for sale';
   const searchQuery = `${terms} ${loc} (site:zillow.com OR site:realtor.com OR site:redfin.com)`;
 
   const payload = {
@@ -108,14 +111,65 @@ async function searchListings({ city, state, maxResults, minPrice, maxPrice, que
     const organic = parsed && Array.isArray(parsed.organic) ? parsed.organic : [];
     for (const item of organic) {
       const url = item.url || item.link;
-      if (!isRealEstateListingUrl(url)) continue;
-      listings.push(normalizeOrganicListing(item, { city, state }));
+      if (!isRealEstateListingUrl(url, marketId)) continue;
+      listings.push(normalizeOrganicListing(item, { city, state, marketId }));
       if (listings.length >= cap) break;
     }
     if (listings.length >= cap) break;
   }
 
   listings = require('./realEstateSearch').applyPriceFilters(listings, { minPrice, maxPrice });
+  return listings.slice(0, cap);
+}
+
+/**
+ * @param {Object} params
+ */
+async function searchListings({
+  city,
+  state,
+  maxResults,
+  minPrice,
+  maxPrice,
+  query,
+  listingMarket: market,
+  integrationEnv,
+}) {
+  const cap = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
+  const loc = [String(city || '').trim(), String(state || '').trim()].filter(Boolean).join(', ');
+  const markets = listingMarket.marketsFor(market);
+  const per = Math.max(5, Math.ceil(cap / markets.length));
+  let listings = [];
+
+  for (const m of markets) {
+    const terms =
+      listingMarket.isGenericListingQuery(query) || !String(query || '').trim()
+        ? m.oxylabsTerms
+        : String(query).trim();
+    try {
+      const chunk = await searchOneQuery({
+        city,
+        state,
+        maxResults: per,
+        minPrice,
+        maxPrice,
+        terms,
+        marketId: m.id,
+        integrationEnv,
+      });
+      const seen = new Set(listings.map((r) => String(r.url || r.website || '').toLowerCase()));
+      for (const row of chunk) {
+        const k = String(row.url || row.website || '').toLowerCase();
+        if (k && seen.has(k)) continue;
+        if (k) seen.add(k);
+        listings.push(row);
+        if (listings.length >= cap) break;
+      }
+    } catch (err) {
+      console.warn(`[Oxylabs RE] ${m.label} failed:`, err.message);
+    }
+    if (listings.length >= cap) break;
+  }
 
   if (!listings.length) {
     throw new Error(`Oxylabs returned no real estate listings for ${loc}.`);

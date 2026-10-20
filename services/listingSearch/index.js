@@ -4,6 +4,7 @@
  */
 
 const { mergeListingResults, applyPriceFilters } = require('./normalize');
+const listingMarket = require('../listingMarket');
 const craigslist = require('./sources/craigslist');
 const facebookMarketplace = require('./sources/facebookMarketplace');
 const zillow = require('./sources/zillow');
@@ -103,6 +104,7 @@ async function searchListings(params) {
 
   const cap = maxResultsCap(params);
   const sourceIds = parseSourcesList(params.sources);
+  const market = listingMarket.normalizeListingMarket(params.listingMarket);
   const searchParams = {
     city: params.city,
     state: params.state,
@@ -110,6 +112,7 @@ async function searchListings(params) {
     maxResults: cap,
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
+    listingMarket: market,
     integrationEnv,
     jobType: params.jobType,
   };

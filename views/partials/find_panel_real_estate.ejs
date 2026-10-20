@@ -10,8 +10,18 @@
       content: 'Zillow, Realtor, Redfin, MHVillage, Craigslist, Facebook, OfferUp, Oxylabs, and SerpAPI — merged and deduped. Mobile home flip scoring available below.'
     }) %>
   </div>
-  <input type="text" id="findReQuery" name="query" value="<%= typeof defaultQuery !== 'undefined' && defaultQuery ? defaultQuery : 'homes for sale' %>" placeholder="homes for sale, mobile home, land…"
+  <input type="text" id="findReQuery" name="query" value="<%= typeof defaultQuery !== 'undefined' && defaultQuery ? defaultQuery : 'homes for sale and recently sold' %>" placeholder="homes for sale, recently sold, mobile home, land…"
     class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white" />
+</div>
+<div>
+  <label for="findReListingMarket" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Listing market</label>
+  <% const _lm = typeof listingMarket !== 'undefined' && listingMarket ? String(listingMarket) : 'both'; %>
+  <select id="findReListingMarket" name="listingMarket" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
+    <option value="both"<%= !_lm || _lm === 'both' ? ' selected' : '' %>>Active for sale + recently sold</option>
+    <option value="active"<%= _lm === 'active' ? ' selected' : '' %>>Active for sale only</option>
+    <option value="sold"<%= _lm === 'sold' ? ' selected' : '' %>>Recently sold only</option>
+  </select>
+  <p class="text-[11px] text-brand-muted mt-1">Zillow, Realtor, and Redfin honor this. Default pulls both markets in the area.</p>
 </div>
 <%- include('listing_sources_fieldset', { enabledSources: typeof enabledSources !== 'undefined' ? enabledSources : null }) %>
 <div>
