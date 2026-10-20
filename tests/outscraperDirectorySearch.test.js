@@ -19,6 +19,22 @@ describe('outscraper directory search helpers', () => {
     assert.match(url, /zillow\.com\/professionals\/real-estate-agent-reviews\/seattle-wa/);
   });
 
+  it('builds Zillow search URL', () => {
+    const url = outscraper.buildZillowSearchUrl('Portland', 'OR');
+    assert.match(url, /zillow\.com\/portland-or\/?$/);
+  });
+
+  it('exposes searchGrouponDirectory and searchZillowDirectory', () => {
+    assert.equal(typeof outscraper.searchGrouponDirectory, 'function');
+    assert.equal(typeof outscraper.searchZillowDirectory, 'function');
+  });
+
+  it('builds Groupon local search URL', () => {
+    const url = outscraper.buildGrouponSearchUrl('Massage', 'Portland', 'OR');
+    assert.match(url, /groupon\.com\/local\/portland-or/);
+    assert.match(url, /query=Massage/);
+  });
+
   it('normalizes Yelp directory row', () => {
     const row = outscraper.normalizeYelpDirectoryRow({
       name: 'Joe Plumbing',
@@ -74,6 +90,49 @@ describe('outscraper directory search helpers', () => {
     assert.equal(row.categoryName, 'Real estate agent');
   });
 
+  it('normalizes Zillow search listing preferring agent over address', () => {
+    const row = outscraper.normalizeZillowSearchRow({
+      address: '12 NW Couch St, Portland, OR',
+      agent_name: 'Sam Listing',
+      brokerage: 'Cascade Homes',
+      phone: '503-555-7777',
+      detailUrl: 'https://www.zillow.com/homedetails/12-nw-couch/123_zpid/',
+      homeType: 'SINGLE_FAMILY',
+    });
+    assert.match(row.title, /Sam Listing/);
+    assert.match(row.title, /Cascade Homes/);
+    assert.equal(row.phone, '503-555-7777');
+    assert.match(row.url, /homedetails/);
+    assert.equal(row.categoryName, 'SINGLE_FAMILY');
+  });
+
+  it('normalizes Zillow search listing with address-only title', () => {
+    const row = outscraper.normalizeZillowSearchRow({
+      streetAddress: '88 Burnside Ave',
+      detail_url: 'https://www.zillow.com/homedetails/88-burnside/456_zpid/',
+    });
+    assert.equal(row.title, '88 Burnside Ave');
+    assert.match(row.url, /88-burnside/);
+  });
+
+  it('normalizes Groupon row preferring merchant over deal title', () => {
+    const row = outscraper.normalizeGrouponDirectoryRow({
+      merchant_name: 'Glow Spa',
+      deal_title: '60-Minute Massage — 50% Off',
+      phone: '503-555-4444',
+      address: '200 SW Alder, Portland, OR',
+      deal_url: 'https://www.groupon.com/deals/glow-spa-portland',
+      rating: 4.7,
+      review_count: 120,
+      category: 'Beauty & Spas',
+    });
+    assert.equal(row.title, 'Glow Spa');
+    assert.equal(row.phone, '503-555-4444');
+    assert.match(row.url, /groupon\.com\/deals/);
+    assert.equal(row.categoryName, 'Beauty & Spas');
+    assert.equal(row.reviewsCount, 120);
+  });
+
   it('parses AI scraper listing arrays', () => {
     const rows = outscraper.parseAiScraperListings({
       businesses: [{ name: 'A' }, { name: 'B' }],
@@ -88,8 +147,15 @@ describe('directoryLeadSearch sources', () => {
     assert.ok(ids.includes('yelp'));
     assert.ok(ids.includes('angi'));
     assert.ok(ids.includes('yellowpages'));
-    assert.ok(ids.includes('zillow_agents'));
+    assert.ok(ids.includes('groupon'));
+    assert.ok(ids.includes('zillow'));
     assert.ok(ids.includes('bbb'));
+    assert.ok(!ids.includes('zillow_agents'));
+    const groupon = DIRECTORY_SOURCES.find((s) => s.id === 'groupon');
+    assert.equal(groupon.outscraper, 'groupon');
+    const zillow = DIRECTORY_SOURCES.find((s) => s.id === 'zillow');
+    assert.equal(zillow.outscraper, 'zillow');
+    assert.equal(zillow.label, 'Zillow');
   });
 
   it('resolveProfileUrl prefixes relative Yelp paths', () => {
