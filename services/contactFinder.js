@@ -244,9 +244,11 @@ async function findContactsForLead(lead, integrationEnv, opts = {}) {
     throw err;
   }
   const cfg = finderConfigured(integrationEnv);
-  if (!cfg.moltsets && !cfg.outscraper && !cfg.apify) {
+  // Opportunities / Get More Contacts expect MoltSets (primary) or Outscraper (fallback).
+  // Apify remains a last-resort crawl when both are empty, but cannot be the only connection.
+  if (!cfg.moltsets && !cfg.outscraper) {
     const err = new Error(
-      'Connect MoltSets, Outscraper, or Apify under Workspace → Integrations to find contacts.',
+      'Connect MoltSets (primary) or Outscraper (fallback) under Workspace → Integrations → Data enhance to find contacts.',
     );
     err.code = 'not_configured';
     throw err;
