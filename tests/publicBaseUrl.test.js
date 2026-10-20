@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   getPublicBaseUrl,
   getReviewPublicBaseUrl,
+  getReviewsAppSignupUrl,
   getReviewPageUrl,
   getRequestOrigin,
   googleOAuthRedirectUris,
@@ -53,21 +54,23 @@ describe('publicBaseUrl', () => {
     assert.equal(uris.drive, 'https://leads.adhello.io/auth/google/drive/callback');
   });
 
-  it('brands review links to AdHello.io even when BASE_URL is localhost', () => {
+  it('brands review + reviews-app links to reviews.adhello.io even when BASE_URL is the CRM host', () => {
     const prev = {
       base: process.env.BASE_URL,
       review: process.env.REVIEW_PUBLIC_BASE_URL,
       publicBase: process.env.PUBLIC_BASE_URL,
       render: process.env.RENDER_EXTERNAL_URL,
     };
-    process.env.BASE_URL = 'http://localhost:3000';
+    process.env.BASE_URL = 'https://leads.adhello.io';
     delete process.env.REVIEW_PUBLIC_BASE_URL;
     delete process.env.PUBLIC_BASE_URL;
     delete process.env.RENDER_EXTERNAL_URL;
-    assert.equal(getReviewPublicBaseUrl(), ADHELLO_REVIEW_PUBLIC_BASE);
-    assert.equal(getReviewPageUrl('brightline-electric'), 'https://leads.adhello.io/rv/brightline-electric');
-    process.env.REVIEW_PUBLIC_BASE_URL = 'https://leads.adhello.io/';
-    assert.equal(getReviewPageUrl('acme'), 'https://leads.adhello.io/rv/acme');
+    assert.equal(ADHELLO_REVIEW_PUBLIC_BASE, 'https://reviews.adhello.io');
+    assert.equal(getReviewPublicBaseUrl(), 'https://reviews.adhello.io');
+    assert.equal(getReviewsAppSignupUrl(), 'https://reviews.adhello.io/app');
+    assert.equal(getReviewPageUrl('brightline-electric'), 'https://reviews.adhello.io/rv/brightline-electric');
+    process.env.REVIEW_PUBLIC_BASE_URL = 'https://reviews.adhello.io/';
+    assert.equal(getReviewPageUrl('acme'), 'https://reviews.adhello.io/rv/acme');
     process.env.BASE_URL = prev.base;
     if (prev.review) process.env.REVIEW_PUBLIC_BASE_URL = prev.review;
     else delete process.env.REVIEW_PUBLIC_BASE_URL;

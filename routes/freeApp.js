@@ -6,7 +6,7 @@
 const express = require('express');
 const freeAppSignup = require('../services/freeAppSignup');
 const networkBrand = require('../services/networkBrand');
-const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
+const { getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const router = express.Router();
 const form = express.urlencoded({ extended: false, limit: '16kb' });
@@ -56,7 +56,7 @@ router.post('/app', form, async (req, res, next) => {
       form: formValues,
       digits,
       email,
-      baseUrl: getPublicBaseUrl(req),
+      baseUrl: getReviewPublicBaseUrl(),
       ip: clientIp(req),
     });
     if (!result.ok) {

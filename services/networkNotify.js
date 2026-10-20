@@ -18,13 +18,14 @@ const store = require('./networkStore');
 const { brandView } = require('./networkBrand');
 const reviewRequestScript = require('./reviewRequestScript');
 const reviewAsk = require('./reviewAsk');
-const { getReviewPageUrl, getReviewPublicBaseUrl, getPublicBaseUrl } = require('../lib/publicBaseUrl');
+const { getReviewPageUrl, getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 
-function baseUrlFromReq(req) {
-  return getPublicBaseUrl(req);
+/** Member-app + review links always brand to reviews.adhello.io (not the CRM host). */
+function baseUrlFromReq(_req) {
+  return getReviewPublicBaseUrl();
 }
 
-/** Customer-facing review URL branded to AdHello.io (leads.adhello.io/rv/…). */
+/** Customer-facing review URL branded to reviews.adhello.io/rv/…. */
 function reviewPageLink(memberOrSlug, opts) {
   const slug = typeof memberOrSlug === 'string'
     ? memberOrSlug

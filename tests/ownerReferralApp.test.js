@@ -56,7 +56,7 @@ describe('ownerReferralApp', () => {
     assert.equal(first.member.id, OWNER_MEMBER_ID);
     assert.equal(first.isStaff, false);
     assert.match(first.path, /^\/m\/[^/]+$/);
-    assert.match(first.url, /\/a\/[a-z0-9]{8,12}$/);
+    assert.match(first.url, /^https:\/\/reviews\.adhello\.io\/a\/[a-z0-9]{8,12}$/);
     assert.doesNotMatch(first.url, /\/m\/eyJ/);
     assert.equal(first.member.companyName, 'Bright Electric Co');
 
@@ -64,7 +64,7 @@ describe('ownerReferralApp', () => {
     assert.equal(second.member.id, first.member.id);
     assert.equal(second.network.id, first.network.id);
     assert.match(second.path, /^\/m\/[^/]+$/);
-    assert.match(second.url, /\/a\/[a-z0-9]{8,12}$/);
+    assert.match(second.url, /^https:\/\/reviews\.adhello\.io\/a\/[a-z0-9]{8,12}$/);
 
     const stored = await networkStore.getMember(first.network.id, OWNER_MEMBER_ID);
     assert.ok(stored);
@@ -98,7 +98,7 @@ describe('ownerReferralApp', () => {
     assert.equal(staff.member.email, 'sam@example.com');
     assert.equal(staff.member.workspaceStaff, true);
     assert.match(staff.path, /^\/m\/[^/]+$/);
-    assert.match(staff.url, /\/a\/[a-z0-9]{8,12}$/);
+    assert.match(staff.url, /^https:\/\/reviews\.adhello\.io\/a\/[a-z0-9]{8,12}$/);
 
     const again = await ensureOwnerReferralApp(staffReq);
     assert.equal(again.member.id, staff.member.id);
