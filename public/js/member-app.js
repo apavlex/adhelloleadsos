@@ -1,5 +1,89 @@
 /* Member referral app: Add-to-Home-Screen modal, copy and share buttons. */
 (function () {
+  /** Centered progress overlay while a customer / tab navigation is in flight. */
+  function ensureMaNavLoading() {
+    var el = document.getElementById('maNavLoading');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'maNavLoading';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-label', 'Loading');
+    el.innerHTML =
+      '<div class="ma-nav-loader">' +
+        '<svg class="ma-nav-loader-ring" viewBox="0 0 80 80" aria-hidden="true">' +
+          '<circle class="ma-nav-loader-track" cx="40" cy="40" r="34" />' +
+          '<circle class="ma-nav-loader-arc" cx="40" cy="40" r="34" />' +
+        '</svg>' +
+        '<span class="ma-nav-loader-dot" aria-hidden="true"></span>' +
+      '</div>';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function hideMaNavLoading() {
+    clearTimeout(hideMaNavLoading._failSafe);
+    document.documentElement.classList.remove('ma-nav-loading');
+    var el = document.getElementById('maNavLoading');
+    if (el) el.classList.remove('is-on');
+  }
+
+  function showMaNavLoading() {
+    document.documentElement.classList.add('ma-nav-loading');
+    var el = ensureMaNavLoading();
+    void el.offsetWidth;
+    el.classList.add('is-on');
+    clearTimeout(hideMaNavLoading._failSafe);
+    hideMaNavLoading._failSafe = setTimeout(hideMaNavLoading, 8000);
+  }
+
+  window.maShowNavLoading = showMaNavLoading;
+  window.maHideNavLoading = hideMaNavLoading;
+
+  document.addEventListener(
+    'click',
+    function (e) {
+      var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+      if (!a) return;
+      if (e.defaultPrevented) return;
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || a.target === '_blank') return;
+      if (a.hasAttribute('download') || a.hasAttribute('data-ma-no-nav-progress')) return;
+      var href = a.getAttribute('href') || '';
+      if (!href || href.charAt(0) === '#' || href.indexOf('javascript:') === 0) return;
+      try {
+        var u = new URL(href, window.location.href);
+        if (u.origin !== window.location.origin) return;
+        if (u.pathname === window.location.pathname && u.search === window.location.search && u.hash) return;
+        var onMember = /\/(?:m|a)\//.test(window.location.pathname);
+        var toMember = /\/(?:m|a)\//.test(u.pathname);
+        if (!onMember && !toMember) return;
+      } catch (_) {
+        return;
+      }
+      showMaNavLoading();
+    },
+    true
+  );
+
+  document.addEventListener(
+    'submit',
+    function (e) {
+      var form = e.target;
+      if (!form || form.tagName !== 'FORM') return;
+      if (form.getAttribute('data-ma-no-nav-progress') === '1') return;
+      if (form.getAttribute('target') === '_blank') return;
+      // In-page AJAX forms set data-ma-busy themselves — skip full-screen loader.
+      if (form.hasAttribute('data-ma-busy') || form.hasAttribute('data-ma-ajax')) return;
+      showMaNavLoading();
+    },
+    true
+  );
+
+  window.addEventListener('pageshow', hideMaNavLoading);
+  window.addEventListener('pagehide', function () {
+    /* keep spinner through unload when navigating away */
+  });
+
   // Reviews used to register the Agency OS root /sw.js. That single worker received
   // workspace task reminders + search alerts, so they showed on the Reviews icon.
   // Drop the root worker here; Reviews keeps /m/sw.js only. Agency OS re-registers
@@ -2374,5 +2458,107 @@
     document.addEventListener('DOMContentLoaded', bootKeywordShareSync);
   } else {
     bootKeywordShareSync();
+  }
+
+  /** Customer profile: load GHL calls & texts after paint so open isn't blocked. */
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function formatGhlAgo(at) {
+    var when = at ? new Date(at) : null;
+    if (!when || isNaN(when.getTime())) return '';
+    var mins = Math.max(0, Math.round((Date.now() - when.getTime()) / 60000));
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    var hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + 'h ago';
+    return Math.round(hrs / 24) + 'd ago';
+  }
+
+  function renderGhlActivity(section, payload) {
+    var body = section.querySelector('[data-ma-ghl-activity-body]');
+    var open = section.querySelector('[data-ma-ghl-open]');
+    if (!body) return;
+    var items = payload && Array.isArray(payload.items) ? payload.items : [];
+    var openHref = payload && payload.openHref ? String(payload.openHref) : '';
+    var err = payload && payload.error ? String(payload.error) : '';
+    if (open) {
+      if (openHref) {
+        open.href = openHref;
+        open.hidden = false;
+      } else {
+        open.hidden = true;
+      }
+    }
+    if (err && !items.length) {
+      body.innerHTML = '<p class="ma-hint" style="margin:0">' + escHtml(err) + '</p>';
+      return;
+    }
+    if (!items.length) {
+      body.innerHTML = '<p class="ma-hint" style="margin:0">No calls or texts in GHL for this contact yet.</p>';
+      return;
+    }
+    var html = '<ul class="ma-ghl-feed" aria-label="GHL calls and texts">';
+    items.forEach(function (m) {
+      var ago = formatGhlAgo(m.at);
+      var dir = m.direction === 'inbound' ? 'In' : 'Out';
+      html +=
+        '<li class="ma-ghl-feed__item ma-ghl-feed__item--' + escHtml(m.kind || 'sms') +
+        ' ma-ghl-feed__item--' + escHtml(m.direction || 'inbound') + '">' +
+        '<div class="ma-ghl-feed__meta"><strong>' + escHtml(m.title || '') + '</strong>' +
+        '<span>' + dir + (ago ? ' · ' + ago : '') + '</span></div>';
+      if (m.kind === 'sms' && m.body) {
+        html += '<p class="ma-ghl-feed__body">' + escHtml(m.body) + '</p>';
+      }
+      if (m.openHref) {
+        html +=
+          '<a class="ma-ghl-feed__open" href="' + escHtml(m.openHref) +
+          '" target="_blank" rel="noopener noreferrer">' +
+          (m.kind === 'call' ? 'Open in LC' : 'Reply in LC') +
+          '</a>';
+      }
+      html += '</li>';
+    });
+    html += '</ul>';
+    body.innerHTML = html;
+  }
+
+  function bootGhlActivity() {
+    var section = document.getElementById('maCustomerGhlActivity');
+    if (!section) return;
+    var url = section.getAttribute('data-ma-ghl-activity-url');
+    if (!url) return;
+    fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        return r.json().catch(function () {
+          return {};
+        });
+      })
+      .then(function (data) {
+        if (!data || data.success === false) {
+          renderGhlActivity(section, {
+            items: [],
+            error: (data && data.error) || 'Could not load calls & texts from GHL.',
+          });
+          return;
+        }
+        renderGhlActivity(section, data.activity || data);
+      })
+      .catch(function () {
+        renderGhlActivity(section, {
+          items: [],
+          error: 'Could not load calls & texts from GHL.',
+        });
+      });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootGhlActivity);
+  } else {
+    bootGhlActivity();
   }
 })();

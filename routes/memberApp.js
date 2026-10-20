@@ -1608,9 +1608,11 @@ async function customerPageData(req, ctx, id, { refreshTags = false, loadGhlActi
 }
 
 router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
+  // Paint the profile first; Calls & texts loads via ghl-activity.json so the
+  // contact doesn't sit unresponsive while GHL history is fetched.
   const data = await customerPageData(req, ctx, req.params.id, {
     refreshTags: true,
-    loadGhlActivity: true,
+    loadGhlActivity: false,
   });
   if (!data) return res.redirect(303, `${ctx.base}/customers`);
   return renderCustomerPage(res, ctx, { ...data, flash: flashFromQuery(req) });
