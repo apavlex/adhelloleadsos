@@ -3224,6 +3224,7 @@
               result.code === 'signalwire_not_configured' ||
               result.code === 'missing_space_url' ||
               result.code === 'lookup_disabled' ||
+              result.code === 'not_configured' ||
               res.status === 503)
           ) {
             configBlocked = true;
@@ -3253,7 +3254,7 @@
     if (configBlocked) {
       showBulkBarFeedbackEarly(
         lastError ||
-          'SignalWire is not configured. Add credentials under Workspace → Phone bank / Integrations.',
+          'Phone lookup needs Outscraper or SignalWire under Workspace → Integrations / Phone bank.',
         'error',
       );
     } else if (successCount > 0) {
@@ -3262,13 +3263,13 @@
           successCount +
           ' phone' +
           (successCount === 1 ? '' : 's') +
-          ' (mobile / landline / VoIP).',
+          ' (mobile / landline / VoIP). Mobile numbers are tagged SMS safe.',
         'success',
       );
     } else if (attemptedCount > 0) {
       showBulkBarFeedbackEarly(
         lastError ||
-          'Could not verify phones. Check SignalWire under Workspace → Phone bank / Integrations.',
+          'Could not verify phones. Check Outscraper or SignalWire under Workspace → Integrations.',
         'error',
       );
     }
