@@ -1,7 +1,7 @@
 /**
  * Short public URLs for the member app (SMS / email).
- *   https://leads.adhello.io/a/x7k2m9qp  →  /m/:signedToken
- *   https://leads.adhello.io/a/x7k2m9qp/review?ask=1  → same with path
+ *   https://reviews.adhello.io/a/x7k2m9qp  →  /m/:signedToken
+ *   https://reviews.adhello.io/a/x7k2m9qp/review?ask=1  → same with path
  *
  * Opaque codes are stored in KV and on the member row so texts stay short
  * while the signed /m/ token is minted on each redirect.

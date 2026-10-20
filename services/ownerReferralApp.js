@@ -8,7 +8,7 @@ const networkStore = require('./networkStore');
 const networkNotify = require('./networkNotify');
 const whiteLabel = require('./whiteLabel');
 const workspaceService = require('./workspaceService');
-const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
+const { getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const OWNER_MEMBER_ID = 'owner';
 
@@ -125,7 +125,7 @@ async function ensureOwnerReferralApp(req) {
     }
   }
 
-  const baseUrl = getPublicBaseUrl(req) || networkNotify.baseUrlFromReq(req);
+  const baseUrl = getReviewPublicBaseUrl() || networkNotify.baseUrlFromReq(req);
   // Short /a/:code for Share + QR; signed /m/ path so Open stays in-session.
   const longUrl = networkNotify.memberPortalLink(baseUrl, network, member);
   const url = await networkNotify.memberPortalShortLink(baseUrl, network, member);

@@ -185,6 +185,7 @@ describe('freeAppSignup', () => {
     const networkRoute = fs.readFileSync(path.join(__dirname, '../routes/network.js'), 'utf8');
     assert.match(networkView, /App trial \(<%= totals\.freeMembers %>\)/);
     assert.match(networkView, /net-pill-free/);
+    assert.match(networkView, /reviews\.adhello\.io\/app/);
     assert.match(networkView, /<%= totals\.freeMembers %> free · <%= totals\.partnerMembers %> partners/);
     assert.match(networkView, /Joined <%= m\.joinedLabel %>/);
     assert.match(networkRoute, /freeMembers/);

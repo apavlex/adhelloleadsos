@@ -684,7 +684,7 @@
       <% if (!totals.members) { %>
       <div class="net-card text-center py-10"><p class="text-sm text-brand-muted">No members yet.</p></div>
       <% } else if (!members.length) { %>
-      <div class="net-card text-center py-10"><p class="text-sm text-brand-muted">No <%= memberPlanFilter === 'free' ? 'free app' : 'partner' %> members<% if (memberPlanFilter === 'free') { %> yet — they sign up at <a class="underline" href="/app">/app</a><% } %>.</p></div>
+      <div class="net-card text-center py-10"><p class="text-sm text-brand-muted">No <%= memberPlanFilter === 'free' ? 'free app' : 'partner' %> members<% if (memberPlanFilter === 'free') { %> yet — they sign up at <a class="underline" href="https://reviews.adhello.io/app" target="_blank" rel="noopener noreferrer">reviews.adhello.io/app</a><% } %>.</p></div>
       <% } else { %>
       <div class="space-y-3">
         <% members.forEach(function (m) { %>
