@@ -1,11 +1,15 @@
 /**
- * Fast Outscraper enrichment when the lead detail sidebar opens (panel-data).
- * Runs GMB → Contacts & Leads → Maps fallback within a timeout budget.
+ * Fast enrichment when the lead detail sidebar opens (panel-data).
+ * Runs MoltSets (primary contacts) → Outscraper GMB/contacts fallback → Maps
+ * within a timeout budget.
  */
 
 const outscraper = require('./outscraperClient');
 const outscraperGmbEnrich = require('./outscraperGmbEnrich');
 const outscraperLeadEnrich = require('./outscraperLeadEnrich');
+const moltsetsClient = require('./moltsetsClient');
+const moltsetsLeadEnrich = require('./moltsetsLeadEnrich');
+const contactEnrichPreference = require('./contactEnrichPreference');
 const mapsEnrichFallback = require('./mapsEnrichFallback');
 const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
@@ -49,8 +53,33 @@ async function enrichLeadForPanelSidebar(lead, integrationEnv, opts) {
   const working = { ...lead };
 
   if (
+    contactEnrichPreference.preferMoltsets(integrationEnv) &&
+    moltsetsClient.isConfigured(integrationEnv)
+  ) {
+    try {
+      const ms = await raceTimeout(
+        moltsetsLeadEnrich.enrichLeadForBusiness(working, integrationEnv, { includeMobile: true }),
+        Math.min(timeoutMs, 20000),
+        'moltsets',
+      );
+      if (ms && ms.used && ms.extract && moltsetsLeadEnrich.extractHasSignal(ms.extract)) {
+        sources.push('MoltSets');
+        const msPatch = firecrawlExtractToLeadUpdates(ms.extract);
+        mergePatch(patch, msPatch);
+        extract = mapsEnrichFallback.mergeExtractPreferFirecrawl(ms.extract, extract);
+        Object.assign(working, patch);
+      }
+    } catch (e) {
+      if (!String(e.message || '').includes('_timeout')) {
+        console.warn('[leadPanelEnrich] MoltSets skipped:', e.message);
+      }
+    }
+  }
+
+  if (
     rapidapiWebsiteEnrich.isConfigured(integrationEnv) &&
-    rapidapiWebsiteEnrich.leadCanEnrichFromWebsite(working)
+    rapidapiWebsiteEnrich.leadCanEnrichFromWebsite(working) &&
+    leadMissingCoreContact(working)
   ) {
     try {
       const rapid = await raceTimeout(
@@ -90,8 +119,7 @@ async function enrichLeadForPanelSidebar(lead, integrationEnv, opts) {
       }
     }
 
-    const domain = outscraperLeadEnrich.resolveLeadDomain(working);
-    if (domain && outscraperLeadEnrich.leadNeedsOutscraperContacts(working)) {
+    if (outscraperLeadEnrich.leadNeedsOutscraperContacts(working)) {
       try {
         const contacts = await raceTimeout(
           outscraperLeadEnrich.enrichLeadFromOutscraperContacts(working, integrationEnv),

@@ -55,7 +55,7 @@
       ' title="' + (phone ? 'Call ' + escapeHtml(phone) + ' in the softphone' : 'No phone number on this lead') + '" aria-label="Call">' + ICONS.call + '</button>' +
       btn('sms', 'SMS', ' data-phone="' + escapeHtml(phone) + '"', ICONS.sms) +
       btn('email', 'Email', ' data-email="' + escapeHtml(o.email || '') + '"', ICONS.email) +
-      btn('contacts', 'Find contacts', '', ICONS.contacts) +
+      btn('contacts', 'Find contacts via MoltSets → Outscraper', '', ICONS.contacts) +
       btn('schedule', 'Schedule', '', ICONS.schedule) +
       btn('task', 'Task', '', ICONS.task) +
       btn('tags', 'Tags', ' data-tags="' + escapeHtml(JSON.stringify(o.tagKeys || [])) + '"', ICONS.tags) +
@@ -639,21 +639,33 @@
       var card = action.closest('.opp-card');
       var name = leadTitle(action) || 'this lead';
       action.classList.add('is-finding');
-      action.setAttribute('aria-label', 'Finding contacts');
-      status('Finding contacts for ' + name + ' — this can take up to a minute…', true);
+      action.setAttribute('aria-label', 'Finding contacts via MoltSets → Outscraper');
+      status(
+        'Finding contacts for ' + name + ' via MoltSets → Outscraper — this can take up to a minute…',
+        true,
+      );
       function done() {
         action.classList.remove('is-finding');
-        action.setAttribute('aria-label', 'Find contacts');
+        action.setAttribute('aria-label', 'Find contacts via MoltSets → Outscraper');
       }
       post('/leads/' + encodeURIComponent(key) + '/find-contacts', {}).then(function (result) {
         done();
         var data = result.data || {};
         if (data.lead) applyFoundContacts(card, data.lead);
         if (!result.ok || !data.success) {
-          status(name + ': ' + (data.error || 'Could not find contacts.'), false);
+          var err = data.error || 'Could not find contacts.';
+          if (data.code === 'not_configured') {
+            err =
+              'Connect MoltSets (primary) or Outscraper (fallback) under Workspace → Integrations → Data enhance.';
+          }
+          status(name + ': ' + err, false);
           return;
         }
-        status(name + ': ' + (data.message || 'Contacts updated.'), true);
+        var via =
+          Array.isArray(data.sources) && data.sources.length
+            ? ' via ' + data.sources.join(' + ')
+            : '';
+        status(name + ': ' + (data.message || 'Contacts updated' + via + '.'), true);
       }).catch(function () {
         done();
         status('Could not find contacts. Check your connection and try again.', false);

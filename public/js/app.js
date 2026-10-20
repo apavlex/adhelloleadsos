@@ -13762,7 +13762,7 @@ document.addEventListener('DOMContentLoaded', () => {
       rapidapiEnrichBtn.disabled = false;
       rapidapiEnrichBtn.classList.toggle('opacity-55', blocked);
       rapidapiEnrichBtn.title = hasWebsite
-        ? 'Find people, emails & socials via Outscraper / Apify'
+        ? 'Find people, emails & socials via MoltSets (Outscraper fallback)'
         : 'Add the company website to find contacts';
       if (typeof window.setRapidapiWebsiteEnrichUi === 'function') {
         window.setRapidapiWebsiteEnrichUi(rapidapiEnrichBtn, 'idle');

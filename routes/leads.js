@@ -43,6 +43,7 @@ const {
 const betterContact = require('../services/betterContactClient');
 const moltsetsLeadEnrich = require('../services/moltsetsLeadEnrich');
 const moltsetsClient = require('../services/moltsetsClient');
+const contactEnrichPreference = require('../services/contactEnrichPreference');
 const tikHub = require('../services/tikHubClient');
 const { runReviewsRefresh, runSocialEnrichment, verifyPhoneLine } = require('../services/leadDeepEnrich');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
@@ -5159,7 +5160,7 @@ async function runLeadEnhancement(lead, workspaceId) {
 
   const leadProfile = { title: workingLead.title, city: workingLead.city, state: workingLead.state };
 
-  // Step 1: Outscraper Google Business Profile — listing, domain, reviews
+  // Step 1: Outscraper Google Business Profile — listing, domain, reviews (not contact primary)
   if (outscraper.isConfigured(integrationEnv)) {
     try {
       gmbPack = await outscraperGmbEnrich.enrichLeadFromOutscraperGmb(workingLead, integrationEnv);
@@ -5180,8 +5181,43 @@ async function runLeadEnhancement(lead, workspaceId) {
     }
   }
 
-  // Step 1.25: Outscraper Contacts & Leads — emails, phones, socials from domain
-  if (outscraper.isConfigured(integrationEnv) && outscraperLeadEnrich.leadNeedsOutscraperContacts(workingLead)) {
+  const websiteForEnrich =
+    (workingLead.website && workingLead.website !== 'N/A' ? workingLead.website : null) ||
+    urlToSave ||
+    null;
+  const enrichLead = websiteForEnrich ? { ...workingLead, website: websiteForEnrich } : workingLead;
+
+  // Step 1.5: MoltSets primary — verified email / LinkedIn / decision-maker / mobile
+  if (
+    contactEnrichPreference.preferMoltsets(integrationEnv) &&
+    moltsetsClient.isConfigured(integrationEnv)
+  ) {
+    try {
+      const msPack = await moltsetsLeadEnrich.enrichLeadForBusiness(enrichLead, integrationEnv, {
+        includeMobile: true,
+      });
+      if (msPack && msPack.extract && moltsetsLeadEnrich.extractHasSignal(msPack.extract)) {
+        moltsetsUsed = true;
+        // Prefer MoltSets contact fields over anything already merged.
+        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(msPack.extract, deepData || {});
+        const msUpdates = firecrawlExtractToLeadUpdates(msPack.extract);
+        if (msUpdates && Object.keys(msUpdates).length) {
+          await autosaveEnhancement(msUpdates, 'MoltSets');
+        }
+        console.log(
+          `[ENHANCE] MoltSets for ${workingLead.title}: ${Object.keys(msPack.extract).join(', ')}`,
+        );
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] MoltSets failed:', e.message);
+    }
+  }
+
+  // Step 1.75: Outscraper Contacts & Leads — fallback when MoltSets left gaps
+  if (
+    outscraper.isConfigured(integrationEnv) &&
+    outscraperLeadEnrich.leadNeedsOutscraperContacts(workingLead)
+  ) {
     try {
       const contactsPack = await outscraperLeadEnrich.enrichLeadFromOutscraperContacts(
         workingLead,
@@ -5189,9 +5225,10 @@ async function runLeadEnhancement(lead, workspaceId) {
       );
       if (contactsPack && contactsPack.used) {
         outscraperContactsUsed = true;
+        // Fill missing only — do not overwrite MoltSets hits.
         deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(
-          contactsPack.extract || {},
           deepData || {},
+          contactsPack.extract || {},
         );
         if (contactsPack.patch && Object.keys(contactsPack.patch).length) {
           await autosaveEnhancement(contactsPack.patch, 'Outscraper contacts');
@@ -5207,7 +5244,7 @@ async function runLeadEnhancement(lead, workspaceId) {
           workingLead.contacts = peoplePatch.contacts;
         }
         console.log(
-          `[ENHANCE] Outscraper contacts for ${workingLead.title}: ${Object.keys(contactsPack.patch || {}).join(', ') || 'extract only'}`,
+          `[ENHANCE] Outscraper contacts (fallback) for ${workingLead.title}: ${Object.keys(contactsPack.patch || {}).join(', ') || 'extract only'}`,
         );
       }
     } catch (e) {
@@ -5215,13 +5252,7 @@ async function runLeadEnhancement(lead, workspaceId) {
     }
   }
 
-  const websiteForEnrich =
-    (workingLead.website && workingLead.website !== 'N/A' ? workingLead.website : null) ||
-    urlToSave ||
-    null;
-  const enrichLead = websiteForEnrich ? { ...workingLead, website: websiteForEnrich } : workingLead;
-
-  // Step 1.5: RapidAPI website — contacts / socials when a website is known
+  // Step 2: RapidAPI website — contacts / socials when a website is known
   if (
     rapidapiWebsiteEnrich.isConfigured(integrationEnv) &&
     rapidapiWebsiteEnrich.leadCanEnrichFromWebsite(enrichLead)
@@ -5230,31 +5261,13 @@ async function runLeadEnhancement(lead, workspaceId) {
       const rapidPack = await rapidapiWebsiteEnrich.enrichLeadFromWebsite(enrichLead, integrationEnv);
       if (rapidPack && rapidPack.extract && Object.keys(rapidPack.extract).length) {
         rapidapiWebsiteUsed = true;
-        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(rapidPack.extract, deepData || {});
+        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(deepData || {}, rapidPack.extract);
         console.log(
           `[ENHANCE] RapidAPI website for ${workingLead.title}: ${Object.keys(rapidPack.extract).join(', ')}`,
         );
       }
     } catch (e) {
       console.warn('[ENHANCE] RapidAPI website failed:', e.message);
-    }
-  }
-
-  // Step 2: MoltSets — verified email / LinkedIn / decision-maker (domain or email)
-  if (moltsetsClient.isConfigured(integrationEnv)) {
-    try {
-      const msPack = await moltsetsLeadEnrich.enrichLeadForBusiness(enrichLead, integrationEnv, {
-        includeMobile: true,
-      });
-      if (msPack && msPack.extract && moltsetsLeadEnrich.extractHasSignal(msPack.extract)) {
-        moltsetsUsed = true;
-        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(deepData || {}, msPack.extract);
-        console.log(
-          `[ENHANCE] MoltSets for ${workingLead.title}: ${Object.keys(msPack.extract).join(', ')}`,
-        );
-      }
-    } catch (e) {
-      console.warn('[ENHANCE] MoltSets failed:', e.message);
     }
   }
 

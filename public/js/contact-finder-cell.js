@@ -141,7 +141,7 @@
         'disabled aria-busy="true"',
         `<span class="${AVATAR} bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow">${SPINNER}</span>`,
         'Searching…',
-        'Outscraper / Apify · up to a minute',
+        'MoltSets → Outscraper · up to a minute',
       );
     }
 
@@ -183,7 +183,7 @@
 
     return box(
       `${BOX_IDLE} js-find-contact-search`,
-      `title="${m.hasWebsite ? 'Find decision makers, emails & socials (Outscraper / Apify)' : 'Add a website first — contacts are looked up by domain'}"`,
+      `title="${m.hasWebsite ? 'Find decision makers, emails & socials (MoltSets → Outscraper)' : 'Add a website first — contacts are looked up by domain'}"`,
       `<span class="${AVATAR} bg-slate-100 dark:bg-slate-800 text-brand-muted dark:text-slate-400">${PERSON_ICON}</span>`,
       'Find a contact',
       m.hasWebsite ? 'Emails, people &amp; socials' : 'Needs a website',

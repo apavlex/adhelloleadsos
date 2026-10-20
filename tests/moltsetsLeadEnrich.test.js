@@ -109,6 +109,9 @@ describe('moltsetsLeadEnrich', () => {
     const leads = fs.readFileSync(path.join(root, 'routes/leads.js'), 'utf8');
 
     assert.match(integrations, /integration-moltsets/);
+    assert.match(integrations, /integration-contact-enrich/);
+    assert.match(integrations, /contactEnrichPrimary/);
+    assert.match(integrations, /MoltSets → Outscraper fallback/);
     assert.match(integrations, /moltsetsApiKey/);
     assert.match(integrations, /provider: 'moltsets'/);
     assert.match(envExample, /MOLTSETS_API_KEY/);
@@ -117,5 +120,19 @@ describe('moltsetsLeadEnrich', () => {
     assert.match(ensure, /tryMoltsetsEmail|moltsets/);
     assert.match(leads, /moltsetsLeadEnrich/);
     assert.match(leads, /MoltSets/);
+    // Manual enhance: MoltSets before Outscraper contacts fallback.
+    const enhanceBlock = leads.slice(leads.indexOf('async function runLeadEnhancement'));
+    const msIdx = enhanceBlock.indexOf('MoltSets primary');
+    const osIdx = enhanceBlock.indexOf('Outscraper Contacts & Leads — fallback');
+    assert.ok(msIdx > 0 && osIdx > msIdx, 'MoltSets should run before Outscraper contacts in enhance');
+    const moltsetsAttempt = ensure.indexOf("label: 'moltsets'");
+    const outscraperAttempt = ensure.indexOf("label: 'outscraper_contacts'");
+    assert.ok(
+      moltsetsAttempt > 0 && outscraperAttempt > moltsetsAttempt,
+      'ensureLeadEmail should try MoltSets before Outscraper',
+    );
+    const finder = fs.readFileSync(path.join(root, 'services/contactFinder.js'), 'utf8');
+    assert.match(finder, /MoltSets first/);
+    assert.match(finder, /collectFromMoltsetsExtract/);
   });
 });

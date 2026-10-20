@@ -55,17 +55,80 @@ test('findContactsForLead maps every Outscraper decision maker, email, phone and
   assert.match(result.socials.linkedin, /linkedin\.com\/company\/kips-hardwood/);
 });
 
-test('Apify website crawl is the fallback when Outscraper is missing or empty', async () => {
+test('MoltSets is primary; Outscraper only runs when MoltSets finds nothing', async () => {
+  let outscraperCalled = false;
+  const withMoltsets = await contactFinder.findContactsForLead(
+    lead,
+    { ...OUTSCRAPER_ENV, MOLTSETS_API_KEY: 'ms_test' },
+    {
+      deps: {
+        enrichMoltsets: async () => ({
+          used: true,
+          extract: {
+            email: 'owner@kipshardwoodflooring.com',
+            decision_maker_name: 'Kip Walker',
+            linkedin: 'https://www.linkedin.com/in/kip',
+          },
+        }),
+        fetchContactsAndLeads: async () => {
+          outscraperCalled = true;
+          return outscraperRow;
+        },
+        runApify: async () => assert.fail('Apify should not run when MoltSets found contacts'),
+      },
+    },
+  );
+  assert.deepEqual(withMoltsets.sources, ['MoltSets']);
+  assert.equal(outscraperCalled, false);
+  assert.equal(withMoltsets.emails[0], 'owner@kipshardwoodflooring.com');
+  assert.equal(withMoltsets.people[0].name, 'Kip Walker');
+
+  const fallback = await contactFinder.findContactsForLead(
+    lead,
+    { ...OUTSCRAPER_ENV, MOLTSETS_API_KEY: 'ms_test' },
+    {
+      deps: {
+        enrichMoltsets: async () => ({ used: false, extract: {} }),
+        fetchContactsAndLeads: async () => outscraperRow,
+        runApify: async () => assert.fail('Apify should not run when Outscraper found contacts'),
+      },
+    },
+  );
+  assert.deepEqual(fallback.sources, ['Outscraper']);
+  assert.ok(fallback.emails.includes('kip@kipshardwoodflooring.com'));
+
+  let moltsetsCalled = false;
+  const outscraperOnly = await contactFinder.findContactsForLead(
+    lead,
+    {
+      ...OUTSCRAPER_ENV,
+      MOLTSETS_API_KEY: 'ms_test',
+      CONTACT_ENRICH_PRIMARY: 'outscraper',
+    },
+    {
+      deps: {
+        enrichMoltsets: async () => {
+          moltsetsCalled = true;
+          return { used: true, extract: { email: 'skip@x.com' } };
+        },
+        fetchContactsAndLeads: async () => outscraperRow,
+      },
+    },
+  );
+  assert.equal(moltsetsCalled, false);
+  assert.deepEqual(outscraperOnly.sources, ['Outscraper']);
+});
+
+test('Apify website crawl is the last resort when Outscraper returns empty', async () => {
   const items = [
     { url: 'https://acme.example/', emails: ['hello@acme.example'], phones: ['360-555-0199'], facebooks: ['https://facebook.com/acmefloors'], linkedIns: ['https://www.linkedin.com/in/someone', 'https://www.linkedin.com/company/acme'] },
     { url: 'https://acme.example/contact', emails: ['hello@acme.example', 'jobs@acme.example'], instagrams: ['https://instagram.com/acmefloors'] },
   ];
   const site = { website: 'acme.example' };
-  const onlyApify = await contactFinder.findContactsForLead(site, { APIFY_API_TOKEN: 't' }, { deps: { runApify: async () => items } });
-  assert.deepEqual(onlyApify.sources, ['Apify']);
-  assert.deepEqual(onlyApify.emails, ['hello@acme.example', 'jobs@acme.example']);
-  assert.match(onlyApify.socials.linkedin, /company\/acme/);
-  assert.match(onlyApify.socials.instagram, /instagram\.com\/acmefloors/);
+  await assert.rejects(
+    contactFinder.findContactsForLead(site, { APIFY_API_TOKEN: 't' }, { deps: { runApify: async () => items } }),
+    (e) => e.code === 'not_configured' && /MoltSets \(primary\) or Outscraper/.test(e.message),
+  );
 
   const both = await contactFinder.findContactsForLead(site, { ...OUTSCRAPER_ENV, APIFY_API_TOKEN: 't' }, {
     deps: { fetchContactsAndLeads: async () => ({ emails: [], contacts: [] }), runApify: async () => items },
@@ -77,6 +140,21 @@ test('Apify website crawl is the fallback when Outscraper is missing or empty', 
 test('findContactsForLead explains missing website and missing integrations', async () => {
   await assert.rejects(contactFinder.findContactsForLead({ website: 'N/A' }, OUTSCRAPER_ENV), { code: 'no_website' });
   await assert.rejects(contactFinder.findContactsForLead({ website: 'acme.example' }, {}), { code: 'not_configured' });
+  await assert.rejects(
+    contactFinder.findContactsForLead({ website: 'acme.example' }, { APIFY_API_TOKEN: 't' }),
+    { code: 'not_configured' },
+  );
+});
+
+test('Opportunities Find contacts uses find-contacts with MoltSets → Outscraper copy', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const board = fs.readFileSync(path.join(__dirname, '../views/partials/opportunity_board.ejs'), 'utf8');
+  const actions = fs.readFileSync(path.join(__dirname, '../public/js/opportunity-card-actions.js'), 'utf8');
+  assert.match(board, /Find contacts via MoltSets → Outscraper/);
+  assert.match(actions, /Find contacts via MoltSets → Outscraper/);
+  assert.match(actions, /\/leads\/.*find-contacts/);
+  assert.match(actions, /MoltSets \(primary\) or Outscraper/);
 });
 
 test('buildLeadPatchFromFinder fills blanks, appends people + extra emails, keeps existing values', async () => {
@@ -290,7 +368,7 @@ test('directory listing websites (Procore, Yelp…) are not searched as the comp
   assert.equal(called, false);
 });
 
-test('Get more contacts button (Money mode + panel) runs the Outscraper / Apify finder', async () => {
+test('Get more contacts button (Money mode + panel) runs the contact finder', async () => {
   const dom = new JSDOM(
     '<body><button id="focus-rapidapi-enrich-btn" data-lead-key="lead:az">Get more contacts</button><p id="focus-rapidapi-enrich-status" class="hidden"></p></body>',
     { url: 'https://leads.example/focus', runScripts: 'outside-only' },
