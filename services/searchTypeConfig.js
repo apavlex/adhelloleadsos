@@ -41,7 +41,7 @@ const SEARCH_TYPES = [
     defaultKeyword: 'plumber',
     defaultQuery: '',
     scraperHint:
-      'RapidAPI, SearchAPI, SerpAPI, Oxylabs, Outscraper, or Apify Google Local. Directory supplement: Yelp, Angi, Yellow Pages, Groupon, Zillow agents, BBB (+ BuiltWith tech stack when Outscraper is set).',
+      'RapidAPI, SearchAPI, SerpAPI, Oxylabs, Outscraper, or Apify Google Local. Directory supplement: Yelp, Angi, Yellow Pages, Groupon, Zillow, BBB (+ BuiltWith tech stack when Outscraper is set).',
     defaultMapsProvider: 'auto',
     requiresLocation: true,
   },

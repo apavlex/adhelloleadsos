@@ -137,7 +137,7 @@ router.post('/', async (req, res, next) => {
             );
           }
           if (wantDirectorySupplement) {
-            console.log('[SEARCH-BG] Supplementing with directory listings (Outscraper: Yelp, Angi, YP, Groupon, Zillow agents + BBB)…');
+            console.log('[SEARCH-BG] Supplementing with directory listings (Outscraper: Yelp, Angi, YP, Groupon, Zillow + BBB)…');
             const dirAttempt = await runBestEffort(
               () =>
                 directoryLeadSearch.searchDirectoryLeads({

@@ -496,6 +496,12 @@ function buildZillowAgentsSearchUrl(city, state) {
   return `https://www.zillow.com/professionals/real-estate-agent-reviews/${loc}/`;
 }
 
+/** Zillow Search Scraper — local for-sale listings by city/state. */
+function buildZillowSearchUrl(city, state) {
+  const loc = slugifySegment(`${city}-${state}`) || slugifySegment(city) || 'us';
+  return `https://www.zillow.com/${loc}/`;
+}
+
 /** Groupon local search — deals / merchants advertising in a city. */
 function buildGrouponSearchUrl(keyword, city, state) {
   const loc = slugifySegment(`${city}-${state}`) || slugifySegment(city) || 'us';
@@ -595,6 +601,59 @@ function normalizeZillowAgentRow(row) {
     totalScore: Number(row.rating || row.average_rating) || 0,
     reviewsCount: parseInt(row.reviews || row.review_count, 10) || 0,
     categoryName: 'Real estate agent',
+  };
+}
+
+/**
+ * Normalize Zillow Search Scraper listing rows into directory leads.
+ * Prefer listing agent / broker as the contact title when present.
+ */
+function normalizeZillowSearchRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const address = pickFirstString(
+    row.address,
+    row.streetAddress,
+    row.street_address,
+    row.unformattedAddress,
+    row.formatted_address,
+    [row.addressStreet, row.addressCity, row.addressState].filter(Boolean).join(', '),
+  );
+  const agent = pickFirstString(
+    row.agent_name,
+    row.agentName,
+    row.broker_name,
+    row.brokerName,
+    row.listed_by,
+    row.listedBy,
+    row.seller_name,
+    row.realtor,
+  );
+  const brokerage = pickFirstString(row.brokerage, row.brokerage_name, row.company, row.broker);
+  let title = agent || address || pickFirstString(row.name, row.title);
+  if (!title) return null;
+  if (agent && brokerage && !title.includes(brokerage)) {
+    title = `${agent} (${brokerage})`;
+  } else if (!agent && address) {
+    title = address;
+  }
+  const homeType = pickFirstString(row.homeType, row.home_type, row.propertyType, row.status, row.listing_type);
+  return {
+    title,
+    phone: pickFirstString(row.phone, row.phone_number, row.agent_phone, row.broker_phone) || 'N/A',
+    website: pickFirstString(row.website, row.broker_website, row.agent_website) || 'N/A',
+    address: address || 'N/A',
+    url: pickFirstString(
+      row.detailUrl,
+      row.detail_url,
+      row.hdpUrl,
+      row.hdp_url,
+      row.property_url,
+      row.url,
+      row.link,
+    ) || '',
+    totalScore: Number(row.rating || row.average_rating) || 0,
+    reviewsCount: parseInt(row.reviews || row.review_count, 10) || 0,
+    categoryName: homeType || 'Zillow listing',
   };
 }
 
@@ -852,7 +911,6 @@ async function searchZillowAgentsDirectory({ city, state, maxResults, integratio
   const queryUrl = buildZillowAgentsSearchUrl(city, state);
   const locationQuery = [city, state].filter(Boolean).join(', ').trim();
 
-  // Prefer dedicated /zillow-agents (same pattern as /groupon-products).
   try {
     const rows = await runOutscraperDirectoryGet({
       endpoint: 'zillow-agents',
@@ -869,26 +927,7 @@ async function searchZillowAgentsDirectory({ city, state, maxResults, integratio
     const mapped = normalizeDirectoryRows(rows, normalizeZillowAgentRow);
     if (mapped.length) return mapped;
   } catch (e) {
-    console.warn('[Outscraper] zillow-agents unavailable, trying zillow-search:', e.message);
-  }
-
-  try {
-    const rows = await runOutscraperDirectoryGet({
-      endpoint: 'zillow-search',
-      integrationEnv,
-      label: 'Zillow agents search',
-      buildRequestUrl: (base, useAsync) => {
-        const u = new URL(`${base}/zillow-search`);
-        u.searchParams.set('query', queryUrl);
-        u.searchParams.set('limit', String(limit));
-        u.searchParams.set('async', useAsync ? 'true' : 'false');
-        return u;
-      },
-    });
-    const mapped = normalizeDirectoryRows(rows, normalizeZillowAgentRow);
-    if (mapped.length) return mapped;
-  } catch (e) {
-    console.warn('[Outscraper] zillow-search for agents failed, trying AI scraper:', e.message);
+    console.warn('[Outscraper] zillow-agents unavailable, trying AI scraper:', e.message);
   }
 
   const prompt =
@@ -901,6 +940,57 @@ async function searchZillowAgentsDirectory({ city, state, maxResults, integratio
   });
   const listings = parseAiScraperListings(data);
   return normalizeDirectoryRows(listings.slice(0, limit), normalizeZillowAgentRow);
+}
+
+/**
+ * Zillow Search Scraper — property listings (+ listing agents) for a city.
+ * Tries /zillow-search (platform service), then AI scraper, then /zillow-agents.
+ * @see https://app.outscraper.cloud/zillow-search
+ * @see https://docs.outscraper.com/endpoints/zillow-search/
+ */
+async function searchZillowDirectory({ keyword, city, state, maxResults, integrationEnv }) {
+  const limit = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 15));
+  const queryUrl = buildZillowSearchUrl(city, state);
+  const locationQuery = [city, state].filter(Boolean).join(', ').trim();
+  const query = locationQuery || queryUrl;
+
+  try {
+    const rows = await runOutscraperDirectoryGet({
+      endpoint: 'zillow-search',
+      integrationEnv,
+      label: 'Zillow search',
+      buildRequestUrl: (base, useAsync) => {
+        const u = new URL(`${base}/zillow-search`);
+        u.searchParams.set('query', query);
+        u.searchParams.set('limit', String(limit));
+        u.searchParams.set('mainFilter', 'for_sale');
+        u.searchParams.set('async', useAsync ? 'true' : 'false');
+        return u;
+      },
+    });
+    const mapped = normalizeDirectoryRows(rows, normalizeZillowSearchRow);
+    if (mapped.length) return mapped;
+  } catch (e) {
+    console.warn('[Outscraper] zillow-search unavailable, trying AI scraper:', e.message);
+  }
+
+  try {
+    const prompt =
+      'Extract every Zillow home listing visible on this page. Return a JSON array of objects with keys: address, agent_name, brokerage, phone, detail_url, home_type, price.';
+    const data = await fetchAiScraperPage({
+      query: queryUrl,
+      prompt,
+      integrationEnv,
+      label: 'Zillow search AI scraper',
+    });
+    const listings = parseAiScraperListings(data);
+    const mapped = normalizeDirectoryRows(listings.slice(0, limit), normalizeZillowSearchRow);
+    if (mapped.length) return mapped;
+  } catch (e) {
+    console.warn('[Outscraper] Zillow search AI scraper failed, trying agents:', e.message);
+  }
+
+  return searchZillowAgentsDirectory({ keyword, city, state, maxResults: limit, integrationEnv });
 }
 
 /**
@@ -994,18 +1084,21 @@ module.exports = {
   buildYelpSearchUrl,
   buildAngiSearchUrl,
   buildZillowAgentsSearchUrl,
+  buildZillowSearchUrl,
   buildGrouponSearchUrl,
   buildBuiltWithUrl,
   normalizeYelpDirectoryRow,
   normalizeYellowpagesDirectoryRow,
   normalizeAngiDirectoryRow,
   normalizeZillowAgentRow,
+  normalizeZillowSearchRow,
   normalizeGrouponDirectoryRow,
   parseAiScraperListings,
   searchYelpDirectory,
   searchYellowpagesDirectory,
   searchAngiDirectory,
   searchZillowAgentsDirectory,
+  searchZillowDirectory,
   searchGrouponDirectory,
   fetchBuiltWithTechStack,
 };
