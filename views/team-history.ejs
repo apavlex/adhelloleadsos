@@ -35,7 +35,7 @@
       <aside class="lg:w-72 shrink-0" aria-label="Teammates">
         <div class="brand-card p-2 dark:bg-slate-900 dark:border-white/10">
           <a href="/team-history?member=all" class="team-history-member flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors <%= !_sel ? 'bg-brand-yellow/15 ring-1 ring-brand-yellow/40' : 'hover:bg-brand-cream/60 dark:hover:bg-slate-800' %>">
-            <span class="w-9 h-9 rounded-full bg-brand-dark text-white dark:bg-white dark:text-brand-dark flex items-center justify-center text-[11px] font-black shrink-0" aria-hidden="true">ALL</span>
+            <span class="w-9 h-9 rounded-full bg-brand-dark text-white dark:bg-white dark:text-slate-900 flex items-center justify-center text-[11px] font-black shrink-0" aria-hidden="true">ALL</span>
             <span class="min-w-0 flex-1">
               <span class="block text-sm font-bold text-brand-dark dark:text-white truncate">Everyone</span>
               <span class="block text-[10px] font-semibold text-brand-muted">Whole workspace</span>
@@ -97,8 +97,8 @@
           <div class="flex flex-wrap items-center gap-2 mt-4">
             <% if (canReview) { %>
             <div class="inline-flex rounded-xl border border-brand-border/60 dark:border-white/10 p-0.5 mr-2" role="tablist" aria-label="Show">
-              <a href="<%= _q({ view: 'new', before: '' }) %>" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest <%= view === 'new' ? 'bg-brand-dark text-white dark:bg-white dark:text-brand-dark' : 'text-brand-muted' %>" role="tab" aria-selected="<%= view === 'new' %>">New</a>
-              <a href="<%= _q({ view: 'all', before: '' }) %>" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest <%= view === 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-brand-dark' : 'text-brand-muted' %>" role="tab" aria-selected="<%= view === 'all' %>">All</a>
+              <a href="<%= _q({ view: 'new', before: '' }) %>" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest <%= view === 'new' ? 'bg-brand-dark text-white dark:bg-white dark:text-slate-900' : 'text-brand-muted' %>" role="tab" aria-selected="<%= view === 'new' %>">New</a>
+              <a href="<%= _q({ view: 'all', before: '' }) %>" class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest <%= view === 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-slate-900' : 'text-brand-muted' %>" role="tab" aria-selected="<%= view === 'all' %>">All</a>
             </div>
             <% } %>
             <a href="<%= _q({ cat: '', before: '' }) %>" class="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border <%= !category ? 'bg-brand-yellow text-brand-dark border-brand-yellow' : 'bg-white dark:bg-slate-900 text-brand-muted border-brand-border/50 dark:border-white/10 hover:border-brand-yellow/40' %>">All types</a>

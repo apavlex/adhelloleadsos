@@ -199,6 +199,18 @@ html:not(.dark) [class~="bg-brand-dark"][class~="text-white"] {
     color: #ffffff !important;
 }
 
+/* Inverse chips (dark:bg-white + dark:text-brand-dark): in dark mode --brand-dark is
+   light body ink, so the label vanishes on the white fill (Today tabs, toasts, etc.). */
+html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"],
+.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] {
+    color: #0f172a !important;
+}
+html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
+.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg {
+    color: #0f172a !important;
+    stroke: currentColor;
+}
+
 /* Navigation Styles */
 .nav-link {
     font-weight: 600;
