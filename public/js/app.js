@@ -21442,7 +21442,8 @@ document.addEventListener('DOMContentLoaded', () => {
             result.code === 'lookup_unavailable' ||
             result.code === 'signalwire_not_configured' ||
             result.code === 'missing_space_url' ||
-            result.code === 'lookup_disabled'
+            result.code === 'lookup_disabled' ||
+            result.code === 'not_configured'
           ) {
             configBlocked = true;
             break;
@@ -21492,18 +21493,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (configBlocked) {
       showBulkVerifyFeedback(
         lastError ||
-          'SignalWire is not configured for phone lookup. Set credentials under Workspace → Phone bank / Integrations.',
+          'Phone lookup needs Outscraper (OUTSCRAPER_API_KEY) or SignalWire under Workspace → Integrations / Phone bank.',
         'error',
       );
     } else if (successCount > 0) {
       showBulkVerifyFeedback(
-        `Verified ${successCount} phone${successCount === 1 ? '' : 's'}${breakdown}.`,
+        `Verified ${successCount} phone${successCount === 1 ? '' : 's'}${breakdown}. Mobile numbers are tagged SMS safe.`,
         'success',
       );
     } else if (attemptedCount > 0) {
       showBulkVerifyFeedback(
         lastError ||
-          'Could not verify phones. Check SignalWire under Workspace → Phone bank / Integrations.',
+          'Could not verify phones. Check Outscraper or SignalWire under Workspace → Integrations.',
         'error',
       );
     }

@@ -1,6 +1,7 @@
 /**
  * Single-purpose lead enrichment shared by the lead panel buttons and AI tools:
- * Google reviews refresh (Outscraper), social profile discovery (TikHub), phone line type (SignalWire Lookup).
+ * Google reviews refresh (Outscraper), social profile discovery (TikHub),
+ * phone line type (Outscraper phones-enricher → SignalWire Lookup fallback).
  */
 const dbService = require('./database');
 const workspaceIntegrations = require('./workspaceIntegrations');
@@ -149,17 +150,24 @@ async function runSocialEnrichment(lead, workspaceId) {
   };
 }
 
-const LOOKUP_UNAVAILABLE_SOURCES = new Set(['signalwire_not_configured', 'missing_space_url', 'lookup_disabled']);
+const LOOKUP_UNAVAILABLE_SOURCES = new Set([
+  'signalwire_not_configured',
+  'missing_space_url',
+  'lookup_disabled',
+  'not_configured',
+]);
 
-/** Mobile vs landline + carrier. Failures carry an HTTP-ish status and a code for the route. */
+/** Mobile vs landline + carrier; tags SMS safe / Cellphone / Landline / VoIP. */
 async function verifyPhoneLine(lead, workspaceId) {
   if (!phoneLineType.hasUsablePhone(lead.phone)) {
     return { success: false, status: 422, code: 'no_phone', error: 'Lead has no usable phone number to verify.' };
   }
-  const blocked = phoneLineType.lookupBlockedReason();
+  const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
+  const blocked = phoneLineType.lookupBlockedReason(integrationEnv);
   if (blocked) return { success: false, status: 503, code: 'lookup_unavailable', error: blocked };
 
-  const patch = await phoneLineType.forceRefresh(lead);
+  const patch = await phoneLineType.forceRefresh(lead, { integrationEnv });
   if (!patch) return { success: false, status: 422, code: 'lookup_empty', error: 'Could not verify phone line type.' };
   if (LOOKUP_UNAVAILABLE_SOURCES.has(patch.phoneLineTypeSource)) {
     return {
@@ -167,19 +175,37 @@ async function verifyPhoneLine(lead, workspaceId) {
       status: 503,
       code: patch.phoneLineTypeSource,
       error:
-        phoneLineType.lookupBlockedReason() ||
-        'Phone line-type lookup is unavailable. Configure SignalWire under Workspace → Phone bank / Integrations.',
+        phoneLineType.lookupBlockedReason(integrationEnv) ||
+        'Phone line-type lookup is unavailable. Configure Outscraper (OUTSCRAPER_API_KEY) or SignalWire under Workspace → Integrations.',
     };
+  }
+
+  const lineType = patch.phoneLineType || 'unknown';
+  try {
+    const nextTags = await phoneLineType.applyLineTypeTags(
+      { ...lead, ...patch },
+      lineType,
+      leadWorkspaceId,
+    );
+    if (nextTags) patch.tags = nextTags;
+  } catch (tagErr) {
+    console.warn(
+      '[verifyPhoneLine] tag sync skipped:',
+      tagErr && tagErr.message ? tagErr.message : tagErr,
+    );
   }
 
   const updated = await dbService.updateLead(storageKey(lead), patch, workspaceId);
   const leadOut = updated || { ...lead, ...patch };
+  const smsSafe = phoneLineType.isSmsAllowed(leadOut) && phoneLineType.normalizeLineType(lineType) === 'mobile';
   return {
     success: true,
     lead: leadOut,
     lineType: leadOut.phoneLineType || patch.phoneLineType,
     carrier: leadOut.phoneCarrier || patch.phoneCarrier || '',
     source: leadOut.phoneLineTypeSource || patch.phoneLineTypeSource || '',
+    smsSafe,
+    tags: Array.isArray(leadOut.tags) ? leadOut.tags : patch.tags || [],
   };
 }
 
