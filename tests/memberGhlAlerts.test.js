@@ -134,7 +134,7 @@ describe('memberGhlAlerts', () => {
     assert.ok(network);
   });
 
-  it('UI and routes expose the GHL alerts toggle', () => {
+  it('UI and routes expose the GHL alerts toggle and hide GHL duplicates from Leads & referrals', () => {
     const top = fs.readFileSync(path.join(root, 'views/member_app/_top.ejs'), 'utf8');
     const js = fs.readFileSync(path.join(root, 'public/js/member-app-notifications.js'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
@@ -147,10 +147,13 @@ describe('memberGhlAlerts', () => {
     assert.match(js, /activity\/ghl-done/);
     assert.match(js, /ghlAlertsEnabled/);
     assert.match(js, /Waiting on a reply/);
+    assert.match(js, /GHL_KINDS/);
     assert.match(css, /\.ma-bell__ghl-row/);
     assert.match(route, /activity\/ghl-alerts/);
     assert.match(route, /activity\/ghl-done/);
     assert.match(route, /memberGhlAlerts/);
+    assert.match(route, /excludeGhlKinds/);
+    assert.match(route, /GHL_ACTIVITY_TYPES/);
     assert.match(push, /memberGhlAlerts/);
     assert.match(push, /notifyEnabledMembers/);
   });

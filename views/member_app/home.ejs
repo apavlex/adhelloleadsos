@@ -58,27 +58,26 @@
           <%= _appt.openLeadCount || 0 %> leads · <%= (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %> pending referrals
           <% if (wonValue) { %> · <%= wonValue %> won<% } %>
         </p>
-        <% } else if (brand.statValueLabel && !(brand.statLabel && String(brand.statLabel).toLowerCase().indexOf('review') >= 0)) { %>
+        <% } else if (brand.statValueLabel && brand.statLabel
+          && String(brand.statLabel).toLowerCase().indexOf('review') < 0
+          && String(brand.statLabel).toLowerCase().indexOf('open job') < 0) { %>
         <p class="ma-hero__stat"><%= brand.statValueLabel %><% if (brand.statSuffix) { %><small><%= brand.statSuffix %></small><% } %></p>
         <% if (brand.statLabel) { %><p class="ma-hero__label"><%= brand.statLabel %></p><% } %>
-        <% } else if (brand.statLabel && String(brand.statLabel).toLowerCase().indexOf('review') >= 0) { %>
-        <%/* Live reviewStats.views — do not show a frozen brand.statValue for review visits. */%>
-        <p class="ma-hero__stat"><%= Number(_reviewViews || 0).toLocaleString('en-US') %></p>
-        <p class="ma-hero__label"><%= brand.statLabel %></p>
         <% } else { %>
-        <p class="ma-hero__stat"><%= _reviewViews %><small>review page visits</small></p>
-        <% if (_customerCount || _openJobs) { %><p class="ma-hero__label"><%= _customerCount %> customers · <%= _openJobs %> open jobs</p><% } %>
+        <%/* Banner leads with open jobs; review visits sit in the secondary line (swapped). */%>
+        <p class="ma-hero__stat"><%= Number(_openJobs || 0).toLocaleString('en-US') %><small>open jobs</small></p>
+        <p class="ma-hero__label"><%= _customerCount %> customers · <%= Number(_reviewViews || 0).toLocaleString('en-US') %> review visits</p>
         <% } %>
       </div>
     </section>
 
-    <section class="ma-tiles<%= _appt ? ' ma-tiles--6' : '' %>" aria-label="Reviews, customers, and network">
+    <section class="ma-tiles<%= _appt ? ' ma-tiles--6' : '' %>" aria-label="Jobs, customers, and network">
       <% const _reviewHref = base + '/review'; %>
       <% if (_appt) { %>
-      <a class="ma-tile" href="<%= _reviewHref %>">
-        <span class="ma-tile__icon"><%- icons.review %></span>
-        <p class="ma-tile__value"><%= _reviewViews %></p>
-        <p class="ma-tile__label">Review visits</p>
+      <a class="ma-tile" href="<%= base %>/customers">
+        <span class="ma-tile__icon"><%- icons.customers %></span>
+        <p class="ma-tile__value"><%= _openJobs %></p>
+        <p class="ma-tile__label">Open jobs</p>
       </a>
       <a class="ma-tile" href="<%= base %>/customers">
         <span class="ma-tile__icon"><%- icons.customers %></span>

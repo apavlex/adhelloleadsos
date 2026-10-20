@@ -118,10 +118,18 @@
     );
   }
 
+  var GHL_KINDS = { missed_call: 1, voicemail: 1, sms: 1 };
+
   function renderList(items, ghlItems) {
     if (!listEl) return;
-    var activity = Array.isArray(items) ? items : [];
     var ghl = Array.isArray(ghlItems) ? ghlItems : [];
+    // GHL texts/calls already render under Waiting on a reply — drop duplicates
+    // from the Leads & referrals feed (server also filters when the toggle is on).
+    var activity = (Array.isArray(items) ? items : []).filter(function (it) {
+      if (!it) return false;
+      if (!ghl.length && !ghlEnabled) return true;
+      return !GHL_KINDS[String(it.kind || '').toLowerCase()];
+    });
     if (!activity.length && !ghl.length) {
       listEl.innerHTML = '<p class="ma-bell__empty">' +
         (ghlEnabled ? 'No new alerts' : 'No new lead alerts') +
