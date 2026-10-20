@@ -70,3 +70,16 @@ test('network routes expose lead-send options and send endpoint', () => {
   assert.match(route, /\/leads\/send/);
   assert.match(route, /networkLeadSend\.sendLeadToTeammates/);
 });
+
+test('Engagement inbox Send lead button prefills the teammate modal', () => {
+  const page = fs.readFileSync(path.join(__dirname, '../views/engagement.ejs'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '../public/js/send-lead-modal.js'), 'utf8');
+  assert.match(page, /data-open-send-lead/);
+  assert.match(page, /data-send-lead-name/);
+  assert.match(page, /Send lead/);
+  assert.match(page, /engagement-thread/);
+  assert.match(page, /You · SMS/);
+  assert.match(js, /prefillFromOpener/);
+  assert.match(js, /applyPrefill/);
+  assert.match(js, /data-send-lead-note/);
+});

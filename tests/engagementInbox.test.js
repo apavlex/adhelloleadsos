@@ -218,18 +218,36 @@ test('inferSignalTypeFromUpdate parses legacy value strings', () => {
   assert.equal(inferSignalTypeFromUpdate({ signalType: 'email_reply' }), 'email_reply');
 });
 
-test('buildEngagementInbox groups a business into one row with reply count and reply texts', () => {
+test('buildEngagementInbox groups a business into one row with full conversation thread', () => {
   const auto = 'This number does not reply to text messages.';
   const updates = [];
+  updates.push({
+    type: 'sms_outbound',
+    timestamp: '2026-08-04T09:55:00.000Z',
+    value: 'Outbound SMS: Hi — still need flooring help?',
+  });
   ['10:00', '10:01', '10:02'].forEach((t) => {
     const ts = `2026-08-04T${t}:00.000Z`;
     updates.push({ type: 'sms_inbound', timestamp: ts, value: auto });
     updates.push({ type: 'engagement_signal', signalType: 'sms_reply', timestamp: ts, value: 'SMS reply · via ghl' });
   });
+  updates.push({
+    type: 'sms_outbound',
+    timestamp: '2026-08-04T10:30:00.000Z',
+    value: 'Thanks — what day works for a quote?',
+  });
   updates.push({ type: 'sms_inbound', timestamp: '2026-08-04T11:00:00.000Z', value: 'Call me at 3' });
   updates.push({ type: 'engagement_signal', signalType: 'sms_reply', timestamp: '2026-08-04T11:00:00.000Z', value: 'SMS reply · via ghl' });
   const leads = [
-    leadWithSignals('lead:kvn', updates),
+    {
+      key: 'lead:kvn',
+      title: 'Kvn Homes',
+      phone: '5550100',
+      email: 'kvn@example.com',
+      city: 'Vancouver',
+      updates,
+      engagementSignals: {},
+    },
     leadWithSignals('lead:other', [
       { type: 'engagement_signal', signalType: 'link_click', timestamp: '2026-08-04T09:00:00.000Z', value: 'Link click' },
     ]),
@@ -241,10 +259,24 @@ test('buildEngagementInbox groups a business into one row with reply count and r
   assert.equal(kvn.leadKey, 'lead:kvn');
   assert.equal(kvn.count, 4);
   assert.equal(kvn.countLabel, '4 replies');
+  // Chronological thread: your outbound + their inbound interleaved.
   assert.deepEqual(
-    kvn.replies.map((r) => [r.text, r.repeat]),
-    [['Call me at 3', 1], [auto, 3]],
+    kvn.thread.map((m) => [m.direction, m.text]),
+    [
+      ['out', 'Hi — still need flooring help?'],
+      ['in', auto],
+      ['in', auto],
+      ['in', auto],
+      ['out', 'Thanks — what day works for a quote?'],
+      ['in', 'Call me at 3'],
+    ],
   );
+  assert.equal(kvn.replies[0].text, 'Call me at 3');
+  assert.ok(kvn.sendLead);
+  assert.equal(kvn.sendLead.name, 'Kvn Homes');
+  assert.equal(kvn.sendLead.phone, '5550100');
+  assert.match(kvn.sendLead.note, /Call me at 3/);
   assert.equal(inbox.rows[1].countLabel, '');
-  assert.deepEqual(inbox.rows[1].replies, []);
+  assert.deepEqual(inbox.rows[1].thread, []);
+  assert.equal(inbox.rows[1].sendLead, null);
 });

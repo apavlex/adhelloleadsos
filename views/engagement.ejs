@@ -76,9 +76,15 @@
         <% _rows.forEach(function (ev) {
           var _when = (ev.latestAt || ev.at) ? wsDateTime(ev.latestAt || ev.at, { dateStyle: 'medium', timeStyle: 'short' }) : '';
           var _warm = ev.priority <= 2;
-          var _replies = Array.isArray(ev.replies) ? ev.replies : [];
+          var _thread = Array.isArray(ev.thread) && ev.thread.length
+            ? ev.thread
+            : (Array.isArray(ev.replies) ? ev.replies.slice().reverse() : []);
+          var _threadShow = 8;
+          var _threadStart = Math.max(0, _thread.length - _threadShow);
+          var _threadVisible = _thread.slice(_threadStart);
+          var _send = ev.sendLead || null;
         %>
-        <li class="engagement-inbox-row px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 hover:bg-brand-cream/20 dark:hover:bg-slate-800/40 transition-colors">
+        <li class="engagement-inbox-row px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4 hover:bg-brand-cream/20 dark:hover:bg-slate-800/40 transition-colors">
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2 mb-1">
               <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/60 dark:border-white/15 text-brand-muted"><%= ev.signalLabel %></span>
@@ -88,25 +94,50 @@
               <p class="text-sm font-bold text-brand-dark dark:text-white truncate"><%= ev.leadTitle %></p>
               <% if (ev.countLabel) { %><span class="engagement-count shrink-0 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30"><%= ev.countLabel %></span><% } %>
             </div>
-            <% if (_replies.length) { %>
-            <ul class="engagement-replies mt-2 space-y-1.5">
-              <% _replies.slice(0, 3).forEach(function (r) { %>
-              <li class="rounded-lg border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 px-3 py-2">
-                <p class="text-[9px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200"><%= r.channel === 'email' ? 'Email reply' : 'SMS reply' %> · <%= wsDateTime(r.at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %><% if (r.repeat > 1) { %> · ×<%= r.repeat %><% } %></p>
-                <p class="text-xs text-brand-dark dark:text-slate-200 mt-0.5 line-clamp-3 break-words"><%= r.text %></p>
+            <% if (_threadVisible.length) { %>
+            <ul class="engagement-thread mt-2 space-y-1.5" aria-label="Conversation">
+              <% if (_threadStart > 0) { %>
+              <li class="text-[10px] font-bold text-brand-muted px-1">Earlier · <%= _threadStart %> messages</li>
+              <% } %>
+              <% _threadVisible.forEach(function (r) {
+                var _out = r.direction === 'out';
+                var _label = _out
+                  ? (r.channel === 'email' ? 'You · Email' : 'You · SMS')
+                  : (r.channel === 'email' ? 'Email reply' : 'SMS reply');
+                var _bubble = _out
+                  ? 'rounded-lg border border-brand-border/50 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/60 px-3 py-2 sm:ml-6'
+                  : 'rounded-lg border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 px-3 py-2 sm:mr-6';
+                var _meta = _out
+                  ? 'text-[9px] font-black uppercase tracking-widest text-brand-muted'
+                  : 'text-[9px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200';
+              %>
+              <li class="<%= _bubble %>">
+                <p class="<%= _meta %>"><%= _label %> · <%= wsDateTime(r.at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) %></p>
+                <p class="text-xs text-brand-dark dark:text-slate-200 mt-0.5 line-clamp-4 break-words"><%= r.text %></p>
               </li>
               <% }); %>
-              <% if (_replies.length > 3) { %>
-              <li class="text-[10px] font-bold text-brand-muted">+<%= _replies.length - 3 %> more replies</li>
-              <% } %>
             </ul>
             <% } else { %>
             <p class="text-[11px] text-brand-muted mt-0.5 line-clamp-2"><%= ev.detail %></p>
             <% } %>
             <p class="text-[10px] text-brand-muted/80 mt-1 tabular-nums"><%= _when %></p>
           </div>
-          <div class="flex flex-wrap gap-2 shrink-0">
+          <div class="flex flex-wrap gap-2 shrink-0 sm:pt-1">
             <a href="<%= ev.href %>" class="btn-pill bg-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95">Call in Focus</a>
+            <% if (_send) { %>
+            <button
+              type="button"
+              class="btn-pill border border-brand-yellow/50 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20"
+              data-open-send-lead
+              data-send-lead-name="<%= _send.name || '' %>"
+              data-send-lead-phone="<%= _send.phone || '' %>"
+              data-send-lead-email="<%= _send.email || '' %>"
+              data-send-lead-city="<%= _send.city || '' %>"
+              data-send-lead-zip="<%= _send.zip || '' %>"
+              data-send-lead-address="<%= _send.address || '' %>"
+              data-send-lead-note="<%= _send.note || '' %>"
+            >Send lead</button>
+            <% } %>
             <a href="/pipeline?focusLead=<%= encodeURIComponent(ev.leadKey) %>" class="btn-pill border border-brand-border dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Pipeline</a>
           </div>
         </li>
