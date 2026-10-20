@@ -1,12 +1,13 @@
 /**
  * Find a real business email before auto-outreach enrolls to GHL.
- * Order: website scrape → RapidAPI website → Outscraper → BetterContact.
+ * Order: website scrape → RapidAPI website → Outscraper → MoltSets → BetterContact.
  * Never invents addresses. (Monid domain-unlock retired — use RapidAPI / Outscraper.)
  */
 const dbService = require('./database');
 const { isValidEmailForGhl } = require('./ghlClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const betterContact = require('./betterContactClient');
+const moltsetsLeadEnrich = require('./moltsetsLeadEnrich');
 const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const outscraperLeadEnrich = require('./outscraperLeadEnrich');
 const localPageExtract = require('./localPageExtract');
@@ -17,8 +18,9 @@ const STEP_TIMEOUT_MS = {
   local_website: 12_000,
   rapidapi_website: 18_000,
   outscraper_contacts: 25_000,
+  moltsets: 35_000,
   bettercontact: 45_000,
-};
+}
 const DEFAULT_TOTAL_BUDGET_MS = 90_000;
 
 function hasUsableEmail(lead) {
@@ -146,6 +148,31 @@ async function tryOutscraperEmail(lead, integrationEnv) {
     }
   } catch (e) {
     console.warn('[ensureLeadEmail] Outscraper contacts failed:', e && e.message);
+  }
+  return null;
+}
+
+async function tryMoltsetsEmail(lead, integrationEnv) {
+  const moltsetsClient = require('./moltsetsClient');
+  if (!moltsetsClient.isConfigured(integrationEnv)) return null;
+  try {
+    const pack = await moltsetsLeadEnrich.enrichLeadForBusiness(lead, integrationEnv, {
+      includeMobile: false,
+    });
+    const extract = (pack && pack.extract) || {};
+    if (!isValidEmailForGhl(extract.email)) return null;
+    const { lead: merged, patch } = mergeEnrichmentOntoLead(lead, extract);
+    return {
+      email: String(extract.email).trim(),
+      source: 'moltsets',
+      emailValidationStatus: extract.email_validation_status || '',
+      decisionMakerName: extract.decision_maker_name || '',
+      linkedin: extract.linkedin || '',
+      patch,
+      lead: { ...merged, email: String(extract.email).trim() },
+    };
+  } catch (e) {
+    console.warn('[ensureLeadEmail] MoltSets failed:', e && e.message);
   }
   return null;
 }
@@ -283,6 +310,11 @@ async function ensureLeadEmail(opts) {
       label: 'outscraper_contacts',
       ms: STEP_TIMEOUT_MS.outscraper_contacts,
       run: () => tryOutscraperEmail(lead, integrationEnv),
+    },
+    {
+      label: 'moltsets',
+      ms: STEP_TIMEOUT_MS.moltsets,
+      run: () => tryMoltsetsEmail(lead, integrationEnv),
     },
     {
       label: 'bettercontact',
