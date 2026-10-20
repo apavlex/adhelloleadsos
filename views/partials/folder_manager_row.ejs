@@ -22,6 +22,13 @@
   data-folder-parent-key="<%= _f.parentFolderKey || '' %>"
   data-folder-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>"
   data-folder-outreach-enabled="<%= _oaEnabled ? '1' : '0' %>">
+  <% if (!_f.isPipelineDefault && !_f.isTradeFolder) { %>
+  <label class="folder-merge-select shrink-0 inline-flex items-center justify-center self-start mt-1.5 cursor-pointer" title="Select to merge folders">
+    <input type="checkbox" class="folder-merge-checkbox rounded border-brand-border dark:border-white/20" data-folder-key="<%= _f.key %>" data-folder-name="<%= _f.name.replace(/"/g, '&quot;') %>" aria-label="Select <%= _f.name.replace(/"/g, '&quot;') %> for merge" />
+  </label>
+  <% } else { %>
+  <span class="w-4 shrink-0" aria-hidden="true"></span>
+  <% } %>
   <a href="<%= _openHref %>" class="folder-open-link min-w-0 flex-1 rounded-lg -mx-1 px-1 py-0.5 hover:bg-brand-cream/40 dark:hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow/50" title="Open leads in <%= _f.name.replace(/"/g, '&quot;') %>">
     <p class="font-display font-bold <%= _compact ? 'text-base' : 'text-lg' %> text-brand-dark dark:text-white flex flex-wrap items-center gap-2 group-hover:text-brand-yellow">
       <% if (_depth > 0 && !_inTree) { %><span class="text-brand-muted/60" aria-hidden="true">↳</span><% } %>
@@ -49,6 +56,9 @@
     <div class="flex flex-wrap items-center justify-end gap-1.5" role="group" aria-label="Primary folder actions">
       <button type="button" class="folder-outreach-setup px-3 py-2 rounded-xl bg-emerald-600/10 dark:bg-emerald-950/40 border border-emerald-600/30 text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 hover:border-emerald-500/50 transition-colors" data-folder-key="<%= _f.key %>" title="Folder outreach settings — enrolls leads into your GHL auto-outreach workflow">Outreach</button>
       <button type="button" class="folder-run-search px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm" data-folder-key="<%= _f.key %>" title="Replay this folder’s saved search and merge new leads">Run search</button>
+      <% if (_fc > 1) { %>
+      <button type="button" class="folder-merge-duplicates px-3 py-2 rounded-xl bg-fuchsia-600/10 dark:bg-fuchsia-950/40 border border-fuchsia-500/35 text-[10px] font-black uppercase tracking-widest text-fuchsia-800 dark:text-fuchsia-200 hover:border-fuchsia-500/55 transition-colors" data-folder-key="<%= _f.key %>" data-folder-name="<%= _f.name.replace(/"/g, '&quot;') %>" title="Find duplicate businesses in this folder and merge each group into one lead">Merge duplicates</button>
+      <% } %>
       <a href="<%= _openHref %>" class="hidden sm:inline-flex px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
     </div>
     <div class="flex flex-wrap items-center justify-end gap-1 pt-1 border-t border-brand-border/30 dark:border-white/10" role="group" aria-label="Folder setup">
@@ -59,6 +69,7 @@
       <button type="button" class="folder-search-setup px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="<%= _f.key %>">Search setup</button>
       <% if (!_f.isPipelineDefault && !_f.isTradeFolder) { %>
       <button type="button" class="folder-move px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="<%= _f.key %>">Move</button>
+      <button type="button" class="folder-merge-into px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/40 transition-colors" data-folder-key="<%= _f.key %>" data-folder-name="<%= _f.name.replace(/"/g, '&quot;') %>" title="Move all leads into another folder and remove this one">Merge into…</button>
       <% } %>
       <% if (!_f.isPipelineDefault) { %>
       <button type="button" class="folder-rename px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="<%= _f.key %>">Rename</button>

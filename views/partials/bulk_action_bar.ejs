@@ -152,6 +152,10 @@
         <svg class="w-3.5 h-3.5 text-violet-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16 3h5v5M4 21l7.737-7.737a3 3 0 014.242 0l.818.818M4 21h5v-5M4 21l7.5-7.5M19 8l-6 6" /></svg>
         <span>Merge</span>
       </button>
+      <button type="button" id="bulkMergeDuplicatesBtn" class="bulk-bar-btn bulk-bar-btn--ghost text-fuchsia-300 shrink-0" title="Find duplicate businesses in this folder and merge each group into one lead">
+        <svg class="w-3.5 h-3.5 text-fuchsia-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 7.5h.75v.75H7.5V7.5zm4.5 0h.75v.75H12V7.5zm4.5 0h.75v.75H16.5V7.5zM7.5 12h.75v.75H7.5V12zm4.5 0h.75v.75H12V12zm4.5 0h.75v.75H16.5V12zM7.5 16.5h.75v.75H7.5v-.75zm4.5 0h.75v.75H12v-.75zm4.5 0h.75v.75H16.5v-.75zM4.5 4.5h15v15h-15v-15z" /></svg>
+        <span>Merge duplicates</span>
+      </button>
       <% } %>
       <button type="button" id="cancelSelectionBtn" class="text-[10px] font-bold text-white/45 hover:text-white transition-colors uppercase tracking-wide px-1">Cancel</button>
       <% if (_bulkMode === 'pipeline') { %>

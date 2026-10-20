@@ -5,6 +5,7 @@ const { filterLeadsForRequest, seesOnlyAssignedLeads, userEmail } = require('../
 const { wantsJsonResponse } = require('../lib/httpRequest');
 const { migrateUnfiledLeadsToPipelineFolders, deleteFolderComplete } = require('../services/pipelineFolders');
 const { moveFolder } = require('../services/folderMove');
+const { mergeFoldersInto } = require('../services/folderMerge');
 const { isInOutreachFolder } = require('../services/leadListFilters');
 const { parseSearchPresetFromForm, normalizeSearchPreset } = require('../services/folderSearchPreset');
 const { startFolderSearch } = require('../services/folderSearchRun');
@@ -518,6 +519,35 @@ router.post('/move', async (req, res, next) => {
         : `Moved folder "${movedName}" to top level`,
     });
     res.json({ success: true, folder: result.folder });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Merge source folders into a destination (moves leads, then removes source folders). */
+router.post('/merge', express.json(), async (req, res, next) => {
+  try {
+    const targetFolderKey = String(req.body?.targetFolderKey || '').trim();
+    const sourceFolderKeys = Array.isArray(req.body?.sourceFolderKeys)
+      ? req.body.sourceFolderKeys
+      : req.body?.sourceFolderKey
+        ? [req.body.sourceFolderKey]
+        : [];
+    const result = await mergeFoldersInto({
+      workspaceId: req.workspaceId,
+      targetFolderKey,
+      sourceFolderKeys,
+    });
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    const targetName = (result.targetFolder && result.targetFolder.name) || 'folder';
+    teamActivity.record(req, {
+      category: 'leads',
+      action: 'folder_merge',
+      summary: `Merged ${result.deletedFolders.length} folder${result.deletedFolders.length === 1 ? '' : 's'} into "${targetName}" (${result.movedLeads} leads)`,
+    });
+    res.json(result);
   } catch (e) {
     next(e);
   }

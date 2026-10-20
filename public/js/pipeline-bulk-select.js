@@ -1254,6 +1254,127 @@
 
   window.__bulkMergeSelectedLeads = bulkMergeSelectedLeads;
 
+  let bulkMergeDuplicatesInFlight = false;
+
+  async function bulkMergeDuplicatesInFolder() {
+    if (bulkMergeDuplicatesInFlight) return;
+    const folderKey =
+      typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
+        ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+        : '';
+    const scopeLabel = folderKey ? 'this folder' : 'all visible leads';
+    const btn = document.getElementById('bulkMergeDuplicatesBtn');
+    const btnHtml = btn ? btn.innerHTML : '';
+
+    try {
+      bulkMergeDuplicatesInFlight = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML =
+          '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Checking…</span>';
+      }
+      showBulkBarFeedbackEarly('Scanning for duplicates in ' + scopeLabel + '…', 'loading');
+
+      const previewRes = await fetch('/leads/merge-duplicates', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderKey: folderKey || undefined, dryRun: true, limit: 50 }),
+      });
+      const preview = await previewRes.json().catch(function () {
+        return {};
+      });
+      if (!previewRes.ok || !preview.success) {
+        throw new Error((preview && preview.error) || 'Could not scan for duplicates.');
+      }
+      const found = Number(preview.groupsFound) || 0;
+      if (!found) {
+        showBulkBarFeedbackEarly('No duplicate groups found in ' + scopeLabel + '.', 'success');
+        if (typeof window.showProspectToast === 'function') {
+          window.showProspectToast('No duplicates found.');
+        }
+        return;
+      }
+
+      const sample = Array.isArray(preview.groups)
+        ? preview.groups
+            .slice(0, 5)
+            .map(function (g) {
+              const titles = Array.isArray(g.titles) ? g.titles.join(' / ') : '';
+              return '- ' + (titles || g.matchedOn || 'group') + ' (' + (g.count || '?') + ')';
+            })
+            .join('\n')
+        : '';
+      const ok = window.confirm(
+        'Found ' +
+          found +
+          ' duplicate group' +
+          (found === 1 ? '' : 's') +
+          ' in ' +
+          scopeLabel +
+          '.\n\n' +
+          (sample ? sample + '\n\n' : '') +
+          'Merge each group into one lead? This cannot be undone.',
+      );
+      if (!ok) {
+        showBulkBarFeedbackEarly('Merge duplicates cancelled.', 'error');
+        return;
+      }
+
+      if (btn) {
+        btn.innerHTML =
+          '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Merging…</span>';
+      }
+      showBulkBarFeedbackEarly('Merging ' + found + ' duplicate group' + (found === 1 ? '' : 's') + '…', 'loading');
+
+      const res = await fetch('/leads/merge-duplicates', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderKey: folderKey || undefined, dryRun: false, limit: 50 }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Merge duplicates failed.');
+      }
+      const merged = Number(data.groupsMerged) || 0;
+      const away = Number(data.leadsMergedAway) || 0;
+      const msg =
+        merged > 0
+          ? 'Merged ' + merged + ' group' + (merged === 1 ? '' : 's') + ' (' + away + ' leads removed). Refreshing…'
+          : 'No groups were merged.';
+      showBulkBarFeedbackEarly(msg, merged > 0 ? 'success' : 'error');
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      if (merged > 0) {
+        window.setTimeout(function () {
+          window.location.reload();
+        }, 700);
+      }
+    } catch (err) {
+      console.error('[pipeline-bulk-select] merge duplicates failed', err);
+      const failMsg = (err && err.message) || 'Merge duplicates failed.';
+      showBulkBarFeedbackEarly(failMsg, 'error');
+      window.alert(failMsg);
+    } finally {
+      bulkMergeDuplicatesInFlight = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = btnHtml || btn.innerHTML;
+      }
+    }
+  }
+
+  window.__bulkMergeDuplicatesInFolder = bulkMergeDuplicatesInFolder;
+
+  document.addEventListener('click', function (e) {
+    const btn = e.target && e.target.closest ? e.target.closest('#bulkMergeDuplicatesBtn') : null;
+    if (!btn) return;
+    e.preventDefault();
+    bulkMergeDuplicatesInFolder();
+  });
+
   function rowIsBookmarkedForBulk(row) {
     if (!row) return false;
     const btn = row.querySelector && row.querySelector('.bookmark-btn');
