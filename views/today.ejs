@@ -368,7 +368,7 @@
               <div>
                 <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Ops agents</p>
                 <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white">Your role bots</h2>
-                <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Prospect SDR, Opportunity SDR, Dispatcher, and Ops scan AdHello and leave the next move here. Auto-runs about hourly when enabled.</p>
+                <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Prospect SDR, Opportunity SDR, Dispatcher, and Ops scan AdHello and leave the next move here. Auto-runs about hourly — hit <span class="font-semibold text-brand-dark dark:text-white">Pause</span> on a card (or Pause all) to stop AI credit use while you’re away.</p>
                 <p id="agentOpsRunningLine" class="text-sm font-semibold text-amber-700 dark:text-amber-300 mt-2 <%= _runningRoles.length ? '' : 'hidden' %>" <%= _runningRoles.length ? '' : 'hidden' %> aria-live="polite">
                   <% if (_runningRoles.length === 1) { %>
                     <span class="inline-flex items-center gap-2"><span class="agent-ops-pulse" aria-hidden="true"></span><%= _runningRoles[0].title %> is running…</span>
@@ -377,27 +377,33 @@
                   <% } %>
                 </p>
               </div>
-              <button type="button" id="agentOpsTickAll" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 self-start">Run all</button>
+              <div class="flex flex-wrap items-center gap-2 shrink-0 self-start">
+                <button type="button" id="agentOpsPauseAll" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap" data-ops-enabled="<%= _agentOps.enabled !== false ? '1' : '0' %>" title="<%= _agentOps.enabled !== false ? 'Stop hourly auto-runs for every bot (saves AI credits)' : 'Turn hourly auto-runs back on for every bot' %>"><%= _agentOps.enabled !== false ? 'Pause all' : 'Resume all' %></button>
+                <button type="button" id="agentOpsTickAll" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap">Run all</button>
+              </div>
             </div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
               <% _agentOps.roles.forEach((role) => { %>
                 <% const insight = role.insight; %>
                 <% const items = Array.isArray(role.items) ? role.items : []; %>
                 <% const _roleState = role.running ? 'running' : ((items.length || (insight && insight.body)) ? 'ready' : 'idle'); %>
-                <article class="agent-ops-card rounded-2xl border border-brand-border/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-4 md:p-5 flex flex-col gap-3 <%= role.running ? 'opacity-80' : '' %>" data-agent-role="<%= role.id %>" data-job="<%= role.defaultJob %>" data-auto-tick="<%= role.autoTick !== false && role.enabled !== false ? '1' : '0' %>" style="border-left: 3px solid <%= role.color || '#94a3b8' %>;">
+                <% const _roleAutoOn = role.autoTick !== false && role.enabled !== false && _agentOps.enabled !== false; %>
+                <article class="agent-ops-card rounded-2xl border border-brand-border/70 dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-4 md:p-5 flex flex-col gap-3 <%= role.running ? 'opacity-80' : '' %>" data-agent-role="<%= role.id %>" data-job="<%= role.defaultJob %>" data-enabled="<%= role.enabled !== false ? '1' : '0' %>" data-auto-tick="<%= role.autoTick !== false ? '1' : '0' %>" style="border-left: 3px solid <%= role.color || '#94a3b8' %>;">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                       <div class="flex flex-wrap items-center gap-2">
                         <p class="text-[10px] font-black uppercase tracking-widest" style="color: <%= role.color || '#64748b' %>"><%= role.name %></p>
                         <span class="agent-ops-state text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border <%= _roleState === 'running' ? 'border-amber-500/50 text-amber-700 dark:text-amber-300' : (_roleState === 'ready' ? 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300' : 'border-brand-border/60 dark:border-white/15 text-brand-muted') %>" data-state="<%= _roleState %>"><%= _roleState === 'running' ? 'Running' : (_roleState === 'ready' ? 'Ready' : 'Idle') %></span>
-                        <% if (role.autoTick !== false && role.enabled !== false) { %>
-                        <span class="agent-ops-auto text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-brand-border/50 dark:border-white/15 text-brand-muted" title="Auto-runs about hourly">Auto</span>
-                        <% } %>
+                        <span class="agent-ops-auto text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 dark:border-emerald-500/30 <%= _roleAutoOn ? '' : 'hidden' %>" title="Auto-runs about hourly" <%= _roleAutoOn ? '' : 'hidden' %>>Auto</span>
+                        <span class="agent-ops-paused text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-slate-300 text-slate-600 dark:border-white/20 dark:text-slate-300 <%= _roleAutoOn ? 'hidden' : '' %>" title="Hourly auto-run is off — no AI credit burn until you resume" <%= _roleAutoOn ? 'hidden' : '' %>>Paused</span>
                       </div>
                       <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white mt-0.5"><%= role.title %></h3>
                       <p class="text-xs text-brand-muted dark:text-slate-400 mt-1"><%= role.blurb %></p>
                     </div>
-                    <button type="button" class="agent-ops-run btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0" data-job="<%= role.defaultJob %>" <%= role.running ? 'disabled' : '' %>><%= role.running ? 'Running…' : 'Run' %></button>
+                    <div class="flex flex-col items-stretch gap-1.5 shrink-0">
+                      <button type="button" class="agent-ops-run btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest whitespace-nowrap" data-job="<%= role.defaultJob %>" <%= role.running || role.enabled === false || _agentOps.enabled === false ? 'disabled' : '' %>><%= role.running ? 'Running…' : 'Run' %></button>
+                      <button type="button" class="agent-ops-pause btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest whitespace-nowrap text-brand-dark dark:text-white" data-agent-role="<%= role.id %>" title="<%= _roleAutoOn ? 'Pause hourly auto-run (saves AI credits)' : 'Resume hourly auto-run' %>"><%= _roleAutoOn ? 'Pause' : 'Resume' %></button>
+                    </div>
                   </div>
                   <div class="agent-ops-insight text-sm text-brand-dark dark:text-slate-200">
                     <% if (insight && insight.body) { %>
@@ -490,6 +496,47 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
             }
+            var opsMasterEnabled = <%- JSON.stringify(_agentOps.enabled !== false) %>;
+            function roleAutoOn(card) {
+              if (!card) return false;
+              if (!opsMasterEnabled) return false;
+              if (card.getAttribute('data-enabled') === '0') return false;
+              return card.getAttribute('data-auto-tick') !== '0';
+            }
+            function paintPauseControls(card) {
+              if (!card) return;
+              var autoOn = roleAutoOn(card);
+              var autoBadge = card.querySelector('.agent-ops-auto');
+              var pausedBadge = card.querySelector('.agent-ops-paused');
+              var pauseBtn = card.querySelector('.agent-ops-pause');
+              if (autoBadge) {
+                autoBadge.classList.toggle('hidden', !autoOn);
+                if (autoOn) autoBadge.removeAttribute('hidden');
+                else autoBadge.setAttribute('hidden', '');
+              }
+              if (pausedBadge) {
+                pausedBadge.classList.toggle('hidden', autoOn);
+                if (autoOn) pausedBadge.setAttribute('hidden', '');
+                else pausedBadge.removeAttribute('hidden');
+              }
+              if (pauseBtn) {
+                pauseBtn.textContent = autoOn ? 'Pause' : 'Resume';
+                pauseBtn.title = autoOn
+                  ? 'Pause hourly auto-run (saves AI credits)'
+                  : 'Resume hourly auto-run';
+                // When master ops is off, Resume on a card re-enables master + that role's auto.
+                pauseBtn.setAttribute('data-mode', autoOn ? 'pause' : 'resume');
+              }
+            }
+            function paintPauseAllBtn() {
+              var btn = document.getElementById('agentOpsPauseAll');
+              if (!btn) return;
+              btn.setAttribute('data-ops-enabled', opsMasterEnabled ? '1' : '0');
+              btn.textContent = opsMasterEnabled ? 'Pause all' : 'Resume all';
+              btn.title = opsMasterEnabled
+                ? 'Stop hourly auto-runs for every bot (saves AI credits)'
+                : 'Turn hourly auto-runs back on for every bot';
+            }
             function setCardState(card, state) {
               if (!card) return;
               var badge = card.querySelector('.agent-ops-state');
@@ -508,11 +555,13 @@
                 badge.classList.toggle('text-brand-muted', state !== 'running' && state !== 'ready');
               }
               if (btn) {
-                btn.disabled = state === 'running';
+                var blocked = state === 'running' || !opsMasterEnabled || card.getAttribute('data-enabled') === '0';
+                btn.disabled = blocked;
                 btn.textContent = state === 'running' ? 'Running…' : 'Run';
               }
               card.classList.toggle('opacity-80', state === 'running');
               card.setAttribute('data-running', state === 'running' ? '1' : '0');
+              paintPauseControls(card);
             }
             function paintRunningLine(roles) {
               var line = document.getElementById('agentOpsRunningLine');
@@ -573,6 +622,8 @@
               if (!role) return;
               var card = panel.querySelector('[data-agent-role="' + role.id + '"]');
               if (!card) return;
+              card.setAttribute('data-enabled', role.enabled === false ? '0' : '1');
+              card.setAttribute('data-auto-tick', role.autoTick === false ? '0' : '1');
               var box = card.querySelector('.agent-ops-insight');
               var hrefEl = card.querySelector('.agent-ops-href');
               var insight = role.insight;
@@ -607,6 +658,8 @@
             }
             function paintDashboard(dash) {
               if (!dash || !Array.isArray(dash.roles)) return;
+              if (typeof dash.enabled === 'boolean') opsMasterEnabled = dash.enabled;
+              paintPauseAllBtn();
               dash.roles.forEach(paintRole);
               paintRunningLine(dash.runningRoles && dash.runningRoles.length
                 ? dash.runningRoles
@@ -667,6 +720,67 @@
                 }
               });
             });
+            panel.querySelectorAll('.agent-ops-pause').forEach(function (btn) {
+              btn.addEventListener('click', async function () {
+                var card = btn.closest('.agent-ops-card');
+                var roleId = btn.getAttribute('data-agent-role') || (card && card.getAttribute('data-agent-role'));
+                if (!roleId) return;
+                var wantAuto = !roleAutoOn(card);
+                btn.disabled = true;
+                var title = card && card.querySelector('h3') ? card.querySelector('h3').textContent : roleId;
+                setStatus((wantAuto ? 'Resuming ' : 'Pausing ') + title + '…');
+                try {
+                  var body = { roles: {} };
+                  body.roles[roleId] = { autoTick: wantAuto, enabled: true };
+                  // Resuming a single bot while master is off turns the fleet back on.
+                  if (wantAuto && !opsMasterEnabled) body.enabled = true;
+                  var data = await postJson('/agent-ops/settings', body);
+                  if (data.dashboard) paintDashboard(data.dashboard);
+                  else {
+                    if (typeof data.settings === 'object' && data.settings && typeof data.settings.enabled === 'boolean') {
+                      opsMasterEnabled = data.settings.enabled;
+                    }
+                    if (card) {
+                      card.setAttribute('data-auto-tick', wantAuto ? '1' : '0');
+                      card.setAttribute('data-enabled', '1');
+                      paintPauseControls(card);
+                      paintPauseAllBtn();
+                    }
+                  }
+                  setStatus(wantAuto
+                    ? (title + ' auto-run is back on.')
+                    : (title + ' paused — no hourly AI runs until you resume.'));
+                } catch (err) {
+                  setStatus(err.message || 'Could not update bot.');
+                } finally {
+                  btn.disabled = false;
+                }
+              });
+            });
+            var pauseAll = document.getElementById('agentOpsPauseAll');
+            if (pauseAll) {
+              pauseAll.addEventListener('click', async function () {
+                var wantOn = !opsMasterEnabled;
+                pauseAll.disabled = true;
+                setStatus(wantOn ? 'Resuming all bots…' : 'Pausing all bots…');
+                try {
+                  var data = await postJson('/agent-ops/settings', { enabled: wantOn });
+                  if (data.dashboard) paintDashboard(data.dashboard);
+                  else {
+                    opsMasterEnabled = wantOn;
+                    paintPauseAllBtn();
+                    panel.querySelectorAll('.agent-ops-card').forEach(paintPauseControls);
+                  }
+                  setStatus(wantOn
+                    ? 'All bots resumed — hourly auto-runs are on.'
+                    : 'All bots paused — no hourly AI credit use until you resume.');
+                } catch (err) {
+                  setStatus(err.message || 'Could not update bots.');
+                } finally {
+                  pauseAll.disabled = false;
+                }
+              });
+            }
             var tickAll = document.getElementById('agentOpsTickAll');
             if (tickAll) {
               tickAll.addEventListener('click', async function () {

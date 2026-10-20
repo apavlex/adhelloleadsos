@@ -40,7 +40,11 @@ router.post('/settings', express.json(), (req, res) => {
     }
   }
   const settings = agentOps.saveSettings(wid, patch);
-  return res.json({ success: true, settings });
+  return res.json({
+    success: true,
+    settings,
+    dashboard: agentOps.dashboardForWorkspace(wid),
+  });
 });
 
 router.post('/run', express.json(), async (req, res, next) => {
