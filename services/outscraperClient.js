@@ -850,6 +850,27 @@ async function searchAngiDirectory({ keyword, city, state, maxResults, integrati
 async function searchZillowAgentsDirectory({ city, state, maxResults, integrationEnv }) {
   const limit = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 15));
   const queryUrl = buildZillowAgentsSearchUrl(city, state);
+  const locationQuery = [city, state].filter(Boolean).join(', ').trim();
+
+  // Prefer dedicated /zillow-agents (same pattern as /groupon-products).
+  try {
+    const rows = await runOutscraperDirectoryGet({
+      endpoint: 'zillow-agents',
+      integrationEnv,
+      label: 'Zillow agents',
+      buildRequestUrl: (base, useAsync) => {
+        const u = new URL(`${base}/zillow-agents`);
+        u.searchParams.set('query', queryUrl || locationQuery);
+        u.searchParams.set('limit', String(limit));
+        u.searchParams.set('async', useAsync ? 'true' : 'false');
+        return u;
+      },
+    });
+    const mapped = normalizeDirectoryRows(rows, normalizeZillowAgentRow);
+    if (mapped.length) return mapped;
+  } catch (e) {
+    console.warn('[Outscraper] zillow-agents unavailable, trying zillow-search:', e.message);
+  }
 
   try {
     const rows = await runOutscraperDirectoryGet({

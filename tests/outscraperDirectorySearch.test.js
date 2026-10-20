@@ -19,6 +19,11 @@ describe('outscraper directory search helpers', () => {
     assert.match(url, /zillow\.com\/professionals\/real-estate-agent-reviews\/seattle-wa/);
   });
 
+  it('exposes searchGrouponDirectory and searchZillowAgentsDirectory', () => {
+    assert.equal(typeof outscraper.searchGrouponDirectory, 'function');
+    assert.equal(typeof outscraper.searchZillowAgentsDirectory, 'function');
+  });
+
   it('builds Groupon local search URL', () => {
     const url = outscraper.buildGrouponSearchUrl('Massage', 'Portland', 'OR');
     assert.match(url, /groupon\.com\/local\/portland-or/);
