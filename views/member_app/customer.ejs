@@ -53,16 +53,29 @@
       const _ghlAct = typeof ghlActivity !== 'undefined' && ghlActivity ? ghlActivity : null;
       const _ghlItems = _ghlAct && Array.isArray(_ghlAct.items) ? _ghlAct.items : [];
       const _ghlLinked = !!(customer.ghlContactId);
+      const _ghlNeedsFetch = _ghlLinked && !_ghlAct;
     %>
     <% if (_ghlLinked) { %>
-    <section class="ma-section" id="maCustomerGhlActivity">
+    <section
+      class="ma-section"
+      id="maCustomerGhlActivity"
+      <% if (_ghlNeedsFetch) { %>data-ma-ghl-activity-url="<%= base %>/customers/c/<%= encodeURIComponent(customer.id) %>/ghl-activity.json"<% } %>
+    >
       <div class="ma-section__head">
         <h2>Calls &amp; texts</h2>
-        <% if (_ghlAct && _ghlAct.openHref) { %>
-        <a href="<%= _ghlAct.openHref %>" target="_blank" rel="noopener noreferrer">Open in GHL</a>
-        <% } %>
+        <a
+          class="ma-ghl-open"
+          href="<%= (_ghlAct && _ghlAct.openHref) ? _ghlAct.openHref : '#' %>"
+          target="_blank"
+          rel="noopener noreferrer"
+          <% if (!(_ghlAct && _ghlAct.openHref)) { %>hidden<% } %>
+          data-ma-ghl-open
+        >Open in GHL</a>
       </div>
-      <% if (_ghlAct && _ghlAct.error && !_ghlItems.length) { %>
+      <div data-ma-ghl-activity-body>
+      <% if (_ghlNeedsFetch) { %>
+      <p class="ma-hint ma-ghl-loading" style="margin:0" data-ma-ghl-status>Loading calls &amp; texts…</p>
+      <% } else if (_ghlAct && _ghlAct.error && !_ghlItems.length) { %>
       <p class="ma-hint" style="margin:0"><%= _ghlAct.error %></p>
       <% } else if (!_ghlItems.length) { %>
       <p class="ma-hint" style="margin:0">No calls or texts in GHL for this contact yet.</p>
@@ -95,6 +108,7 @@
         <% }); %>
       </ul>
       <% } %>
+      </div>
     </section>
     <% } %>
     <% } else { %>

@@ -170,4 +170,14 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn{background:color-mix(in srgb,va
 .ma-cust-tools.ma-fold{margin:0 0 8px!important;border-radius:10px!important}
 .ma-cust-tools.ma-fold>summary{box-sizing:border-box!important;height:36px!important;min-height:36px!important;max-height:36px!important;padding:0 12px!important;font-size:13px!important;font-weight:800!important;line-height:1!important;gap:8px!important}
 .ma-cust-tools.ma-fold[open]>summary{height:auto!important;max-height:none!important;min-height:36px!important;padding:8px 12px!important}
+/* Nav progress — critical so a tap on a slow customer page shows feedback immediately */
+#maNavLoading{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:0;transition:opacity 120ms ease;background:rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;width:100vw;height:100vh;height:100dvh}
+#maNavLoading.is-on{opacity:1}
+#maNavLoading .ma-nav-loader{position:relative;width:72px;height:72px;display:flex;align-items:center;justify-content:center}
+#maNavLoading .ma-nav-loader-ring{position:absolute;inset:0;width:100%;height:100%;animation:ma-nav-loader-spin .9s linear infinite}
+#maNavLoading .ma-nav-loader-track{stroke:color-mix(in srgb,var(--acc) 18%,transparent);stroke-width:3;fill:none}
+#maNavLoading .ma-nav-loader-arc{stroke:var(--acc);stroke-width:3.25;stroke-linecap:round;stroke-dasharray:62 128;fill:none}
+#maNavLoading .ma-nav-loader-dot{width:14px;height:14px;border-radius:999px;background:var(--acc);box-shadow:0 0 0 6px color-mix(in srgb,var(--acc) 18%,transparent)}
+@keyframes ma-nav-loader-spin{to{transform:rotate(360deg)}}
+html.ma-nav-loading{cursor:progress}
 </style>

@@ -57,15 +57,20 @@ describe('memberCustomerGhlActivity', () => {
     const view = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
 
     assert.match(view, /Calls &amp; texts/);
     assert.match(view, /maCustomerGhlActivity/);
     assert.match(view, /ma-ghl-feed/);
     assert.match(view, /ghlContactId/);
     assert.match(view, /Open in GHL/);
+    assert.match(view, /data-ma-ghl-activity-url/);
     assert.match(css, /\.ma-ghl-feed/);
     assert.match(route, /memberCustomerGhlActivity/);
-    assert.match(route, /loadGhlActivity:\s*true/);
+    // Profile paints first; history loads via JSON so the tap is not blocked on GHL.
+    assert.match(route, /loadGhlActivity:\s*false/);
     assert.match(route, /customers\/c\/:id\/ghl-activity\.json/);
+    assert.match(js, /bootGhlActivity|data-ma-ghl-activity-url/);
   });
 });
+
