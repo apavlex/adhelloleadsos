@@ -17,7 +17,6 @@ const {
 const DEFAULT_PIPELINE_FOLDERS = {
   [JOB_TYPES.MAPS_BUSINESS]: { name: 'Businesses', sourceType: 'maps_business' },
   [JOB_TYPES.REAL_ESTATE]: { name: 'Real estate', sourceType: 'real_estate' },
-  [JOB_TYPES.HOME_OWNERS]: { name: 'Home owners', sourceType: 'home_owners' },
   [JOB_TYPES.PRODUCTS]: { name: 'Products', sourceType: 'product_listing' },
   [JOB_TYPES.WHOLESALE]: { name: 'Wholesale', sourceType: 'wholesale_listing' },
   [JOB_TYPES.PERMITS]: { name: 'Permits', sourceType: 'permit_stack' },
@@ -26,7 +25,6 @@ const DEFAULT_PIPELINE_FOLDERS = {
 
 function sourceForJobType(jobType) {
   const jt = normalizeJobType(jobType);
-  if (jt === JOB_TYPES.HOME_OWNERS) return 'home_owners_search';
   if (jt === JOB_TYPES.PRODUCTS) return 'products_search';
   if (jt === JOB_TYPES.WHOLESALE) return 'wholesale_search';
   if (jt === JOB_TYPES.PERMITS) return 'permit_stack_search';
@@ -45,6 +43,7 @@ function findFolderForJobType(folders, jobType) {
   if (jt === JOB_TYPES.REAL_ESTATE) {
     const legacy =
       (folders || []).find((f) => f && String(f.jobType || '') === JOB_TYPES.MOBILE_HOMES) ||
+      (folders || []).find((f) => f && String(f.jobType || '') === JOB_TYPES.HOME_OWNERS) ||
       (folders || []).find(
         (f) =>
           f &&
@@ -52,6 +51,14 @@ function findFolderForJobType(folders, jobType) {
           String(f.name || '')
             .trim()
             .toLowerCase() === 'mobile homes'
+      ) ||
+      (folders || []).find(
+        (f) =>
+          f &&
+          f.isPipelineDefault &&
+          String(f.name || '')
+            .trim()
+            .toLowerCase() === 'home owners'
       );
     if (legacy) return legacy;
   }
@@ -235,7 +242,18 @@ function isLegacyMobileHomesFolder(folder) {
   );
 }
 
-async function hideLegacyMobileHomesJobType(workspaceId) {
+function isLegacyHomeOwnersFolder(folder) {
+  if (!folder || folder.isPipelineDefault === false) return false;
+  const jt = String(folder.jobType || '').trim();
+  if (jt === JOB_TYPES.HOME_OWNERS) return true;
+  return (
+    String(folder.name || '')
+      .trim()
+      .toLowerCase() === 'home owners'
+  );
+}
+
+async function hideLegacyJobType(workspaceId, jobTypeKey) {
   const wid = workspaceId || 'default';
   const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
   const prev = ws.pipelineSettings || {};
@@ -244,7 +262,7 @@ async function hideLegacyMobileHomesJobType(workspaceId) {
       String(s || '').trim()
     )
   );
-  hidden.add(JOB_TYPES.MOBILE_HOMES);
+  hidden.add(jobTypeKey);
   ws.pipelineSettings = {
     ...prev,
     hiddenDefaultFolders: [...hidden],
@@ -252,14 +270,27 @@ async function hideLegacyMobileHomesJobType(workspaceId) {
   await dbService.saveWorkspace(wid, ws);
 }
 
+async function hideLegacyMobileHomesJobType(workspaceId) {
+  await hideLegacyJobType(workspaceId, JOB_TYPES.MOBILE_HOMES);
+}
+
+async function hideLegacyHomeOwnersJobType(workspaceId) {
+  await hideLegacyJobType(workspaceId, JOB_TYPES.HOME_OWNERS);
+}
+
 /**
- * Merge duplicate Mobile homes system folder into Real estate (or convert in place).
+ * Merge a legacy listing system folder into Real estate (or convert in place).
  * @returns {Promise<{ folders: object[], stats: object }>}
  */
-async function migrateLegacyMobileHomesFolder(workspaceId, folders) {
+async function migrateLegacyListingFolderIntoRealEstate(
+  workspaceId,
+  folders,
+  isLegacyFolder,
+  hideLegacy
+) {
   const wid = workspaceId || 'default';
   const list = [...(folders || [])];
-  const legacy = list.find(isLegacyMobileHomesFolder);
+  const legacy = list.find(isLegacyFolder);
   const stats = { moved: 0, removed: false, converted: false };
 
   if (!legacy) return { folders: list, stats };
@@ -274,26 +305,52 @@ async function migrateLegacyMobileHomesFolder(workspaceId, folders) {
       name: DEFAULT_PIPELINE_FOLDERS[JOB_TYPES.REAL_ESTATE].name,
       isPipelineDefault: true,
     });
-    await hideLegacyMobileHomesJobType(wid);
+    await hideLegacy(wid);
     stats.converted = true;
     const out = list.map((f) => (f.key === legacy.key ? { ...f, ...updated } : f));
     return { folders: out, stats };
   }
 
   if (realEstateByJob.key === legacy.key) {
-    await hideLegacyMobileHomesJobType(wid);
+    await hideLegacy(wid);
     return { folders: list, stats };
   }
 
   stats.moved = await dbService.reassignLeadsToFolder(wid, legacy.key, realEstateByJob.key);
   await dbService.deleteFolder(wid, legacy.key);
-  await hideLegacyMobileHomesJobType(wid);
+  await hideLegacy(wid);
   stats.removed = true;
 
   return {
     folders: list.filter((f) => f.key !== legacy.key),
     stats,
   };
+}
+
+/**
+ * Merge duplicate Mobile homes system folder into Real estate (or convert in place).
+ * @returns {Promise<{ folders: object[], stats: object }>}
+ */
+async function migrateLegacyMobileHomesFolder(workspaceId, folders) {
+  return migrateLegacyListingFolderIntoRealEstate(
+    workspaceId,
+    folders,
+    isLegacyMobileHomesFolder,
+    hideLegacyMobileHomesJobType
+  );
+}
+
+/**
+ * Merge duplicate Home owners system folder into Real estate (or convert in place).
+ * @returns {Promise<{ folders: object[], stats: object }>}
+ */
+async function migrateLegacyHomeOwnersFolder(workspaceId, folders) {
+  return migrateLegacyListingFolderIntoRealEstate(
+    workspaceId,
+    folders,
+    isLegacyHomeOwnersFolder,
+    hideLegacyHomeOwnersJobType
+  );
 }
 
 function tradeFolderBySlug(folders, businessRootKey, slug) {
@@ -376,16 +433,20 @@ async function autoParentTradeLikeFolders(workspaceId, folders) {
 }
 
 /**
- * One-time folder hygiene: mobile homes → real estate, trade-like folders → trade parents.
+ * One-time folder hygiene: mobile homes / home owners → real estate, trade-like folders → trade parents.
  * @returns {Promise<{ folders: object[], stats: object }>}
  */
 async function migrateLegacyFolders(workspaceId, folders) {
   let list = [...(folders || [])];
-  const stats = { mobileHomes: {}, tradeFolders: {} };
+  const stats = { mobileHomes: {}, homeOwners: {}, tradeFolders: {} };
 
   const mh = await migrateLegacyMobileHomesFolder(workspaceId, list);
   list = mh.folders;
   stats.mobileHomes = mh.stats;
+
+  const ho = await migrateLegacyHomeOwnersFolder(workspaceId, list);
+  list = ho.folders;
+  stats.homeOwners = ho.stats;
 
   list = await ensurePipelineFolders(workspaceId);
   list = await ensureTradeSubfolders(workspaceId, list);
@@ -413,6 +474,15 @@ async function ensurePipelineFoldersWithTree(workspaceId) {
 }
 
 async function hideDefaultPipelineFolder(workspaceId, jobType) {
+  const raw = String(jobType || '')
+    .trim()
+    .toLowerCase()
+    .replace(/-/g, '_');
+  // Merged aliases: hide the legacy key only — do not hide real_estate.
+  if (raw === JOB_TYPES.MOBILE_HOMES || raw === JOB_TYPES.HOME_OWNERS) {
+    await hideLegacyJobType(workspaceId, raw);
+    return;
+  }
   const jt = normalizeJobType(jobType);
   if (!DEFAULT_PIPELINE_FOLDERS[jt]) return;
   const wid = workspaceId || 'default';
@@ -686,7 +756,6 @@ async function migrateUnfiledLeadsToPipelineFolders(workspaceId, leads) {
     total: 0,
     maps_business: 0,
     real_estate: 0,
-    home_owners: 0,
     products: 0,
     wholesale: 0,
     skipped: 0,
@@ -732,6 +801,7 @@ module.exports = {
   ensureTradeSubfolders,
   migrateLegacyFolders,
   migrateLegacyMobileHomesFolder,
+  migrateLegacyHomeOwnersFolder,
   consolidateDuplicateFolders,
   autoParentTradeLikeFolders,
   ensurePipelineFoldersWithTree,

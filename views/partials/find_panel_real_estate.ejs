@@ -7,10 +7,10 @@
       tipKey: 'find-re-sources',
       label: 'Real estate listing sources',
       size: 'sm',
-      content: 'Zillow, Realtor, Redfin, MHVillage, Craigslist, Facebook, OfferUp, Oxylabs, and SerpAPI — merged and deduped. Mobile home flip scoring available below.'
+      content: 'Zillow, Realtor, Redfin, MHVillage, Craigslist, Facebook, OfferUp, Oxylabs, and SerpAPI — merged and deduped. Try “property owner” for owner signals; mobile home flip scoring available below.'
     }) %>
   </div>
-  <input type="text" id="findReQuery" name="query" value="<%= typeof defaultQuery !== 'undefined' && defaultQuery ? defaultQuery : 'homes for sale and recently sold' %>" placeholder="homes for sale, recently sold, mobile home, land…"
+  <input type="text" id="findReQuery" name="query" value="<%= typeof defaultQuery !== 'undefined' && defaultQuery ? defaultQuery : 'homes for sale and recently sold' %>" placeholder="homes for sale, recently sold, property owner, mobile home, land…"
     class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white" />
 </div>
 <div>

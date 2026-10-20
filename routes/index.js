@@ -169,7 +169,7 @@ router.get('/leads/find/mobile-homes', (req, res) => {
 
 router.get('/leads/find/home-owners', (req, res) => {
   const params = new URLSearchParams(req.query);
-  params.set('type', 'home_owners');
+  params.set('type', 'real_estate');
   res.redirect(302, `/leads/find?${params.toString()}`);
 });
 

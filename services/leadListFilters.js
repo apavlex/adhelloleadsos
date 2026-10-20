@@ -130,7 +130,7 @@ function leadJobType(l) {
     return 'real_estate';
   }
   if (src === 'home_owners_search' || (l && l.sourceType) === 'home_owners') {
-    return 'home_owners';
+    return 'real_estate';
   }
   if (src === 'products_search' || (l && l.sourceType) === 'product_listing') {
     return 'products';
@@ -147,7 +147,7 @@ function leadJobType(l) {
   return '';
 }
 
-const NON_BUSINESS_JOB_TYPES = new Set(['real_estate', 'home_owners', 'products', 'wholesale']);
+const NON_BUSINESS_JOB_TYPES = new Set(['real_estate', 'home_owners', 'mobile_homes', 'products', 'wholesale']);
 
 function isListingAggregatorUrl(url) {
   const raw = String(url || '').trim();
@@ -210,7 +210,7 @@ function matchesJobTypeFilter(l, origin) {
   if (want === 'real_estate' || want === 'realestate' || want === 'zillow') {
     return jt === 'real_estate';
   }
-  if (want === 'home_owners' || want === 'homeowners') return jt === 'home_owners';
+  if (want === 'home_owners' || want === 'homeowners') return jt === 'real_estate';
   if (want === 'products' || want === 'product') return jt === 'products';
   if (want === 'wholesale') return jt === 'wholesale';
   return true;
@@ -649,7 +649,7 @@ function applyLeadListFilters(leads, filters) {
     } else if (origin === 'real_estate' || origin === 'realestate' || origin === 'zillow') {
       out = out.filter((l) => matchesJobTypeFilter(l, 'real_estate'));
     } else if (origin === 'home_owners' || origin === 'homeowners') {
-      out = out.filter((l) => matchesJobTypeFilter(l, 'home_owners'));
+      out = out.filter((l) => matchesJobTypeFilter(l, 'real_estate'));
     } else if (origin === 'products' || origin === 'product') {
       out = out.filter((l) => matchesJobTypeFilter(l, 'products'));
     } else if (origin === 'wholesale') {

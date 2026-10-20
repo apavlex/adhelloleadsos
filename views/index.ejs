@@ -68,7 +68,6 @@
             <% const _searchTypes = typeof searchTypes !== 'undefined' && searchTypes ? searchTypes : [
               { findTab: 'maps', shortLabel: 'Business' },
               { findTab: 'real_estate', shortLabel: 'Real estate' },
-              { findTab: 'home_owners', shortLabel: 'Home owners' },
               { findTab: 'products', shortLabel: 'Products' },
               { findTab: 'wholesale', shortLabel: 'Wholesale' },
             ]; %>
@@ -286,7 +285,7 @@
               }) %>
               </div>
 
-              <!-- Real estate (includes mobile homes) -->
+              <!-- Real estate (includes mobile homes + home owners) -->
               <div data-find-panel="real_estate" class="find-type-panel space-y-6 <%= _findType !== 'real_estate' ? 'hidden' : '' %>">
                 <%- include('partials/find_panel_real_estate', {
                   defaultQuery: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.query) ? folderSearchPreset.query : 'homes for sale and recently sold',
@@ -300,16 +299,6 @@
 
               <% const _defSrc = typeof defaultListingSources !== 'undefined' ? defaultListingSources : {}; %>
               <% const _fp = typeof folderSearchPreset !== 'undefined' ? folderSearchPreset : null; %>
-              <div data-find-panel="home_owners" class="find-type-panel space-y-6 <%= _findType !== 'home_owners' ? 'hidden' : '' %>">
-                <%- include('partials/find_panel_listing_generic', {
-                  jobType: 'home_owners',
-                  queryLabel: 'Owner / property search terms',
-                  queryPlaceholder: 'property owner, tax records, deed…',
-                  defaultQuery: (_fp && _fp.query) ? _fp.query : 'property owner',
-                  scraperHint: 'SerpAPI web search + Oxylabs for owner/property queries; Zillow, Redfin, Realtor for listing context.',
-                  enabledSources: (_fp && _fp.sources) ? _fp.sources : (_defSrc.home_owners || null)
-                }) %>
-              </div>
               <div data-find-panel="products" class="find-type-panel space-y-6 <%= _findType !== 'products' ? 'hidden' : '' %>">
                 <%- include('partials/find_panel_listing_generic', {
                   jobType: 'products',
@@ -600,17 +589,17 @@
       if (kw && p.keyword) kw.value = p.keyword;
       var mhQ = document.getElementById('findReQuery');
       if (mhQ && p.query) mhQ.value = p.query;
-      document.querySelectorAll('[data-find-panel="real_estate"] input[name="minPrice"], [data-find-panel="home_owners"] input[name="minPrice"], [data-find-panel="products"] input[name="minPrice"], [data-find-panel="wholesale"] input[name="minPrice"]').forEach(function (el) {
+      document.querySelectorAll('[data-find-panel="real_estate"] input[name="minPrice"], [data-find-panel="products"] input[name="minPrice"], [data-find-panel="wholesale"] input[name="minPrice"]').forEach(function (el) {
         if (p.minPrice != null) el.value = String(p.minPrice);
       });
-      document.querySelectorAll('[data-find-panel="real_estate"] input[name="maxPrice"], [data-find-panel="home_owners"] input[name="maxPrice"], [data-find-panel="products"] input[name="maxPrice"], [data-find-panel="wholesale"] input[name="maxPrice"]').forEach(function (el) {
+      document.querySelectorAll('[data-find-panel="real_estate"] input[name="maxPrice"], [data-find-panel="products"] input[name="maxPrice"], [data-find-panel="wholesale"] input[name="maxPrice"]').forEach(function (el) {
         if (p.maxPrice != null) el.value = String(p.maxPrice);
       });
-      ['real_estate', 'home_owners', 'products', 'wholesale'].forEach(function (tab) {
+      ['real_estate', 'products', 'wholesale'].forEach(function (tab) {
         var panel = document.querySelector('[data-find-panel="' + tab + '"]');
         if (panel && p.sources) applyListingSources(panel, p.sources);
       });
-      ['home_owners', 'products', 'wholesale'].forEach(function (tab) {
+      ['products', 'wholesale'].forEach(function (tab) {
         var q = document.querySelector('[data-find-panel="' + tab + '"] input[name="query"]');
         if (q && p.query) q.value = p.query;
       });
@@ -677,22 +666,12 @@
       },
       real_estate: {
         action: '/listings/search',
-        title: 'Real estate listings',
-        desc: 'Homes, land, and mobile homes — multi-source listings with optional flip scoring.',
+        title: 'Real estate & home owners',
+        desc: 'Homes, land, mobile homes, and owner/property signals — multi-source listings with optional flip scoring.',
         submitRun: 'Search all sources',
         submitSched: 'Save scheduled job',
         previewLabel: 'listings',
         defaultQuery: 'homes for sale',
-        requiresLocation: true,
-      },
-      home_owners: {
-        action: '/listings/search',
-        title: 'Home owners & property info',
-        desc: 'Property and owner signals — public records, listings, and web intelligence.',
-        submitRun: 'Search sources',
-        submitSched: 'Save scheduled job',
-        previewLabel: 'results',
-        defaultQuery: 'property owner',
         requiresLocation: true,
       },
       products: {

@@ -31,6 +31,7 @@ const { buildReqLike, resolveFolderRef, resolveLeadKey } = require('./mcpCrmServ
 const SOURCES = ['permits', 'business_formations', 'real_estate', 'home_owners', 'products', 'wholesale'];
 const SCHEDULE_SOURCES = ['maps', 'business_formations', 'real_estate', 'home_owners', 'products', 'wholesale'];
 const PRESET_SOURCES = ['maps', 'real_estate', 'home_owners', 'products', 'wholesale'];
+/** home_owners is a legacy alias — normalizeJobType maps it to real_estate */
 const ENRICH_STEPS = ['reviews', 'socials', 'phone_line_type'];
 const MAX_CSV_CHARS = 2_000_000;
 const MAX_MERGE = 20;
@@ -346,7 +347,7 @@ const LEAD_SOURCE_TOOLS = [
       'Find leads from sources other than Google Maps and save them into a folder (runs in the background, one search at a time; ' +
       'track with get_search_status). Sources: "permits" = recent building permits (homeowners/contractors doing solar, roofing, ' +
       'HVAC, etc. — needs a supported Permit Stack city or a ZIP), "business_formations" = newly registered businesses (states NY, CO, ' +
-      'PA, CT, OR), "real_estate" = property listings (incl. mobile homes/land), "home_owners" = homeowner listings, "products" and ' +
+      'PA, CT, OR), "real_estate" = property listings (incl. mobile homes/land and owner signals; "home_owners" is a legacy alias), "products" and ' +
       '"wholesale" = product/wholesale listings. For local businesses by trade use find_leads instead.',
     schema: z.object({
       source: z.enum(SOURCES),
