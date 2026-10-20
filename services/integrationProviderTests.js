@@ -172,7 +172,7 @@ async function testRapidapi(integrationEnv) {
 async function testRapidapiWebsite(integrationEnv) {
   if (!rapidapiWebsiteEnrich.isConfigured(integrationEnv)) {
     throw new Error(
-      'Missing RapidAPI website endpoint — set endpoint URL (and optional dedicated key) then save.',
+      'Missing RAPIDAPI_KEY — paste your RapidAPI key above (same key as Maps) or save first.',
     );
   }
   const pack = await rapidapiWebsiteEnrich.scrapeWebsite('https://example.com', integrationEnv);
