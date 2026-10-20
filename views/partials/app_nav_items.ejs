@@ -57,6 +57,12 @@
           <span>Opportunities</span>
         </a>
         <% } %>
+        <% if (_can('engagement')) { %>
+        <a href="/engagement" class="sidebar-nav-link <%= np === 'engagement' ? 'active' : '' %>" title="Engagement inbox — warm signals">
+          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+          <span>Engagement</span>
+        </a>
+        <% } %>
         <% if (_can('leads')) { %>
         <details class="sidebar-leads-details group"<%= _leadsOpen ? ' open' : '' %>>
           <summary class="sidebar-nav-link sidebar-leads-summary list-none cursor-pointer select-none [&::-webkit-details-marker]:hidden <%= _lt ? 'active' : '' %>" title="Leads">
@@ -89,12 +95,6 @@
         <a href="/activity" class="sidebar-nav-link <%= np === 'activity' || np === 'team-history' || np === 'messages' ? 'active' : '' %>" title="Recent notes, calls, updates, team history and sent messages">
           <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z" /></svg>
           <span>Activity</span>
-        </a>
-        <% } %>
-        <% if (_can('engagement')) { %>
-        <a href="/engagement" class="sidebar-nav-link <%= np === 'engagement' ? 'active' : '' %>" title="Engagement inbox — warm signals">
-          <svg class="sidebar-nav-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
-          <span>Engagement</span>
         </a>
         <% } %>
       </div>
