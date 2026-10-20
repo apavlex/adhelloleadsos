@@ -295,6 +295,8 @@ async function ensureLeadEmail(opts) {
     }
   }
 
+  const contactEnrichPreference = require('./contactEnrichPreference');
+  const useMoltsetsFirst = contactEnrichPreference.preferMoltsets(integrationEnv);
   const attempts = [
     {
       label: 'local_website',
@@ -306,16 +308,26 @@ async function ensureLeadEmail(opts) {
       ms: STEP_TIMEOUT_MS.rapidapi_website,
       run: () => tryRapidApiWebsiteEmail(lead, integrationEnv),
     },
-    {
-      label: 'moltsets',
-      ms: STEP_TIMEOUT_MS.moltsets,
-      run: () => tryMoltsetsEmail(lead, integrationEnv),
-    },
-    {
-      label: 'outscraper_contacts',
-      ms: STEP_TIMEOUT_MS.outscraper_contacts,
-      run: () => tryOutscraperEmail(lead, integrationEnv),
-    },
+    ...(useMoltsetsFirst
+      ? [
+          {
+            label: 'moltsets',
+            ms: STEP_TIMEOUT_MS.moltsets,
+            run: () => tryMoltsetsEmail(lead, integrationEnv),
+          },
+          {
+            label: 'outscraper_contacts',
+            ms: STEP_TIMEOUT_MS.outscraper_contacts,
+            run: () => tryOutscraperEmail(lead, integrationEnv),
+          },
+        ]
+      : [
+          {
+            label: 'outscraper_contacts',
+            ms: STEP_TIMEOUT_MS.outscraper_contacts,
+            run: () => tryOutscraperEmail(lead, integrationEnv),
+          },
+        ]),
     {
       label: 'bettercontact',
       ms: Math.min(

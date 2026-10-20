@@ -9,6 +9,7 @@ const outscraperGmbEnrich = require('./outscraperGmbEnrich');
 const outscraperLeadEnrich = require('./outscraperLeadEnrich');
 const moltsetsClient = require('./moltsetsClient');
 const moltsetsLeadEnrich = require('./moltsetsLeadEnrich');
+const contactEnrichPreference = require('./contactEnrichPreference');
 const mapsEnrichFallback = require('./mapsEnrichFallback');
 const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
@@ -51,7 +52,10 @@ async function enrichLeadForPanelSidebar(lead, integrationEnv, opts) {
 
   const working = { ...lead };
 
-  if (moltsetsClient.isConfigured(integrationEnv)) {
+  if (
+    contactEnrichPreference.preferMoltsets(integrationEnv) &&
+    moltsetsClient.isConfigured(integrationEnv)
+  ) {
     try {
       const ms = await raceTimeout(
         moltsetsLeadEnrich.enrichLeadForBusiness(working, integrationEnv, { includeMobile: true }),

@@ -109,6 +109,9 @@ describe('moltsetsLeadEnrich', () => {
     const leads = fs.readFileSync(path.join(root, 'routes/leads.js'), 'utf8');
 
     assert.match(integrations, /integration-moltsets/);
+    assert.match(integrations, /integration-contact-enrich/);
+    assert.match(integrations, /contactEnrichPrimary/);
+    assert.match(integrations, /MoltSets → Outscraper fallback/);
     assert.match(integrations, /moltsetsApiKey/);
     assert.match(integrations, /provider: 'moltsets'/);
     assert.match(envExample, /MOLTSETS_API_KEY/);

@@ -43,6 +43,7 @@ const {
 const betterContact = require('../services/betterContactClient');
 const moltsetsLeadEnrich = require('../services/moltsetsLeadEnrich');
 const moltsetsClient = require('../services/moltsetsClient');
+const contactEnrichPreference = require('../services/contactEnrichPreference');
 const tikHub = require('../services/tikHubClient');
 const { runReviewsRefresh, runSocialEnrichment, verifyPhoneLine } = require('../services/leadDeepEnrich');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
@@ -5187,7 +5188,10 @@ async function runLeadEnhancement(lead, workspaceId) {
   const enrichLead = websiteForEnrich ? { ...workingLead, website: websiteForEnrich } : workingLead;
 
   // Step 1.5: MoltSets primary — verified email / LinkedIn / decision-maker / mobile
-  if (moltsetsClient.isConfigured(integrationEnv)) {
+  if (
+    contactEnrichPreference.preferMoltsets(integrationEnv) &&
+    moltsetsClient.isConfigured(integrationEnv)
+  ) {
     try {
       const msPack = await moltsetsLeadEnrich.enrichLeadForBusiness(enrichLead, integrationEnv, {
         includeMobile: true,

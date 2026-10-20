@@ -36,8 +36,11 @@
   <% const masks = integrationMasks || {}; %>
   <% let _mapsPrimary = (mapsSearchPrimary || 'rapidapi').toString().toLowerCase(); if (_mapsPrimary === 'monid' || !_mapsPrimary) _mapsPrimary = 'rapidapi'; %>
   <% const _enrichPrimary = (enrichPrimary || 'auto').toString().toLowerCase(); %>
+  <% let _contactEnrichPrimary = (contactEnrichPrimary || 'moltsets').toString().toLowerCase(); if (_contactEnrichPrimary !== 'outscraper') _contactEnrichPrimary = 'moltsets'; %>
   <% const _mapsProviders = Array.isArray(mapsProviderStatus) ? mapsProviderStatus : []; %>
   <% const _mapsProviderById = {}; _mapsProviders.forEach(function (p) { if (p && p.id) _mapsProviderById[p.id] = p; }); %>
+  <% const _contactEnrichProviders = Array.isArray(contactEnrichProviderStatus) ? contactEnrichProviderStatus : []; %>
+  <% const _contactEnrichById = {}; _contactEnrichProviders.forEach(function (p) { if (p && p.id) _contactEnrichById[p.id] = p; }); %>
   <form method="post" action="/workspace/integrations" class="space-y-8">
     <nav aria-label="Integration types" class="flex flex-wrap items-center gap-2">
       <a href="#" data-int-filter="all" aria-current="true" class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow transition-colors bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark">All</a>
@@ -82,6 +85,7 @@
             <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
             <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
           </select>
+          <p class="text-xs text-brand-muted mt-3 leading-relaxed">Looking for <strong class="text-brand-dark dark:text-white">MoltSets</strong>? That&apos;s for Enhance / Get More Contacts — set it under <a href="#integration-contact-enrich" class="js-integration-connect underline font-semibold text-brand-dark dark:text-brand-yellow">Data enhance ↓</a>.</p>
         </section>
 
         <section id="integration-rapidapi" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-5 scroll-mt-28 transition-shadow duration-300">
@@ -307,6 +311,52 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Data enhance</p>
       <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Fill in emails, mobile numbers, socials and website details for leads you already have. Used by <strong>Enhance</strong>, <strong>Get More Contacts</strong> and background enrichment.</p>
       <div class="space-y-4">
+        <section id="integration-contact-enrich" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 mb-4 scroll-mt-28">
+          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Contact enrich preference</h3>
+          <p class="text-xs text-brand-muted mt-1 mb-3">Which service fills emails, phones, and decision-makers on Enhance / Get More Contacts. Not used for Find Leads Maps search.</p>
+          <div class="flex flex-wrap items-center gap-2 mb-4" role="list" aria-label="Contact enrich providers">
+            <% _contactEnrichProviders.forEach(function (p) { %>
+            <span role="listitem">
+              <%- include('../../partials/integration_provider_status_pill', { label: p.label, connected: p.configured }) %>
+            </span>
+            <% }); %>
+          </div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
+          <select name="contactEnrichPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+            <option value="moltsets" <%= _contactEnrichPrimary === 'moltsets' ? 'selected' : '' %>>MoltSets → Outscraper fallback (recommended)</option>
+            <option value="outscraper" <%= _contactEnrichPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
+          </select>
+        </section>
+
+        <section id="integration-moltsets" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">MoltSets</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                <a href="https://moltsets.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">MoltSets</a>
+                — primary for <strong>Enhance</strong> and <strong>Get More Contacts</strong> (verified emails, LinkedIn, decision-makers, optional mobiles). Outscraper is the fallback when MoltSets finds nothing.
+                Also used for auto-outreach email find. Keys look like <code class="text-[10px] px-1 rounded bg-brand-cream/60 dark:bg-slate-800">ms_…</code>.
+              </p>
+            </div>
+            <% if (_contactEnrichById.moltsets) { %><%- include('../../partials/integration_provider_status_pill', { label: _contactEnrichById.moltsets.label, connected: _contactEnrichById.moltsets.configured }) %><% } %>
+            <a href="https://developer.moltsets.com" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
+              API docs →
+            </a>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.moltsetsApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.moltsetsApiKey %></p><% } %>
+            <input type="password" name="moltsetsApiKey" autocomplete="off" placeholder="ms_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.moltsetsApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="moltsetsApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API base <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+            <% if (masks.moltsetsApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.moltsetsApiBase %></p><% } %>
+            <input type="text" name="moltsetsApiBase" autocomplete="off" placeholder="https://api.moltsets.com/api/v1/tools" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'moltsets' }) %>
+        </section>
+
         <section id="integration-monid" class="rounded-2xl border-2 border-violet-400/25 dark:border-violet-400/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
@@ -327,34 +377,6 @@
             <% if (masks.monidApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="monidApiKey_clear" value="1" /> Remove</label><% } %>
           </div>
           <%- include('../../partials/integration_test_row', { provider: 'monid' }) %>
-        </section>
-
-        <section id="integration-moltsets" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
-          <header class="flex flex-wrap items-start justify-between gap-3">
-            <div class="min-w-0">
-              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">MoltSets</h3>
-              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                <a href="https://moltsets.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">MoltSets</a>
-                — primary for <strong>Enhance</strong> and <strong>Get More Contacts</strong> (verified emails, LinkedIn, decision-makers, optional mobiles). Outscraper is the fallback when MoltSets finds nothing.
-                Also used for auto-outreach email find. Keys look like <code class="text-[10px] px-1 rounded bg-brand-cream/60 dark:bg-slate-800">ms_…</code>.
-              </p>
-            </div>
-            <a href="https://developer.moltsets.com" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
-              API docs →
-            </a>
-          </header>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
-            <% if (masks.moltsetsApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.moltsetsApiKey %></p><% } %>
-            <input type="password" name="moltsetsApiKey" autocomplete="off" placeholder="ms_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-            <% if (masks.moltsetsApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="moltsetsApiKey_clear" value="1" /> Remove</label><% } %>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API base <span class="font-normal normal-case tracking-normal">(optional)</span></label>
-            <% if (masks.moltsetsApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.moltsetsApiBase %></p><% } %>
-            <input type="text" name="moltsetsApiBase" autocomplete="off" placeholder="https://api.moltsets.com/api/v1/tools" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-          </div>
-          <%- include('../../partials/integration_test_row', { provider: 'moltsets' }) %>
         </section>
 
         <section id="integration-bettercontact" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">

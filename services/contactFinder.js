@@ -8,6 +8,7 @@ const outscraper = require('./outscraperClient');
 const { resolveLeadDomain } = require('./outscraperLeadEnrich');
 const moltsetsClient = require('./moltsetsClient');
 const moltsetsLeadEnrich = require('./moltsetsLeadEnrich');
+const contactEnrichPreference = require('./contactEnrichPreference');
 const { normalizeSocialUrl } = require('./socialUrlNormalize');
 const { mergeContactLists } = require('./leadEmailContacts');
 const { normalizeEmail } = require('./leadDedupe');
@@ -251,7 +252,8 @@ async function findContactsForLead(lead, integrationEnv, opts = {}) {
     throw err;
   }
 
-  if (cfg.moltsets) {
+  const useMoltsets = contactEnrichPreference.preferMoltsets(integrationEnv) && cfg.moltsets;
+  if (useMoltsets) {
     try {
       const enrich = deps.enrichMoltsets || moltsetsLeadEnrich.enrichLeadForBusiness;
       const pack = await enrich(lead, integrationEnv, { includeMobile: true });

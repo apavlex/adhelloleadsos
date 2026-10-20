@@ -96,6 +96,27 @@ test('MoltSets is primary; Outscraper only runs when MoltSets finds nothing', as
   );
   assert.deepEqual(fallback.sources, ['Outscraper']);
   assert.ok(fallback.emails.includes('kip@kipshardwoodflooring.com'));
+
+  let moltsetsCalled = false;
+  const outscraperOnly = await contactFinder.findContactsForLead(
+    lead,
+    {
+      ...OUTSCRAPER_ENV,
+      MOLTSETS_API_KEY: 'ms_test',
+      CONTACT_ENRICH_PRIMARY: 'outscraper',
+    },
+    {
+      deps: {
+        enrichMoltsets: async () => {
+          moltsetsCalled = true;
+          return { used: true, extract: { email: 'skip@x.com' } };
+        },
+        fetchContactsAndLeads: async () => outscraperRow,
+      },
+    },
+  );
+  assert.equal(moltsetsCalled, false);
+  assert.deepEqual(outscraperOnly.sources, ['Outscraper']);
 });
 
 test('Apify website crawl is the fallback when Outscraper is missing or empty', async () => {

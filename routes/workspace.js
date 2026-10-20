@@ -9,6 +9,7 @@ const ghlWebhookLog = require('../services/ghlWebhookLog');
 const dataPersistence = require('../services/dataPersistence');
 const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
 const mapsSearch = require('../services/mapsSearch');
+const contactEnrichPreference = require('../services/contactEnrichPreference');
 const crawl4aiClient = require('../services/crawl4aiClient');
 const outscraperClient = require('../services/outscraperClient');
 const integrationProviderTests = require('../services/integrationProviderTests');
@@ -385,6 +386,8 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     persistenceIntegrationsHint: '',
     mapsSearchPrimary: 'rapidapi',
     mapsProviderStatus: [],
+    contactEnrichPrimary: 'moltsets',
+    contactEnrichProviderStatus: [],
     sharedIntegrationProviders: [],
     enrichPrimary: 'auto',
     scrapeAdvisor: null,
@@ -425,6 +428,8 @@ async function loadWorkspacePageLocals(req, opts = {}) {
   }
   const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
   const mapsProviderStatus = mapsSearch.getMapsProviderStatusList(resolvedEnv);
+  const contactEnrichProviderStatus =
+    contactEnrichPreference.getContactEnrichProviderStatusList(resolvedEnv);
   const sharedIntegrationProviders = await workspaceIntegrations.sharedProvidersFor(wid);
   let mapsSearchPrimary = String(
     (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'rapidapi',
@@ -432,6 +437,7 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     .trim()
     .toLowerCase();
   if (!mapsSearchPrimary || mapsSearchPrimary === 'monid') mapsSearchPrimary = 'rapidapi';
+  const contactEnrichPrimary = contactEnrichPreference.resolvePrimary(resolvedEnv);
   const enrichPrimary = String(
     (resolvedEnv && resolvedEnv.ENRICH_PRIMARY) || process.env.ENRICH_PRIMARY || 'auto',
   )
@@ -504,6 +510,8 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     persistenceIntegrationsHint,
     mapsSearchPrimary,
     mapsProviderStatus,
+    contactEnrichPrimary,
+    contactEnrichProviderStatus,
     sharedIntegrationProviders,
     enrichPrimary,
     scrapeAdvisor,
