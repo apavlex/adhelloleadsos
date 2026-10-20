@@ -242,6 +242,13 @@
             <div>
               <button type="button" id="focus-rapidapi-enrich-btn" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors disabled:opacity-40" title="Find people, emails &amp; socials via MoltSets (Outscraper fallback)">Get more contacts</button>
               <p id="focus-rapidapi-enrich-status" class="hidden text-[11px] leading-relaxed mt-1" role="status"></p>
+              <button type="button" id="focus-ads-check-btn" data-ads-check-state="idle" data-ads-check-blocked="0" class="ads-check-btn inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/70 dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white hover:border-brand-yellow transition-colors disabled:opacity-40 mt-1.5" title="Check Google / LinkedIn ads via Outscraper">
+                <span class="ads-check-idle">Check running ads</span>
+                <span class="ads-check-active hidden">Checking ads…</span>
+                <span class="ads-check-done hidden text-emerald-700 dark:text-emerald-300">Ads checked</span>
+              </button>
+              <p id="focus-ads-check-status" class="hidden text-[11px] leading-relaxed mt-1" role="status"></p>
+              <p id="focus-ads-check-result" class="hidden mt-1.5 inline-flex items-center px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest" role="status"></p>
             </div>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
           <div>
@@ -745,6 +752,7 @@
   <script src="/js/review-stars.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-rapidapi-enrich.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/lead-ads-check.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/quick-add-task.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script>
@@ -4308,6 +4316,15 @@
         rapidBtn.dataset.leadKey = focusLeadKeyParam(lead);
         rapidBtn.disabled = !hrefUrl(lead.website || '');
       }
+      if (typeof window.paintAdsCheckButton === 'function') {
+        window.paintAdsCheckButton(document.getElementById('focus-ads-check-btn'), {
+          leadKey: focusLeadKeyParam(lead),
+          hasWebsite: !!hrefUrl(lead.website || ''),
+          lead: lead,
+        });
+      } else if (typeof window.paintLeadAdsCheckResult === 'function') {
+        window.paintLeadAdsCheckResult(lead);
+      }
     }
 
     function renderTouchPoints(lead) {
@@ -6356,6 +6373,24 @@
 
     if (elServiceSelect) {
       elServiceSelect.value = getDefaultProductKey();
+    }
+
+    if (typeof window.bindAdsCheckButton === 'function') {
+      window.bindAdsCheckButton(document.getElementById('focus-ads-check-btn'), {
+        statusEl: document.getElementById('focus-ads-check-status'),
+        getLeadKey: function () {
+          var lead = currentLead();
+          return lead ? focusLeadKeyParam(lead) : '';
+        },
+        onUpdated: function (updatedLead) {
+          var cur = currentLead();
+          var key = focusLeadKeyParam(updatedLead || {});
+          if (cur && key && focusLeadKeyParam(cur) === key) {
+            Object.assign(cur, updatedLead);
+            renderBusinessInfo(cur);
+          }
+        },
+      });
     }
 
     if (typeof window.bindRapidapiWebsiteEnrichButton === 'function') {
