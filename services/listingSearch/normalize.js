@@ -65,13 +65,17 @@ function normalizeListingRow({
   sqft,
   propertyType,
   imageUrl,
+  status,
   raw,
 }) {
   const parsedPrice = parsePrice(price);
   const priceLabel = parsedPrice ? `$${parsedPrice.toLocaleString()}` : 'Price TBD';
   const loc = [String(city || '').trim(), String(state || '').trim()].filter(Boolean).join(', ');
   const addr = address || (loc ? loc : 'N/A');
-  const displayTitle = [String(title || 'Listing').trim(), priceLabel].filter(Boolean).join(' · ');
+  const statusLabel = String(status || '').toLowerCase() === 'sold' ? 'Sold' : '';
+  const displayTitle = [String(title || 'Listing').trim(), priceLabel, statusLabel]
+    .filter(Boolean)
+    .join(' · ');
 
   return {
     title: displayTitle,
@@ -103,6 +107,7 @@ function normalizeListingRow({
       sellerName: sellerName || '',
       postedAt: postedAt || '',
       imageUrl: imageUrl || '',
+      status: status || '',
       raw: raw ? undefined : undefined,
     },
   };

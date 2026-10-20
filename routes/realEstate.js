@@ -14,6 +14,8 @@ router.post('/', async (req, res, next) => {
   try {
     const wid = req.workspaceId;
     const { city, state, maxResults, mode, minPrice, maxPrice } = req.body;
+    const listingMarket = require('../services/listingMarket');
+    const resolvedListingMarket = listingMarket.normalizeListingMarket(req.body.listingMarket);
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
     const folderResolved = await resolveTargetFolder(wid, {
@@ -63,6 +65,7 @@ router.post('/', async (req, res, next) => {
             maxResults: maxRes,
             minPrice,
             maxPrice,
+            listingMarket: resolvedListingMarket,
             integrationEnv,
           });
           if (!results || results.length === 0) {
@@ -76,6 +79,7 @@ router.post('/', async (req, res, next) => {
               maxResults: maxRes,
               minPrice,
               maxPrice,
+              listingMarket: resolvedListingMarket,
               targetFolderKey,
               targetFolderName,
               workspaceId: wid,
@@ -121,6 +125,7 @@ router.post('/', async (req, res, next) => {
         maxResults: maxRes,
         minPrice: minPrice || null,
         maxPrice: maxPrice || null,
+        listingMarket: resolvedListingMarket,
         targetFolderKey,
         targetFolderName,
         ...parsed.data,

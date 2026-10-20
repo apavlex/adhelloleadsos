@@ -1,5 +1,6 @@
 const { runActor } = require('../apifyClient');
 const { normalizeListingRow, parsePrice } = require('../normalize');
+const listingMarket = require('../../listingMarket');
 
 const DEFAULT_ACTOR = 'cirkit/zillow-search-scraper';
 
@@ -12,8 +13,14 @@ function isConfigured(integrationEnv) {
   return isApifyConfigured(integrationEnv);
 }
 
-function normalizeZillowItem(item, { city, state, query }) {
-  const price = item.price ?? item.unformattedPrice ?? item.listPrice;
+function normalizeZillowItem(item, { city, state, query, marketHint }) {
+  const status =
+    listingMarket.classifyListingStatus(item) ||
+    (marketHint === 'sold' ? 'sold' : marketHint === 'active' ? 'active' : '');
+  const price =
+    status === 'sold'
+      ? item.soldPrice ?? item.price ?? item.unformattedPrice ?? item.listPrice
+      : item.price ?? item.unformattedPrice ?? item.listPrice ?? item.soldPrice;
   const address =
     item.address ||
     item.streetAddress ||
@@ -35,16 +42,18 @@ function normalizeZillowItem(item, { city, state, query }) {
     postalCode: item.addressZipcode || item.zipcode,
     phone: item.agentPhone || item.phone,
     email: item.agentEmail || item.email,
-    postedAt: item.datePosted || item.listDate,
+    postedAt: item.datePosted || item.listDate || item.dateSold,
     beds: item.beds ?? item.bedrooms,
     baths: item.baths ?? item.bathrooms,
     sqft: item.livingArea ?? item.sqft,
     propertyType: item.homeType || item.propertyType || 'mobile_home',
     sellerName: item.agentName || item.brokerName,
+    status,
   });
 }
 
 function matchesMobileHomeQuery(row, query) {
+  if (listingMarket.isGenericListingQuery(query)) return true;
   const q = String(query || 'mobile home').toLowerCase();
   const hay = [
     row.title,
@@ -72,6 +81,7 @@ async function searchZillow({
   maxResults,
   minPrice,
   maxPrice,
+  listingMarket: market,
   integrationEnv,
 }) {
   const cap = Math.max(1, parseInt(maxResults, 10) || 20);
@@ -80,15 +90,31 @@ async function searchZillow({
     .trim();
   if (!locationQuery) throw new Error('City and state required for Zillow search.');
 
+  const urls = listingMarket.zillowSearchUrls(city, state, market);
+  const marketHint =
+    listingMarket.normalizeListingMarket(market) === 'both'
+      ? ''
+      : listingMarket.normalizeListingMarket(market);
+
   const input = {
-    locationQueries: [locationQuery],
+    searchUrls: urls.map(({ url }) => ({ url })),
+    // Keep locationQueries as a mild fallback if searchUrls are empty.
+    locationQueries: urls.length ? [] : [locationQuery],
     extractionMethod: 'PAGINATION',
-    maxItems: Math.min(cap * 3, 120),
+    maxItems: Math.min(cap * (urls.length > 1 ? 2 : 1) * 2, 200),
     maxPagesPerSearch: Math.min(20, Math.max(1, Math.ceil(cap / 41))),
   };
 
   const items = await runActor(integrationEnv, actorId(), input, 'ZILLOW');
-  let rows = items.map((item) => normalizeZillowItem(item, { city, state, query }));
+  let rows = items.map((item) => {
+    const url = String(item.url || item.detailUrl || item.hdpUrl || '').toLowerCase();
+    const hint =
+      marketHint ||
+      (url.includes('/homedetails/') && /\/sold\b|recently.sold/i.test(String(item.statusType || item.statusText || ''))
+        ? 'sold'
+        : listingMarket.classifyListingStatus(item) || '');
+    return normalizeZillowItem(item, { city, state, query, marketHint: hint });
+  });
   rows = rows.filter((row) => matchesMobileHomeQuery(row, query));
 
   const min = parsePrice(minPrice);

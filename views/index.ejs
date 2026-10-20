@@ -289,7 +289,8 @@
               <!-- Real estate (includes mobile homes) -->
               <div data-find-panel="real_estate" class="find-type-panel space-y-6 <%= _findType !== 'real_estate' ? 'hidden' : '' %>">
                 <%- include('partials/find_panel_real_estate', {
-                  defaultQuery: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.query) ? folderSearchPreset.query : 'homes for sale',
+                  defaultQuery: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.query) ? folderSearchPreset.query : 'homes for sale and recently sold',
+                  listingMarket: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.listingMarket) ? folderSearchPreset.listingMarket : 'both',
                   minPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.minPrice != null) ? folderSearchPreset.minPrice : '',
                   maxPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.maxPrice != null) ? folderSearchPreset.maxPrice : '',
                   scraper: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.scraper) ? folderSearchPreset.scraper : 'listings',

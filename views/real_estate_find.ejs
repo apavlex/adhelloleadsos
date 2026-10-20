@@ -41,6 +41,16 @@
             </div>
           </div>
 
+          <div>
+            <label for="reListingMarket" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Listing market</label>
+            <select id="reListingMarket" name="listingMarket" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
+              <option value="both" selected>Active for sale + recently sold</option>
+              <option value="active">Active for sale only</option>
+              <option value="sold">Recently sold only</option>
+            </select>
+            <p class="text-[11px] text-brand-muted mt-1">Pull active listings and/or recently sold homes in this city.</p>
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label for="reMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>

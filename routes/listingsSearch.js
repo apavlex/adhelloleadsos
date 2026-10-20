@@ -17,9 +17,14 @@ router.post('/', async (req, res, next) => {
     const wid = req.workspaceId;
     const jobType = normalizeJobType(req.body.jobType || JOB_TYPES.REAL_ESTATE);
     const { city, state, maxResults, mode, minPrice, maxPrice, query, keyword } = req.body;
+    const listingMarket = require('../services/listingMarket');
     const sources = listingSearch.parseSourcesFromBody(req.body);
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     const typeConfig = configForJobType(jobType);
+    const resolvedListingMarket =
+      jobType === JOB_TYPES.REAL_ESTATE
+        ? listingMarket.normalizeListingMarket(req.body.listingMarket)
+        : undefined;
 
     const folderResolved = await resolveTargetFolder(wid, {
       folderKey: req.body.folderKey,
@@ -67,6 +72,7 @@ router.post('/', async (req, res, next) => {
       maxPrice,
       flipFilter,
       scraper: req.body.scraper,
+      listingMarket: resolvedListingMarket,
       targetFolderKey,
       targetFolderName,
       workspaceId: wid,
