@@ -114,7 +114,8 @@ function focusCallHrefFor(short) {
 }
 
 /**
- * Attach Lead Connector / GHL open URLs so Call opens the mobile app (universal link).
+ * Attach Lead Connector / GHL open URLs (app.gohighlevel.com) so Call can hand
+ * off to the Lead Connector app when the OS associates that host with the app.
  * @param {object} row
  * @param {{ lead?: object, locationId?: string, dashboardUrl?: string, event?: object }} ctx
  */
