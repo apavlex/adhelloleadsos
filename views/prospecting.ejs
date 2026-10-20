@@ -48,6 +48,10 @@
               <span id="folderOrganizeByLeadsLabel">Organize by leads</span>
             </button>
             <p id="folderOrganizeStatus" class="sr-only" role="status" aria-live="polite"></p>
+            <button type="button" id="folderMergeSelectedBtn" class="btn-pill bg-violet-600/10 dark:bg-violet-950/40 text-violet-800 dark:text-violet-200 border border-violet-500/35 px-5 py-3.5 text-[10px] font-black uppercase tracking-widest hover:border-violet-500/60 transition-colors inline-flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none" disabled title="Select 2+ folders with the checkboxes, then merge them into one">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16 3h5v5M4 21l7.737-7.737a3 3 0 014.242 0l.818.818M4 21h5v-5M4 21l7.5-7.5M19 8l-6 6" /></svg>
+              <span id="folderMergeSelectedLabel">Merge folders</span>
+            </button>
             <button type="button" id="folderCreateOpen" class="btn-pill btn-primary px-6 md:px-8 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0 inline-flex items-center justify-center gap-2">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
             New subfolder
@@ -334,6 +338,22 @@
       <div class="flex gap-3 mt-6">
         <button id="folderCreateSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Create</button>
         <button id="folderCreateCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="folderMergeModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderMergeTitle">
+    <div id="folderMergeBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative brand-card dark:bg-slate-900 dark:border-white/10 w-full max-w-md p-6 md:p-8 shadow-2xl">
+      <h2 id="folderMergeTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">Merge folders</h2>
+      <p id="folderMergeSubtitle" class="text-sm text-brand-muted mb-5">All leads move into the destination folder. Source folders are removed.</p>
+      <input type="hidden" id="folderMergeSources" value="" />
+      <label for="folderMergeTarget" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Merge into</label>
+      <select id="folderMergeTarget" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-3"></select>
+      <p id="folderMergeError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderMergeSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Merge folders</button>
+        <button id="folderMergeCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
       </div>
     </div>
   </div>
@@ -1188,6 +1208,315 @@
       });
     }
 
+    function selectedFolderMergeKeys() {
+      return Array.prototype.slice
+        .call(document.querySelectorAll('.folder-merge-checkbox:checked'))
+        .map(function (cb) {
+          return {
+            key: cb.getAttribute('data-folder-key') || '',
+            name: cb.getAttribute('data-folder-name') || 'Folder',
+          };
+        })
+        .filter(function (x) {
+          return !!x.key;
+        });
+    }
+
+    function syncFolderMergeSelectedBtn() {
+      var btn = $('folderMergeSelectedBtn');
+      var label = $('folderMergeSelectedLabel');
+      var selected = selectedFolderMergeKeys();
+      if (!btn) return;
+      btn.disabled = selected.length < 1;
+      if (label) {
+        label.textContent =
+          selected.length > 1
+            ? 'Merge ' + selected.length + ' folders'
+            : selected.length === 1
+              ? 'Merge folder'
+              : 'Merge folders';
+      }
+    }
+
+    function openFolderMergeModal(sourceItems, preferredTarget, opts) {
+      var modal = $('folderMergeModal');
+      var select = $('folderMergeTarget');
+      if (!modal || !select) return;
+      var sources = (sourceItems || []).filter(function (s) {
+        return s && s.key;
+      });
+      if (!sources.length) return;
+      var multiSelect = !!(opts && opts.multiSelect);
+      if ($('folderMergeSources')) {
+        $('folderMergeSources').value = sources
+          .map(function (s) {
+            return s.key;
+          })
+          .join('\n');
+        $('folderMergeSources').setAttribute('data-multi-select', multiSelect ? '1' : '0');
+      }
+      var names = sources
+        .map(function (s) {
+          return s.name || 'Folder';
+        })
+        .join(', ');
+      if ($('folderMergeTitle')) {
+        $('folderMergeTitle').textContent =
+          sources.length === 1 ? 'Merge “' + names + '”' : 'Merge ' + sources.length + ' folders';
+      }
+      if ($('folderMergeSubtitle')) {
+        $('folderMergeSubtitle').textContent = multiSelect
+          ? 'Pick which folder to keep. Leads from the other selected folders move there, then those folders are removed.'
+          : 'Move all leads from ' + names + ' into the destination folder, then remove the source folder.';
+      }
+
+      var folders = window.WORKSPACE_FOLDERS || [];
+      var sourceSet = new Set(
+        sources.map(function (s) {
+          return String(s.key);
+        }),
+      );
+      select.innerHTML = '';
+      folders.forEach(function (f) {
+        if (!f || !f.key) return;
+        if (!multiSelect && sourceSet.has(String(f.key))) return;
+        if (multiSelect && !sourceSet.has(String(f.key))) return;
+        var opt = document.createElement('option');
+        opt.value = f.key;
+        opt.textContent = f.name || 'Folder';
+        select.appendChild(opt);
+      });
+      // Multi-select also allow merging into a folder outside the selection.
+      if (multiSelect) {
+        folders.forEach(function (f) {
+          if (!f || !f.key || sourceSet.has(String(f.key))) return;
+          var opt = document.createElement('option');
+          opt.value = f.key;
+          opt.textContent = (f.name || 'Folder') + ' (other)';
+          select.appendChild(opt);
+        });
+      }
+      var desired = String(preferredTarget || '').trim();
+      if (desired) select.value = desired;
+      if (!select.value && select.options.length) select.selectedIndex = 0;
+
+      var err = $('folderMergeError');
+      if (err) {
+        err.classList.add('hidden');
+        err.textContent = '';
+      }
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+      select.focus();
+    }
+
+    function closeFolderMergeModal() {
+      var modal = $('folderMergeModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      if ($('folderMergeSources')) $('folderMergeSources').value = '';
+    }
+
+    function bindFolderMergeUi() {
+      var modal = $('folderMergeModal');
+      var bd = $('folderMergeBackdrop');
+      var cancel = $('folderMergeCancel');
+      var save = $('folderMergeSave');
+      var mergeSelectedBtn = $('folderMergeSelectedBtn');
+      if (bd) bd.addEventListener('click', closeFolderMergeModal);
+      if (cancel) cancel.addEventListener('click', closeFolderMergeModal);
+      document.querySelectorAll('.folder-merge-checkbox').forEach(function (cb) {
+        cb.addEventListener('click', function (e) {
+          e.stopPropagation();
+        });
+        cb.addEventListener('change', syncFolderMergeSelectedBtn);
+      });
+      document.querySelectorAll('.folder-merge-into').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var key = btn.getAttribute('data-folder-key') || '';
+          var name = btn.getAttribute('data-folder-name') || 'Folder';
+          if (!key) return;
+          openFolderMergeModal([{ key: key, name: name }]);
+        });
+      });
+      document.querySelectorAll('.folder-merge-duplicates').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var key = btn.getAttribute('data-folder-key') || '';
+          var name = btn.getAttribute('data-folder-name') || 'this folder';
+          if (!key || btn.disabled) return;
+          btn.disabled = true;
+          var original = btn.textContent;
+          btn.textContent = 'Checking…';
+          fetch('/leads/merge-duplicates', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ folderKey: key, dryRun: true, limit: 50 }),
+          })
+            .then(function (r) {
+              return r.json().then(function (data) {
+                return { ok: r.ok, data: data };
+              });
+            })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Could not scan duplicates.');
+              }
+              var found = Number(pack.data.groupsFound) || 0;
+              if (!found) {
+                window.alert('No duplicate groups found in “' + name + '”.');
+                return null;
+              }
+              var sample = Array.isArray(pack.data.groups)
+                ? pack.data.groups
+                    .slice(0, 5)
+                    .map(function (g) {
+                      return '- ' + ((g.titles && g.titles.join(' / ')) || g.matchedOn || 'group') + ' (' + (g.count || '?') + ')';
+                    })
+                    .join('\n')
+                : '';
+              if (
+                !window.confirm(
+                  'Found ' +
+                    found +
+                    ' duplicate group' +
+                    (found === 1 ? '' : 's') +
+                    ' in “' +
+                    name +
+                    '”.\n\n' +
+                    (sample ? sample + '\n\n' : '') +
+                    'Merge each group into one lead? This cannot be undone.',
+                )
+              ) {
+                return null;
+              }
+              btn.textContent = 'Merging…';
+              return fetch('/leads/merge-duplicates', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: jsonHeaders,
+                body: JSON.stringify({ folderKey: key, dryRun: false, limit: 50 }),
+              }).then(function (r) {
+                return r.json().then(function (data) {
+                  return { ok: r.ok, data: data };
+                });
+              });
+            })
+            .then(function (pack) {
+              if (!pack) return;
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Merge duplicates failed.');
+              }
+              var merged = Number(pack.data.groupsMerged) || 0;
+              var away = Number(pack.data.leadsMergedAway) || 0;
+              window.alert(
+                merged
+                  ? 'Merged ' + merged + ' group' + (merged === 1 ? '' : 's') + ' (' + away + ' leads removed).'
+                  : 'No groups were merged.',
+              );
+              if (merged) window.location.reload();
+            })
+            .catch(function (err) {
+              window.alert(err && err.message ? err.message : 'Merge duplicates failed.');
+            })
+            .finally(function () {
+              btn.disabled = false;
+              btn.textContent = original || 'Merge duplicates';
+            });
+        });
+      });
+      if (mergeSelectedBtn) {
+        mergeSelectedBtn.addEventListener('click', function () {
+          var selected = selectedFolderMergeKeys();
+          if (!selected.length) return;
+          if (selected.length === 1) {
+            openFolderMergeModal(selected, '', { multiSelect: false });
+            return;
+          }
+          openFolderMergeModal(selected, selected[0].key, { multiSelect: true });
+        });
+      }
+      if (save) {
+        save.addEventListener('click', function () {
+          var sourcesRaw = ($('folderMergeSources') && $('folderMergeSources').value) || '';
+          var selectedKeys = sourcesRaw
+            .split(/\n+/)
+            .map(function (s) {
+              return String(s || '').trim();
+            })
+            .filter(Boolean);
+          var multiSelect =
+            ($('folderMergeSources') && $('folderMergeSources').getAttribute('data-multi-select')) === '1';
+          var targetFolderKey = ($('folderMergeTarget') && $('folderMergeTarget').value) || '';
+          var sourceFolderKeys = multiSelect
+            ? selectedKeys.filter(function (k) {
+                return k !== targetFolderKey;
+              })
+            : selectedKeys;
+          var err = $('folderMergeError');
+          if (!sourceFolderKeys.length || !targetFolderKey) {
+            if (err) {
+              err.textContent = multiSelect
+                ? 'Select at least two folders, and pick which one to keep.'
+                : 'Pick a destination folder.';
+              err.classList.remove('hidden');
+            }
+            return;
+          }
+          if (
+            !window.confirm(
+              'Merge ' +
+                sourceFolderKeys.length +
+                ' folder' +
+                (sourceFolderKeys.length === 1 ? '' : 's') +
+                ' into the destination? Source folders will be removed after leads move.',
+            )
+          ) {
+            return;
+          }
+          save.disabled = true;
+          save.textContent = 'Merging…';
+          fetch('/folders/merge', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ targetFolderKey: targetFolderKey, sourceFolderKeys: sourceFolderKeys }),
+          })
+            .then(function (r) {
+              return r.json().then(function (data) {
+                return { ok: r.ok, data: data };
+              });
+            })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Could not merge folders.');
+              }
+              closeFolderMergeModal();
+              window.location.reload();
+            })
+            .catch(function (e) {
+              if (err) {
+                err.textContent = e && e.message ? e.message : 'Could not merge folders.';
+                err.classList.remove('hidden');
+              }
+            })
+            .finally(function () {
+              save.disabled = false;
+              save.textContent = 'Merge folders';
+            });
+        });
+      }
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal && modal.style.display === 'flex') closeFolderMergeModal();
+      });
+      syncFolderMergeSelectedBtn();
+    }
+
     function folderByKey(key) {
       var list = window.WORKSPACE_FOLDERS || [];
       for (var i = 0; i < list.length; i++) {
@@ -1742,6 +2071,7 @@
       bindFolderTreeToggle();
       bindFolderCreateModal();
       bindFolderMoveModal();
+      bindFolderMergeUi();
       bindFolderOutreachModal();
       bindFolderSearchSetupModal();
       bindFolderSearchFilter();

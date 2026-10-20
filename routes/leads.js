@@ -130,6 +130,7 @@ const {
 const { condenseCallScriptToSms, normalizeSmsSuggestion } = require('../services/smsScriptSuggest');
 const contactHuntJobs = require('../services/contactHuntJobs');
 const { mergeLeadsByKeys } = require('../services/leadMerge');
+const { mergeAllDuplicateGroups, findDuplicateGroups } = require('../services/leadDuplicateMerge');
 const { quickLogItemForStatus, quickLogLabelForDisposition } = require('../services/quickLogConfig');
 const {
   findDeletableLeadNote,
@@ -4735,6 +4736,72 @@ router.post('/bulk-merge', express.json(), async (req, res, next) => {
       leadKey: result.primaryKey || primaryKey || undefined,
       leadTitle: (result.lead && result.lead.title) || '',
       meta: { mergedKeys: keys.slice(0, 50) },
+    });
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/merge-duplicates — one-click merge of all duplicate groups in a folder (or workspace)
+router.post('/merge-duplicates', express.json(), async (req, res, next) => {
+  try {
+    const folderKey = String((req.body && req.body.folderKey) || '').trim();
+    const limit = Math.min(100, Math.max(1, parseInt((req.body && req.body.limit) || '50', 10) || 50));
+    const dryRun = !!(req.body && req.body.dryRun);
+
+    let leads = filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId));
+    if (folderKey) {
+      leads = leads.filter((l) => String(l.folderKey || '') === folderKey);
+    }
+    if (!leads.length) {
+      return res.status(400).json({
+        success: false,
+        error: folderKey ? 'No leads in this folder to check for duplicates.' : 'No leads to check for duplicates.',
+      });
+    }
+
+    if (dryRun) {
+      const groups = findDuplicateGroups(leads, { limit });
+      return res.json({
+        success: true,
+        dryRun: true,
+        groupsFound: groups.length,
+        groups: groups.map((g) => ({
+          matchedOn: g.matchedOn,
+          count: g.leads.length,
+          titles: g.leads.map((l) => l.title || 'Untitled').slice(0, 8),
+        })),
+      });
+    }
+
+    const result = await mergeAllDuplicateGroups({
+      dbService,
+      workspaceId: req.workspaceId,
+      leads,
+      limit,
+    });
+    if (!result.groupsFound) {
+      return res.json({
+        success: true,
+        groupsFound: 0,
+        groupsMerged: 0,
+        leadsMergedAway: 0,
+        message: 'No duplicate groups found.',
+      });
+    }
+    if (!result.groupsMerged && result.errors.length) {
+      return res.status(400).json({
+        success: false,
+        error: result.errors[0] || 'Could not merge duplicates.',
+        ...result,
+      });
+    }
+    teamActivity.record(req, {
+      category: 'leads',
+      action: 'lead_merge_duplicates',
+      summary: `Merged ${result.groupsMerged} duplicate group${result.groupsMerged === 1 ? '' : 's'} (${result.leadsMergedAway} leads removed)`,
+      meta: { folderKey: folderKey || null, groupsFound: result.groupsFound },
     });
     return res.json(result);
   } catch (err) {

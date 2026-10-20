@@ -628,7 +628,8 @@ module.exports = {
       return { key: existing.key, merged: true, lead: { ...existing, ...patch, key: existing.key } };
     }
 
-    const key = `lead:${Date.now()}`;
+    // Include random suffix — Date.now() alone can collide when creating leads in a tight loop.
+    const key = `lead:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     const { forceFolderKey: _forceFolderKey, ...incomingClean } = incoming;
     const newLead = {
       ...incomingClean,
@@ -1192,7 +1193,8 @@ module.exports = {
 
   async createFolder(workspaceId, name, meta = {}) {
     const wid = workspaceId || 'default';
-    const key = `folder:${wid}:${Date.now()}`;
+    // Include random suffix — Date.now() alone can collide when creating folders in a tight loop.
+    const key = `folder:${wid}:${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
     const folder = {
       name: String(name || '').trim(),
       workspaceId: wid,
