@@ -41,6 +41,8 @@ const {
   hasContactValue,
 } = require('../services/leadPanelNormalize');
 const betterContact = require('../services/betterContactClient');
+const moltsetsLeadEnrich = require('../services/moltsetsLeadEnrich');
+const moltsetsClient = require('../services/moltsetsClient');
 const tikHub = require('../services/tikHubClient');
 const { runReviewsRefresh, runSocialEnrichment, verifyPhoneLine } = require('../services/leadDeepEnrich');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
@@ -5110,6 +5112,7 @@ async function runLeadEnhancement(lead, workspaceId) {
   let firecrawlViaSearch = false;
   let mapsFallbackUsed = false;
   let betterContactUsed = false;
+  let moltsetsUsed = false;
   let rapidapiWebsiteUsed = false;
   let outscraperUsed = false;
   let outscraperContactsUsed = false;
@@ -5237,7 +5240,25 @@ async function runLeadEnhancement(lead, workspaceId) {
     }
   }
 
-  // Step 2: BetterContact — contacts / socials (uses domain from GMB when available)
+  // Step 2: MoltSets — verified email / LinkedIn / decision-maker (domain or email)
+  if (moltsetsClient.isConfigured(integrationEnv)) {
+    try {
+      const msPack = await moltsetsLeadEnrich.enrichLeadForBusiness(enrichLead, integrationEnv, {
+        includeMobile: true,
+      });
+      if (msPack && msPack.extract && moltsetsLeadEnrich.extractHasSignal(msPack.extract)) {
+        moltsetsUsed = true;
+        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(deepData || {}, msPack.extract);
+        console.log(
+          `[ENHANCE] MoltSets for ${workingLead.title}: ${Object.keys(msPack.extract).join(', ')}`,
+        );
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] MoltSets failed:', e.message);
+    }
+  }
+
+  // Step 2.5: BetterContact — contacts / socials (uses domain from GMB when available)
   let bcExtract = null;
   if (betterContact.isConfigured(integrationEnv)) {
     try {
@@ -5427,6 +5448,7 @@ async function runLeadEnhancement(lead, workspaceId) {
     websiteEmailFound ||
     mapsFallbackUsed ||
     betterContactUsed ||
+    moltsetsUsed ||
     rapidapiWebsiteUsed ||
     outscraperUsed ||
     outscraperContactsUsed ||
@@ -5437,6 +5459,7 @@ async function runLeadEnhancement(lead, workspaceId) {
       outscraperUsed ? 'Outscraper GMB' : null,
       outscraperContactsUsed ? 'Outscraper contacts' : null,
       rapidapiWebsiteUsed ? 'RapidAPI website' : null,
+      moltsetsUsed ? 'MoltSets' : null,
       betterContactUsed ? 'BetterContact' : null,
       firecrawlViaSearch ? 'web search' : null,
       !firecrawlViaSearch && websiteForEnrich && hadExtract ? 'website' : null,
@@ -5479,10 +5502,11 @@ async function runLeadEnhancement(lead, workspaceId) {
   const fail = {
     success: false,
     error: betterContact.isConfigured(integrationEnv) ||
+      moltsetsClient.isConfigured(integrationEnv) ||
       rapidapiWebsiteEnrich.isConfigured(integrationEnv) ||
       outscraper.isConfigured(integrationEnv)
-      ? 'No new contact or review data discovered yet. RapidAPI website, Outscraper GMB, BetterContact, and website search did not find new signals.'
-      : 'No new contact or review data discovered yet. Add RapidAPI (website contacts), Outscraper, and/or BetterContact under Workspace → API integrations.',
+      ? 'No new contact or review data discovered yet. RapidAPI website, Outscraper GMB, MoltSets, BetterContact, and website search did not find new signals.'
+      : 'No new contact or review data discovered yet. Add RapidAPI (website contacts), Outscraper, MoltSets, and/or BetterContact under Workspace → API integrations.',
     lead: { ...workingLead, lastContactHuntAt: patch.lastContactHuntAt },
   };
   if (reviewHuntMeta) fail.reviewHunt = reviewHuntMeta;

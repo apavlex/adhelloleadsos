@@ -22,6 +22,7 @@ const commsClient = require('./commsClient');
 const saperlyClient = require('./saperlyClient');
 const tikHubClient = require('./tikHubClient');
 const monidClient = require('./monidClient');
+const moltsetsClient = require('./moltsetsClient');
 
 const SAMPLE_SEARCH = {
   keyword: 'coffee shop',
@@ -58,6 +59,7 @@ const PROVIDERS = {
   apify: { label: 'Apify', fields: ['apifyApiToken'] },
   oxylabs: { label: 'Oxylabs', fields: ['oxylabsUsername', 'oxylabsPassword'] },
   bettercontact: { label: 'BetterContact', fields: ['bettercontactApiKey'] },
+  moltsets: { label: 'MoltSets', fields: ['moltsetsApiKey', 'moltsetsApiBase'] },
   permitstack: { label: 'Permit Stack', fields: ['permitStackApiKey'] },
   firecrawl: { label: 'Firecrawl', fields: ['firecrawlApiKey'] },
   crawl4ai: { label: 'Crawl4AI', fields: ['crawl4aiBaseUrl', 'crawl4aiApiToken'] },
@@ -357,6 +359,14 @@ async function testMonid(integrationEnv) {
   return { message: result.message || 'Connected' };
 }
 
+async function testMoltsets(integrationEnv) {
+  if (!moltsetsClient.isConfigured(integrationEnv)) {
+    throw new Error('Missing MoltSets API key — paste your ms_… key from app.moltsets.com and save.');
+  }
+  const result = await moltsetsClient.testConnection(integrationEnv);
+  return { message: result.message || 'Connected' };
+}
+
 function openRouterTestProviders(key, model) {
   const url = 'https://openrouter.ai/api/v1/chat/completions';
   return [{ name: 'openrouter-test', apiKey: key, url, model }];
@@ -422,6 +432,7 @@ const RUNNERS = {
   firecrawl: () => testFirecrawl,
   crawl4ai: () => testCrawl4ai,
   bettercontact: () => testBetterContact,
+  moltsets: () => testMoltsets,
   permitstack: () => testPermitStack,
   pagespeed: () => testPageSpeed,
   ghl: () => testGhl,

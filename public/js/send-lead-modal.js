@@ -91,12 +91,55 @@
       });
   }
 
-  function open() {
+  function applyPrefill(prefill) {
+    if (!form || !prefill || typeof prefill !== 'object') return;
+    [
+      ['name', 'name'],
+      ['phone', 'phone'],
+      ['email', 'email'],
+      ['address', 'address'],
+      ['city', 'city'],
+      ['zip', 'zip'],
+      ['note', 'note'],
+    ].forEach(function (pair) {
+      var el = form.querySelector('[name="' + pair[0] + '"]');
+      if (!el) return;
+      var val = prefill[pair[1]];
+      if (val == null || val === '') return;
+      el.value = String(val);
+    });
+  }
+
+  function prefillFromOpener(opener) {
+    if (!opener || !opener.getAttribute) return null;
+    var name = opener.getAttribute('data-send-lead-name') || '';
+    var phone = opener.getAttribute('data-send-lead-phone') || '';
+    var email = opener.getAttribute('data-send-lead-email') || '';
+    if (!name && !phone && !email) return null;
+    return {
+      name: name,
+      phone: phone,
+      email: email,
+      address: opener.getAttribute('data-send-lead-address') || '',
+      city: opener.getAttribute('data-send-lead-city') || '',
+      zip: opener.getAttribute('data-send-lead-zip') || '',
+      note: opener.getAttribute('data-send-lead-note') || '',
+    };
+  }
+
+  function open(prefill) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     modal.setAttribute('aria-hidden', 'false');
     setError('');
-    loadOptions();
+    if (form) form.reset();
+    if (sendAll) {
+      sendAll.checked = false;
+      setAllChecked(false);
+    }
+    loadOptions().then(function () {
+      applyPrefill(prefill);
+    });
   }
 
   function close() {
@@ -121,7 +164,7 @@
         if (toggle) toggle.setAttribute('aria-expanded', 'false');
         if (menu) menu.hidden = true;
       });
-      open();
+      open(prefillFromOpener(opener));
       return;
     }
     if (modal.contains(e.target) && e.target.closest('[data-send-lead-close]')) close();

@@ -329,6 +329,35 @@
           <%- include('../../partials/integration_test_row', { provider: 'monid' }) %>
         </section>
 
+        <section id="integration-moltsets" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">MoltSets</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                <a href="https://moltsets.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">MoltSets</a>
+                — verified business emails, LinkedIn, decision-maker titles, and optional carrier-verified mobiles for
+                <strong>Enhance</strong>, <strong>Get More Contacts</strong>, and auto-outreach email find.
+                Keys look like <code class="text-[10px] px-1 rounded bg-brand-cream/60 dark:bg-slate-800">ms_…</code>.
+              </p>
+            </div>
+            <a href="https://developer.moltsets.com" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
+              API docs →
+            </a>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.moltsetsApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.moltsetsApiKey %></p><% } %>
+            <input type="password" name="moltsetsApiKey" autocomplete="off" placeholder="ms_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.moltsetsApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="moltsetsApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API base <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+            <% if (masks.moltsetsApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.moltsetsApiBase %></p><% } %>
+            <input type="text" name="moltsetsApiBase" autocomplete="off" placeholder="https://api.moltsets.com/api/v1/tools" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'moltsets' }) %>
+        </section>
+
         <section id="integration-bettercontact" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header>
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">BetterContact</h3>
@@ -683,7 +712,7 @@
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-3">
           <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Email sending</h3>
           <p class="text-sm text-brand-muted leading-relaxed">Email to leads goes out through your <a href="#ghl-integration" class="js-integration-connect underline font-semibold text-brand-dark dark:text-white">Go High Level</a> connection, from the pipeline, cadences and AI agents. Connect GHL under CRM and there is nothing else to set up here.</p>
-          <p class="text-sm text-brand-muted leading-relaxed">To find email addresses for leads, connect <a href="#integration-rapidapi" class="js-integration-connect underline">RapidAPI</a> (website contacts), <a href="#integration-bettercontact" class="js-integration-connect underline">BetterContact</a>, or Outscraper under Data enhance.</p>
+          <p class="text-sm text-brand-muted leading-relaxed">To find email addresses for leads, connect <a href="#integration-moltsets" class="js-integration-connect underline">MoltSets</a>, <a href="#integration-rapidapi" class="js-integration-connect underline">RapidAPI</a> (website contacts), <a href="#integration-bettercontact" class="js-integration-connect underline">BetterContact</a>, or Outscraper under Data enhance.</p>
         </section>
       </div>
     </div>
