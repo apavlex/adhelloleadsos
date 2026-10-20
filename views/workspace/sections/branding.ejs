@@ -12,9 +12,14 @@
   const _wlBrand = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : { appName: 'AdHello', hasLogo: false, logoUrl: '/images/adhello-app-icon.png', iconUrl: function () { return '/images/adhello-app-icon-512.png'; } };
   const _wlSet = typeof whiteLabelSettings !== 'undefined' && whiteLabelSettings ? whiteLabelSettings : { appName: '', preferredTheme: 'system' };
   const _wlTheme = ['light', 'dark', 'system'].includes(String(_wlSet.preferredTheme || '')) ? String(_wlSet.preferredTheme) : 'system';
-  const _wlOpenUrl = typeof appOpenUrl !== 'undefined' ? appOpenUrl : '/today';
-  const _wlOpenPath = typeof appOpenPath !== 'undefined' ? appOpenPath : _wlOpenUrl;
-  const _wlOpenHost = typeof reviewAppHost !== 'undefined' && reviewAppHost ? reviewAppHost : String(_wlOpenUrl).replace(/^https?:\/\//, '');
+  const _wlOpenUrlRaw = typeof appOpenUrl !== 'undefined' && appOpenUrl ? String(appOpenUrl) : '/today';
+  // Absolute reviews.adhello.io link for Open / Share / QR (not a relative CRM path).
+  const _wlOpenUrl = String(_wlOpenUrlRaw).includes('install=')
+    ? _wlOpenUrlRaw
+    : (_wlOpenUrlRaw + (_wlOpenUrlRaw.indexOf('?') >= 0 ? '&' : '?') + 'install=1');
+  const _wlOpenHost = typeof reviewAppHost !== 'undefined' && reviewAppHost
+    ? reviewAppHost
+    : String(_wlOpenUrlRaw).replace(/^https?:\/\//, '').split('?')[0];
   const _wlHeroUrl = typeof reviewHeroUrl !== 'undefined' && reviewHeroUrl ? String(reviewHeroUrl) : '';
   // Always the composed Home Screen icon (edge-to-edge or accent tile) — not the raw upload.
   const _wlIconSrc = _wlBrand.iconUrl(512);
@@ -220,7 +225,7 @@
         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 00-2.25 2.25v9a2.25 2.25 0 002.25 2.25h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25H15m0-3l-3-3m0 0l-3 3m3-3V15" /></svg>
         <span data-get-app-share-label>Copy / share for SMS</span>
       </button>
-      <a href="<%= _wlOpenPath %>" class="inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-dark no-underline px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Open Review app</a>
+      <a href="<%= _wlOpenUrl %>" class="inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-dark no-underline px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Open Review app</a>
     </div>
     <div class="grid gap-4 md:grid-cols-2">
       <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 md:col-span-2">
