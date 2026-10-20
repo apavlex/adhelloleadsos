@@ -468,6 +468,172 @@ async function fetchContactsAndLeads({ query, integrationEnv, contactsPerCompany
   throw new Error(json?.errorMessage || `Unexpected Outscraper contacts response (status=${status})`);
 }
 
+
+const ADS_CHECKER_MAX_WAIT_MS = Math.max(
+  15000,
+  parseInt(process.env.OUTSCRAPER_ADS_CHECKER_MAX_WAIT_MS || '90000', 10) || 90000,
+);
+
+function flattenAdsCheckerPayload(data) {
+  if (!Array.isArray(data) || !data.length) return null;
+  const row = data[0];
+  return row && typeof row === 'object' ? row : null;
+}
+
+/**
+ * Outscraper Ads Checker — whether a domain runs paid ads (Google / LinkedIn signals).
+ * @see https://docs.outscraper.com/endpoints/ads-checker/
+ * @returns {Promise<{ query: string, ads: boolean, google: boolean, linkedin: boolean }|null>}
+ */
+async function fetchAdsChecker({ query, integrationEnv }) {
+  if (!isConfigured(integrationEnv)) {
+    throw new Error('Outscraper is not configured (set OUTSCRAPER_API_KEY).');
+  }
+  const q = String(query || '')
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '')
+    .split('/')[0];
+  if (!q) throw new Error('Domain is required for ads-checker.');
+
+  const syncMode = ['1', 'true', 'yes'].includes(
+    String(process.env.OUTSCRAPER_ADS_CHECKER_SYNC || '').toLowerCase().trim(),
+  );
+  const useAsync = !syncMode;
+
+  const u = new URL(`${apiBase(integrationEnv)}/ads-checker`);
+  u.searchParams.set('query', q);
+  u.searchParams.set('async', useAsync ? 'true' : 'false');
+
+  console.log(`[Outscraper] Ads checker: "${q}" (async=${useAsync})`);
+
+  const initTimeout = useAsync ? MAPS_INIT_TIMEOUT_MS : Math.max(MAPS_INIT_TIMEOUT_MS, 120000);
+  const { ok, status, json } = await outscraperFetchJson(u.toString(), {
+    timeoutMs: initTimeout,
+    integrationEnv,
+  });
+
+  if (!ok) {
+    const msg = json?.errorMessage || json?.message || `HTTP ${status}`;
+    throw new Error(`Outscraper ads-checker: ${msg}`);
+  }
+
+  let row = null;
+  if (json?.status === 'Success' && json.data) {
+    row = flattenAdsCheckerPayload(json.data);
+  } else if (json?.status === 'Failure') {
+    throw new Error(json.errorMessage || json.message || 'Outscraper ads-checker task failed');
+  } else if (useAsync && json?.id) {
+    let pollUrl = json.results_location;
+    if (pollUrl && !String(pollUrl).startsWith('http')) {
+      pollUrl = `${apiBase(integrationEnv)}${String(pollUrl).startsWith('/') ? '' : '/'}${pollUrl}`;
+    }
+    if (!pollUrl) pollUrl = `${apiBase(integrationEnv)}/requests/${json.id}`;
+    const data = await pollOutscraperTask(pollUrl, {
+      integrationEnv,
+      maxWaitMs: ADS_CHECKER_MAX_WAIT_MS,
+      label: 'Outscraper ads-checker',
+    });
+    row = flattenAdsCheckerPayload(data);
+  } else if (json?.error) {
+    throw new Error(json.errorMessage || json.message || 'Outscraper ads-checker error');
+  } else {
+    throw new Error(json?.errorMessage || `Unexpected Outscraper ads-checker response (status=${status})`);
+  }
+
+  if (!row) return null;
+  return {
+    query: String(row.query || q).trim() || q,
+    ads: row.ads === true || row.ads === 'true' || row.ads === 1,
+    google: row.google === true || row.google === 'true' || row.google === 1,
+    linkedin: row.linkedin === true || row.linkedin === 'true' || row.linkedin === 1,
+  };
+}
+
+const PHONES_ENRICHER_MAX_WAIT_MS = Math.max(
+  10000,
+  parseInt(process.env.OUTSCRAPER_PHONES_ENRICHER_MAX_WAIT_MS || '60000', 10) || 60000,
+);
+
+function flattenPhonesEnricherPayload(data) {
+  if (!data) return null;
+  if (Array.isArray(data)) {
+    const row = data.length && Array.isArray(data[0]) ? data[0][0] : data[0];
+    return row && typeof row === 'object' ? row : null;
+  }
+  if (typeof data === 'object') return data;
+  return null;
+}
+
+/**
+ * Outscraper Phone Numbers Enricher — carrier name/type (mobile vs landline) for SMS safety.
+ * @see https://docs.outscraper.com/endpoints/phones-enricher/
+ * @returns {Promise<{ query: string, carrierName: string, carrierType: string }|null>}
+ */
+async function fetchPhonesEnricher({ phone, integrationEnv }) {
+  if (!isConfigured(integrationEnv)) {
+    throw new Error('Outscraper is not configured (set OUTSCRAPER_API_KEY).');
+  }
+  const q = String(phone || '')
+    .trim()
+    .replace(/[^\d+]/g, '');
+  if (!q || q.replace(/\D/g, '').length < 10) {
+    throw new Error('A valid phone number is required for phones-enricher.');
+  }
+
+  const syncMode = ['1', 'true', 'yes'].includes(
+    String(process.env.OUTSCRAPER_PHONES_ENRICHER_SYNC || '').toLowerCase().trim(),
+  );
+  const useAsync = !syncMode;
+
+  const u = new URL(`${apiBase(integrationEnv)}/phones-enricher`);
+  u.searchParams.set('query', q);
+  u.searchParams.set('async', useAsync ? 'true' : 'false');
+
+  console.log(`[Outscraper] Phones enricher: "${q}" (async=${useAsync})`);
+
+  const initTimeout = useAsync ? MAPS_INIT_TIMEOUT_MS : Math.max(MAPS_INIT_TIMEOUT_MS, 90000);
+  const { ok, status, json } = await outscraperFetchJson(u.toString(), {
+    timeoutMs: initTimeout,
+    integrationEnv,
+  });
+
+  if (!ok) {
+    const msg = json?.errorMessage || json?.message || `HTTP ${status}`;
+    throw new Error(`Outscraper phones-enricher: ${msg}`);
+  }
+
+  let row = null;
+  if (json?.status === 'Success' && json.data) {
+    row = flattenPhonesEnricherPayload(json.data);
+  } else if (json?.status === 'Failure') {
+    throw new Error(json.errorMessage || json.message || 'Outscraper phones-enricher task failed');
+  } else if (useAsync && json?.id) {
+    let pollUrl = json.results_location;
+    if (pollUrl && !String(pollUrl).startsWith('http')) {
+      pollUrl = `${apiBase(integrationEnv)}${String(pollUrl).startsWith('/') ? '' : '/'}${pollUrl}`;
+    }
+    if (!pollUrl) pollUrl = `${apiBase(integrationEnv)}/requests/${json.id}`;
+    const data = await pollOutscraperTask(pollUrl, {
+      integrationEnv,
+      maxWaitMs: PHONES_ENRICHER_MAX_WAIT_MS,
+      label: 'Outscraper phones-enricher',
+    });
+    row = flattenPhonesEnricherPayload(data);
+  } else if (json?.error) {
+    throw new Error(json.errorMessage || json.message || 'Outscraper phones-enricher error');
+  } else {
+    throw new Error(json?.errorMessage || `Unexpected Outscraper phones-enricher response (status=${status})`);
+  }
+
+  if (!row) return null;
+  return {
+    query: String(row.query || q).trim() || q,
+    carrierName: String(row.carrier_name || row.carrierName || row.name || '').trim(),
+    carrierType: String(row.carrier_type || row.carrierType || row.type || row.line_type || '').trim(),
+  };
+}
+
 const DIRECTORY_MAX_WAIT_MS = Math.max(
   15000,
   parseInt(process.env.OUTSCRAPER_DIRECTORY_MAX_WAIT_MS || '120000', 10) || 120000,
@@ -1076,8 +1242,11 @@ module.exports = {
   searchGoogleMaps,
   fetchGoogleMapsReviews,
   fetchContactsAndLeads,
+  fetchAdsChecker,
+  fetchPhonesEnricher,
   flattenOutscraperReviewsPayload,
   flattenContactsAndLeadsPayload,
+  flattenPhonesEnricherPayload,
   flattenOutscraperDirectoryRows,
   normalizeMapsPlace,
   pollOutscraperTask,

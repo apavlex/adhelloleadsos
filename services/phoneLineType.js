@@ -1,13 +1,35 @@
 /**
- * Phone line type detection (mobile / landline / voip) via SignalWire Lookup.
+ * Phone line type detection (mobile / landline / voip).
+ * Prefers Outscraper phones-enricher when configured; falls back to SignalWire Lookup.
  * Cached on the lead record; refreshed when the phone changes or cache expires.
+ * Applies workspace tags (SMS safe / Cellphone / Landline / VoIP) on verify.
  */
 const signalwire = require('./signalwire');
+const outscraper = require('./outscraperClient');
 const { normalizePhone: normalizePhoneDigits } = require('./leadDedupe');
+
+/** Lazy require — database already depends on this module for auto line-type refresh. */
+function db() {
+  return require('./database');
+}
 
 const LINE_TYPES = new Set(['mobile', 'landline', 'voip', 'unknown']);
 
 const DEFAULT_CACHE_DAYS = 30;
+
+/** Stable tag names applied when verifying phone line type. */
+const TAG_SMS_SAFE = 'SMS safe';
+const TAG_CELLPHONE = 'Cellphone';
+const TAG_LANDLINE = 'Landline';
+const TAG_VOIP = 'VoIP';
+const PHONE_LINE_TAG_NAMES = [TAG_SMS_SAFE, TAG_CELLPHONE, TAG_LANDLINE, TAG_VOIP];
+
+const TAG_COLORS = {
+  [TAG_SMS_SAFE]: '#0EA5E9',
+  [TAG_CELLPHONE]: '#38BDF8',
+  [TAG_LANDLINE]: '#F59E0B',
+  [TAG_VOIP]: '#8B5CF6',
+};
 
 function cacheTtlMs() {
   const raw = parseInt(process.env.PHONE_LINE_TYPE_CACHE_DAYS || '', 10);
@@ -30,6 +52,14 @@ function lookupEnabled() {
   return true;
 }
 
+function preferOutscraperFirst() {
+  const v = String(process.env.PHONE_LINE_TYPE_PROVIDER || 'outscraper')
+    .trim()
+    .toLowerCase();
+  if (v === 'signalwire' || v === 'sw') return false;
+  return true;
+}
+
 function normalizeE164(raw) {
   return signalwire.normalizePhone(raw);
 }
@@ -48,7 +78,9 @@ function normalizeLineType(raw) {
     .trim()
     .toLowerCase();
   if (!t) return 'unknown';
-  if (t === 'mobile' || t === 'cell' || t === 'wireless') return 'mobile';
+  if (t === 'mobile' || t === 'cell' || t === 'cellphone' || t === 'cellular' || t === 'wireless') {
+    return 'mobile';
+  }
   if (t === 'landline' || t === 'fixed' || t === 'fixed line' || t === 'fixed_line') return 'landline';
   if (t === 'voip' || t === 'non-fixed voip' || t === 'nonfixedvoip') return 'voip';
   if (LINE_TYPES.has(t)) return t;
@@ -111,18 +143,43 @@ function lookupUrl(e164) {
   return `https://${host}/api/relay/rest/lookup/phone_number/${enc}?include=carrier`;
 }
 
+function outscraperConfigured(integrationEnv) {
+  return outscraper.isConfigured(integrationEnv);
+}
+
+function signalwireLookupReady() {
+  return signalwire.configured() && relaySpaceHostSafe();
+}
+
+/**
+ * Lookup via Outscraper phones-enricher.
+ * @returns {Promise<{ lineType: string, carrier: string, source: string }|null>}
+ */
+async function lookupViaOutscraper(phone, opts) {
+  const integrationEnv = opts && opts.integrationEnv;
+  if (!outscraperConfigured(integrationEnv)) return null;
+
+  const e164 = normalizeE164(phone) || String(phone || '').trim();
+  const row = await outscraper.fetchPhonesEnricher({
+    phone: e164,
+    integrationEnv,
+  });
+  if (!row) return null;
+  return {
+    lineType: normalizeLineType(row.carrierType),
+    carrier: String(row.carrierName || '').trim(),
+    source: 'outscraper',
+  };
+}
+
 /**
  * Lookup carrier + line type from SignalWire Relay REST API.
  * @returns {Promise<{ lineType: string, carrier: string, source: string }>}
  */
-async function lookupPhoneLineType(phone, opts) {
+async function lookupViaSignalWire(phone, opts) {
   const e164 = normalizeE164(phone);
   if (!e164 || !hasUsablePhone(e164)) {
     return { lineType: 'unknown', carrier: '', source: 'invalid_phone' };
-  }
-
-  if (!lookupEnabled()) {
-    return { lineType: 'unknown', carrier: '', source: 'lookup_disabled' };
   }
 
   if (!signalwire.configured()) {
@@ -174,6 +231,87 @@ async function lookupPhoneLineType(phone, opts) {
   };
 }
 
+/**
+ * Lookup carrier + line type. Prefers Outscraper phones-enricher, then SignalWire.
+ * @returns {Promise<{ lineType: string, carrier: string, source: string }>}
+ */
+async function lookupPhoneLineType(phone, opts) {
+  const e164 = normalizeE164(phone);
+  if (!e164 || !hasUsablePhone(e164)) {
+    return { lineType: 'unknown', carrier: '', source: 'invalid_phone' };
+  }
+
+  if (!lookupEnabled()) {
+    return { lineType: 'unknown', carrier: '', source: 'lookup_disabled' };
+  }
+
+  const integrationEnv = opts && opts.integrationEnv;
+  const hasOutscraper = outscraperConfigured(integrationEnv);
+  const hasSignalwire = signalwireLookupReady();
+
+  if (!hasOutscraper && !hasSignalwire) {
+    if (!signalwire.configured()) {
+      return { lineType: 'unknown', carrier: '', source: 'not_configured' };
+    }
+    return { lineType: 'unknown', carrier: '', source: 'missing_space_url' };
+  }
+
+  const tryOutscraper = async () => {
+    try {
+      const result = await lookupViaOutscraper(phone, opts);
+      if (result) return result;
+    } catch (err) {
+      console.warn(
+        '[phoneLineType] Outscraper phones-enricher failed:',
+        err && err.message ? err.message : err,
+      );
+    }
+    return null;
+  };
+
+  const trySignalwire = async () => {
+    try {
+      return await lookupViaSignalWire(phone, opts);
+    } catch (err) {
+      console.warn(
+        '[phoneLineType] SignalWire lookup failed:',
+        err && err.message ? err.message : err,
+      );
+      throw err;
+    }
+  };
+
+  if (preferOutscraperFirst()) {
+    if (hasOutscraper) {
+      const os = await tryOutscraper();
+      if (os && os.lineType !== 'unknown') return os;
+      if (os && !hasSignalwire) return os;
+    }
+    if (hasSignalwire) return trySignalwire();
+    if (hasOutscraper) {
+      const os = await tryOutscraper();
+      if (os) return os;
+    }
+  } else {
+    if (hasSignalwire) {
+      try {
+        const sw = await trySignalwire();
+        if (sw && sw.lineType !== 'unknown') return sw;
+        if (sw && !hasOutscraper) return sw;
+      } catch (_) {
+        /* fall through to Outscraper */
+      }
+    }
+    if (hasOutscraper) {
+      const os = await tryOutscraper();
+      if (os) return os;
+    }
+    if (hasSignalwire) return trySignalwire();
+  }
+
+  return { lineType: 'unknown', carrier: '', source: 'lookup_failed' };
+}
+
 function patchFromLookup(phone, result) {
   const norm = phoneNormKey(phone);
   return {
@@ -181,7 +319,7 @@ function patchFromLookup(phone, result) {
     phoneCarrier: String((result && result.carrier) || '').trim(),
     phoneLineTypeCheckedAt: new Date().toISOString(),
     phoneLineTypePhoneNorm: norm,
-    phoneLineTypeSource: String((result && result.source) || 'signalwire').trim(),
+    phoneLineTypeSource: String((result && result.source) || '').trim() || 'unknown',
   };
 }
 
@@ -212,19 +350,23 @@ async function forceRefresh(lead, opts) {
 
 /**
  * Human-readable reason lookup cannot run (missing keys / disabled).
+ * @param {Record<string, string>|null|undefined} [integrationEnv]
  * @returns {string|null}
  */
-function lookupBlockedReason() {
+function lookupBlockedReason(integrationEnv) {
   if (!lookupEnabled()) {
     return 'Phone line-type lookup is disabled on the server (PHONE_LINE_TYPE_LOOKUP_ENABLED).';
   }
-  if (!signalwire.configured()) {
-    return 'SignalWire is not configured for phone line-type lookup. Add SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, and SIGNALWIRE_SPACE_URL under Workspace → Phone bank / Integrations.';
+  if (outscraperConfigured(integrationEnv) || signalwireLookupReady()) {
+    return null;
   }
-  if (!relaySpaceHostSafe()) {
-    return 'SignalWire Space URL is missing. Set SIGNALWIRE_SPACE_URL under Workspace → Phone bank / Integrations.';
+  if (!outscraperConfigured(integrationEnv) && !signalwire.configured()) {
+    return 'Phone line-type lookup needs Outscraper (OUTSCRAPER_API_KEY) or SignalWire under Workspace → Integrations / Phone bank.';
   }
-  return null;
+  if (signalwire.configured() && !relaySpaceHostSafe()) {
+    return 'SignalWire Space URL is missing. Set SIGNALWIRE_SPACE_URL under Workspace → Phone bank / Integrations (or configure Outscraper).';
+  }
+  return 'Phone line-type lookup is not configured. Add OUTSCRAPER_API_KEY or SignalWire credentials.';
 }
 
 function relaySpaceHostSafe() {
@@ -261,8 +403,71 @@ function badgeForLead(lead) {
   };
 }
 
+/** Tag names that should be present for a given line type. */
+function tagNamesForLineType(lineType) {
+  const t = normalizeLineType(lineType);
+  if (t === 'mobile') return [TAG_SMS_SAFE, TAG_CELLPHONE];
+  if (t === 'landline') return [TAG_LANDLINE];
+  if (t === 'voip') return [TAG_VOIP];
+  return [];
+}
+
+async function ensurePhoneLineTagKey(workspaceId, name) {
+  const dbService = db();
+  const wid = workspaceId || 'default';
+  const want = String(name || '')
+    .trim()
+    .toLowerCase();
+  if (!want) return null;
+  const tags = await dbService.listTags(wid);
+  const found = (tags || []).find((t) => String(t.name || '').trim().toLowerCase() === want);
+  if (found && found.key) return found.key;
+  const created = await dbService.createTag(wid, name, TAG_COLORS[name] || '#0EA5E9');
+  return created && created.key ? created.key : null;
+}
+
+/**
+ * Sync workspace tags for SMS-safe / cellphone / landline / VoIP based on line type.
+ * Removes prior phone-line tags, then adds the matching ones.
+ * @returns {Promise<string[]|null>} updated tag keys, or null when unchanged / no workspace
+ */
+async function applyLineTypeTags(lead, lineType, workspaceId) {
+  const dbService = db();
+  const wid = workspaceId || (lead && lead.workspaceId) || '';
+  if (!wid || !lead) return null;
+
+  const nameToKey = {};
+  for (const name of PHONE_LINE_TAG_NAMES) {
+    // eslint-disable-next-line no-await-in-loop
+    const key = await ensurePhoneLineTagKey(wid, name);
+    if (key) nameToKey[name] = key;
+  }
+
+  const phoneLineKeys = new Set(Object.values(nameToKey));
+  const prev = dbService.normalizeTagKeys(lead.tags);
+  const kept = prev.filter((k) => !phoneLineKeys.has(k));
+  const addNames = tagNamesForLineType(lineType);
+  for (const name of addNames) {
+    const key = nameToKey[name];
+    if (key && !kept.includes(key)) kept.push(key);
+  }
+
+  const next = dbService.normalizeTagKeys(kept);
+  const prevSet = new Set(prev);
+  const nextSet = new Set(next);
+  if (prev.length === next.length && next.every((k) => prevSet.has(k)) && prev.every((k) => nextSet.has(k))) {
+    return null;
+  }
+  return next;
+}
+
 module.exports = {
   LINE_TYPES,
+  TAG_SMS_SAFE,
+  TAG_CELLPHONE,
+  TAG_LANDLINE,
+  TAG_VOIP,
+  PHONE_LINE_TAG_NAMES,
   normalizeLineType,
   lineTypeLabel,
   lineTypePillClass,
@@ -273,10 +478,15 @@ module.exports = {
   lookupEnabled,
   lookupBlockedReason,
   lookupPhoneLineType,
+  lookupViaOutscraper,
+  lookupViaSignalWire,
   refreshIfNeeded,
   forceRefresh,
   patchFromLookup,
   isSmsAllowed,
   prefersCallFirst,
   badgeForLead,
+  tagNamesForLineType,
+  applyLineTypeTags,
+  ensurePhoneLineTagKey,
 };

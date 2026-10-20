@@ -11,13 +11,17 @@ describe('phoneLineType', () => {
     process.env.SIGNALWIRE_FROM_NUMBER = '+15551234567';
     process.env.SIGNALWIRE_ENABLED = '1';
     process.env.PHONE_LINE_TYPE_LOOKUP_ENABLED = '1';
+    process.env.PHONE_LINE_TYPE_PROVIDER = 'outscraper';
+    delete process.env.OUTSCRAPER_API_KEY;
     delete require.cache[require.resolve('../services/signalwire')];
+    delete require.cache[require.resolve('../services/outscraperClient')];
     delete require.cache[require.resolve('../services/phoneLineType')];
   });
 
   afterEach(() => {
     process.env = { ...origEnv };
     delete require.cache[require.resolve('../services/signalwire')];
+    delete require.cache[require.resolve('../services/outscraperClient')];
     delete require.cache[require.resolve('../services/phoneLineType')];
   });
 
@@ -27,6 +31,7 @@ describe('phoneLineType', () => {
     assert.equal(phoneLineType.normalizeLineType('landline'), 'landline');
     assert.equal(phoneLineType.normalizeLineType('voip'), 'voip');
     assert.equal(phoneLineType.normalizeLineType('wireless'), 'mobile');
+    assert.equal(phoneLineType.normalizeLineType('cellphone'), 'mobile');
     assert.equal(phoneLineType.normalizeLineType(''), 'unknown');
   });
 
@@ -65,7 +70,18 @@ describe('phoneLineType', () => {
     assert.equal(phoneLineType.prefersCallFirst({ phoneLineType: 'mobile' }), false);
   });
 
-  it('lookupPhoneLineType parses SignalWire carrier response', async () => {
+  it('tagNamesForLineType maps mobile to SMS safe + Cellphone', () => {
+    const phoneLineType = require('../services/phoneLineType');
+    assert.deepEqual(phoneLineType.tagNamesForLineType('mobile'), [
+      phoneLineType.TAG_SMS_SAFE,
+      phoneLineType.TAG_CELLPHONE,
+    ]);
+    assert.deepEqual(phoneLineType.tagNamesForLineType('landline'), [phoneLineType.TAG_LANDLINE]);
+    assert.deepEqual(phoneLineType.tagNamesForLineType('voip'), [phoneLineType.TAG_VOIP]);
+    assert.deepEqual(phoneLineType.tagNamesForLineType('unknown'), []);
+  });
+
+  it('lookupPhoneLineType parses SignalWire carrier response when Outscraper is off', async () => {
     const phoneLineType = require('../services/phoneLineType');
     const mockFetch = async (url) => {
       assert.match(url, /lookup\/phone_number\/%2B15551234567/);
@@ -84,6 +100,62 @@ describe('phoneLineType', () => {
     assert.equal(result.lineType, 'mobile');
     assert.equal(result.carrier, 'Verizon Wireless');
     assert.equal(result.source, 'signalwire');
+  });
+
+  it('prefers Outscraper phones-enricher when configured', async () => {
+    process.env.OUTSCRAPER_API_KEY = 'test_outscraper_key';
+    delete require.cache[require.resolve('../services/outscraperClient')];
+    delete require.cache[require.resolve('../services/phoneLineType')];
+    const outscraper = require('../services/outscraperClient');
+    const phoneLineType = require('../services/phoneLineType');
+    const orig = outscraper.fetchPhonesEnricher;
+    outscraper.fetchPhonesEnricher = async () => ({
+      query: '15551234567',
+      carrierName: 'T-Mobile',
+      carrierType: 'mobile',
+    });
+    try {
+      const result = await phoneLineType.lookupPhoneLineType('+15551234567', {
+        integrationEnv: { OUTSCRAPER_API_KEY: 'test_outscraper_key' },
+        fetch: async () => {
+          throw new Error('SignalWire should not be called');
+        },
+      });
+      assert.equal(result.lineType, 'mobile');
+      assert.equal(result.carrier, 'T-Mobile');
+      assert.equal(result.source, 'outscraper');
+    } finally {
+      outscraper.fetchPhonesEnricher = orig;
+    }
+  });
+
+  it('falls back to SignalWire when Outscraper fails', async () => {
+    process.env.OUTSCRAPER_API_KEY = 'test_outscraper_key';
+    delete require.cache[require.resolve('../services/outscraperClient')];
+    delete require.cache[require.resolve('../services/phoneLineType')];
+    const outscraper = require('../services/outscraperClient');
+    const phoneLineType = require('../services/phoneLineType');
+    const orig = outscraper.fetchPhonesEnricher;
+    outscraper.fetchPhonesEnricher = async () => {
+      throw new Error('Outscraper down');
+    };
+    try {
+      const result = await phoneLineType.lookupPhoneLineType('+15551234567', {
+        integrationEnv: { OUTSCRAPER_API_KEY: 'test_outscraper_key' },
+        fetch: async () => ({
+          ok: true,
+          text: async () =>
+            JSON.stringify({
+              carrier: { name: 'AT&T', type: 'landline' },
+            }),
+        }),
+      });
+      assert.equal(result.lineType, 'landline');
+      assert.equal(result.carrier, 'AT&T');
+      assert.equal(result.source, 'signalwire');
+    } finally {
+      outscraper.fetchPhonesEnricher = orig;
+    }
   });
 
   it('refreshIfNeeded skips when cache is still valid', async () => {
@@ -151,11 +223,30 @@ describe('phoneLineType', () => {
     assert.equal(patch.phoneCarrier, 'Verizon');
   });
 
-  it('lookupBlockedReason mentions SignalWire when not configured', () => {
+  it('lookupBlockedReason is null when SignalWire is configured', () => {
     const phoneLineType = require('../services/phoneLineType');
-    const reason = phoneLineType.lookupBlockedReason();
-    if (!require('../services/signalwire').configured()) {
-      assert.match(String(reason || ''), /SignalWire|Phone bank|Integrations/i);
-    }
+    assert.equal(phoneLineType.lookupBlockedReason(null), null);
+  });
+
+  it('lookupBlockedReason mentions Outscraper or SignalWire when neither configured', () => {
+    delete process.env.SIGNALWIRE_PROJECT_ID;
+    delete process.env.SIGNALWIRE_TOKEN;
+    delete process.env.SIGNALWIRE_SPACE_URL;
+    delete process.env.OUTSCRAPER_API_KEY;
+    delete require.cache[require.resolve('../services/signalwire')];
+    delete require.cache[require.resolve('../services/outscraperClient')];
+    delete require.cache[require.resolve('../services/phoneLineType')];
+    const phoneLineType = require('../services/phoneLineType');
+    const reason = phoneLineType.lookupBlockedReason(null);
+    assert.match(String(reason || ''), /Outscraper|SignalWire/i);
+  });
+
+  it('flattenPhonesEnricherPayload reads flat Outscraper rows', () => {
+    const outscraper = require('../services/outscraperClient');
+    const row = outscraper.flattenPhonesEnricherPayload([
+      { query: '12812368208', carrier_name: 'AERIAL', carrier_type: 'mobile' },
+    ]);
+    assert.equal(row.carrier_type, 'mobile');
+    assert.equal(row.carrier_name, 'AERIAL');
   });
 });
