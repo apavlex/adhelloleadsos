@@ -478,7 +478,6 @@
           <select id="folderSearchJobType" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
             <option value="maps_business">Business</option>
             <option value="real_estate">Real estate</option>
-            <option value="home_owners">Home owners</option>
             <option value="products">Products</option>
             <option value="wholesale">Wholesale</option>
           </select>
@@ -591,7 +590,6 @@
   <script>
   window.FOLDER_DEFAULT_SOURCES = {
     real_estate: ['zillow', 'realtor', 'redfin', 'mhvillage', 'craigslist', 'facebook_marketplace', 'offerup', 'oxylabs', 'web_search'],
-    home_owners: ['web_search', 'oxylabs', 'zillow', 'redfin', 'realtor'],
     products: ['facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
     wholesale: ['web_search', 'oxylabs', 'facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
   };
@@ -1538,7 +1536,7 @@
       var maps = $('folderSearchMapsFields');
       var listing = $('folderSearchListingFields');
       var reExtras = $('folderSearchReExtras');
-      var isListing = jt === 'real_estate' || jt === 'home_owners' || jt === 'products' || jt === 'wholesale';
+      var isListing = jt === 'real_estate' || jt === 'products' || jt === 'wholesale';
       if (maps) maps.classList.toggle('hidden', jt !== 'maps_business');
       if (listing) listing.classList.toggle('hidden', !isListing);
       if (reExtras) reExtras.classList.toggle('hidden', jt !== 'real_estate');
@@ -1560,10 +1558,15 @@
     function fillFolderSearchForm(preset, folder) {
       var p = preset || {};
       var jt = p.jobType || (folder && folder.jobType) || 'maps_business';
-      if (jt === 'mobile_homes' || (folder && folder.isPipelineDefault && String(folder.name || '').toLowerCase() === 'mobile homes')) {
+      if (
+        jt === 'mobile_homes' ||
+        jt === 'home_owners' ||
+        (folder && folder.isPipelineDefault && String(folder.name || '').toLowerCase() === 'mobile homes') ||
+        (folder && folder.isPipelineDefault && String(folder.name || '').toLowerCase() === 'home owners')
+      ) {
         jt = 'real_estate';
       }
-      if (['real_estate', 'home_owners', 'products', 'wholesale'].indexOf(jt) < 0 && jt !== 'maps_business') {
+      if (['real_estate', 'products', 'wholesale'].indexOf(jt) < 0 && jt !== 'maps_business') {
         jt = 'maps_business';
       }
 
@@ -1585,7 +1588,7 @@
       if ($('folderSearchReScraper')) $('folderSearchReScraper').value = p.scraper || 'listings';
       if ($('folderSearchListingMarket')) $('folderSearchListingMarket').value = p.listingMarket || 'both';
       if ($('folderSearchQuery')) {
-        var defaults = { real_estate: 'homes for sale and recently sold', home_owners: 'property owner', products: '', wholesale: 'wholesale' };
+        var defaults = { real_estate: 'homes for sale and recently sold', products: '', wholesale: 'wholesale' };
         $('folderSearchQuery').value = p.query || defaults[jt] || '';
       }
       if ($('folderSearchMinPrice')) $('folderSearchMinPrice').value = p.minPrice != null ? String(p.minPrice) : '';
@@ -1652,7 +1655,7 @@
         city: ($('folderSearchCity') && $('folderSearchCity').value) || '',
         state: ($('folderSearchState') && $('folderSearchState').value) || '',
       };
-      var isListing = jt === 'real_estate' || jt === 'home_owners' || jt === 'products' || jt === 'wholesale';
+      var isListing = jt === 'real_estate' || jt === 'products' || jt === 'wholesale';
       if (isListing) {
         body.query = ($('folderSearchQuery') && $('folderSearchQuery').value) || '';
         body.minPrice = ($('folderSearchMinPrice') && $('folderSearchMinPrice').value) || '';

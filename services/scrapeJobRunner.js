@@ -217,10 +217,8 @@ async function executeScrapeJob(schedule, integrationEnv, options = {}) {
   }
   if (
     jobType === JOB_TYPES.REAL_ESTATE ||
-    jobType === JOB_TYPES.HOME_OWNERS ||
     jobType === JOB_TYPES.PRODUCTS ||
-    jobType === JOB_TYPES.WHOLESALE ||
-    jobType === JOB_TYPES.MOBILE_HOMES
+    jobType === JOB_TYPES.WHOLESALE
   ) {
     return runListingJob(schedule, integrationEnv);
   }
@@ -245,21 +243,17 @@ function buildSearchRecord(schedule, results, timestampIso) {
 
   if (
     jobType === JOB_TYPES.REAL_ESTATE ||
-    jobType === JOB_TYPES.HOME_OWNERS ||
     jobType === JOB_TYPES.PRODUCTS ||
-    jobType === JOB_TYPES.WHOLESALE ||
-    jobType === JOB_TYPES.MOBILE_HOMES
+    jobType === JOB_TYPES.WHOLESALE
   ) {
     const flipFilter = parseFlipFilter(schedule);
     const q = schedule.query || schedule.keyword || 'listings';
     const label =
-      jobType === JOB_TYPES.HOME_OWNERS
-        ? 'Home owners'
-        : jobType === JOB_TYPES.PRODUCTS
-          ? 'Products'
-          : jobType === JOB_TYPES.WHOLESALE
-            ? 'Wholesale'
-            : 'Real estate';
+      jobType === JOB_TYPES.PRODUCTS
+        ? 'Products'
+        : jobType === JOB_TYPES.WHOLESALE
+          ? 'Wholesale'
+          : 'Real estate';
     const loc = [schedule.city, schedule.state].filter(Boolean).join(', ');
     const keywordBase = loc ? `${q} · ${loc}` : q;
     const record = {
@@ -319,10 +313,8 @@ function isJobConfigured(schedule, integrationEnv) {
   }
   if (
     jobType === JOB_TYPES.REAL_ESTATE ||
-    jobType === JOB_TYPES.HOME_OWNERS ||
     jobType === JOB_TYPES.PRODUCTS ||
-    jobType === JOB_TYPES.WHOLESALE ||
-    jobType === JOB_TYPES.MOBILE_HOMES
+    jobType === JOB_TYPES.WHOLESALE
   ) {
     return listingSearch.isConfigured(integrationEnv) || realEstateSearch.isConfigured(integrationEnv);
   }

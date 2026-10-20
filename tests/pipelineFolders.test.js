@@ -14,9 +14,25 @@ test('leadMetadataForJobType maps legacy mobile homes to real estate', () => {
   assert.equal(meta.source, 'real_estate_search');
 });
 
+test('leadMetadataForJobType maps legacy home owners to real estate', () => {
+  const meta = leadMetadataForJobType(JOB_TYPES.HOME_OWNERS);
+  assert.equal(meta.jobType, 'real_estate');
+  assert.equal(meta.sourceType, 'real_estate');
+  assert.equal(meta.source, 'real_estate_search');
+});
+
 test('findFolderForJobType matches legacy mobile homes folder for real estate', () => {
   const folders = [
     { key: 'folder:1', name: 'Mobile homes', jobType: 'mobile_homes' },
+    { key: 'folder:2', name: 'Other', jobType: '' },
+  ];
+  const hit = findFolderForJobType(folders, JOB_TYPES.REAL_ESTATE);
+  assert.equal(hit.key, 'folder:1');
+});
+
+test('findFolderForJobType matches legacy home owners folder for real estate', () => {
+  const folders = [
+    { key: 'folder:1', name: 'Home owners', jobType: 'home_owners', isPipelineDefault: true },
     { key: 'folder:2', name: 'Other', jobType: '' },
   ];
   const hit = findFolderForJobType(folders, JOB_TYPES.REAL_ESTATE);
@@ -246,7 +262,7 @@ test('deleteFolderComplete hides default pipeline folder from auto-recreate', as
   assert.equal(result.wasPipelineDefault, true);
 
   const folders = await ensureFresh('ws1');
-  assert.equal(folders.length, 6);
+  assert.equal(folders.length, 5);
   assert.ok(!folders.some((f) => f.jobType === 'real_estate'));
 
   require.cache[require.resolve('../services/database')].exports = orig;
@@ -270,7 +286,7 @@ test('ensurePipelineFolders skips hidden default job types', async () => {
 
   const folders = await ensureFresh('ws1');
   const names = folders.map((f) => f.name).sort();
-  assert.deepEqual(names, ['Businesses', 'Home owners', 'New formations', 'Permits', 'Products', 'Wholesale']);
+  assert.deepEqual(names, ['Businesses', 'New formations', 'Permits', 'Products', 'Wholesale']);
 
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];
@@ -304,6 +320,39 @@ test('migrateLegacyMobileHomesFolder merges duplicate into real estate', async (
   assert.equal(result.stats.removed, true);
   assert.equal(result.folders.length, 1);
   assert.ok(workspace.pipelineSettings.hiddenDefaultFolders.includes('mobile_homes'));
+
+  require.cache[require.resolve('../services/database')].exports = orig;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+});
+
+test('migrateLegacyHomeOwnersFolder merges duplicate into real estate', async () => {
+  let workspace = { id: 'ws1', members: {} };
+  const folders = [
+    { key: 'folder:ho', name: 'Home owners', jobType: 'home_owners', isPipelineDefault: true },
+    { key: 'folder:re', name: 'Real estate', jobType: 'real_estate', isPipelineDefault: true },
+  ];
+  const mockDb = {
+    reassignLeadsToFolder: async () => 3,
+    deleteFolder: async () => {},
+    getWorkspace: async () => workspace,
+    saveWorkspace: async (wid, ws) => {
+      workspace = ws;
+    },
+    listFolders: async () => [{ key: 'folder:re', name: 'Real estate', jobType: 'real_estate', isPipelineDefault: true }],
+    updateFolder: async () => ({}),
+    createFolder: async () => ({}),
+  };
+
+  const orig = require('../services/database');
+  require.cache[require.resolve('../services/database')].exports = mockDb;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+  const { migrateLegacyHomeOwnersFolder: migrateHo } = require('../services/pipelineFolders');
+
+  const result = await migrateHo('ws1', folders);
+  assert.equal(result.stats.moved, 3);
+  assert.equal(result.stats.removed, true);
+  assert.equal(result.folders.length, 1);
+  assert.ok(workspace.pipelineSettings.hiddenDefaultFolders.includes('home_owners'));
 
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];

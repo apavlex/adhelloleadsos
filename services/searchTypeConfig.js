@@ -17,7 +17,18 @@ const DEFAULT_SOURCES = {
     'oxylabs',
     'web_search',
   ],
-  [JOB_TYPES.HOME_OWNERS]: ['web_search', 'oxylabs', 'zillow', 'redfin', 'realtor'],
+  /** @deprecated — same as REAL_ESTATE (home owners merged into real estate) */
+  [JOB_TYPES.HOME_OWNERS]: [
+    'zillow',
+    'realtor',
+    'redfin',
+    'mhvillage',
+    'craigslist',
+    'facebook_marketplace',
+    'offerup',
+    'oxylabs',
+    'web_search',
+  ],
   [JOB_TYPES.PRODUCTS]: ['facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
   [JOB_TYPES.WHOLESALE]: [
     'web_search',
@@ -50,29 +61,16 @@ const SEARCH_TYPES = [
     findTab: 'real_estate',
     label: 'Real estate',
     shortLabel: 'Real estate',
-    description: 'Homes, land, and mobile homes — multi-source listings with optional flip scoring.',
+    description:
+      'Homes, land, mobile homes, and owner/property signals — multi-source listings with optional flip scoring.',
     action: '/listings/search',
     category: 'listings',
     defaultKeyword: '',
     defaultQuery: 'homes for sale',
     scraperHint:
-      'Zillow, Realtor, Redfin, MHVillage, Craigslist, Facebook, OfferUp, Oxylabs, SerpAPI. Mobile home flip filters available.',
+      'Zillow, Realtor, Redfin, MHVillage, Craigslist, Facebook, OfferUp, Oxylabs, SerpAPI web search. Use terms like “property owner” for owner signals; mobile home flip filters available.',
     supportsFlip: true,
     supportsPropertyScraper: true,
-    requiresLocation: true,
-  },
-  {
-    jobType: JOB_TYPES.HOME_OWNERS,
-    findTab: 'home_owners',
-    label: 'Home owners',
-    shortLabel: 'Home owners',
-    description: 'Property and owner signals — public records, listings, and web intelligence.',
-    action: '/listings/search',
-    category: 'listings',
-    defaultKeyword: '',
-    defaultQuery: 'property owner',
-    scraperHint:
-      'SerpAPI web search + Oxylabs Google for owner/property queries; Zillow, Redfin, Realtor for listing context.',
     requiresLocation: true,
   },
   {
@@ -149,6 +147,9 @@ const LEGACY_FIND_TAB = {
   mobile_homes: JOB_TYPES.REAL_ESTATE,
   mobilehomes: JOB_TYPES.REAL_ESTATE,
   mobile: JOB_TYPES.REAL_ESTATE,
+  home_owners: JOB_TYPES.REAL_ESTATE,
+  homeowners: JOB_TYPES.REAL_ESTATE,
+  home_owner: JOB_TYPES.REAL_ESTATE,
 };
 
 function resolveFindTab(raw) {

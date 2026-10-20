@@ -77,6 +77,12 @@ test('normalizeJobType accepts formations aliases', () => {
   assert.equal(normalizeJobType('new_formations'), JOB_TYPES.BUSINESS_FORMATIONS);
 });
 
+test('normalizeJobType maps home_owners and mobile_homes to real_estate', () => {
+  assert.equal(normalizeJobType('home_owners'), JOB_TYPES.REAL_ESTATE);
+  assert.equal(normalizeJobType('homeowners'), JOB_TYPES.REAL_ESTATE);
+  assert.equal(normalizeJobType('mobile_homes'), JOB_TYPES.REAL_ESTATE);
+});
+
 test('defaultRegisteredAfter returns ISO date', () => {
   const d = defaultRegisteredAfter(7);
   assert.match(d, /^\d{4}-\d{2}-\d{2}$/);

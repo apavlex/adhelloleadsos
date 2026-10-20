@@ -127,7 +127,8 @@
     real_estate: { source: 'real_estate_search', sourceType: 'real_estate', label: 'Real estate' },
     products: { source: 'products_search', sourceType: 'product_listing', label: 'Product' },
     wholesale: { source: 'wholesale_search', sourceType: 'wholesale_listing', label: 'Wholesale' },
-    home_owners: { source: 'home_owners_search', sourceType: 'home_owners', label: 'Home owner' },
+    /** @deprecated — merged into real_estate */
+    home_owners: { source: 'real_estate_search', sourceType: 'real_estate', label: 'Real estate' },
   };
 
   function buildListingLead({
@@ -152,7 +153,8 @@
     imageUrl = '',
     noteParts = [],
   }) {
-    const jt = JOB_META[jobType] ? jobType : 'real_estate';
+    let jt = JOB_META[jobType] ? jobType : 'real_estate';
+    if (jt === 'home_owners') jt = 'real_estate';
     const metaRow = JOB_META[jt];
     const parsedPrice = parsePrice(price);
     const priceLabel = parsedPrice ? `$${parsedPrice.toLocaleString()}` : '';

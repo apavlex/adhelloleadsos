@@ -31,6 +31,18 @@ test('normalizeSearchPreset maps legacy mobile_homes to real_estate with flip fi
   assert.equal(p.flipFilter.landMode, 'own_land_only');
 });
 
+test('normalizeSearchPreset maps legacy home_owners to real_estate', () => {
+  const p = normalizeSearchPreset({
+    jobType: 'home_owners',
+    query: 'property owner',
+    maxResults: 30,
+    sources: ['web_search', 'zillow'],
+  });
+  assert.equal(p.jobType, JOB_TYPES.REAL_ESTATE);
+  assert.equal(p.query, 'property owner');
+  assert.deepEqual(p.sources, ['web_search', 'zillow']);
+});
+
 test('searchPresetToFindContext maps job type to find tab', () => {
   const ctx = searchPresetToFindContext({
     jobType: 'mobile_homes',
@@ -40,6 +52,16 @@ test('searchPresetToFindContext maps job type to find tab', () => {
   assert.equal(ctx.searchType, 'real_estate');
   assert.equal(ctx.searchPrefill.keyword, 'mobile home');
   assert.equal(ctx.searchPrefill.qty, 25);
+});
+
+test('searchPresetToFindContext maps home_owners to real_estate tab', () => {
+  const ctx = searchPresetToFindContext({
+    jobType: 'home_owners',
+    query: 'property owner',
+    maxResults: 20,
+  });
+  assert.equal(ctx.searchType, 'real_estate');
+  assert.equal(ctx.searchPrefill.keyword, 'property owner');
 });
 
 test('parseSearchPresetFromForm reads flip toggles from body', () => {

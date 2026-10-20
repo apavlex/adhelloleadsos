@@ -7,6 +7,7 @@ const JOB_TYPES = {
   REAL_ESTATE: 'real_estate',
   /** @deprecated Alias — merged into REAL_ESTATE */
   MOBILE_HOMES: 'mobile_homes',
+  /** @deprecated Alias — merged into REAL_ESTATE */
   HOME_OWNERS: 'home_owners',
   PRODUCTS: 'products',
   WHOLESALE: 'wholesale',
@@ -18,7 +19,7 @@ const JOB_TYPE_LABELS = {
   [JOB_TYPES.MAPS_BUSINESS]: 'Business',
   [JOB_TYPES.REAL_ESTATE]: 'Real estate',
   [JOB_TYPES.MOBILE_HOMES]: 'Real estate',
-  [JOB_TYPES.HOME_OWNERS]: 'Home owners',
+  [JOB_TYPES.HOME_OWNERS]: 'Real estate',
   [JOB_TYPES.PRODUCTS]: 'Products',
   [JOB_TYPES.WHOLESALE]: 'Wholesale',
   [JOB_TYPES.PERMITS]: 'Permits',
@@ -38,9 +39,6 @@ function normalizeJobType(value) {
     .trim()
     .toLowerCase()
     .replace(/-/g, '_');
-  if (v === JOB_TYPES.HOME_OWNERS || v === 'homeowners' || v === 'home_owner') {
-    return JOB_TYPES.HOME_OWNERS;
-  }
   if (v === JOB_TYPES.PRODUCTS || v === 'product') return JOB_TYPES.PRODUCTS;
   if (v === JOB_TYPES.WHOLESALE) return JOB_TYPES.WHOLESALE;
   if (v === JOB_TYPES.PERMITS || v === 'permit' || v === 'permit_stack') return JOB_TYPES.PERMITS;
@@ -58,7 +56,10 @@ function normalizeJobType(value) {
     v === 'realestate' ||
     v === JOB_TYPES.MOBILE_HOMES ||
     v === 'mobilehomes' ||
-    v === 'mobile'
+    v === 'mobile' ||
+    v === JOB_TYPES.HOME_OWNERS ||
+    v === 'homeowners' ||
+    v === 'home_owner'
   ) {
     return JOB_TYPES.REAL_ESTATE;
   }
@@ -81,13 +82,11 @@ function scheduleDisplayTitle(schedule) {
       String((schedule && (schedule.query || schedule.keyword)) || '').trim()
     );
     const label =
-      jobType === JOB_TYPES.HOME_OWNERS
-        ? 'Home owners'
-        : jobType === JOB_TYPES.PRODUCTS
-          ? 'Products'
-          : jobType === JOB_TYPES.WHOLESALE
-            ? 'Wholesale'
-            : 'Real estate';
+      jobType === JOB_TYPES.PRODUCTS
+        ? 'Products'
+        : jobType === JOB_TYPES.WHOLESALE
+          ? 'Wholesale'
+          : 'Real estate';
     if (q) {
       return locationLabel ? `${q} · ${locationLabel}` : `${label}: ${q}`;
     }
