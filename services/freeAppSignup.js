@@ -1,8 +1,9 @@
 /**
- * Public free member-app signup (AdHello.io → /app).
+ * Public reviews-app signup (AdHello.io → /app).
  * Creates (or reopens) a network member on the AdHello Agency network with
- * plan "app_free", then texts/emails the installable /m/:token link.
- * Does not create a workspace trial or GHL sub-account.
+ * plan "app_free" on a 30-day trial, then texts/emails the installable /m/:token link.
+ * Does not create an Agency OS workspace trial or GHL sub-account.
+ * Platform / network admins can activate the member to a paid partner plan early.
  */
 
 const crypto = require('crypto');
@@ -14,8 +15,19 @@ const { upsertOpenTaskForLead, TASK_SOURCE_NETWORK } = require('./userTasks');
 
 const PLAN_APP_FREE = 'app_free';
 const DEFAULT_WORKSPACE_SLUG = 'adhello-agency';
+const DAY_MS = 86400000;
 const IP_DAY_PREFIX = 'freeAppSignupIp:';
 const MAX_PER_IP_PER_DAY = 8;
+
+function envInt(name, fallback) {
+  const n = parseInt(process.env[name] || '', 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/** Reviews-app trial length (days). Override with FREE_APP_TRIAL_DAYS. */
+function appTrialDays() {
+  return envInt('FREE_APP_TRIAL_DAYS', 30);
+}
 /** Per-contact lock while a signup/send is in flight (blocks double-click races). */
 const INFLIGHT_PREFIX = 'freeAppSignupInflight:';
 const INFLIGHT_TTL_MS = 60 * 1000;
@@ -167,7 +179,7 @@ async function notifyOperatorNewFreeApp({ network, member }) {
   if (!owner) return null;
   try {
     return await upsertOpenTaskForLead(network.ownerWorkspaceId, owner, {
-      title: `Free app signup: ${member.companyName}${member.contactName ? ` (${member.contactName})` : ''}`.slice(0, 240),
+      title: `Reviews app trial: ${member.companyName}${member.contactName ? ` (${member.contactName})` : ''}`.slice(0, 240),
       leadKey: member.leadKey || null,
       scheduledAt: new Date().toISOString(),
       source: TASK_SOURCE_NETWORK,
@@ -248,8 +260,14 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
       let member = existing;
       // Returning visitor: reopen if paused; keep partner plans, else mark app_free.
       const patch = {};
-      if (member.status === 'paused') patch.status = 'active';
-      if (!member.plan) patch.plan = PLAN_APP_FREE;
+      if (member.status === 'paused' && !isAppTrialExpired(member)) patch.status = 'active';
+      // Don't re-apply freemium after an admin activated them to a partner seat.
+      if (!member.plan && !member.planActivatedAt) patch.plan = PLAN_APP_FREE;
+      // Backfill trial end for legacy free signups that never had one.
+      if ((patch.plan || member.plan) === PLAN_APP_FREE && !member.trialEndsAt && !member.planActivatedAt) {
+        const start = Date.parse(member.joinedAt || '') || Date.now();
+        patch.trialEndsAt = new Date(start + appTrialDays() * DAY_MS).toISOString();
+      }
       if (Object.keys(patch).length) {
         member = await store.saveMember(network.id, { ...member, ...patch });
       }
@@ -266,7 +284,7 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
       phone: form.phone || 'N/A',
       email: email || form.email || 'N/A',
       source: 'free_app_signup',
-      message: 'Signed up for the free AdHello member app',
+      message: 'Signed up for the AdHello reviews app trial',
     });
     const lead = await dbService.getLead(saved.key, network.ownerWorkspaceId);
     if (!lead || !lead.key) {
@@ -277,6 +295,8 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
       await dbService.updateLead(lead.key, { referralPartner: connected.referralPartner }, network.ownerWorkspaceId);
     }
 
+    const joinedAt = new Date().toISOString();
+    const trialEndsAt = new Date(Date.parse(joinedAt) + appTrialDays() * DAY_MS).toISOString();
     const member = await store.saveMember(network.id, {
       leadKey: lead.key,
       companyName: form.companyName,
@@ -285,7 +305,8 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
       email: email || '',
       status: 'active',
       plan: PLAN_APP_FREE,
-      joinedAt: new Date().toISOString(),
+      trialEndsAt,
+      joinedAt,
     });
 
     const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: true })
@@ -306,10 +327,68 @@ function isAppFreeMember(member) {
   return String((member && member.plan) || '') === PLAN_APP_FREE;
 }
 
+/**
+ * Reviews-app trial status for an app_free member.
+ * @returns {null | { state: 'trial'|'expired'|'active', daysLeft: number, endsAt: string, label: string }}
+ */
+function appTrialStatus(member, now = Date.now()) {
+  if (!member || !isAppFreeMember(member)) {
+    if (member && member.planActivatedAt) {
+      return { state: 'active', daysLeft: 0, endsAt: '', label: 'Active' };
+    }
+    return null;
+  }
+  const endsMs = Date.parse(member.trialEndsAt || '') || 0;
+  // Legacy free signups without trialEndsAt: treat as still on trial for 30 days from join.
+  const fallbackStart = Date.parse(member.joinedAt || '') || now;
+  const effectiveEnds = endsMs || fallbackStart + appTrialDays() * DAY_MS;
+  const msLeft = effectiveEnds - now;
+  if (msLeft > 0) {
+    const daysLeft = Math.ceil(msLeft / DAY_MS);
+    return {
+      state: 'trial',
+      daysLeft,
+      endsAt: new Date(effectiveEnds).toISOString(),
+      label: daysLeft <= 1 ? 'Trial · last day' : `Trial · ${daysLeft}d`,
+    };
+  }
+  return {
+    state: 'expired',
+    daysLeft: 0,
+    endsAt: new Date(effectiveEnds).toISOString(),
+    label: 'Expired',
+  };
+}
+
+function isAppTrialExpired(member, now = Date.now()) {
+  const st = appTrialStatus(member, now);
+  return !!(st && st.state === 'expired');
+}
+
+/**
+ * Convert an app_free trial member to a paid partner (clears freemium plan).
+ * Can be done any time — no need to wait for the trial to end.
+ */
+async function activateAppMember(networkId, member, { by } = {}) {
+  if (!member || !member.id) throw new Error('Member not found.');
+  if (!isAppFreeMember(member)) {
+    return { member, already: true };
+  }
+  const now = new Date().toISOString();
+  const saved = await store.saveMember(networkId, {
+    ...member,
+    plan: '',
+    planActivatedAt: now,
+    status: 'active',
+    trialEndsAt: member.trialEndsAt || '',
+  });
+  return { member: saved, already: false, by: by || '', at: now };
+}
+
 /** Normalize `?plan=` on Network → Members (`free` | `partner` | ''). */
 function normalizeMemberPlanFilter(value) {
   const q = String(value || '').trim().toLowerCase();
-  if (q === 'free' || q === 'partner') return q;
+  if (q === 'free' || q === 'trial' || q === 'partner') return q === 'trial' ? 'free' : q;
   return '';
 }
 
@@ -325,6 +404,7 @@ module.exports = {
   DEFAULT_WORKSPACE_SLUG,
   SEND_COOLDOWN_PREFIX,
   INFLIGHT_PREFIX,
+  appTrialDays,
   contactLockKey,
   readForm,
   phoneDigits,
@@ -334,6 +414,9 @@ module.exports = {
   findExistingMember,
   signupFreeApp,
   isAppFreeMember,
+  appTrialStatus,
+  isAppTrialExpired,
+  activateAppMember,
   normalizeMemberPlanFilter,
   matchesMemberPlanFilter,
 };

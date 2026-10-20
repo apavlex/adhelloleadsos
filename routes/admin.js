@@ -79,6 +79,7 @@ router.post('/signups/:workspaceId/trial', express.urlencoded({ extended: false 
       aiCallsPerDay: req.body.aiCallsPerDay,
       by: workspaceService.userEmail(req),
     });
+    withWorkspace.clearSwitcherCache(workspaceService.userEmail(req));
     const labels = {
       extend: 'Trial extended.',
       end: 'Trial ended — workspace is locked.',
@@ -86,8 +87,18 @@ router.post('/signups/:workspaceId/trial', express.urlencoded({ extended: false 
       deactivate: 'Back on trial limits.',
       limits: 'Daily limits saved.',
     };
+    const next = String((req.body && req.body.next) || '').trim();
+    if (next === 'workspace-advanced') {
+      return res.redirect(
+        `/workspace/advanced?ok=${encodeURIComponent(labels[action] || 'Saved.')}`,
+      );
+    }
     return res.redirect(`/admin/signups?ok=${encodeURIComponent(labels[action] || 'Saved.')}#ws-${wid}`);
   } catch (e) {
+    const next = String((req.body && req.body.next) || '').trim();
+    if (next === 'workspace-advanced') {
+      return res.redirect(`/workspace/advanced?error=${encodeURIComponent(e.message)}`);
+    }
     return res.redirect(`/admin/signups?error=${encodeURIComponent(e.message)}`);
   }
 });

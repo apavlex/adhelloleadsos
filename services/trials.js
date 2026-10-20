@@ -1,6 +1,6 @@
 /**
  * Self-serve signups: a public form + Google sign-in creates a workspace on a
- * 7-day trial. Trial workspaces share the server's scraper / AI keys under a
+ * 30-day trial. Trial workspaces share the server's scraper / AI keys under a
  * daily cap, can't text, email or call from the agency's own accounts, and lock
  * when the trial ends until a platform admin extends or activates them.
  */
@@ -29,10 +29,27 @@ function envInt(name, fallback) {
 
 function defaults() {
   return {
-    days: envInt('TRIAL_DAYS', 7),
+    days: envInt('TRIAL_DAYS', 30),
     paidCallsPerDay: envInt('TRIAL_PAID_CALLS_PER_DAY', 300),
     aiCallsPerDay: envInt('TRIAL_AI_CALLS_PER_DAY', 200),
     signupsPerIpPerDay: envInt('TRIAL_SIGNUPS_PER_IP_PER_DAY', 3),
+  };
+}
+
+/**
+ * Compact trial summary for workspace switcher badges.
+ * @returns {null | { state: 'trial'|'expired'|'active', daysLeft: number, label: string }}
+ */
+function switcherBadge(ws, now = Date.now()) {
+  const st = status(ws, now);
+  if (!st) return null;
+  if (st.state === 'active') return { state: 'active', daysLeft: 0, label: 'Active' };
+  if (st.state === 'expired') return { state: 'expired', daysLeft: 0, label: 'Expired' };
+  const n = st.daysLeft;
+  return {
+    state: 'trial',
+    daysLeft: n,
+    label: n <= 1 ? 'Trial · last day' : `Trial · ${n}d`,
   };
 }
 
@@ -409,6 +426,7 @@ module.exports = {
   listSignups,
   takeIpSlot,
   status,
+  switcherBadge,
   isRestricted,
   usageFor,
   takeCall,

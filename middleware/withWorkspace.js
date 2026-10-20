@@ -13,6 +13,7 @@ const { normalizeCustomMenuLinks } = require('../services/customMenuLinks');
 const { viewDateFormatters } = require('../services/workspaceTimezone');
 const whiteLabel = require('../services/whiteLabel');
 const publicDemo = require('../services/publicDemo');
+const trials = require('../services/trials');
 
 function attachWorkspaceQuickLog(res, ws) {
   const agencySales = isAgencySalesWorkspace(ws);
@@ -212,12 +213,16 @@ async function withWorkspace(req, res, next) {
         const docs = await Promise.all(allIds.map((id) => dbService.getWorkspace(id)));
         for (const w of docs) {
           if (!w || w.archivedAt) continue;
+          const trialBadge = trials.switcherBadge(w);
           summaries.push({
             id: w.id,
             name: w.name || 'Workspace',
             slug: w.slug || '',
             accentColor: w.accentColor || '#CA8A04',
             isDemo: !!w.isDemo,
+            trialState: trialBadge ? trialBadge.state : '',
+            trialDaysLeft: trialBadge ? trialBadge.daysLeft : 0,
+            trialLabel: trialBadge ? trialBadge.label : '',
           });
         }
         if (sk) _switcherCache.set(sk, { at: Date.now(), summaries, canManageDemo });
@@ -235,6 +240,8 @@ async function withWorkspace(req, res, next) {
     Object.assign(res.locals, viewDateFormatters(ws));
     res.locals.workspaceSwitcherList = summaries;
     res.locals.canManageDemo = canManageDemo;
+    res.locals.workspaceTrial = trials.status(ws);
+    res.locals.workspaceTrialBadge = trials.switcherBadge(ws);
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
     res.locals.workspaceAccentText = resolveAccentTextColor(ws.accentColor, ws.accentTextColor);
     res.locals.whiteLabel = whiteLabel.brandForWorkspace(ws);

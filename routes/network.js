@@ -166,18 +166,24 @@ router.get('/', async (req, res, next) => {
     const hiddenTrades = trades.catalogFor(network).filter((t) => !activeSlugs.has(t.slug));
 
     const memberRows = members
-      .map((member) => ({
-        ...member,
-        isFreeApp: freeAppSignup.isAppFreeMember(member),
-        joinedLabel: formatJoined(member.joinedAt),
-        tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
-        zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
-        seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug, network)} · ${s.zoneName}`),
-        stats: ex.memberStats(referrals, member.id),
-        reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
-        reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
-      }))
-      // Newest joins first so recent free-app signups are easy to scan.
+      .map((member) => {
+        const appTrial = freeAppSignup.appTrialStatus(member);
+        return {
+          ...member,
+          isFreeApp: freeAppSignup.isAppFreeMember(member),
+          appTrial,
+          trialLabel: appTrial ? appTrial.label : '',
+          trialExpired: !!(appTrial && appTrial.state === 'expired'),
+          joinedLabel: formatJoined(member.joinedAt),
+          tradeLabels: member.trades.map((slug) => trades.tradeLabel(slug, network)),
+          zoneNames: member.zoneIds.map((id) => (zonesById[id] ? zonesById[id].name : '')).filter(Boolean),
+          seats: ex.seatsForMember(zones, member.id).map((s) => `${trades.tradeLabel(s.tradeSlug, network)} · ${s.zoneName}`),
+          stats: ex.memberStats(referrals, member.id),
+          reviewLinkCount: reviewPage.countLinks(member.reviewLinks),
+          reviewOtherRows: reviewPage.otherFormRows(member.reviewLinks),
+        };
+      })
+      // Newest joins first so recent trial signups are easy to scan.
       .sort((a, b) => String(b.joinedAt || '').localeCompare(String(a.joinedAt || ''))
         || a.companyName.localeCompare(b.companyName));
 
@@ -635,6 +641,41 @@ router.post('/members/:id/status', async (req, res) => {
   } catch (err) {
     console.error('[network] member status failed:', err.message);
     return reply(req, res, { ok: false, tab: 'members', notice: 'Could not update that member.', status: 500 });
+  }
+});
+
+/** Activate a reviews-app trial member to a paid partner seat (anytime — no need to wait for trial end). */
+router.post('/members/:id/activate-plan', async (req, res) => {
+  if (!canManage(req)) {
+    return reply(req, res, {
+      ok: false,
+      tab: 'members',
+      notice: 'Only owners and admins can activate trial accounts.',
+      status: 403,
+    });
+  }
+  try {
+    const network = await loadNetwork(req);
+    const member = await store.getMember(network.id, req.params.id);
+    if (!member) return reply(req, res, { ok: false, tab: 'members', notice: 'Member not found.', status: 404 });
+    const out = await freeAppSignup.activateAppMember(network.id, member, {
+      by: String((req.user && (req.user.email || req.user.preferred_username)) || '').trim().toLowerCase(),
+    });
+    if (out.already) {
+      return reply(req, res, {
+        ok: true,
+        tab: 'members',
+        notice: `${out.member.companyName} is already on a partner plan.`,
+      });
+    }
+    return reply(req, res, {
+      ok: true,
+      tab: 'members',
+      notice: `${out.member.companyName} activated — trial limits removed; they’re a full partner now.`,
+    });
+  } catch (err) {
+    console.error('[network] activate-plan failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not activate that account.', status: 500 });
   }
 });
 

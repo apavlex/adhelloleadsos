@@ -408,6 +408,14 @@ function withMember(handler) {
     try {
       const ctx = await loadContext(req.params.token);
       if (!ctx) return renderInvalid(res);
+      if (freeAppSignup.isAppTrialExpired(ctx.member)) {
+        return renderInvalid(
+          res,
+          403,
+          'Your 30-day reviews app trial has ended. Ask your agency to activate your account.',
+        );
+      }
+      ctx.appTrial = freeAppSignup.appTrialStatus(ctx.member);
       return await handler(req, res, ctx);
     } catch (err) {
       console.error('[member-app]', req.method, req.path.replace(/\/m\/[^/]+/, '/m/:token'), err.message);
@@ -704,6 +712,14 @@ async function loadShortAppTarget(req, res) {
   }
   if (member.status === 'paused') {
     await renderInvalid(res, 403, 'Your membership is paused. Contact the network.');
+    return null;
+  }
+  if (freeAppSignup.isAppTrialExpired(member)) {
+    await renderInvalid(
+      res,
+      403,
+      'Your 30-day reviews app trial has ended. Ask your agency to activate your account.',
+    );
     return null;
   }
   return { code, network, member };
