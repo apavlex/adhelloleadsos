@@ -110,32 +110,66 @@ function mergeEvents(primary, fallback) {
 }
 
 const REPLY_SIGNALS = new Set(['sms_reply', 'email_reply']);
+const THREAD_TYPES = new Set(['sms_inbound', 'email_inbound', 'sms_outbound', 'email_outbound']);
 
-/** What the business actually wrote back, newest first; identical texts collapse into one with a repeat count. */
-function inboundRepliesFor(lead, cutoffMs) {
+function cleanThreadText(raw, direction) {
+  let text = String(raw || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  if (direction === 'out') {
+    text = text.replace(/^Outbound\s+(SMS|Email|iMessage)\s*:\s*/i, '');
+  }
+  return text.slice(0, 400);
+}
+
+/**
+ * Full SMS/email thread for a lead in the window — inbound (prospect) and outbound (you/rep),
+ * oldest first so the inbox reads like a conversation.
+ */
+function conversationFor(lead, cutoffMs) {
   const list = [];
   for (const u of Array.isArray(lead?.updates) ? lead.updates : []) {
-    if (!u || (u.type !== 'sms_inbound' && u.type !== 'email_inbound')) continue;
+    const typ = String((u && u.type) || '').toLowerCase();
+    if (!u || !THREAD_TYPES.has(typ)) continue;
     const atMs = Date.parse(u.timestamp || '');
     if (!Number.isFinite(atMs) || atMs < cutoffMs) continue;
-    const text = String(u.value || '').trim();
+    const direction = typ.endsWith('_outbound') ? 'out' : 'in';
+    const text = cleanThreadText(u.value || u.body || u.message, direction);
     if (!text) continue;
     list.push({
       at: u.timestamp,
       atMs,
-      channel: u.type === 'email_inbound' ? 'email' : 'sms',
-      text: text.slice(0, 400),
+      channel: typ.startsWith('email_') ? 'email' : 'sms',
+      direction,
+      text,
     });
   }
-  list.sort((a, b) => b.atMs - a.atMs);
-  const byText = new Map();
-  for (const r of list) {
-    const k = `${r.channel}|${r.text.toLowerCase()}`;
-    const cur = byText.get(k);
-    if (cur) cur.repeat += 1;
-    else byText.set(k, { ...r, repeat: 1 });
-  }
-  return [...byText.values()];
+  list.sort((a, b) => a.atMs - b.atMs || (a.direction === 'in' ? -1 : 1));
+  return list;
+}
+
+/** @deprecated Prefer conversationFor — kept for callers that only want inbound texts. */
+function inboundRepliesFor(lead, cutoffMs) {
+  return conversationFor(lead, cutoffMs)
+    .filter((m) => m.direction === 'in')
+    .reverse()
+    .map((m) => ({ ...m, repeat: 1 }));
+}
+
+function leadSendPrefill(lead) {
+  if (!lead) return null;
+  const name = String(lead.title || lead.company || lead.name || '').trim().slice(0, 200);
+  const phone = String(lead.phone || lead.mobile || '').trim().slice(0, 40);
+  const email = String(lead.email || '').trim().slice(0, 200);
+  // Teammate send requires a reachable contact — skip when neither phone nor email exists.
+  if (!phone && !email) return null;
+  return {
+    name: name || email || phone || 'Lead',
+    phone,
+    email,
+    city: String(lead.city || '').trim().slice(0, 80),
+    zip: String(lead.zip || lead.postalCode || '').trim().slice(0, 16),
+    address: String(lead.address || lead.street || '').trim().slice(0, 200),
+  };
 }
 
 /** One row per business (at its highest-priority signal) with a signal count and the reply texts. */
@@ -158,7 +192,17 @@ function groupEventsByLead(events, leadsByKey, cutoffMs) {
   }
   for (const row of rows) {
     const lead = leadsByKey.get(row.leadKey);
-    row.replies = lead && row.replyCount ? inboundRepliesFor(lead, cutoffMs) : [];
+    const thread = lead && row.replyCount ? conversationFor(lead, cutoffMs) : [];
+    row.thread = thread;
+    // Inbound-only list (newest first) for badges / older clients.
+    row.replies = thread.filter((m) => m.direction === 'in').reverse().map((m) => ({ ...m, repeat: 1 }));
+    row.sendLead = leadSendPrefill(lead);
+    if (thread.length) {
+      const lastIn = [...thread].reverse().find((m) => m.direction === 'in');
+      if (lastIn && row.sendLead) {
+        row.sendLead.note = `Warm ${lastIn.channel === 'email' ? 'email' : 'SMS'} reply — follow up: ${lastIn.text}`.slice(0, 1000);
+      }
+    }
     row.countLabel =
       row.count < 2 ? '' : row.replyCount === row.count ? `${row.count} replies` : `${row.count} signals`;
   }
@@ -244,4 +288,6 @@ module.exports = {
   buildEngagementInbox,
   countWarmReplyLeads,
   inferSignalTypeFromUpdate,
+  conversationFor,
+  inboundRepliesFor,
 };
