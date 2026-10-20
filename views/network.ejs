@@ -677,7 +677,7 @@
       <nav class="net-tabs mb-4" aria-label="Filter members by plan">
         <a href="/network?tab=members" class="net-tab <%= !memberPlanFilter ? 'is-on' : '' %>" <%= !memberPlanFilter ? 'aria-current=page' : '' %>>All (<%= totals.members %>)</a>
         <a href="/network?tab=members&plan=partner" class="net-tab <%= memberPlanFilter === 'partner' ? 'is-on' : '' %>" <%= memberPlanFilter === 'partner' ? 'aria-current=page' : '' %>>Partners (<%= totals.partnerMembers %>)</a>
-        <a href="/network?tab=members&plan=free" class="net-tab <%= memberPlanFilter === 'free' ? 'is-on' : '' %>" <%= memberPlanFilter === 'free' ? 'aria-current=page' : '' %>>Free app (<%= totals.freeMembers %>)</a>
+        <a href="/network?tab=members&plan=free" class="net-tab <%= memberPlanFilter === 'free' ? 'is-on' : '' %>" <%= memberPlanFilter === 'free' ? 'aria-current=page' : '' %>>App trial (<%= totals.freeMembers %>)</a>
       </nav>
       <% } %>
 
@@ -698,8 +698,10 @@
               <% } %>
             </div>
             <span class="flex shrink-0 items-center gap-1.5">
-              <% if (m.isFreeApp) { %>
-              <span class="net-pill net-pill-free" title="Signed up via free Reviews App">Free app</span>
+              <% if (m.isFreeApp && m.appTrial) { %>
+              <span class="net-pill <%= m.trialExpired ? 'net-pill-declined' : 'net-pill-free' %>" title="<%= m.trialExpired ? 'Reviews app trial ended — activate to restore access' : ('Reviews app trial · ' + (m.appTrial.daysLeft === 1 ? 'last day' : m.appTrial.daysLeft + ' days left')) %>"><%= m.trialLabel || 'Trial' %></span>
+              <% } else if (m.isFreeApp) { %>
+              <span class="net-pill net-pill-free" title="Reviews app trial">Trial</span>
               <% } %>
               <% if (!ghlSubaccounts) { %>
               <% } else if (m.ghlLocationId) { %>
@@ -730,10 +732,15 @@
             <% if (canManage && ghlSubaccounts && !m.ghlLocationId) { %>
             <form method="post" action="/network/members/<%= m.id %>/ghl"><button type="submit" class="net-btn net-btn-ghost"><%= m.ghlError ? 'Retry GHL sub-account' : 'Create GHL sub-account' %></button></form>
             <% } %>
+            <% if (canManage && m.isFreeApp) { %>
+            <form method="post" action="/network/members/<%= m.id %>/activate-plan" onsubmit="return confirm(<%= JSON.stringify('Activate ' + m.companyName + ' as a paid partner now? They keep full app access — no need to wait for the trial to end.') %>);">
+              <button type="submit" class="net-btn net-btn-yellow" title="Remove trial limits and make them a full partner immediately">Activate account</button>
+            </form>
+            <% } %>
             <% if (canManage) { %>
             <form method="post" action="/network/members/<%= m.id %>/status">
               <input type="hidden" name="status" value="<%= m.status === 'active' ? 'paused' : 'active' %>" />
-              <button type="submit" class="net-btn net-btn-ghost"><%= m.status === 'active' ? 'Pause' : 'Activate' %></button>
+              <button type="submit" class="net-btn net-btn-ghost"><%= m.status === 'active' ? 'Pause' : 'Unpause' %></button>
             </form>
             <form method="post" action="/network/members/<%= m.id %>/remove" onsubmit="return confirm(<%= JSON.stringify('Remove ' + m.companyName + ' from the network? Their seats open up, their app link stops working, and past referrals stay in your history.') %>);">
               <button type="submit" class="net-btn net-btn-danger">Remove from network</button>

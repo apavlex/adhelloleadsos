@@ -76,12 +76,28 @@ describe('freeAppSignup', () => {
     assert.equal(result.created, true);
     assert.equal(result.member.plan, 'app_free');
     assert.equal(result.member.companyName, 'Alex Electric');
+    assert.ok(result.member.trialEndsAt);
+    const trial = freeAppSignup.appTrialStatus(result.member);
+    assert.equal(trial.state, 'trial');
+    assert.ok(trial.daysLeft >= 29 && trial.daysLeft <= 30);
     assert.equal(sent.welcome, true);
     assert.equal(sent.member.id, result.member.id);
 
     const lead = await dbService.getLead(result.member.leadKey, network.ownerWorkspaceId);
     assert.equal(lead.source, 'free_app_signup');
     mock.restoreAll();
+  });
+
+  it('can activate a reviews-app trial member before the trial ends', async () => {
+    const members = await store.listMembers(network.id);
+    const alex = members.find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550100');
+    assert.ok(alex);
+    assert.equal(freeAppSignup.isAppFreeMember(alex), true);
+    const out = await freeAppSignup.activateAppMember(network.id, alex, { by: 'ops@adhello.io' });
+    assert.equal(out.already, false);
+    assert.equal(freeAppSignup.isAppFreeMember(out.member), false);
+    assert.ok(out.member.planActivatedAt);
+    assert.equal(freeAppSignup.isAppTrialExpired(out.member), false);
   });
 
   it('resends the link for an existing phone without creating a duplicate', async () => {
@@ -167,7 +183,7 @@ describe('freeAppSignup', () => {
 
     const networkView = fs.readFileSync(path.join(__dirname, '../views/network.ejs'), 'utf8');
     const networkRoute = fs.readFileSync(path.join(__dirname, '../routes/network.js'), 'utf8');
-    assert.match(networkView, /Free app \(<%= totals\.freeMembers %>\)/);
+    assert.match(networkView, /App trial \(<%= totals\.freeMembers %>\)/);
     assert.match(networkView, /net-pill-free/);
     assert.match(networkView, /<%= totals\.freeMembers %> free · <%= totals\.partnerMembers %> partners/);
     assert.match(networkView, /Joined <%= m\.joinedLabel %>/);
@@ -210,9 +226,9 @@ describe('freeAppSignup', () => {
       const get = await fetch(`${base}/app`);
       assert.equal(get.status, 200);
       const html = await get.text();
-      assert.match(html, /Get the reviews app/);
+      assert.match(html, /Start your 30-day trial/);
       assert.match(html, /action="\/app"/);
-      assert.match(html, /Text me the reviews app/);
+      assert.match(html, /Text me my trial link/);
       assert.match(html, /id="fa-form"/);
       assert.match(html, /id="fa-submit"/);
       assert.match(html, /Sending…/);
@@ -245,8 +261,8 @@ describe('freeAppSignup', () => {
     const callout = fs.readFileSync(path.join(__dirname, '../views/member_app/_lead_request_callout.ejs'), 'utf8');
     assert.match(server, /routes\/freeApp/);
     assert.match(route, /router\.(get|post)\('\/app'/);
-    assert.match(view, /Get the reviews app/);
-    assert.match(view, /Text me the reviews app/);
+    assert.match(view, /Start your 30-day trial/);
+    assert.match(view, /Text me my trial link/);
     assert.match(view, /id="fa-form"/);
     assert.match(view, /btn\.disabled = true/);
     assert.match(view, /\.fa-btn:disabled/);

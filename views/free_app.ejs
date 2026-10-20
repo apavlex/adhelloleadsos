@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#FFDB3A">
-  <meta name="description" content="Get the AdHello reviews app — request Google reviews, manage customers and jobs, and join the referral network. No workspace required.">
-  <title>Get the reviews app · AdHello</title>
+  <meta name="description" content="Start a 30-day AdHello reviews app trial — request Google reviews, manage customers and jobs, and join the referral network. No Agency OS workspace required.">
+  <title>Start your reviews app trial · AdHello</title>
   <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
   <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
   <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
@@ -43,9 +43,9 @@
         <div class="fa-ok mt-5" role="status">Link sent. It can take a minute. Already have it? <a class="font-semibold underline" href="<%= typeof loginHref !== 'undefined' ? loginHref : '/m/login' %>">Get a fresh link</a>.</div>
         <p class="mt-6 text-xs text-slate-500 leading-relaxed">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="font-semibold text-slate-700 underline" href="<%= typeof trialSignupHref !== 'undefined' ? trialSignupHref : '/signup' %>">Start a free trial</a>.</p>
       <% } else { %>
-        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Get the reviews app</h1>
-        <p class="mt-2 text-sm text-slate-600 leading-relaxed">Request Google reviews, manage customers and jobs, and send referrals. No credit card. No Agency OS workspace.</p>
-        <div class="fa-perks mt-4"><span>Reviews</span><span>Customers &amp; jobs</span><span>Referrals</span></div>
+        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Start your 30-day trial</h1>
+        <p class="mt-2 text-sm text-slate-600 leading-relaxed">Request Google reviews, manage customers and jobs, and send referrals. 30 days free — no credit card. No Agency OS workspace.</p>
+        <div class="fa-perks mt-4"><span>30-day trial</span><span>Reviews</span><span>Customers &amp; jobs</span></div>
 
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
@@ -70,7 +70,7 @@
             <label for="fa-email">Email <span class="opt">(if you prefer email)</span></label>
             <input id="fa-email" name="email" type="email" autocomplete="email" maxlength="200" value="<%= _f.email || '' %>">
           </div>
-          <button type="submit" class="fa-btn" id="fa-submit">Text me the reviews app</button>
+          <button type="submit" class="fa-btn" id="fa-submit">Text me my trial link</button>
         </form>
         <script>
           (function () {

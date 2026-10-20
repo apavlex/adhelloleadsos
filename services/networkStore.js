@@ -158,11 +158,15 @@ function normalizeMember(raw) {
     zoneIds: [...new Set((Array.isArray(m.zoneIds) ? m.zoneIds : []).map((id) => String(id || '').trim()).filter(Boolean))],
     status: m.status === 'paused' ? 'paused' : 'active',
     /**
-     * Member commercial plan. `app_free` = public free-app signup (reviews /
-     * customers / jobs; leads + workspace upgrade gated). Empty = partner /
-     * owner on a paid or trial agency workspace.
+     * Member commercial plan. `app_free` = public reviews-app trial signup
+     * (reviews / customers / jobs; leads + workspace upgrade gated). Empty =
+     * partner / owner on a paid or activated agency seat.
      */
     plan: cleanText(m.plan, 40),
+    /** ISO when the reviews-app trial ends (app_free only). */
+    trialEndsAt: cleanText(m.trialEndsAt, 40),
+    /** ISO when an admin activated this member off the freemium trial. */
+    planActivatedAt: cleanText(m.planActivatedAt, 40),
     ghlLocationId: cleanText(m.ghlLocationId, 80),
     ghlSubaccountUrl: cleanText(m.ghlSubaccountUrl, 400),
     ghlError: cleanText(m.ghlError, 300),

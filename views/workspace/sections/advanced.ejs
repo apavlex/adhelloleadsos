@@ -1,3 +1,30 @@
+<% const _trial = typeof workspaceTrial !== 'undefined' && workspaceTrial ? workspaceTrial : null; %>
+<% const _canActivateTrial = typeof canManageDemo !== 'undefined' && canManageDemo && _trial && _trial.state !== 'active'; %>
+<% if (_trial) { %>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-6">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Trial status</h2>
+  <% if (_trial.state === 'active') { %>
+    <p class="text-sm text-brand-muted mb-3">This workspace is <strong class="text-emerald-700 dark:text-emerald-300">activated</strong> — trial limits no longer apply.</p>
+  <% } else if (_trial.state === 'expired') { %>
+    <p class="text-sm text-brand-muted mb-3">Trial <strong class="text-rose-700 dark:text-rose-300">ended</strong>. Activate to restore full access for this client, or extend from Signups &amp; trials.</p>
+  <% } else { %>
+    <p class="text-sm text-brand-muted mb-3"><strong class="text-amber-800 dark:text-amber-200"><%= _trial.daysLeft <= 1 ? 'Last day' : (_trial.daysLeft + ' days left') %></strong> on the trial. You can activate them as a paid client anytime — they don’t have to wait until the trial ends.</p>
+  <% } %>
+  <div class="flex flex-wrap gap-2">
+    <% if (_canActivateTrial) { %>
+    <form method="post" action="/admin/signups/<%= workspace.id %>/trial" onsubmit="return confirm('Activate this workspace now? Trial limits and the end date stop applying.');">
+      <input type="hidden" name="action" value="activate" />
+      <input type="hidden" name="next" value="workspace-advanced" />
+      <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Activate account</button>
+    </form>
+    <% } %>
+    <% if (typeof canManageDemo !== 'undefined' && canManageDemo) { %>
+    <a href="/admin/signups#ws-<%= workspace.id %>" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white inline-flex items-center">Signups &amp; trials</a>
+    <% } %>
+  </div>
+</div>
+<% } %>
+
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Workspaces</h2>
   <p class="text-sm text-brand-muted mb-4">Switch between businesses from the workspace menu in the top-left sidebar (next to the logo). Each workspace keeps its own leads, pipeline, tasks, reports, and integrations.</p>

@@ -41,7 +41,7 @@ test('signup form requires the contact fields and cleans the website', () => {
   assert.equal(bad.errors.length, 4);
 });
 
-test('signup creates a 7-day trial workspace owned by the new user', async () => {
+test('signup creates a 30-day trial workspace owned by the new user', async () => {
   const now = Date.parse('2026-10-07T12:00:00Z');
   const { form } = trials.readSignupForm(goodForm);
   const { workspaceId, signup } = await trials.createTrialWorkspace(
@@ -51,7 +51,7 @@ test('signup creates a 7-day trial workspace owned by the new user', async () =>
   const ws = await dbService.getWorkspace(workspaceId);
   assert.equal(ws.name, 'Roof Growth Co');
   assert.equal(ws.members['jane@example.com'].role, 'owner');
-  assert.equal(ws.trial.endsAt, '2026-10-14T12:00:00.000Z');
+  assert.equal(ws.trial.endsAt, '2026-11-06T12:00:00.000Z');
   assert.deepEqual(await dbService.getUserWorkspaceIds('jane@example.com'), [workspaceId]);
   assert.equal(signup.phone, '(555) 123-4567');
   assert.equal(trials.getSignup('jane@example.com').workspaceId, workspaceId);
@@ -59,8 +59,12 @@ test('signup creates a 7-day trial workspace owned by the new user', async () =>
 
   const st = trials.status(ws, now + 86400000);
   assert.equal(st.state, 'trial');
-  assert.equal(st.daysLeft, 6);
-  assert.equal(trials.status(ws, now + 8 * 86400000).state, 'expired');
+  assert.equal(st.daysLeft, 29);
+  assert.equal(trials.status(ws, now + 31 * 86400000).state, 'expired');
+
+  const badge = trials.switcherBadge(ws, now + 86400000);
+  assert.equal(badge.state, 'trial');
+  assert.match(badge.label, /29/);
 });
 
 test('trial workspaces never fall back to the agency messaging keys, but do share scraper keys', async () => {
@@ -144,4 +148,21 @@ test('admin extend / end / limits and per-IP signup cap', async () => {
   assert.equal(trials.takeIpSlot('203.0.113.9'), true);
   assert.equal(trials.takeIpSlot('203.0.113.9'), false);
   assert.equal(trials.takeIpSlot('203.0.113.10'), true);
+});
+
+test('admin can activate a trial workspace before it ends', async () => {
+  const { form } = trials.readSignupForm({ ...goodForm, company: 'Early Activate Co' });
+  const now = Date.parse('2026-10-07T12:00:00Z');
+  const { workspaceId } = await trials.createTrialWorkspace(
+    { email: 'early-activate@example.com', form },
+    now,
+  );
+  let ws = await dbService.getWorkspace(workspaceId);
+  assert.equal(trials.status(ws, now).state, 'trial');
+  assert.ok(trials.status(ws, now).daysLeft >= 29);
+
+  ws = await trials.adminUpdate(workspaceId, { action: 'activate', by: 'a@adhello.ai' }, now);
+  assert.equal(trials.status(ws, now).state, 'active');
+  assert.equal(trials.isRestricted(ws, now), false);
+  assert.equal(trials.switcherBadge(ws, now).state, 'active');
 });

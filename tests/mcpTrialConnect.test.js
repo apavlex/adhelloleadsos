@@ -122,7 +122,7 @@ test('a brand-new user connecting an AI app signs up for a trial and lands back 
     const data = JSON.parse(overview.body.result.content[0].text);
     assert.equal(data.workspace.name, 'Bie Agency');
     assert.equal(data.free_trial.state, 'trial');
-    assert.equal(data.free_trial.days_left, 7);
+    assert.equal(data.free_trial.days_left, 30);
 
     // Trial over: tool calls come back as a readable error, listing tools still works.
     await trials.adminUpdate(wid, { action: 'end', by: 'admin@adhello.ai' });
