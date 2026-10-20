@@ -35,11 +35,11 @@ router.get('/', async (req, res, next) => {
       activePage: 'get-app',
       navPrimary: 'get-app',
       appName: brand.appName,
-      /** Absolute short URL for Share + QR (installable member app). */
+      /** Absolute short URL on reviews.adhello.io for Share + QR + Open. */
       openUrl: app.url,
-      /** In-app path so Open stays in the browser/PWA session. */
+      /** Signed /m path (fallback only). Prefer openUrl so Open leaves the CRM host. */
       openPath: app.path,
-      openHost: app.url.replace(/^https?:\/\//, ''),
+      openHost: String(app.url || '').replace(/^https?:\/\//, '').split('?')[0],
       networkName: businessName,
       businessName,
       staffName,

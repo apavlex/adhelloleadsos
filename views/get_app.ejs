@@ -8,11 +8,12 @@
   <%- include('partials/navbar') %>
   <%
     const _openPathRaw = typeof openPath !== 'undefined' && openPath ? openPath : '/today';
-    // Always land on the Review app with the install sheet first (Add to Home Screen).
-    const _openPath = String(_openPathRaw).includes('install=')
-      ? _openPathRaw
-      : (_openPathRaw + (_openPathRaw.indexOf('?') >= 0 ? '&' : '?') + 'install=1');
-    const _openUrl = typeof openUrl !== 'undefined' && openUrl ? openUrl : _openPath;
+    // Prefer the absolute reviews.adhello.io short link so Open/Share/QR leave the CRM host.
+    const _openUrlRaw = typeof openUrl !== 'undefined' && openUrl ? String(openUrl) : '';
+    const _baseForInstall = _openUrlRaw || _openPathRaw;
+    const _openUrl = String(_baseForInstall).includes('install=')
+      ? _baseForInstall
+      : (_baseForInstall + (_baseForInstall.indexOf('?') >= 0 ? '&' : '?') + 'install=1');
     const _net = (typeof businessName !== 'undefined' && businessName)
       ? businessName
       : (typeof networkName !== 'undefined' && networkName ? networkName : 'your business');
@@ -35,9 +36,9 @@
       </div>
       <div class="grid gap-6 lg:grid-cols-[180px_minmax(0,1fr)] items-start">
         <div class="flex flex-col items-center text-center gap-2">
-          <img src="/get-app/qr.png" alt="QR code that opens your Review app" width="160" height="160" class="w-40 h-40 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white p-1" loading="lazy" />
+          <img src="/get-app/qr.png?v=reviews" alt="QR code that opens your Review app" width="160" height="160" class="w-40 h-40 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white p-1" loading="lazy" />
           <p class="text-[11px] text-brand-muted">Scan with your phone camera, then Add to Home Screen.</p>
-          <p class="text-[11px] font-semibold text-brand-dark dark:text-white break-all"><%= typeof openHost !== 'undefined' ? openHost : '' %></p>
+          <p class="text-[11px] font-semibold text-brand-dark dark:text-white break-all"><%= typeof openHost !== 'undefined' ? openHost : String(_openUrl).replace(/^https?:\/\//, '').split('?')[0] %></p>
           <button
             type="button"
             class="mt-1 inline-flex items-center justify-center gap-2 rounded-full border-[1.5px] border-brand-dark/40 dark:border-white/40 bg-transparent text-brand-dark dark:text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow hover:bg-brand-yellow/15 transition-colors cursor-pointer"
@@ -52,7 +53,7 @@
             <span data-get-app-share-label>Share Review app</span>
           </button>
           <a
-            href="<%= _openPath %>"
+            href="<%= _openUrl %>"
             class="inline-flex items-center justify-center rounded-full bg-brand-yellow text-brand-dark no-underline px-5 py-2.5 text-[10px] font-black uppercase tracking-widest"
           >Open Review app</a>
           <p class="text-[11px] text-brand-muted max-w-[16rem]">Already installed? Open this page from your Home Screen app, then tap <strong class="text-brand-dark dark:text-white">Open Review app</strong> — it stays in the app (not Safari or Chrome).</p>

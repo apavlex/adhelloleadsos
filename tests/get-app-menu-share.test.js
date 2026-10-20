@@ -69,8 +69,19 @@ describe('Get the app menu + Share', () => {
     assert.match(route, /staffName/);
     const owner = read('services/ownerReferralApp.js');
     assert.match(owner, /memberPortalShortLink/);
+    assert.match(owner, /getReviewPublicBaseUrl/);
     assert.match(owner, /staffMemberIdForEmail/);
     assert.match(owner, /workspaceStaff:\s*true/);
+  });
+
+  it('Open Review app uses the absolute reviews.adhello.io URL', () => {
+    const page = read('views/get_app.ejs');
+    assert.match(page, /href="<%= _openUrl %>"/);
+    assert.match(page, /reviews\.adhello\.io/);
+    assert.doesNotMatch(page, /href="<%= _openPath %>"/);
+    const branding = read('views/workspace/sections/branding.ejs');
+    assert.match(branding, /href="<%= _wlOpenUrl %>"/);
+    assert.doesNotMatch(branding, /href="<%= _wlOpenPath %>"/);
   });
 
   it('Get the app page copy is personalized to the logged-in teammate', () => {
