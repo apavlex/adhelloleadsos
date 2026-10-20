@@ -208,7 +208,7 @@ function describeSearchPreset(preset) {
     if (p.searchNotes) rows.push({ label: 'Custom criteria', value: p.searchNotes });
     rows.push({
       label: 'Directory supplement',
-      value: p.directorySupplement ? 'Yelp, Angi, YP, Zillow agents, BBB' : 'Off',
+      value: p.directorySupplement ? 'Yelp, Angi, YP, Groupon, Zillow agents, BBB' : 'Off',
     });
   }
 

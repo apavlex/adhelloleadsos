@@ -496,6 +496,14 @@ function buildZillowAgentsSearchUrl(city, state) {
   return `https://www.zillow.com/professionals/real-estate-agent-reviews/${loc}/`;
 }
 
+/** Groupon local search — deals / merchants advertising in a city. */
+function buildGrouponSearchUrl(keyword, city, state) {
+  const loc = slugifySegment(`${city}-${state}`) || slugifySegment(city) || 'us';
+  const q = String(keyword || '').trim();
+  const base = `https://www.groupon.com/local/${loc}`;
+  return q ? `${base}?query=${encodeURIComponent(q)}` : base;
+}
+
 function buildBuiltWithUrl(domain) {
   const d = String(domain || '')
     .trim()
@@ -587,6 +595,52 @@ function normalizeZillowAgentRow(row) {
     totalScore: Number(row.rating || row.average_rating) || 0,
     reviewsCount: parseInt(row.reviews || row.review_count, 10) || 0,
     categoryName: 'Real estate agent',
+  };
+}
+
+/**
+ * Normalize Groupon Products Scraper / AI-scraper deal or merchant rows into directory leads.
+ * Prefer merchant/business name over deal title when both exist.
+ */
+function normalizeGrouponDirectoryRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const merchant = pickFirstString(
+    row.merchant_name,
+    row.merchantName,
+    row.company_name,
+    row.companyName,
+    row.business_name,
+    row.seller_name,
+    row.vendor,
+  );
+  const dealTitle = pickFirstString(row.deal_title, row.dealTitle, row.product_name, row.productName, row.title, row.name);
+  const title = merchant || dealTitle;
+  if (!title) return null;
+  const cats = Array.isArray(row.categories)
+    ? row.categories.join(', ')
+    : pickFirstString(row.category, row.categories, row.division);
+  return {
+    title,
+    phone: pickFirstString(row.phone, row.phone_number, row.phoneNumber, row.merchant_phone) || 'N/A',
+    website: pickFirstString(row.website, row.site, row.merchant_website, row.company_website) || 'N/A',
+    address: pickFirstString(
+      row.address,
+      row.formatted_address,
+      row.full_address,
+      row.location,
+      row.merchant_address,
+    ) || 'N/A',
+    url: pickFirstString(
+      row.deal_url,
+      row.product_url,
+      row.merchant_url,
+      row.business_url,
+      row.url,
+      row.link,
+    ) || '',
+    totalScore: Number(row.rating || row.average_rating || row.score) || 0,
+    reviewsCount: parseInt(row.reviews || row.review_count || row.reviewsCount, 10) || 0,
+    categoryName: cats || 'Groupon',
   };
 }
 
@@ -829,6 +883,46 @@ async function searchZillowAgentsDirectory({ city, state, maxResults, integratio
 }
 
 /**
+ * Groupon Products Scraper — local deals / merchants advertising on Groupon.
+ * Tries /groupon-products (platform service), then AI scraper fallback.
+ * @see https://app.outscraper.cloud/groupon-products
+ */
+async function searchGrouponDirectory({ keyword, city, state, maxResults, integrationEnv }) {
+  const limit = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 15));
+  const queryUrl = buildGrouponSearchUrl(keyword, city, state);
+
+  try {
+    const rows = await runOutscraperDirectoryGet({
+      endpoint: 'groupon-products',
+      integrationEnv,
+      label: 'Groupon products',
+      buildRequestUrl: (base, useAsync) => {
+        const u = new URL(`${base}/groupon-products`);
+        u.searchParams.set('query', queryUrl);
+        u.searchParams.set('limit', String(limit));
+        u.searchParams.set('async', useAsync ? 'true' : 'false');
+        return u;
+      },
+    });
+    const mapped = normalizeDirectoryRows(rows, normalizeGrouponDirectoryRow);
+    if (mapped.length) return mapped;
+  } catch (e) {
+    console.warn('[Outscraper] groupon-products unavailable, trying AI scraper:', e.message);
+  }
+
+  const prompt =
+    'Extract every Groupon deal or merchant listing visible on this page. Return a JSON array of objects with keys: merchant_name, deal_title, phone, website, address, deal_url, rating, review_count, category.';
+  const data = await fetchAiScraperPage({
+    query: queryUrl,
+    prompt,
+    integrationEnv,
+    label: 'Groupon AI scraper',
+  });
+  const listings = parseAiScraperListings(data);
+  return normalizeDirectoryRows(listings.slice(0, limit), normalizeGrouponDirectoryRow);
+}
+
+/**
  * BuiltWith tech stack via Outscraper AI scraper (domain enrichment).
  * @returns {Promise<{ cmsPlatform?: string, techStackTags?: string[] }|null>}
  */
@@ -879,15 +973,18 @@ module.exports = {
   buildYelpSearchUrl,
   buildAngiSearchUrl,
   buildZillowAgentsSearchUrl,
+  buildGrouponSearchUrl,
   buildBuiltWithUrl,
   normalizeYelpDirectoryRow,
   normalizeYellowpagesDirectoryRow,
   normalizeAngiDirectoryRow,
   normalizeZillowAgentRow,
+  normalizeGrouponDirectoryRow,
   parseAiScraperListings,
   searchYelpDirectory,
   searchYellowpagesDirectory,
   searchAngiDirectory,
   searchZillowAgentsDirectory,
+  searchGrouponDirectory,
   fetchBuiltWithTechStack,
 };

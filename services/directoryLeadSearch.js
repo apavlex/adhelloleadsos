@@ -1,6 +1,6 @@
 /**
  * Supplement Find Leads with public directory listings.
- * Prefers Outscraper (Yelp, Angi, Yellow Pages, Zillow agents) when configured;
+ * Prefers Outscraper (Yelp, Angi, Yellow Pages, Groupon, Zillow agents) when configured;
  * falls back to pageScraper (Cheerio/Puppeteer) for BBB and when Outscraper fails.
  */
 
@@ -20,8 +20,8 @@ function directorySupplementEnabled(integrationEnv) {
 }
 
 function maxDirectoryPages() {
-  const n = parseInt(process.env.DIRECTORY_MAX_PAGES || '5', 10);
-  return Number.isFinite(n) && n > 0 ? Math.min(n, 8) : 5;
+  const n = parseInt(process.env.DIRECTORY_MAX_PAGES || '6', 10);
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 8) : 6;
 }
 
 const DIRECTORY_SOURCES = [
@@ -50,6 +50,14 @@ const DIRECTORY_SOURCES = [
       `https://www.yellowpages.com/search?search_terms=${encodeURIComponent(keyword)}&geo_location_terms=${encodeURIComponent(`${city}, ${state}`)}`,
   },
   {
+    id: 'groupon',
+    label: 'Groupon',
+    outscraper: 'groupon',
+    preferDynamic: true,
+    buildUrl: ({ keyword, city, state }) =>
+      outscraper.buildGrouponSearchUrl(keyword, city, state),
+  },
+  {
     id: 'zillow_agents',
     label: 'Zillow Agents',
     outscraper: 'zillow_agents',
@@ -72,6 +80,7 @@ function resolveProfileUrl(row, sourceId) {
   const bases = {
     yelp: 'https://www.yelp.com',
     angi: 'https://www.angi.com',
+    groupon: 'https://www.groupon.com',
   };
   const base = bases[sourceId];
   return base ? `${base}${raw.startsWith('/') ? '' : '/'}${raw}` : raw;
@@ -131,6 +140,8 @@ async function searchSourceViaOutscraper(source, ctx, integrationEnv, perSourceL
       return outscraper.searchAngiDirectory(common);
     case 'yellowpages':
       return outscraper.searchYellowpagesDirectory(common);
+    case 'groupon':
+      return outscraper.searchGrouponDirectory(common);
     case 'zillow_agents':
       return outscraper.searchZillowAgentsDirectory(common);
     default:
