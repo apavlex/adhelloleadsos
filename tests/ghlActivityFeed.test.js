@@ -7,13 +7,13 @@ const {
 } = require('../services/inboundEvents');
 const { leadConnectorOpenUrl } = require('../services/ghlDeepLinks');
 
-test('leadConnectorOpenUrl builds contact and conversation URLs', () => {
+test('leadConnectorOpenUrl builds contact and conversation URLs on app.gohighlevel.com', () => {
   const contact = leadConnectorOpenUrl({
     dashboardUrl: 'https://my.adhello.io',
     locationId: 'loc1',
     contactId: 'c1',
   });
-  assert.equal(contact, 'https://my.adhello.io/v2/location/loc1/contacts/detail/c1');
+  assert.equal(contact, 'https://app.gohighlevel.com/v2/location/loc1/contacts/detail/c1');
 
   const conv = leadConnectorOpenUrl({
     dashboardUrl: 'https://my.adhello.io',
@@ -22,7 +22,7 @@ test('leadConnectorOpenUrl builds contact and conversation URLs', () => {
     conversationId: 'cv9',
     preferConversation: true,
   });
-  assert.equal(conv, 'https://my.adhello.io/v2/location/loc1/conversations/conversations/cv9');
+  assert.equal(conv, 'https://app.gohighlevel.com/v2/location/loc1/conversations/conversations/cv9');
 });
 
 test('normalizeInboundEvent keeps ghl ids', () => {
@@ -101,5 +101,5 @@ test('pendingInboundItems Call uses Lead Connector when contact is linked', () =
   });
   assert.equal(rows.length, 1);
   assert.equal(rows[0].callOpensLeadConnector, true);
-  assert.equal(rows[0].callHref, 'https://my.adhello.io/v2/location/locZ/contacts/detail/gcZ');
+  assert.equal(rows[0].callHref, 'https://app.gohighlevel.com/v2/location/locZ/contacts/detail/gcZ');
 });
