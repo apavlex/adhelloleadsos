@@ -1782,6 +1782,8 @@ document.addEventListener('DOMContentLoaded', () => {
             nextOffset: serverNextOffset,
             query: rowsQuery,
           };
+          // SSR now ships Opportunity badges; re-paint any rows still showing the placeholder.
+          if (typeof updateOpportunityBadges === 'function') updateOpportunityBadges();
           return true;
         } catch (err) {
           console.warn('[pipeline] load more rows failed', err);
@@ -8311,6 +8313,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (L.pageSpeedAuditAt != null) ds.pageSpeedAuditAt = String(L.pageSpeedAuditAt || '');
     if (L.ownerSignal != null) ds.ownerSignal = String(L.ownerSignal || '');
+    if (Object.prototype.hasOwnProperty.call(L, 'aiWebsiteAnalysisScore')) {
+      ds.aiScore =
+        L.aiWebsiteAnalysisScore != null && L.aiWebsiteAnalysisScore !== ''
+          ? String(L.aiWebsiteAnalysisScore)
+          : '';
+    }
+    if (Object.prototype.hasOwnProperty.call(L, 'aiWebsiteAnalysis')) {
+      try {
+        ds.aiAnalysis =
+          L.aiWebsiteAnalysis == null ? '' : JSON.stringify(L.aiWebsiteAnalysis);
+      } catch {
+        ds.aiAnalysis = '';
+      }
+    }
     if (L.geoSeoGhlAudit != null) {
       try {
         ds.geoSeoGhlAudit =
@@ -8355,6 +8371,10 @@ document.addEventListener('DOMContentLoaded', () => {
     coalesceRowDatasetFromContacts(row);
     hydrateRowDatasetFromTableDom(row);
     syncPhoneLineTypePill(row);
+    // Manual contact edits (and any persisted sync) should refresh Opportunity — not wait for a folder reload.
+    if (!isSearchResultsTablePage()) {
+      revealOpportunityForRow(row);
+    }
   }
   window.syncPersistedLeadToRowDataset = syncPersistedLeadToRowDataset;
 

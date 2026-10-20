@@ -324,6 +324,19 @@
               var _dealValueDisp = Number.isFinite(_dealVal) && _dealVal > 0 ? ('$' + _dealVal.toLocaleString('en-US')) : '';
               var _cmsPlatform = String(lead.cmsPlatform || '').trim();
               var _aiAuditDisp = lead.aiWebsiteAnalysisScore != null && lead.aiWebsiteAnalysisScore !== '' ? (String(lead.aiWebsiteAnalysisScore) + '/10') : '';
+              var _oppThreshold = (typeof workspaceProspecting !== 'undefined' && workspaceProspecting && workspaceProspecting.lowReviewsThreshold != null)
+                ? workspaceProspecting.lowReviewsThreshold
+                : 30;
+              var _oppBuilt = typeof buildPipelineOpportunityBadge === 'function'
+                ? buildPipelineOpportunityBadge(lead, { lowReviewsThreshold: _oppThreshold, maxLabels: 3 })
+                : null;
+              var _oppHtml = _oppBuilt && _oppBuilt.html
+                ? _oppBuilt.html
+                : (typeof renderPipelineOpportunityBadge === 'function'
+                  ? renderPipelineOpportunityBadge(lead, { lowReviewsThreshold: _oppThreshold, maxLabels: 3 })
+                  : '');
+              var _oppScore = _oppBuilt && _oppBuilt.score != null ? _oppBuilt.score : '';
+              var _oppGapLabels = _oppBuilt && Array.isArray(_oppBuilt.gapLabels) ? _oppBuilt.gapLabels.join('|') : '';
               var _finder = lead.contactFinder && typeof lead.contactFinder === 'object' ? lead.contactFinder : null;
               var _lastEnrichedRaw = '';
               var _lastEnrichedMs = 0;
@@ -407,6 +420,8 @@
                 data-gbp-claim-status="<%= plcEscAttr(String(lead.gbpClaimStatus || '')) %>"
                 data-gbp-optimization-score="<%= plcEscAttr(String(lead.gbpOptimizationScore || '')) %>"
                 data-ai-score="<%= lead.aiWebsiteAnalysisScore != null ? lead.aiWebsiteAnalysisScore : '' %>"
+                data-opportunity-ready="<%= _oppHtml ? '1' : '' %>"
+                data-gap-labels="<%= plcEscAttr(_oppGapLabels) %>"
                 data-owner-signal="<%= plcEscAttr(lead.ownerSignal || '') %>"
                 data-stitch-design-url="<%= plcEscAttr(lead.stitchDesignUrl || '') %>"
                 data-stitch-screenshot-url="<%= plcEscAttr(lead.stitchScreenshotUrl || '') %>"
@@ -676,8 +691,12 @@
               </td>
               <td data-plc="opportunity" class="opportunity-cell lead-col-opportunity lead-col-tail-tight px-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[9rem] max-w-[18rem]">
                 <div class="flex flex-col items-center justify-center py-0.5">
-                  <div class="opportunity-badge">
-                    <span class="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5 text-[9px] font-black uppercase tracking-tight">Scoring…</span>
+                  <div class="opportunity-badge"<% if (_oppScore !== '' && _oppScore != null) { %> data-score="<%= Math.round(Number(_oppScore) || 0) %>"<% } %>>
+                    <% if (_oppHtml) { %>
+                      <%- _oppHtml %>
+                    <% } else { %>
+                      <span class="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5 text-[9px] font-black uppercase tracking-tight">Scoring…</span>
+                    <% } %>
                   </div>
                 </div>
               </td>

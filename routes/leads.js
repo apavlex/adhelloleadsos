@@ -163,6 +163,24 @@ function leadContactFieldsChanged(body, existing) {
   });
 }
 
+/** Website / social edits invalidate a persisted AI audit so Opportunity re-scores from live contact data. */
+const OPPORTUNITY_SCORE_IDENTITY_FIELDS = ['website', 'facebook', 'instagram', 'facebook_url', 'instagram_url'];
+
+function opportunityScoreIdentityChanged(body, existing) {
+  if (!body || typeof body !== 'object' || !existing) return false;
+  return OPPORTUNITY_SCORE_IDENTITY_FIELDS.some((field) => {
+    if (body[field] === undefined) return false;
+    return String(existing[field] || '').trim() !== String(body[field] || '').trim();
+  });
+}
+
+function clearStaleAiWebsiteAnalysis(updateData) {
+  if (!updateData || typeof updateData !== 'object') return;
+  updateData.aiWebsiteAnalysis = null;
+  updateData.aiWebsiteAnalysisScore = null;
+  updateData.aiWebsiteAnalysisUpdatedAt = null;
+}
+
 const ACTIVITY_EDIT_FIELDS = {
   title: 'name',
   email: 'email',
@@ -1498,6 +1516,10 @@ router.post('/:key/update', async (req, res, next) => {
         ghlClient.isValidEmailForGhl,
       );
       if (added) updateData.contacts = contacts;
+    }
+
+    if (opportunityScoreIdentityChanged(updateData, existing)) {
+      clearStaleAiWebsiteAnalysis(updateData);
     }
 
     const previousEmailForRerun = existing ? existing.email : '';

@@ -220,6 +220,10 @@ require('./services/publicDemo').startCleanup();
 
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
 app.locals.renderFindContactCell = require('./public/js/contact-finder-cell').renderCell;
+app.locals.renderPipelineOpportunityBadge = require('./services/pipelineOpportunityBadge')
+  .renderPipelineOpportunityBadge;
+app.locals.buildPipelineOpportunityBadge = require('./services/pipelineOpportunityBadge')
+  .buildPipelineOpportunityBadge;
 
 const { ghlCrmBaseUrl, ghlWebsitesBuilderUrl } = require('./services/websiteBuildLinks');
 const { getQuickLogClientPayload, resolveActiveQuickLogFromLead } = require('./services/quickLogConfig');

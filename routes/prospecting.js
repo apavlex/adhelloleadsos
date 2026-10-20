@@ -542,6 +542,7 @@ router.get('/table-rows', async (req, res, next) => {
       pipelineStages,
       tags,
       rowIndexOffset: offset,
+      workspaceProspecting: normalizeProspectingSettings(ws && ws.prospecting),
     });
   } catch (e) {
     next(e);
