@@ -12,6 +12,7 @@ const store = require('../services/networkStore');
 const reviewPublic = require('../routes/reviewPublic');
 const { createMemberPortalToken } = require('../services/networkLinkSign');
 const memberApp = require('../routes/memberApp');
+const work = require('../services/memberWork');
 
 async function startServer() {
   const app = express();
@@ -26,7 +27,7 @@ async function startServer() {
   return { server, base: `http://127.0.0.1:${port}` };
 }
 
-test('Home hero uses live review views when brand label is review page visits', async () => {
+test('Home banner shows open jobs; review visits sit on the secondary line', async () => {
   const network = await store.getOrCreateNetworkForWorkspace(`ws_rv_visit_${Date.now()}`, {
     name: 'Visit Net',
   });
@@ -55,17 +56,45 @@ test('Home hero uses live review views when brand label is review page visits', 
   const stats = await store.getReviewStats(network.id, member.id);
   assert.equal(stats.views, 22);
 
+  const cust = await work.saveCustomer(network.id, member.id, {
+    name: 'Jordan',
+    phone: '+15551230001',
+  });
+  assert.equal(cust.ok, true);
+  const job1 = await work.saveJob(network.id, member.id, {
+    customerId: cust.customer.id,
+    title: 'Deck repair',
+    status: 'scheduled',
+    date: '2026-11-10',
+    time: '09:00',
+  });
+  const job2 = await work.saveJob(network.id, member.id, {
+    customerId: cust.customer.id,
+    title: 'Fence estimate',
+    status: 'estimate',
+  });
+  const job3 = await work.saveJob(network.id, member.id, {
+    customerId: cust.customer.id,
+    title: 'Done job',
+    status: 'completed',
+  });
+  assert.equal(job1.ok && job2.ok && job3.ok, true);
+
   const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
   const { server, base } = await startServer();
   try {
     const home = await fetch(`${base}/m/${token}`);
     assert.equal(home.status, 200);
     const html = await home.text();
-    // Hero and tile both show live 22 — not the frozen brand 91.
-    assert.match(html, />\s*22\s*</);
+    // Banner leads with open jobs (2 active) — not frozen brand 91 or review visits.
+    assert.match(html, /ma-hero__stat">\s*2\s*<small>open jobs<\/small>/i);
     assert.doesNotMatch(html, /ma-hero__stat">\s*91\s*</);
-    assert.match(html, /review page visits/i);
-    assert.match(html, /Review visits/i);
+    assert.doesNotMatch(html, /ma-hero__stat">\s*22\s*</);
+    assert.match(html, /22\s*review visits/i);
+    assert.match(html, /Open jobs/i);
+    // First tile is open jobs, not review visits.
+    assert.match(html, /ma-tile__label">Open jobs</i);
+    assert.doesNotMatch(html, /ma-tile__label">Review visits</i);
 
     const page = await fetch(`${base}/rv/visit-pros`);
     assert.equal(page.status, 200);

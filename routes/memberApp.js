@@ -39,6 +39,7 @@ const reviewReferralReward = require('../services/reviewReferralReward');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const memberActivity = require('../services/memberActivity');
 const memberGhlAlerts = require('../services/memberGhlAlerts');
+const { GHL_ACTIVITY_TYPES } = require('../services/inboundEvents');
 const freeAppSignup = require('../services/freeAppSignup');
 const memberShareInvite = require('../services/memberShareInvite');
 const jobMedia = require('../services/memberJobMedia');
@@ -1113,9 +1114,9 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   }
   render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
-    // Reviews → customers/work → referrals (network is tertiary).
+    // Open jobs → customers → referrals (review visits live on the banner secondary line).
     tiles: [
-      { key: 'reviews', label: 'Review visits', value: reviewStats.views || 0, href: `${ctx.base}/review`, icon: 'review' },
+      { key: 'jobs', label: 'Open jobs', value: openJobCount, href: `${ctx.base}/customers`, icon: 'customers' },
       { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
       { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
       { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent`, icon: 'send' },
@@ -2912,15 +2913,28 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
 
 // ── In-app lead activity bell (member PWA) ───────────────────────────────────
 
+/** GHL texts/calls also land in memberActivity for push history — hide them from
+ *  the Leads & referrals list when the Waiting on a reply (ghlItems) section is on. */
+function bellActivityItems(networkId, memberId, { excludeGhlKinds = false } = {}) {
+  const rows = memberActivity.list(networkId, memberId);
+  if (!excludeGhlKinds) return rows;
+  return rows.filter((it) => !it || !GHL_ACTIVITY_TYPES.has(String(it.kind || '').toLowerCase()));
+}
+
+function bellActivityUnread(networkId, memberId, { excludeGhlKinds = false } = {}) {
+  return bellActivityItems(networkId, memberId, { excludeGhlKinds }).filter((e) => e && !e.read).length;
+}
+
 router.get('/m/:token/activity.json', withMember(async (req, res, ctx) => {
   noStore(res);
-  const items = memberActivity.list(ctx.network.id, ctx.member.id).slice(0, 40);
   const ghlAvailable = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network);
   const ghlEnabled = ghlAvailable && memberGhlAlerts.isEnabled(ctx.member);
   const ghlItems = ghlEnabled
     ? await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)
     : [];
-  const activityUnread = memberActivity.unreadCount(ctx.network.id, ctx.member.id);
+  // When GHL alerts are on, sms/missed_call/voicemail belong only under Waiting on a reply.
+  const items = bellActivityItems(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }).slice(0, 40);
+  const activityUnread = bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled });
   return res.json({
     success: true,
     unread: activityUnread + ghlItems.length,
@@ -2946,7 +2960,7 @@ router.post('/m/:token/activity/read', express.json(), withMember(async (req, re
   return res.json({
     success: true,
     updated: result.updated,
-    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id) + ghlPending,
+    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }) + ghlPending,
   });
 }));
 
@@ -2965,7 +2979,7 @@ router.post('/m/:token/activity/ghl-alerts', express.json(), withMember(async (r
     ghlAlertsEnabled: result.enabled,
     ghlAlertsAvailable: true,
     ghlItems,
-    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id) + ghlItems.length,
+    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: result.enabled }) + ghlItems.length,
   });
 }));
 
@@ -2975,10 +2989,11 @@ router.post('/m/:token/activity/ghl-done', express.json(), withMember(async (req
   const done = await memberGhlAlerts.markLeadDone(ctx.member, ctx.network, req.body && req.body.leadKey);
   if (!done.ok) return res.status(400).json({ success: false, error: done.error });
   const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);
+  const ghlEnabled = memberGhlAlerts.isEnabled(ctx.member);
   return res.json({
     success: true,
     ghlItems,
-    unread: memberActivity.unreadCount(ctx.network.id, ctx.member.id) + ghlItems.length,
+    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }) + ghlItems.length,
   });
 }));
 
