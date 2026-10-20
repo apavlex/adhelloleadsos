@@ -25,6 +25,7 @@ const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const reviewHunt = require('../services/reviewHunt');
 const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
 const outscraperLeadEnrich = require('../services/outscraperLeadEnrich');
+const outscraperAdsCheck = require('../services/outscraperAdsCheck');
 const contactFinder = require('../services/contactFinder');
 const { addEmailContacts } = require('../services/leadEmailContacts');
 const leadPanelEnrich = require('../services/leadPanelEnrich');
@@ -3097,6 +3098,61 @@ router.get('/:key/panel-data', async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+});
+
+// POST /leads/:key/check-ads — Outscraper Ads Checker (user-initiated)
+router.post('/:key/check-ads', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+    if (!(await leadInRequestWorkspace(lead, req))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (!outscraper.isConfigured(integrationEnv)) {
+      return res.status(400).json({
+        success: false,
+        code: 'not_configured',
+        error:
+          'Outscraper is not configured. Add Outscraper under Workspace → Integrations to check running ads.',
+      });
+    }
+
+    const pack = await outscraperAdsCheck.checkLeadAds(lead, integrationEnv);
+    if (pack.reason === 'no_website') {
+      return res.status(422).json({
+        success: false,
+        code: 'no_website',
+        error: 'Add a website to this lead first — ads are checked by domain.',
+      });
+    }
+    if (!pack.used || !pack.patch || !Object.keys(pack.patch).length) {
+      return res.json({
+        success: true,
+        lead: normalizeLeadForPanel({ ...lead, key: lead.key || fullKey }),
+        message: pack.message || 'No ads data found for this domain.',
+        result: pack.result || null,
+      });
+    }
+
+    const updated = await dbService.updateLead(fullKey, pack.patch, req.workspaceId);
+    return res.json({
+      success: true,
+      lead: normalizeLeadForPanel({ ...updated, key: updated.key || fullKey }),
+      message: pack.message,
+      result: pack.result,
+    });
+  } catch (err) {
+    console.error('[check-ads]', err.message);
+    return res.status(502).json({
+      success: false,
+      error: err.message || 'Ads check failed.',
+    });
   }
 });
 

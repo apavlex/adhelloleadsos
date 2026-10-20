@@ -8181,6 +8181,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     if (L.builtWithUrl != null) ds.builtWithUrl = String(L.builtWithUrl || '');
+    if (L.adsCheckedAt != null || L.adsRunning != null) {
+      ds.adsCheckedAt = String(L.adsCheckedAt || '');
+      ds.adsRunning = L.adsRunning === true || L.adsRunning === 'true' || L.adsRunning === 1 ? '1' : '0';
+      ds.adsRunningGoogle =
+        L.adsRunningGoogle === true || L.adsRunningGoogle === 'true' || L.adsRunningGoogle === 1
+          ? '1'
+          : '0';
+      ds.adsRunningLinkedin =
+        L.adsRunningLinkedin === true ||
+        L.adsRunningLinkedin === 'true' ||
+        L.adsRunningLinkedin === 1
+          ? '1'
+          : '0';
+    }
     if (L.competitorName != null) ds.competitorName = L.competitorName;
     if (L.competitorGap != null) ds.competitorGap = L.competitorGap;
     if (L.competitorMetaBenchmark != null) ds.competitorMetaBenchmark = L.competitorMetaBenchmark;
@@ -13766,6 +13780,58 @@ document.addEventListener('DOMContentLoaded', () => {
         : 'Add the company website to find contacts';
       if (typeof window.setRapidapiWebsiteEnrichUi === 'function') {
         window.setRapidapiWebsiteEnrichUi(rapidapiEnrichBtn, 'idle');
+      }
+    }
+
+    const adsCheckBtn = document.getElementById('leadPanelAdsCheckBtn');
+    if (adsCheckBtn && typeof window.paintAdsCheckButton === 'function') {
+      const panelLeadKey = String(row.dataset.leadKey || '').trim();
+      const hasWebsite = !!(website && website !== 'N/A' && website !== '—');
+      const adsLead = {
+        adsRunning:
+          row.dataset.adsRunning === '1' ||
+          row.dataset.adsRunning === 'true' ||
+          row.dataset.adsRunning === 'yes',
+        adsRunningGoogle:
+          row.dataset.adsRunningGoogle === '1' || row.dataset.adsRunningGoogle === 'true',
+        adsRunningLinkedin:
+          row.dataset.adsRunningLinkedin === '1' || row.dataset.adsRunningLinkedin === 'true',
+        adsCheckedAt: String(row.dataset.adsCheckedAt || '').trim(),
+      };
+      window.paintAdsCheckButton(adsCheckBtn, {
+        leadKey: panelLeadKey,
+        hasWebsite,
+        lead:
+          adsLead.adsCheckedAt || row.dataset.adsRunning === '0' || row.dataset.adsRunning === '1'
+            ? adsLead
+            : null,
+      });
+      if (!window.__leadPanelAdsCheckBound && typeof window.bindAdsCheckButton === 'function') {
+        window.__leadPanelAdsCheckBound = true;
+        window.bindAdsCheckButton(adsCheckBtn, {
+          statusEl: document.getElementById('leadPanelAdsCheckStatus'),
+          getLeadKey: function () {
+            const active =
+              (typeof currentRow !== 'undefined' && currentRow) ||
+              (typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : null) ||
+              document.querySelector('.result-row.selected');
+            return active && active.dataset ? String(active.dataset.leadKey || '').trim() : '';
+          },
+          onUpdated: function (updatedLead) {
+            const active =
+              (typeof currentRow !== 'undefined' && currentRow) ||
+              document.querySelector('.result-row.selected');
+            if (active && active.dataset && updatedLead) {
+              active.dataset.adsRunning = updatedLead.adsRunning ? '1' : '0';
+              active.dataset.adsRunningGoogle = updatedLead.adsRunningGoogle ? '1' : '0';
+              active.dataset.adsRunningLinkedin = updatedLead.adsRunningLinkedin ? '1' : '0';
+              active.dataset.adsCheckedAt = updatedLead.adsCheckedAt || '';
+            }
+            if (typeof window.paintLeadAdsCheckResult === 'function') {
+              window.paintLeadAdsCheckResult(updatedLead || {});
+            }
+          },
+        });
       }
     }
 
