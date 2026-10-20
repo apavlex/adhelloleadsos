@@ -3,8 +3,14 @@ const assert = require('node:assert/strict');
 const rapidapiWebsiteEnrich = require('../services/rapidapiWebsiteEnrich');
 
 describe('rapidapiWebsiteEnrich', () => {
-  test('isConfigured requires key, endpoint, and host', () => {
+  test('isConfigured needs only a RapidAPI key (defaults for host/endpoint)', () => {
     assert.equal(rapidapiWebsiteEnrich.isConfigured({}), false);
+    assert.equal(
+      rapidapiWebsiteEnrich.isConfigured({
+        RAPIDAPI_KEY: 'shared-maps-key',
+      }),
+      true,
+    );
     assert.equal(
       rapidapiWebsiteEnrich.isConfigured({
         RAPIDAPI_WEBSITE_KEY: 'k',
@@ -13,11 +19,12 @@ describe('rapidapiWebsiteEnrich', () => {
       true,
     );
     assert.equal(
-      rapidapiWebsiteEnrich.isConfigured({
-        RAPIDAPI_KEY: 'shared',
-        RAPIDAPI_WEBSITE_ENDPOINT: 'https://example.p.rapidapi.com/scrape',
-      }),
-      true,
+      rapidapiWebsiteEnrich.endpoint({ RAPIDAPI_KEY: 'k' }),
+      'https://website-contacts-scraper.p.rapidapi.com/scrape-contacts',
+    );
+    assert.equal(
+      rapidapiWebsiteEnrich.apiHost({ RAPIDAPI_KEY: 'k' }),
+      'website-contacts-scraper.p.rapidapi.com',
     );
   });
 

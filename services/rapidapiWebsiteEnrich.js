@@ -1,11 +1,14 @@
 /**
- * RapidAPI website contacts & socials scraper (second RapidAPI product — separate from Maps search).
- * Configure host + endpoint from your API's RapidAPI page under Workspace → Integrations.
+ * RapidAPI website contacts & socials scraper.
+ * Shares the Maps RapidAPI key by default; host/endpoint have sensible defaults so
+ * Workspace → Integrations only needs one RapidAPI key for both Maps + website enrich.
  */
 const { normalizeSocialUrl } = require('./socialUrlNormalize');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
 
-const DEFAULT_URL_PARAM = 'url';
+const DEFAULT_WEBSITE_HOST = 'website-contacts-scraper.p.rapidapi.com';
+const DEFAULT_WEBSITE_ENDPOINT = 'https://website-contacts-scraper.p.rapidapi.com/scrape-contacts';
+const DEFAULT_URL_PARAM = 'query';
 const LEAD_QUERY_PARAMS = ['query', 'url', 'domain', 'website', 'site'];
 
 function hostFromEndpointUrl(urlStr) {
@@ -32,7 +35,9 @@ function apiKey(integrationEnv) {
 function endpoint(integrationEnv) {
   const fromWs = integrationEnv && integrationEnv.RAPIDAPI_WEBSITE_ENDPOINT;
   if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
-  return (process.env.RAPIDAPI_WEBSITE_ENDPOINT || '').trim();
+  const fromEnv = (process.env.RAPIDAPI_WEBSITE_ENDPOINT || '').trim();
+  if (fromEnv) return fromEnv;
+  return DEFAULT_WEBSITE_ENDPOINT;
 }
 
 /** Strip baked-in lead URL params from a saved RapidAPI endpoint (e.g. query=wsgr.com). */
@@ -56,7 +61,7 @@ function apiHost(integrationEnv) {
   if (typeof fromEnv === 'string' && fromEnv.trim()) return fromEnv.trim();
   const fromEndpoint = hostFromEndpointUrl(endpoint(integrationEnv));
   if (fromEndpoint) return fromEndpoint;
-  return '';
+  return DEFAULT_WEBSITE_HOST;
 }
 
 function urlParam(integrationEnv) {
@@ -251,7 +256,7 @@ async function requestJson(url, options) {
 async function scrapeWebsite(websiteUrl, integrationEnv) {
   if (!isConfigured(integrationEnv)) {
     throw new Error(
-      'RapidAPI website enrich is not configured. Set endpoint + host under Workspace → Integrations → RapidAPI Website.',
+      'RapidAPI is not configured. Paste your RapidAPI key under Workspace → Integrations → RapidAPI.',
     );
   }
   const target = normalizeWebsiteUrl(websiteUrl);
@@ -270,8 +275,10 @@ async function scrapeWebsite(websiteUrl, integrationEnv) {
   };
 
   const paramAttempts =
-    param === DEFAULT_URL_PARAM
-      ? [DEFAULT_URL_PARAM, 'query', 'domain', 'website', 'site']
+    param === 'url' || param === DEFAULT_URL_PARAM
+      ? [param, 'query', 'url', 'domain', 'website', 'site'].filter(
+          (v, i, arr) => arr.indexOf(v) === i,
+        )
       : [param];
 
   let lastError = null;
