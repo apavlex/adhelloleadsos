@@ -48,6 +48,55 @@
     <% } else { %>
     <p class="ma-hint" style="margin:8px 0 0">Opens Review with this customer selected so you can confirm the message before it sends via GHL CRM. We’ll track opens and nudge once if they don’t click.</p>
     <% } %>
+
+    <%
+      const _ghlAct = typeof ghlActivity !== 'undefined' && ghlActivity ? ghlActivity : null;
+      const _ghlItems = _ghlAct && Array.isArray(_ghlAct.items) ? _ghlAct.items : [];
+      const _ghlLinked = !!(customer.ghlContactId);
+    %>
+    <% if (_ghlLinked) { %>
+    <section class="ma-section" id="maCustomerGhlActivity">
+      <div class="ma-section__head">
+        <h2>Calls &amp; texts</h2>
+        <% if (_ghlAct && _ghlAct.openHref) { %>
+        <a href="<%= _ghlAct.openHref %>" target="_blank" rel="noopener noreferrer">Open in GHL</a>
+        <% } %>
+      </div>
+      <% if (_ghlAct && _ghlAct.error && !_ghlItems.length) { %>
+      <p class="ma-hint" style="margin:0"><%= _ghlAct.error %></p>
+      <% } else if (!_ghlItems.length) { %>
+      <p class="ma-hint" style="margin:0">No calls or texts in GHL for this contact yet.</p>
+      <% } else { %>
+      <ul class="ma-ghl-feed" aria-label="GHL calls and texts">
+        <% _ghlItems.forEach(function (m) {
+          const when = m.at ? new Date(m.at) : null;
+          const ago = when && !isNaN(when.getTime())
+            ? (function () {
+                const mins = Math.max(0, Math.round((Date.now() - when.getTime()) / 60000));
+                if (mins < 1) return 'just now';
+                if (mins < 60) return mins + 'm ago';
+                const hrs = Math.round(mins / 60);
+                if (hrs < 24) return hrs + 'h ago';
+                return Math.round(hrs / 24) + 'd ago';
+              })()
+            : '';
+          const dir = m.direction === 'inbound' ? 'In' : 'Out';
+        %>
+        <li class="ma-ghl-feed__item ma-ghl-feed__item--<%= m.kind %> ma-ghl-feed__item--<%= m.direction %>">
+          <div class="ma-ghl-feed__meta">
+            <strong><%= m.title %></strong>
+            <span><%= dir %><% if (ago) { %> · <%= ago %><% } %></span>
+          </div>
+          <% if (m.kind === 'sms' && m.body) { %><p class="ma-ghl-feed__body"><%= m.body %></p><% } %>
+          <% if (m.openHref) { %>
+          <a class="ma-ghl-feed__open" href="<%= m.openHref %>" target="_blank" rel="noopener noreferrer"><%= m.kind === 'call' ? 'Open in LC' : 'Reply in LC' %></a>
+          <% } %>
+        </li>
+        <% }); %>
+      </ul>
+      <% } %>
+    </section>
+    <% } %>
     <% } else { %>
     <h1 class="ma-page-title">New customer</h1>
     <p class="ma-page-sub">Add one contact, or upload a list.</p>

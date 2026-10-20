@@ -30,6 +30,7 @@ const networkBrand = require('../services/networkBrand');
 const work = require('../services/memberWork');
 const memberCustomerCsv = require('../services/memberCustomerCsv');
 const memberCustomerGhl = require('../services/memberCustomerGhl');
+const memberCustomerGhlActivity = require('../services/memberCustomerGhlActivity');
 const reviewPage = require('../services/reviewPage');
 const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
@@ -1474,7 +1475,7 @@ async function customerTagViews(ctx, customer) {
 }
 
 async function renderCustomerPage(res, ctx, {
-  customer, jobs, today, formValues, flash, status, reviewAskStatus, inviteUrl, customerTab,
+  customer, jobs, today, formValues, flash, status, reviewAskStatus, inviteUrl, customerTab, ghlActivity,
 }) {
   const [tagViews, teammates] = await Promise.all([
     customerTagViews(ctx, customer),
@@ -1501,6 +1502,7 @@ async function renderCustomerPage(res, ctx, {
     reviewAskStatus: reviewAskStatus || null,
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
+    ghlActivity: ghlActivity || null,
     ...tagViews,
   }, status);
 }
@@ -1577,7 +1579,7 @@ router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ct
   return res.redirect(303, `${ctx.base}/customers?ok=customers_synced&detail=${encodeURIComponent(`(${out.summary})`)}`);
 }));
 
-async function customerPageData(req, ctx, id, { refreshTags = false } = {}) {
+async function customerPageData(req, ctx, id, { refreshTags = false, loadGhlActivity = false } = {}) {
   let customer = await work.getCustomer(ctx.network.id, ctx.member.id, id);
   if (!customer) return null;
   if (refreshTags && customer.ghlContactId) {
@@ -1598,13 +1600,29 @@ async function customerPageData(req, ctx, id, { refreshTags = false } = {}) {
   if (reviewAskStatus && reviewAskStatus.canConfirm && freeAppSignup.isAppFreeMember(ctx.member)) {
     reviewAskStatus = { ...reviewAskStatus, canConfirm: false };
   }
-  return { customer, jobs: mine, today, reviewAskStatus };
+  let ghlActivity = null;
+  if (loadGhlActivity) {
+    ghlActivity = await memberCustomerGhlActivity.listForCustomer(ctx.network, customer);
+  }
+  return { customer, jobs: mine, today, reviewAskStatus, ghlActivity };
 }
 
 router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
-  const data = await customerPageData(req, ctx, req.params.id, { refreshTags: true });
+  const data = await customerPageData(req, ctx, req.params.id, {
+    refreshTags: true,
+    loadGhlActivity: true,
+  });
   if (!data) return res.redirect(303, `${ctx.base}/customers`);
   return renderCustomerPage(res, ctx, { ...data, flash: flashFromQuery(req) });
+}));
+
+/** JSON: GHL call + SMS history for a synced customer contact. */
+router.get('/m/:token/customers/c/:id/ghl-activity.json', withMember(async (req, res, ctx) => {
+  noStore(res);
+  const customer = await work.getCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  if (!customer) return res.status(404).json({ success: false, error: 'Customer not found.' });
+  const activity = await memberCustomerGhlActivity.listForCustomer(ctx.network, customer);
+  return res.json({ success: true, ...activity });
 }));
 
 router.post('/m/:token/customers/c/:id', form, withMember(async (req, res, ctx) => {
