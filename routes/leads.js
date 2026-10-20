@@ -5771,7 +5771,7 @@ router.post('/:key/refresh-reviews', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/verify-phone-line — SignalWire Lookup carrier / mobile vs landline (sync)
+// POST /leads/:key/verify-phone-line — Outscraper phones-enricher (or SignalWire) carrier / mobile vs landline + SMS-safe tag
 router.post('/:key/verify-phone-line', async (req, res, next) => {
   try {
     const key = req.params.key;
