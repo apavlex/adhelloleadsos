@@ -253,14 +253,31 @@ app.get('/health', (req, res) => {
 });
 
 // Auth Routes
-app.get('/auth/login', (req, res) => {
+function renderLoginPage(req, res) {
   const connect = req.query.connect && req.session && req.session.connectSignup;
-  res.render('login', {
+  return res.render('login', {
     error: req.query.error,
     googleAuthConfigured: isGoogleAuthConfigured,
     connectClient: connect && Date.now() - connect.at < 30 * 60 * 1000 ? connect.clientName : '',
   });
+}
+
+/** CRM root (leads.adhello.io) → sign-in. Reviews host → /app signup. */
+app.get('/', (req, res) => {
+  const host = String(req.get('x-forwarded-host') || req.get('host') || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase();
+  if (host === 'reviews.adhello.io' || host.startsWith('reviews.')) {
+    return res.redirect(302, '/app');
+  }
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return res.redirect(302, '/today');
+  }
+  return renderLoginPage(req, res);
 });
+
+app.get('/auth/login', renderLoginPage);
 
 app.get('/auth/google', requireGoogleAuth, (req, res, next) => {
   passport.authenticate('google', {
