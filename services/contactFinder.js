@@ -1,11 +1,13 @@
 /**
  * "Find a contact" — decision makers, emails, phones and socials for one business.
- * Outscraper Contacts & Leads first (people + company inboxes); Apify Contact Details
- * Scraper crawls the website when Outscraper is missing or comes back empty.
+ * MoltSets first (verified email / LinkedIn / decision-maker); Outscraper Contacts & Leads
+ * as fallback; Apify Contact Details Scraper when both are empty.
  */
 
 const outscraper = require('./outscraperClient');
 const { resolveLeadDomain } = require('./outscraperLeadEnrich');
+const moltsetsClient = require('./moltsetsClient');
+const moltsetsLeadEnrich = require('./moltsetsLeadEnrich');
 const { normalizeSocialUrl } = require('./socialUrlNormalize');
 const { mergeContactLists } = require('./leadEmailContacts');
 const { normalizeEmail } = require('./leadDedupe');
@@ -54,9 +56,34 @@ function apifyToken(integrationEnv) {
 
 function finderConfigured(integrationEnv) {
   return {
+    moltsets: moltsetsClient.isConfigured(integrationEnv),
     outscraper: outscraper.isConfigured(integrationEnv),
     apify: !!apifyToken(integrationEnv),
   };
+}
+
+/** Map a MoltSets extract into the finder result shape. */
+function collectFromMoltsetsExtract(result, extract) {
+  if (!extract || typeof extract !== 'object') return;
+  const email = str(extract.email);
+  const phone = str(extract.phone);
+  const name = str(extract.decision_maker_name);
+  const linkedin = str(extract.linkedin);
+  if (email) addEmail(result, email);
+  if (phone) addPhone(result, phone);
+  if (name || email) {
+    addPerson(result, {
+      name,
+      title: str(extract.decision_maker_title || extract.title),
+      email,
+      phone,
+      linkedin,
+      source: 'MoltSets',
+    });
+  }
+  SOCIAL_KEYS.forEach((k) => {
+    if (str(extract[k])) setSocial(result, k, extract[k]);
+  });
 }
 
 function emptyResult(domain) {
@@ -216,13 +243,29 @@ async function findContactsForLead(lead, integrationEnv, opts = {}) {
     throw err;
   }
   const cfg = finderConfigured(integrationEnv);
-  if (!cfg.outscraper && !cfg.apify) {
-    const err = new Error('Connect Outscraper or Apify under Workspace → Integrations to find contacts.');
+  if (!cfg.moltsets && !cfg.outscraper && !cfg.apify) {
+    const err = new Error(
+      'Connect MoltSets, Outscraper, or Apify under Workspace → Integrations to find contacts.',
+    );
     err.code = 'not_configured';
     throw err;
   }
 
-  if (cfg.outscraper) {
+  if (cfg.moltsets) {
+    try {
+      const enrich = deps.enrichMoltsets || moltsetsLeadEnrich.enrichLeadForBusiness;
+      const pack = await enrich(lead, integrationEnv, { includeMobile: true });
+      if (pack && pack.extract && moltsetsLeadEnrich.extractHasSignal(pack.extract)) {
+        collectFromMoltsetsExtract(result, pack.extract);
+        result.sources.push('MoltSets');
+      }
+    } catch (e) {
+      result.errors.push(`MoltSets: ${e.message}`);
+    }
+  }
+
+  const moltsetsEmpty = !result.people.length && !result.emails.length;
+  if (cfg.outscraper && moltsetsEmpty) {
     try {
       const fetchRow = deps.fetchContactsAndLeads || outscraper.fetchContactsAndLeads;
       const row = await fetchRow({ query: domain, integrationEnv, contactsPerCompany: 5, emailsPerContact: 2 });
@@ -233,8 +276,8 @@ async function findContactsForLead(lead, integrationEnv, opts = {}) {
     }
   }
 
-  const outscraperEmpty = !result.people.length && !result.emails.length;
-  if (cfg.apify && outscraperEmpty) {
+  const stillEmpty = !result.people.length && !result.emails.length;
+  if (cfg.apify && stillEmpty) {
     try {
       const runApify = deps.runApify || runApifyContactScraper;
       const items = await runApify(lead.website || domain, integrationEnv);

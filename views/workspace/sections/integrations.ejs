@@ -145,7 +145,7 @@
           <div id="integration-rapidapi-website" class="rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 space-y-3 scroll-mt-28">
             <div>
               <h4 class="font-display font-bold text-sm text-brand-dark dark:text-white">Website contacts &amp; socials</h4>
-              <p class="text-xs text-brand-muted mt-1 leading-relaxed">Scrapes a lead&apos;s site for email, phone, and socials during background enrichment. Uses the same key above — no second key needed. <strong class="text-brand-dark dark:text-white">Get More Contacts</strong> still uses Outscraper / Apify.</p>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed">Scrapes a lead&apos;s site for email, phone, and socials during background enrichment. Uses the same key above — no second key needed. <strong class="text-brand-dark dark:text-white">Get More Contacts</strong> uses MoltSets first, then Outscraper / Apify.</p>
             </div>
             <details class="group">
               <summary class="cursor-pointer text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white list-none flex items-center gap-2">
@@ -335,9 +335,8 @@
               <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">MoltSets</h3>
               <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
                 <a href="https://moltsets.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">MoltSets</a>
-                — verified business emails, LinkedIn, decision-maker titles, and optional carrier-verified mobiles for
-                <strong>Enhance</strong>, <strong>Get More Contacts</strong>, and auto-outreach email find.
-                Keys look like <code class="text-[10px] px-1 rounded bg-brand-cream/60 dark:bg-slate-800">ms_…</code>.
+                — primary for <strong>Enhance</strong> and <strong>Get More Contacts</strong> (verified emails, LinkedIn, decision-makers, optional mobiles). Outscraper is the fallback when MoltSets finds nothing.
+                Also used for auto-outreach email find. Keys look like <code class="text-[10px] px-1 rounded bg-brand-cream/60 dark:bg-slate-800">ms_…</code>.
               </p>
             </div>
             <a href="https://developer.moltsets.com" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">

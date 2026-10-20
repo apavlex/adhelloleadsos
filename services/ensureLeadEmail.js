@@ -1,6 +1,6 @@
 /**
  * Find a real business email before auto-outreach enrolls to GHL.
- * Order: website scrape → RapidAPI website → Outscraper → MoltSets → BetterContact.
+ * Order: website scrape → RapidAPI website → MoltSets → Outscraper → BetterContact.
  * Never invents addresses. (Monid domain-unlock retired — use RapidAPI / Outscraper.)
  */
 const dbService = require('./database');
@@ -307,14 +307,14 @@ async function ensureLeadEmail(opts) {
       run: () => tryRapidApiWebsiteEmail(lead, integrationEnv),
     },
     {
-      label: 'outscraper_contacts',
-      ms: STEP_TIMEOUT_MS.outscraper_contacts,
-      run: () => tryOutscraperEmail(lead, integrationEnv),
-    },
-    {
       label: 'moltsets',
       ms: STEP_TIMEOUT_MS.moltsets,
       run: () => tryMoltsetsEmail(lead, integrationEnv),
+    },
+    {
+      label: 'outscraper_contacts',
+      ms: STEP_TIMEOUT_MS.outscraper_contacts,
+      run: () => tryOutscraperEmail(lead, integrationEnv),
     },
     {
       label: 'bettercontact',

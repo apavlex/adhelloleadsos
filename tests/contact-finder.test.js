@@ -55,6 +55,49 @@ test('findContactsForLead maps every Outscraper decision maker, email, phone and
   assert.match(result.socials.linkedin, /linkedin\.com\/company\/kips-hardwood/);
 });
 
+test('MoltSets is primary; Outscraper only runs when MoltSets finds nothing', async () => {
+  let outscraperCalled = false;
+  const withMoltsets = await contactFinder.findContactsForLead(
+    lead,
+    { ...OUTSCRAPER_ENV, MOLTSETS_API_KEY: 'ms_test' },
+    {
+      deps: {
+        enrichMoltsets: async () => ({
+          used: true,
+          extract: {
+            email: 'owner@kipshardwoodflooring.com',
+            decision_maker_name: 'Kip Walker',
+            linkedin: 'https://www.linkedin.com/in/kip',
+          },
+        }),
+        fetchContactsAndLeads: async () => {
+          outscraperCalled = true;
+          return outscraperRow;
+        },
+        runApify: async () => assert.fail('Apify should not run when MoltSets found contacts'),
+      },
+    },
+  );
+  assert.deepEqual(withMoltsets.sources, ['MoltSets']);
+  assert.equal(outscraperCalled, false);
+  assert.equal(withMoltsets.emails[0], 'owner@kipshardwoodflooring.com');
+  assert.equal(withMoltsets.people[0].name, 'Kip Walker');
+
+  const fallback = await contactFinder.findContactsForLead(
+    lead,
+    { ...OUTSCRAPER_ENV, MOLTSETS_API_KEY: 'ms_test' },
+    {
+      deps: {
+        enrichMoltsets: async () => ({ used: false, extract: {} }),
+        fetchContactsAndLeads: async () => outscraperRow,
+        runApify: async () => assert.fail('Apify should not run when Outscraper found contacts'),
+      },
+    },
+  );
+  assert.deepEqual(fallback.sources, ['Outscraper']);
+  assert.ok(fallback.emails.includes('kip@kipshardwoodflooring.com'));
+});
+
 test('Apify website crawl is the fallback when Outscraper is missing or empty', async () => {
   const items = [
     { url: 'https://acme.example/', emails: ['hello@acme.example'], phones: ['360-555-0199'], facebooks: ['https://facebook.com/acmefloors'], linkedIns: ['https://www.linkedin.com/in/someone', 'https://www.linkedin.com/company/acme'] },
@@ -290,7 +333,7 @@ test('directory listing websites (Procore, Yelp…) are not searched as the comp
   assert.equal(called, false);
 });
 
-test('Get more contacts button (Money mode + panel) runs the Outscraper / Apify finder', async () => {
+test('Get more contacts button (Money mode + panel) runs the contact finder', async () => {
   const dom = new JSDOM(
     '<body><button id="focus-rapidapi-enrich-btn" data-lead-key="lead:az">Get more contacts</button><p id="focus-rapidapi-enrich-status" class="hidden"></p></body>',
     { url: 'https://leads.example/focus', runScripts: 'outside-only' },

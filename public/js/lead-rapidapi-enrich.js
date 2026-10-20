@@ -1,5 +1,5 @@
 /**
- * "Get more contacts" (Focus + company panel) — same Outscraper / Apify search as the pipeline's
+ * "Get more contacts" (Focus + company panel) — MoltSets first, Outscraper / Apify fallback; same as the pipeline's
  * Find a contact column (POST /leads/:key/find-contacts). Binds before app.js (same pattern as lead-contact-hunt.js).
  */
 (function (global) {
@@ -135,7 +135,7 @@
         setProgress(btn, Math.min(92, cur + (cur < 50 ? 6 : 2)));
       }, 450);
     }
-    setStatus(opts.statusEl, 'Searching Outscraper / Apify for people, emails & socials — up to a minute…', false);
+    setStatus(opts.statusEl, 'Searching MoltSets (Outscraper fallback) for people, emails & socials — up to a minute…', false);
     toast('Getting more contacts…', 'info');
 
     try {

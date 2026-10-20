@@ -347,7 +347,7 @@
     const scope = selected ? 'selected' : 'visible, not yet searched';
     const extra = rows.length > cap ? ` (first ${cap} of ${rows.length})` : '';
     const ok = await confirmBulk(
-      `Find contacts for ${batch.length} ${scope} lead${batch.length === 1 ? '' : 's'}${extra}? Each search uses Outscraper / Apify credits.`,
+      `Find contacts for ${batch.length} ${scope} lead${batch.length === 1 ? '' : 's'}${extra}? Each search uses MoltSets (Outscraper / Apify fallback) credits.`,
     );
     if (!ok) return;
 
