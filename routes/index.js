@@ -150,15 +150,9 @@ async function renderFindLeads(req, res, next) {
   }
 }
 
-router.get('/', (req, res) => {
-  if (req.session && req.session.userId) {
-    return res.redirect(302, '/today');
-  }
-  res.render('home', { title: 'AdHello — AI Consultant for Local Business' });
-});
-router.get('/home', (req, res) => {
-  res.render('home', { title: 'AdHello — AI Consultant for Local Business' });
-});
+/** Authenticated fallback — public `/` is handled in server.js (sign-in / reviews → /app). */
+router.get('/', (req, res) => res.redirect(302, '/today'));
+router.get('/home', (req, res) => res.redirect(302, '/today'));
 router.get('/leads/find', renderFindLeads);
 
 router.get('/leads/find/real-estate', (req, res) => {
