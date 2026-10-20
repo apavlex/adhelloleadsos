@@ -6,6 +6,8 @@
  * (e.g. services/socialBrandIcons.js, services/salesConstants.js). Class names must appear as
  * complete literals somewhere in these files — never build them like `'bg-' + color`.
  */
+const { appBrandColors } = require('./lib/tailwindBrandColors');
+
 module.exports = {
   darkMode: 'class',
   content: [
@@ -27,15 +29,7 @@ module.exports = {
         display: ['Manrope', 'sans-serif'],
       },
       colors: {
-        brand: {
-          bg: 'var(--brand-bg)',
-          cream: 'var(--brand-cream)',
-          yellow: 'var(--brand-yellow)',
-          yellowHover: '#FACC15',
-          dark: 'var(--brand-dark)',
-          muted: 'var(--brand-muted)',
-          border: 'var(--brand-border)',
-        },
+        brand: appBrandColors,
       },
       borderRadius: {
         '4xl': '2rem',

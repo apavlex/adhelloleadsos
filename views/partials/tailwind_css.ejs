@@ -46,13 +46,14 @@
         },
         colors: {
           brand: {
-            bg: 'var(--brand-bg)',
-            cream: 'var(--brand-cream)',
-            yellow: 'var(--brand-yellow)',
-            yellowHover: '#FACC15',
-            dark: 'var(--brand-dark)',
-            muted: 'var(--brand-muted)',
-            border: 'var(--brand-border)',
+            // <alpha-value> so /15 /50 modifiers honor --brand-yellow (workspace accent).
+            bg: 'color-mix(in srgb, var(--brand-bg) calc(100% * <alpha-value>), transparent)',
+            cream: 'color-mix(in srgb, var(--brand-cream) calc(100% * <alpha-value>), transparent)',
+            yellow: 'color-mix(in srgb, var(--brand-yellow) calc(100% * <alpha-value>), transparent)',
+            yellowHover: 'color-mix(in srgb, var(--brand-yellow) calc(100% * <alpha-value>), transparent)',
+            dark: 'color-mix(in srgb, var(--brand-dark) calc(100% * <alpha-value>), transparent)',
+            muted: 'color-mix(in srgb, var(--brand-muted) calc(100% * <alpha-value>), transparent)',
+            border: 'color-mix(in srgb, var(--brand-border) calc(100% * <alpha-value>), transparent)',
           }
         },
         borderRadius: {
