@@ -80,6 +80,40 @@ test('listCustomers sorts recent to oldest by updatedAt', async () => {
   );
 });
 
+test('customer sort prefers latest SMS/call touch like notifications', () => {
+  const index = work.buildLeadTouchIndex([
+    {
+      ghlContactId: 'ghl_sms',
+      phone: '360-555-0100',
+      inboundEvents: [{ type: 'sms', at: '2026-10-21T21:45:00.000Z' }],
+    },
+    {
+      phone: '503-555-0199',
+      inboundEvents: [{ type: 'missed_call', at: '2026-10-20T12:00:00.000Z' }],
+    },
+  ]);
+  const freshSms = {
+    name: 'C Hattenhauer',
+    ghlContactId: 'ghl_sms',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+  const olderCall = {
+    name: 'Will Wormington',
+    phone: '5035550199',
+    updatedAt: '2026-10-21T00:00:00.000Z',
+  };
+  const stale = {
+    name: 'Old Contact',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  };
+  const rows = [stale, olderCall, freshSms].map((c) => ({
+    ...c,
+    lastTouchMs: Math.max(work.customerLastTouchMs(c), work.leadTouchMsForCustomer(c, index)),
+  }));
+  rows.sort(work.compareCustomersRecentFirst);
+  assert.deepEqual(rows.map((r) => r.name), ['C Hattenhauer', 'Will Wormington', 'Old Contact']);
+});
+
 test('customers and jobs are scoped to one member of one network', async () => {
   const mine = await work.saveCustomer(NET, MEM_B, { name: 'Bo' });
   assert.equal((await work.listCustomers(NET, MEM_B)).length, 1);

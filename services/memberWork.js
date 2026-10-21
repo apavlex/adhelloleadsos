@@ -357,12 +357,86 @@ async function countKeys(prefix) {
 const custPrefix = (networkId, memberId) => `netcust:${scope(networkId, memberId)}:`;
 const jobPrefix = (networkId, memberId) => `netjob:${scope(networkId, memberId)}:`;
 
-/** Newest activity first (updatedAt, then createdAt), then name. */
+function toTouchMs(raw) {
+  const t = Date.parse(String(raw || ''));
+  return Number.isFinite(t) ? t : 0;
+}
+
+/**
+ * Latest local touch on a customer: profile edits, CRM sync, and job activity.
+ * Optional lastTouchMs (e.g. from matched GHL SMS/call) wins when newer.
+ */
+function customerLastTouchMs(customer, jobsForCustomer = []) {
+  let best = Number(customer && customer.lastTouchMs) || 0;
+  const bump = (v) => {
+    const t = toTouchMs(v);
+    if (t > best) best = t;
+  };
+  bump(customer && customer.updatedAt);
+  bump(customer && customer.createdAt);
+  bump(customer && customer.ghlSyncedAt);
+  for (const j of Array.isArray(jobsForCustomer) ? jobsForCustomer : []) {
+    bump(j && j.updatedAt);
+    bump(j && j.createdAt);
+    bump(j && j.completedAt);
+  }
+  return best;
+}
+
+/** Newest touch first (SMS/call/job/update), then name. */
 function compareCustomersRecentFirst(a, b) {
-  const aKey = String((a && (a.updatedAt || a.createdAt)) || '');
-  const bKey = String((b && (b.updatedAt || b.createdAt)) || '');
-  if (aKey !== bKey) return bKey.localeCompare(aKey);
+  const aMs = customerLastTouchMs(a);
+  const bMs = customerLastTouchMs(b);
+  if (aMs !== bMs) return bMs - aMs;
   return String((a && a.name) || '').localeCompare(String((b && b.name) || ''));
+}
+
+/**
+ * Index latest CRM lead activity (inbound SMS/calls + updates) by GHL id / phone
+ * so the Customers list can sort like the notifications inbox.
+ */
+function buildLeadTouchIndex(leads) {
+  const byGhlId = new Map();
+  const byPhone = new Map();
+  const bump = (map, key, ms) => {
+    const k = String(key || '').trim();
+    if (!k || !ms) return;
+    const prev = map.get(k) || 0;
+    if (ms > prev) map.set(k, ms);
+  };
+  for (const lead of Array.isArray(leads) ? leads : []) {
+    if (!lead || typeof lead !== 'object') continue;
+    let best = toTouchMs(lead.updatedAt) || toTouchMs(lead.createdAt);
+    const events = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+    for (const ev of events) {
+      const t = toTouchMs(ev && ev.at);
+      if (t > best) best = t;
+    }
+    const updates = Array.isArray(lead.updates) ? lead.updates : [];
+    for (const u of updates) {
+      const t = toTouchMs(u && u.timestamp);
+      if (t > best) best = t;
+    }
+    if (!best) continue;
+    bump(byGhlId, lead.ghlContactId, best);
+    const digits = phoneDigits(lead.phone);
+    if (digits.length >= 7) bump(byPhone, digits.slice(-10), best);
+  }
+  return { byGhlId, byPhone };
+}
+
+function leadTouchMsForCustomer(customer, touchIndex) {
+  if (!customer || !touchIndex) return 0;
+  const ghlId = String(customer.ghlContactId || '').trim();
+  let best = 0;
+  if (ghlId && touchIndex.byGhlId && touchIndex.byGhlId.has(ghlId)) {
+    best = Math.max(best, touchIndex.byGhlId.get(ghlId) || 0);
+  }
+  const digits = phoneDigits(customer.phone);
+  if (digits.length >= 7 && touchIndex.byPhone) {
+    best = Math.max(best, touchIndex.byPhone.get(digits.slice(-10)) || 0);
+  }
+  return best;
 }
 
 async function listCustomers(networkId, memberId) {
@@ -1053,7 +1127,11 @@ module.exports = {
   normalizeCustomerTags,
   normalizeJob,
   findCustomerMatch,
+  toTouchMs,
+  customerLastTouchMs,
   compareCustomersRecentFirst,
+  buildLeadTouchIndex,
+  leadTouchMsForCustomer,
   listCustomers,
   getCustomer,
   saveCustomer,
