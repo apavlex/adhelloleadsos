@@ -89,13 +89,26 @@
     );
   }
 
-  /** Resolve Open to an in-app path (base + /customers/c/:id). External URLs keep target=_blank. */
-  function portalHref(path) {
-    var href = String(path || '').trim();
-    if (!href) return '';
-    if (/^https?:/i.test(href)) return href;
-    if (href.charAt(0) === '/') return base + href;
-    return base + '/' + href;
+  /**
+   * Open must stay inside the Reviews member app (/m/:token/customers/...).
+   * Never use absolute hosts, /focus, or /pipeline — those hit the leads
+   * workspace Google login instead of the customer profile.
+   */
+  function ghlProfileHref(item) {
+    var id = String((item && item.customerId) || '').trim();
+    if (id) return base + '/customers/c/' + encodeURIComponent(id);
+    var raw = String((item && item.openHref) || '').trim();
+    if (
+      !raw ||
+      /^https?:/i.test(raw) ||
+      raw.indexOf('//') === 0 ||
+      /^\/?(focus|pipeline|leads|prospecting)(\?|\/|$)/i.test(raw)
+    ) {
+      return base + '/customers';
+    }
+    if (raw.indexOf('/customers') === 0) return base + raw;
+    if (raw.charAt(0) === '/') return base + raw;
+    return base + '/customers';
   }
 
   function ghlHtml(item) {
@@ -103,10 +116,7 @@
       ? (item.kind === 'sms' ? 'Lead Connector' : 'Call in LC')
       : (item.kind === 'sms' ? 'Reply' : 'Call back');
     var callAttrs = item.callOpensLeadConnector ? ' target="_blank" rel="noopener noreferrer"' : '';
-    var rawOpen = item.openHref || '';
-    var openHref = portalHref(rawOpen);
-    // Open is the in-app profile (or customers search) — never force GHL in a new tab.
-    var openAttrs = openHref && /^https?:/i.test(rawOpen) ? ' target="_blank" rel="noopener noreferrer"' : '';
+    var openHref = ghlProfileHref(item);
     var meta = esc(item.typeLabel || kindLabel(item.kind)) +
       (item.label ? ' · ' + esc(item.label) : '') +
       (item.at ? ' · ' + esc(ago(item.at)) : '');
@@ -117,10 +127,10 @@
         (item.preview ? '<span>' + esc(item.preview) + '</span>' : '') +
         '<div class="ma-bell__ghl-actions">' +
           (item.callHref
-            ? '<a class="ma-bell__ghl-btn" href="' + esc(item.callHref) + '"' + callAttrs + '>' + esc(callLabel) + '</a>'
+            ? '<a class="ma-bell__ghl-btn" href="' + esc(item.callHref) + '"' + callAttrs + ' data-ma-no-nav-progress>' + esc(callLabel) + '</a>'
             : '') +
           (openHref
-            ? '<a class="ma-bell__ghl-link" href="' + esc(openHref) + '"' + openAttrs + '>Open</a>'
+            ? '<a class="ma-bell__ghl-link" href="' + esc(openHref) + '" data-ma-bell-ghl-open>Open</a>'
             : '') +
           '<button type="button" class="ma-bell__ghl-link" data-ma-bell-ghl-done="' + esc(item.leadKey) + '">Done</button>' +
         '</div>' +
