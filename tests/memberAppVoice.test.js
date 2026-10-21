@@ -172,6 +172,9 @@ test('new customer form includes speak-once mic only (no field mics)', async () 
     assert.match(css, /\.ma-voice-add__mic[\s\S]*?88px/);
     assert.match(css, /\.ma-voice-add__status\[hidden\]/);
     assert.match(css, /align-items:\s*center/);
+    // Mic + stop/spin stack at the circle center; stop/spin stay hidden.
+    assert.match(css, /\.ma-voice-add__mic \.alex-voice-icon[\s\S]*?translate\(-50%,\s*-50%\)/);
+    assert.match(css, /\.alex-voice-btn\.ma-voice-add__mic \.alex-voice-icon--stop[\s\S]*?display:\s*none\s*!important/);
     assert.match(js, /hideIfUnsupported:\s*false/);
     assert.match(js, /preventFocus:\s*true/);
     assert.match(js, /data-state',\s*'listening'/);
@@ -179,6 +182,8 @@ test('new customer form includes speak-once mic only (no field mics)', async () 
     assert.match(voice, /preventFocus/);
     assert.match(voice, /alex-voice-icon--stop/);
     assert.match(head, /maVoiceMicPulseCritical/);
+    assert.match(head, /translate\(-50%,-50%\)/);
+    assert.match(head, /\.alex-voice-btn\.ma-voice-add__mic \.alex-voice-icon--stop/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
