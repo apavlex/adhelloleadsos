@@ -34,7 +34,7 @@
   <% } %>
   <% if (integrationsReady) { %>
   <% const masks = integrationMasks || {}; %>
-  <% let _mapsPrimary = (mapsSearchPrimary || 'rapidapi').toString().toLowerCase(); if (_mapsPrimary === 'monid' || !_mapsPrimary) _mapsPrimary = 'rapidapi'; %>
+  <% let _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); if (_mapsPrimary === 'monid' || !_mapsPrimary) _mapsPrimary = 'auto'; %>
   <% const _enrichPrimary = (enrichPrimary || 'auto').toString().toLowerCase(); %>
   <% let _contactEnrichPrimary = (contactEnrichPrimary || 'moltsets').toString().toLowerCase(); if (_contactEnrichPrimary !== 'outscraper') _contactEnrichPrimary = 'moltsets'; %>
   <% const _mapsProviders = Array.isArray(mapsProviderStatus) ? mapsProviderStatus : []; %>
@@ -78,7 +78,8 @@
           </div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
           <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-            <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' || _mapsPrimary === '' || _mapsPrimary === 'auto' ? 'selected' : '' %>>RapidAPI → Outscraper fallback (recommended)</option>
+            <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto — RapidAPI → SearchAPI → SerpAPI → Oxylabs → Outscraper → Apify (recommended)</option>
+            <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI → Outscraper only</option>
             <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io only</option>
             <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI only</option>
             <option value="oxylabs" <%= _mapsPrimary === 'oxylabs' ? 'selected' : '' %>>Oxylabs only</option>

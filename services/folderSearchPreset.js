@@ -22,8 +22,8 @@ const LAND_MODE_LABELS = {
 };
 
 const MAPS_PROVIDER_LABELS = {
-  auto: 'Auto (best available)',
-  rapidapi: 'RapidAPI',
+  auto: 'Auto (all providers)',
+  rapidapi: 'RapidAPI → Outscraper',
   searchapi: 'SearchAPI.io',
   serpapi: 'SerpAPI',
   oxylabs: 'Oxylabs',
