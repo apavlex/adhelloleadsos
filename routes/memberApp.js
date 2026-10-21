@@ -1147,6 +1147,11 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     ));
   const today = work.todayIn(memberTimeZone(req));
   const openJobCount = jobs.filter((j) => j && ['lead', 'estimate', 'scheduled', 'in_progress', 'on_hold'].includes(String(j.status || '').toLowerCase())).length;
+  const contactLeadCount = customers.filter((c) => c && c.isLead).length;
+  const formLeadCount = (ctx.appointment && Array.isArray(ctx.appointment.formLeads))
+    ? ctx.appointment.formLeads.filter((f) => f && f.status !== 'closed').length
+    : 0;
+  const openLeadCount = contactLeadCount + formLeadCount;
   // Appointment recent leads: name-only teasers for free / trial members.
   if (ctx.appointment && Array.isArray(ctx.appointment.recentLeads) && !leadDetailsAllowed) {
     ctx.appointment = {
@@ -1159,9 +1164,9 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   }
   render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
-    // Open jobs → customers → referrals (review visits live on the banner secondary line).
+    // Leads → customers → referrals (hero still shows open jobs; review visits on secondary line).
     tiles: [
-      { key: 'jobs', label: 'Open jobs', value: openJobCount, href: `${ctx.base}/customers`, icon: 'customers' },
+      { key: 'leads', label: 'Leads', value: openLeadCount, href: `${ctx.base}/referrals`, icon: 'leads' },
       { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
       { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
       { key: 'sent', label: 'Sent', value: stats.given, href: `${ctx.base}/referrals?view=sent`, icon: 'send' },
@@ -1169,6 +1174,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     reviewViews: reviewStats.views || 0,
     customerCount: customers.length,
     openJobCount,
+    openLeadCount,
     wonValue: money(stats.wonValue),
     waiting,
     leadRequest,
