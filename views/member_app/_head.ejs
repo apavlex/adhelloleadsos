@@ -173,6 +173,11 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn{background:color-mix(in srgb,va
 .ma-voice-btn[data-state=listening] .alex-voice-icon--mic,.ma-voice-btn[data-state=transcribing] .alex-voice-icon--mic{display:none!important}
 .ma-voice-btn[data-state=listening] .alex-voice-icon--stop{display:block!important;width:14px!important;height:14px!important}
 .ma-voice-btn[data-state=transcribing] .alex-voice-icon--spin{display:block!important;width:16px!important;height:16px!important;border:2px solid currentColor;border-right-color:transparent;border-radius:9999px}
+/* New-customer speak-once: one big mic (never the tiny field style) */
+.ma-voice-add__mic,.alex-voice-btn.ma-voice-add__mic{position:relative;display:inline-flex!important;align-items:center;justify-content:center;width:88px!important;height:88px!important;margin:0;padding:0;border:3px solid color-mix(in srgb,var(--acc,#2563eb) 70%,var(--line,#e2e8f0));border-radius:999px!important;background:var(--card,#fff);color:var(--acc,#2563eb);cursor:pointer;flex:0 0 88px!important;-webkit-appearance:none;appearance:none;box-sizing:border-box}
+.ma-voice-add__mic .alex-voice-icon,.alex-voice-btn.ma-voice-add__mic .alex-voice-icon{width:40px!important;height:40px!important;flex:0 0 40px;display:block!important}
+.ma-voice-add__mic .alex-voice-icon--stop,.ma-voice-add__mic .alex-voice-icon--spin{display:none!important}
+.ma-voice-add__mic[data-state=listening]{background:#ef4444!important;border-color:#ef4444!important;color:#fff!important}
 .ma-mark-lead{flex:0 0 auto;min-height:32px;padding:6px 10px;font-size:12px}
 .ma-label-actions{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}
 /* Bring in customers — thin strip even if SW serves a stale member-app.css */

@@ -314,7 +314,7 @@
               <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
             </button>
           </div>
-          <p class="ma-hint ma-voice-hint" style="margin:10px 0 0;text-align:center">Tap the mic and say it all at once — name, phone, email, address, notes. We’ll fill the form and ask you to confirm.</p>
+          <p class="ma-hint ma-voice-hint" style="margin:12px 0 0;text-align:center">Tap the mic and say it all at once — name, phone, email, address, notes. We’ll fill the form and ask you to confirm.</p>
           <p class="ma-hint" id="maVoiceAddCustomerStatus" role="status" aria-live="polite" style="margin:8px 0 0;text-align:center"></p>
           <textarea id="maVoiceAddCustomerCapture" class="ma-sr-only" maxlength="4000" tabindex="-1" aria-hidden="true"></textarea>
         </div>
@@ -323,18 +323,18 @@
         <div class="ma-field">
           <div class="ma-label-row">
             <label class="ma-label" for="cuName">Name</label>
+            <% if (customer) { %>
             <span class="ma-label-actions">
-              <% if (customer) { %>
               <% if (customer.isLead) { %>
               <button type="submit" form="maUnmarkLeadForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
               <% } else { %>
               <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
               <% } %>
-              <% } %>
               <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuName" aria-label="Dictate customer name" title="Tap to speak — hands-free while driving" aria-pressed="false">
                 <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
               </button>
             </span>
+            <% } %>
           </div>
           <input id="cuName" name="name" class="ma-input" maxlength="120" value="<%= fv.name || '' %>" required autocapitalize="words" <%= customer ? '' : 'autofocus' %>>
         </div>
@@ -342,18 +342,22 @@
           <div class="ma-field">
             <div class="ma-label-row">
               <label class="ma-label" for="cuPhone">Phone</label>
+              <% if (customer) { %>
               <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuPhone" aria-label="Dictate phone number" title="Tap to speak" aria-pressed="false">
                 <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
               </button>
+              <% } %>
             </div>
             <input id="cuPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.phone || '' %>">
           </div>
           <div class="ma-field">
             <div class="ma-label-row">
               <label class="ma-label" for="cuEmail">Email</label>
+              <% if (customer) { %>
               <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuEmail" aria-label="Dictate email" title="Tap to speak" aria-pressed="false">
                 <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
               </button>
+              <% } %>
             </div>
             <input id="cuEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= fv.email || '' %>">
           </div>
@@ -366,22 +370,26 @@
           <div class="ma-label-row">
             <label class="ma-label" for="cuAddress">Address</label>
             <span class="ma-label-actions">
+              <% if (customer) { %>
               <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuAddress" aria-label="Dictate address" title="Tap to speak — hands-free while driving" aria-pressed="false">
                 <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
               </button>
+              <% } %>
               <% if (addressMapsHref) { %><a class="ma-label-link" href="<%= addressMapsHref %>" target="_blank" rel="noopener">Google Maps</a><% } %>
             </span>
           </div>
-          <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address" placeholder="Street, city… Tap the mic to dictate.">
+          <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address" placeholder="<%= customer ? 'Street, city… Tap the mic to dictate.' : 'Street, city…' %>">
         </div>
         <div class="ma-field">
           <div class="ma-label-row">
             <label class="ma-label" for="cuNotes">Notes</label>
+            <% if (customer) { %>
             <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuNotes" aria-label="Dictate notes" title="Tap to speak — hands-free while driving" aria-pressed="false">
               <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
             </button>
+            <% } %>
           </div>
-          <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history… Tap the mic to dictate."><%= fv.notes || '' %></textarea>
+          <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="<%= customer ? 'Gate code, preferences, history… Tap the mic to dictate.' : 'Gate code, preferences, history…' %>"><%= fv.notes || '' %></textarea>
           <% if (customer) { %><p class="ma-hint ma-voice-hint">Mic works while driving — tap, speak, tap again to stop.</p><% } %>
         </div>
         <button type="submit" class="ma-btn ma-btn--block" id="maCustomerSubmitBtn"><%- icons.completed %> <%= customer ? 'Save changes' : 'Add customer' %></button>
