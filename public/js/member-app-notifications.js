@@ -89,14 +89,24 @@
     );
   }
 
+  /** Resolve Open to an in-app path (base + /customers/c/:id). External URLs keep target=_blank. */
+  function portalHref(path) {
+    var href = String(path || '').trim();
+    if (!href) return '';
+    if (/^https?:/i.test(href)) return href;
+    if (href.charAt(0) === '/') return base + href;
+    return base + '/' + href;
+  }
+
   function ghlHtml(item) {
     var callLabel = item.callOpensLeadConnector
       ? (item.kind === 'sms' ? 'Lead Connector' : 'Call in LC')
       : (item.kind === 'sms' ? 'Reply' : 'Call back');
     var callAttrs = item.callOpensLeadConnector ? ' target="_blank" rel="noopener noreferrer"' : '';
-    var openAttrs = item.openHref && /^https?:/i.test(item.openHref)
-      ? ' target="_blank" rel="noopener noreferrer"'
-      : '';
+    var rawOpen = item.openHref || '';
+    var openHref = portalHref(rawOpen);
+    // Open is the in-app profile (or customers search) — never force GHL in a new tab.
+    var openAttrs = openHref && /^https?:/i.test(rawOpen) ? ' target="_blank" rel="noopener noreferrer"' : '';
     var meta = esc(item.typeLabel || kindLabel(item.kind)) +
       (item.label ? ' · ' + esc(item.label) : '') +
       (item.at ? ' · ' + esc(ago(item.at)) : '');
@@ -109,8 +119,8 @@
           (item.callHref
             ? '<a class="ma-bell__ghl-btn" href="' + esc(item.callHref) + '"' + callAttrs + '>' + esc(callLabel) + '</a>'
             : '') +
-          (item.openHref
-            ? '<a class="ma-bell__ghl-link" href="' + esc(item.openHref) + '"' + openAttrs + '>Open</a>'
+          (openHref
+            ? '<a class="ma-bell__ghl-link" href="' + esc(openHref) + '"' + openAttrs + '>Open</a>'
             : '') +
           '<button type="button" class="ma-bell__ghl-link" data-ma-bell-ghl-done="' + esc(item.leadKey) + '">Done</button>' +
         '</div>' +

@@ -82,6 +82,7 @@ describe('memberGhlAlerts', () => {
       workspaceId: WID,
       title: 'T Munezero',
       phone: '+15551112222',
+      ghlContactId: 'ghl_contact_tm',
       inboundEvents: [
         {
           id: 'm1',
@@ -100,10 +101,20 @@ describe('memberGhlAlerts', () => {
       ],
     });
 
+    const work = require('../services/memberWork');
+    const saved = await work.saveCustomer(NID, 'owner', {
+      name: 'T Munezero',
+      phone: '+15551112222',
+    }, { ghlContactId: 'ghl_contact_tm', source: 'ghl' });
+    assert.equal(saved.ok, true);
+
     const rows = await memberGhlAlerts.listPendingForMember(owner, network, { now });
     assert.equal(rows.length, 1);
     assert.equal(rows[0].kind, 'missed_call');
     assert.match(rows[0].title, /T Munezero/);
+    assert.equal(rows[0].customerId, saved.customer.id);
+    assert.equal(rows[0].openHref, `/customers/c/${encodeURIComponent(saved.customer.id)}`);
+    assert.doesNotMatch(rows[0].openHref, /gohighlevel|leadconnector/i);
 
     const off = await store.saveMember(NID, { ...owner, ghlAlertsEnabled: false });
     assert.equal((await memberGhlAlerts.listPendingForMember(off, network, { now })).length, 0);
@@ -148,6 +159,8 @@ describe('memberGhlAlerts', () => {
     assert.match(js, /ghlAlertsEnabled/);
     assert.match(js, /Waiting on a reply/);
     assert.match(js, /GHL_KINDS/);
+    assert.match(js, /function portalHref/);
+    assert.match(js, /portalHref\(rawOpen\)/);
     assert.match(css, /\.ma-bell__ghl-row/);
     assert.match(route, /activity\/ghl-alerts/);
     assert.match(route, /activity\/ghl-done/);
