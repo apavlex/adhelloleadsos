@@ -171,7 +171,7 @@ test('customers: mark-as-lead routes put contact on Leads Received', async () =>
 
     const marked = await post(`${A}/customers/c/${saved.customer.id}/mark-lead`, {});
     assert.equal(marked.status, 303);
-    assert.match(marked.headers.get('location') || '', /ok=marked_lead/);
+    assert.match(marked.headers.get('location') || '', /\/referrals\?ok=marked_lead/);
 
     const after = await work.getCustomer(network.id, member.id, saved.customer.id);
     assert.equal(after.isLead, true);
@@ -180,14 +180,20 @@ test('customers: mark-as-lead routes put contact on Leads Received', async () =>
     assert.match(leadsPage, /From contacts/);
     assert.match(leadsPage, /Inbound Texter/);
     assert.match(leadsPage, /contact-lead-/);
-    assert.match(leadsPage, /Remove from Leads/);
+    assert.match(leadsPage, /Mark as customer/);
+    assert.match(leadsPage, /mark-customer/);
 
-    const unmarked = await post(`${A}/customers/c/${saved.customer.id}/unmark-lead`, {
-      back: `${A}/referrals`,
-    });
-    assert.equal(unmarked.status, 303);
-    assert.match(unmarked.headers.get('location') || '', /ok=unmarked_lead/);
+    const customersHidden = await (await fetch(`${A}/customers`)).text();
+    assert.doesNotMatch(customersHidden, /Inbound Texter/);
+    assert.match(customersHidden, /Open Leads/);
+
+    const asCustomer = await post(`${A}/customers/c/${saved.customer.id}/mark-customer`, {});
+    assert.equal(asCustomer.status, 303);
+    assert.match(asCustomer.headers.get('location') || '', /\/customers\/c\/[^?]+\/?\?ok=marked_customer/);
     assert.equal((await work.getCustomer(network.id, member.id, saved.customer.id)).isLead, false);
+
+    const customersShown = await (await fetch(`${A}/customers`)).text();
+    assert.match(customersShown, /Inbound Texter/);
   } finally {
     await new Promise((r) => server.close(r));
   }

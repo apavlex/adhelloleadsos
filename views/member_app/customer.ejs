@@ -326,9 +326,9 @@
             <span class="ma-label-actions">
               <% if (customer) { %>
               <% if (customer.isLead) { %>
-              <button type="submit" form="maUnmarkLeadForm" class="ma-label-link">Remove from Leads</button>
+              <button type="submit" form="maUnmarkLeadForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
               <% } else { %>
-              <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as lead</button>
+              <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
               <% } %>
               <% } %>
               <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuName" aria-label="Dictate customer name" title="Tap to speak — hands-free while driving" aria-pressed="false">

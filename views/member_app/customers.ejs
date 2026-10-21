@@ -80,15 +80,29 @@
         <%- icons.search %>
         <input class="ma-input" type="search" name="q" value="<%= q %>" placeholder="Search by name or phone…" aria-label="Search customers" autocomplete="off" autocorrect="off" spellcheck="false">
         <% if (typeof showPartners !== 'undefined' && showPartners) { %><input type="hidden" name="partners" value="1"><% } %>
+        <% if (typeof showLeads !== 'undefined' && showLeads) { %><input type="hidden" name="leads" value="1"><% } %>
       </form>
       <% if (typeof partnerCount === 'number' && partnerCount > 0) { %>
       <p class="ma-hint ma-cust-partner-filter" style="margin:10px 0 0">
         <% if (showPartners) { %>
           Showing <%= partnerCount %> referral partner<%= partnerCount === 1 ? '' : 's' %> from CRM.
-          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined }) %>">Hide partners</a>
+          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, leads: (typeof showLeads !== 'undefined' && showLeads) ? '1' : undefined }) %>">Hide partners</a>
         <% } else { %>
           <%= hiddenPartnerCount %> referral partner<%= hiddenPartnerCount === 1 ? '' : 's' %> hidden (tagged in CRM).
-          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: '1' }) %>">Show partners</a>
+          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: '1', leads: (typeof showLeads !== 'undefined' && showLeads) ? '1' : undefined }) %>">Show partners</a>
+        <% } %>
+      </p>
+      <% } %>
+      <% if (typeof leadCount === 'number' && leadCount > 0) { %>
+      <p class="ma-hint ma-cust-lead-filter" style="margin:10px 0 0">
+        <% if (typeof showLeads !== 'undefined' && showLeads) { %>
+          Showing <%= leadCount %> lead<%= leadCount === 1 ? '' : 's' %> in this list.
+          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined }) %>">Hide leads</a>
+          · <a class="ma-label-link" href="<%= base %>/referrals">Open Leads</a>
+        <% } else { %>
+          <%= typeof hiddenLeadCount === 'number' ? hiddenLeadCount : leadCount %> lead<%= (typeof hiddenLeadCount === 'number' ? hiddenLeadCount : leadCount) === 1 ? '' : 's' %> in your Leads folder.
+          <a class="ma-label-link" href="<%= base %>/referrals">Open Leads</a>
+          · <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined, leads: '1' }) %>">Show here</a>
         <% } %>
       </p>
       <% } %>
@@ -96,7 +110,10 @@
       <% if (!rows.length) { %>
       <div class="ma-card ma-empty">
         <%- icons.people %>
-        <% if (typeof partnerCount === 'number' && partnerCount > 0 && !(typeof showPartners !== 'undefined' && showPartners)) { %>
+        <% if (typeof leadCount === 'number' && leadCount > 0 && !(typeof showLeads !== 'undefined' && showLeads)) { %>
+        <p>No customers in this list — <%= leadCount %> lead<%= leadCount === 1 ? '' : 's' %> <%= leadCount === 1 ? 'is' : 'are' %> in Leads. Mark one as customer to move it here.</p>
+        <a class="ma-btn ma-btn--block" href="<%= base %>/referrals" style="margin-top:12px;max-width:240px"><%- icons.leads %> Open Leads</a>
+        <% } else if (typeof partnerCount === 'number' && partnerCount > 0 && !(typeof showPartners !== 'undefined' && showPartners)) { %>
         <p>No homeowners in this list — <%= partnerCount %> referral partner<%= partnerCount === 1 ? '' : 's' %> <%= partnerCount === 1 ? 'is' : 'are' %> hidden.</p>
         <a class="ma-btn ma-btn--block" href="<%= hrefFor({ partners: '1' }) %>" style="margin-top:12px;max-width:240px">Show partners</a>
         <% } else { %>

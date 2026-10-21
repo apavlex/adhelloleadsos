@@ -193,8 +193,9 @@ const OK_MESSAGES = {
   review_email: 'Review request sent by email via GHL CRM.',
   customer: 'Customer saved.',
   customer_deleted: 'Customer deleted.',
-  marked_lead: 'Marked as lead — it shows in Leads & Referrals.',
-  unmarked_lead: 'Removed from Leads. Contact stays in Customers.',
+  marked_lead: 'Moved to Leads.',
+  marked_customer: 'Moved to Customers.',
+  unmarked_lead: 'Moved to Customers.',
   tag: 'Tags updated and synced with GHL CRM.',
   job: 'Job saved.',
   job_deleted: 'Job deleted.',
@@ -1498,9 +1499,12 @@ async function renderCustomers(req, res, ctx, flash, status) {
         isPartner,
       };
     });
+    const showLeads = String(req.query.leads || '') === '1';
     const partnerCount = annotated.filter((c) => c.isPartner).length;
+    const leadCount = annotated.filter((c) => c.isLead).length;
     const rows = annotated
       .filter((c) => showPartners || !c.isPartner)
+      .filter((c) => showLeads || !c.isLead)
       .sort(work.compareCustomersRecentFirst);
     Object.assign(extra, {
       q,
@@ -1508,6 +1512,9 @@ async function renderCustomers(req, res, ctx, flash, status) {
       showPartners,
       partnerCount,
       hiddenPartnerCount: showPartners ? 0 : partnerCount,
+      showLeads,
+      leadCount,
+      hiddenLeadCount: showLeads ? 0 : leadCount,
     });
   } else if (view === 'calendar') {
     const month = /^\d{4}-\d{2}$/.test(String(req.query.m || '')) ? req.query.m : today.slice(0, 7);
@@ -1784,7 +1791,7 @@ router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res
   return res.redirect(303, `${ctx.base}/customers?ok=customer_deleted`);
 }));
 
-/** Mark / unmark a contact so it appears under Leads & Referrals → From contacts. */
+/** Mark contact as lead → Leads folder (hidden from Customers list). */
 router.post('/m/:token/customers/c/:id/mark-lead', form, withMember(async (req, res, ctx) => {
   const result = await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, req.params.id, true);
   if (!result.ok) {
@@ -1796,9 +1803,10 @@ router.post('/m/:token/customers/c/:id/mark-lead', form, withMember(async (req, 
       status: 400,
     });
   }
-  return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_lead`);
+  return res.redirect(303, `${ctx.base}/referrals?ok=marked_lead#contact-lead-${encodeURIComponent(req.params.id)}`);
 }));
 
+/** Mark lead as customer → back on Customers list (clears isLead). */
 router.post('/m/:token/customers/c/:id/unmark-lead', form, withMember(async (req, res, ctx) => {
   const result = await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, req.params.id, false);
   if (!result.ok) {
@@ -1806,15 +1814,24 @@ router.post('/m/:token/customers/c/:id/unmark-lead', form, withMember(async (req
     if (!data) return res.redirect(303, `${ctx.base}/customers`);
     return renderCustomerPage(res, ctx, {
       ...data,
-      flash: { error: result.error || 'Could not remove from leads.' },
+      flash: { error: result.error || 'Could not mark as customer.' },
       status: 400,
     });
   }
-  const back = String((req.body && req.body.back) || '').trim();
-  if (back.startsWith(`${ctx.base}/referrals`)) {
-    return res.redirect(303, `${back}${back.includes('?') ? '&' : '?'}ok=unmarked_lead`);
+  const stay = String((req.body && req.body.stay) || '') === '1';
+  if (stay) {
+    return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_customer`);
   }
-  return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=unmarked_lead`);
+  return res.redirect(303, `${ctx.base}/customers?ok=marked_customer`);
+}));
+
+/** Alias: same as unmark-lead — clearer “Mark as customer” action from Leads. */
+router.post('/m/:token/customers/c/:id/mark-customer', form, withMember(async (req, res, ctx) => {
+  const result = await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, req.params.id, false);
+  if (!result.ok) {
+    return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not mark as customer.')}`);
+  }
+  return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_customer`);
 }));
 
 /**
@@ -3247,6 +3264,48 @@ router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, c
   );
   await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
   return res.redirect(303, `${ctx.base}/referrals?ok=closed`);
+}));
+
+/** Website/agency form lead → Customers book, then close the lead. */
+router.post('/m/:token/leads/:leadId/to-customer', form, withMember(async (req, res, ctx) => {
+  const back = `${ctx.base}/referrals`;
+  if (!ctx.appointment) {
+    return res.redirect(303, back);
+  }
+  if (!(await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member))) {
+    return res.redirect(303, `${back}?ok=referrals_upgrade`);
+  }
+  const leadId = String(req.params.leadId || '').trim();
+  const pkg = ctx.appointment.package;
+  const lead = (pkg.formLeads || []).find((f) => f && f.id === leadId);
+  if (!lead || lead.status === 'closed') {
+    return renderReferrals(req, res, ctx, { error: 'That lead is not available.' }, 404);
+  }
+  const existing = work.findCustomerMatch(
+    await work.listCustomers(ctx.network.id, ctx.member.id),
+    { phone: lead.phone, email: lead.email },
+  );
+  let customerId = existing && existing.id;
+  if (existing) {
+    await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, existing.id, false);
+  } else {
+    const saved = await work.saveCustomer(ctx.network.id, ctx.member.id, {
+      name: lead.name || 'Customer',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      notes: lead.preview || '',
+    }, { source: 'manual' });
+    if (!saved.ok) {
+      return renderReferrals(req, res, ctx, { error: saved.error || 'Could not add that customer.' }, 400);
+    }
+    customerId = saved.customer.id;
+    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, saved.customer).catch(() => null);
+  }
+  const formLeads = (pkg.formLeads || []).map((f) =>
+    (f.id === leadId ? { ...f, status: 'closed' } : f),
+  );
+  await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
+  return res.redirect(303, `${ctx.base}/customers/c/${customerId}?ok=marked_customer`);
 }));
 
 /**
