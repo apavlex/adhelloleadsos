@@ -973,41 +973,100 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   border: 0 !important;
 }
 
-/* Speak-once add customer */
+/* Speak-once add customer — mic icon (pulses while recording) */
 .ma-voice-add {
   margin: 0 0 4px;
-  padding: 14px;
+  padding: 16px 14px;
   border-radius: 14px;
   border: 1.5px dashed color-mix(in srgb, var(--acc) 55%, var(--line));
   background: color-mix(in srgb, var(--acc) 10%, var(--card));
+  text-align: center;
 }
-.ma-voice-add__btn {
-  min-height: 52px;
-  font-size: 15px;
+.ma-voice-add__mic-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 72px;
+}
+.ma-voice-add__mic,
+.alex-voice-btn.ma-voice-add__mic {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  width: 64px;
+  height: 64px;
+  margin: 0;
+  padding: 0;
+  border: 2px solid color-mix(in srgb, var(--acc) 65%, var(--line));
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--acc);
+  cursor: pointer;
+  flex: 0 0 64px;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--acc) 0%, transparent);
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.ma-voice-add__btn[data-state='listening'] {
+.ma-voice-add__mic[hidden],
+.alex-voice-btn.ma-voice-add__mic[hidden] { display: none !important; }
+.ma-voice-add__mic::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 72px;
+  height: 72px;
+  transform: translate(-50%, -50%);
+}
+.ma-voice-add__mic:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 3px;
+}
+.ma-voice-add__mic:disabled { cursor: progress; opacity: 0.8; }
+.ma-voice-add__mic .alex-voice-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: block;
+}
+/* Keep the mic visible while recording — pulse shows it’s live (hide stop glyph). */
+.ma-voice-add__mic .alex-voice-icon--stop,
+.ma-voice-add__mic .alex-voice-icon--spin { display: none !important; }
+.ma-voice-add__mic[data-state='listening'] .alex-voice-icon--mic,
+.ma-voice-add__mic[data-state='transcribing'] .alex-voice-icon--mic {
+  display: block !important;
+}
+.ma-voice-add__mic[data-state='listening'] {
   background: #ef4444 !important;
   border-color: #ef4444 !important;
   color: #fff !important;
+  animation: maVoiceMicPulse 1.2s ease-out infinite;
 }
-.ma-voice-add__btn .alex-voice-icon { width: 22px; height: 22px; flex-shrink: 0; }
-.ma-voice-add__btn .alex-voice-icon--stop,
-.ma-voice-add__btn .alex-voice-icon--spin { display: none; }
-.ma-voice-add__btn[data-state='listening'] .alex-voice-icon--mic,
-.ma-voice-add__btn[data-state='transcribing'] .alex-voice-icon--mic { display: none; }
-.ma-voice-add__btn[data-state='listening'] .alex-voice-icon--stop { display: block; width: 16px; height: 16px; }
-.ma-voice-add__btn[data-state='transcribing'] .alex-voice-icon--spin {
-  display: block;
-  width: 18px;
-  height: 18px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 9999px;
-  animation: maVoiceSpin 0.75s linear infinite;
+.ma-voice-add__mic[data-state='transcribing'] {
+  color: var(--muted) !important;
+  border-color: var(--line) !important;
+  animation: maVoiceMicPulseSoft 1.4s ease-out infinite;
+}
+.ma-voice-add__mic[data-state='transcribing'] .alex-voice-icon--spin {
+  display: none !important;
+}
+@keyframes maVoiceMicPulse {
+  0% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.55); transform: scale(1); }
+  55% { box-shadow: 0 0 0 14px rgb(239 68 68 / 0); transform: scale(1.04); }
+  100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0); transform: scale(1); }
+}
+@keyframes maVoiceMicPulseSoft {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--acc) 35%, transparent); }
+  70% { box-shadow: 0 0 0 12px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ma-voice-add__mic[data-state='listening'] {
+    animation: none;
+    box-shadow: 0 0 0 4px rgb(239 68 68 / 0.4);
+  }
+  .ma-voice-add__mic[data-state='transcribing'] { animation: none; }
 }
 .ma-voice-preview {
   margin: 0 0 16px;

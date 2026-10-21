@@ -114,6 +114,85 @@ test('customer sort prefers latest SMS/call touch like notifications', () => {
   assert.deepEqual(rows.map((r) => r.name), ['C Hattenhauer', 'Will Wormington', 'Old Contact']);
 });
 
+test('customers: mark as lead lists under contact leads and survives detail edits', async () => {
+  const created = await work.saveCustomer(NET, MEM_A, {
+    name: 'Sam Caller',
+    phone: '360-555-0199',
+  });
+  assert.equal(created.ok, true);
+  assert.equal(created.customer.isLead, false);
+
+  const marked = await work.setCustomerLeadFlag(NET, MEM_A, created.customer.id, true);
+  assert.equal(marked.ok, true);
+  assert.equal(marked.customer.isLead, true);
+  assert.ok(marked.customer.markedAsLeadAt);
+
+  const leads = await work.listContactLeads(NET, MEM_A);
+  assert.ok(leads.some((c) => c.id === created.customer.id));
+
+  const edited = await work.saveCustomer(
+    NET,
+    MEM_A,
+    { name: 'Sam Caller', phone: '360-555-0199', notes: 'Called about roof' },
+    { id: created.customer.id },
+  );
+  assert.equal(edited.ok, true);
+  assert.equal(edited.customer.isLead, true);
+  assert.equal(edited.customer.markedAsLeadAt, marked.customer.markedAsLeadAt);
+
+  const unmarked = await work.setCustomerLeadFlag(NET, MEM_A, created.customer.id, false);
+  assert.equal(unmarked.ok, true);
+  assert.equal(unmarked.customer.isLead, false);
+  assert.equal(unmarked.customer.markedAsLeadAt, '');
+  assert.equal((await work.listContactLeads(NET, MEM_A)).some((c) => c.id === created.customer.id), false);
+});
+
+test('customers: mark-as-lead routes put contact on Leads Received', async () => {
+  const network = await store.getOrCreateNetworkForWorkspace('ws_member_mark_lead', { name: 'Mark lead network' });
+  const member = await store.saveMember(network.id, {
+    companyName: 'Mark Lead Co',
+    contactName: 'Pat',
+    status: 'active',
+    plan: 'app_free',
+    trades: ['roofing'],
+  });
+  const saved = await work.saveCustomer(network.id, member.id, {
+    name: 'Inbound Texter',
+    phone: '360-555-0444',
+  });
+  assert.equal(saved.ok, true);
+  const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+  const { server, base } = await startApp();
+  const A = `${base}/m/${token}`;
+  try {
+    const detail = await (await fetch(`${A}/customers/c/${saved.customer.id}`)).text();
+    assert.match(detail, /Mark as lead/);
+    assert.match(detail, /mark-lead/);
+
+    const marked = await post(`${A}/customers/c/${saved.customer.id}/mark-lead`, {});
+    assert.equal(marked.status, 303);
+    assert.match(marked.headers.get('location') || '', /ok=marked_lead/);
+
+    const after = await work.getCustomer(network.id, member.id, saved.customer.id);
+    assert.equal(after.isLead, true);
+
+    const leadsPage = await (await fetch(`${A}/referrals`)).text();
+    assert.match(leadsPage, /From contacts/);
+    assert.match(leadsPage, /Inbound Texter/);
+    assert.match(leadsPage, /contact-lead-/);
+    assert.match(leadsPage, /Remove from Leads/);
+
+    const unmarked = await post(`${A}/customers/c/${saved.customer.id}/unmark-lead`, {
+      back: `${A}/referrals`,
+    });
+    assert.equal(unmarked.status, 303);
+    assert.match(unmarked.headers.get('location') || '', /ok=unmarked_lead/);
+    assert.equal((await work.getCustomer(network.id, member.id, saved.customer.id)).isLead, false);
+  } finally {
+    await new Promise((r) => server.close(r));
+  }
+});
+
 test('customers and jobs are scoped to one member of one network', async () => {
   const mine = await work.saveCustomer(NET, MEM_B, { name: 'Bo' });
   assert.equal((await work.listCustomers(NET, MEM_B)).length, 1);

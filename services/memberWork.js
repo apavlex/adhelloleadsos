@@ -210,6 +210,12 @@ function normalizeCustomer(raw) {
     tags: normalizeCustomerTags(c.tags),
     /** CRM contacts that are referral businesses, not homeowners. */
     isReferralPartner: c.isReferralPartner === true,
+    /**
+     * Member marked this contact as a lead (e.g. inbound SMS/call).
+     * Shows under Leads & Referrals → Received → From contacts.
+     */
+    isLead: c.isLead === true,
+    markedAsLeadAt: c.isLead === true && c.markedAsLeadAt ? String(c.markedAsLeadAt) : '',
     referralId: isRecordId(c.referralId) ? c.referralId : '',
     ghlContactId: cleanLine(c.ghlContactId, 80),
     ghlSyncedAt: c.ghlSyncedAt ? String(c.ghlSyncedAt) : '',
@@ -448,6 +454,28 @@ async function getCustomer(networkId, memberId, id) {
   if (!isRecordId(id)) return null;
   const raw = await readJson(`${custPrefix(networkId, memberId)}${id}`);
   return raw ? normalizeCustomer(raw) : null;
+}
+
+/** Contacts the member marked as leads (SMS/call inbound → Leads folder). */
+async function listContactLeads(networkId, memberId) {
+  const rows = await listCustomers(networkId, memberId);
+  return rows
+    .filter((c) => c && c.isLead)
+    .sort((a, b) => String(b.markedAsLeadAt || b.updatedAt || '').localeCompare(String(a.markedAsLeadAt || a.updatedAt || '')));
+}
+
+/** Toggle “show in Leads” without changing contact details. */
+async function setCustomerLeadFlag(networkId, memberId, id, isLead) {
+  const existing = await getCustomer(networkId, memberId, id);
+  if (!existing) return { ok: false, error: 'Customer not found.' };
+  const want = isLead === true;
+  if (existing.isLead === want) return { ok: true, customer: existing, unchanged: true };
+  const customer = await writeCustomer(networkId, memberId, {
+    ...existing,
+    isLead: want,
+    markedAsLeadAt: want ? (existing.markedAsLeadAt || new Date().toISOString()) : '',
+  });
+  return { ok: true, customer };
 }
 
 /** Create (no id) or update (id of an existing customer in this scope). */
@@ -1133,8 +1161,10 @@ module.exports = {
   buildLeadTouchIndex,
   leadTouchMsForCustomer,
   listCustomers,
+  listContactLeads,
   getCustomer,
   saveCustomer,
+  setCustomerLeadFlag,
   setCustomerTags,
   remainingCustomerSlots,
   deleteCustomer,
