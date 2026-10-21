@@ -138,7 +138,7 @@ test('job page includes voice dictate controls', async () => {
   }
 });
 
-test('new customer form includes speak-once flow and field mics', async () => {
+test('new customer form includes one speak-once mic (no field mics)', async () => {
   const { token } = await setupMember();
   const { server, base } = await startApp();
   try {
