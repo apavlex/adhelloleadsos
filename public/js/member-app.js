@@ -2586,6 +2586,7 @@
         button: btn,
         input: input,
         endpoint: endpoint,
+        hideIfUnsupported: false,
       });
     });
   }
@@ -2754,8 +2755,14 @@
         button: btn,
         input: capture,
         endpoint: endpoint,
-        onState: function (state) {
-          if (state === 'listening') {
+        hideIfUnsupported: false,
+        onUnsupported: function (msg) {
+          setStatus(msg || 'Voice isn’t available here. Type the details instead.', true);
+        },
+        onState: function (state, detail) {
+          if (state === 'unsupported') {
+            setStatus(detail || 'Voice isn’t available here. Type the details instead.', true);
+          } else if (state === 'listening') {
             setStatus('Listening — tap the mic again when you’re done.');
           } else if (state === 'transcribing') {
             setStatus('Transcribing…');

@@ -106,9 +106,42 @@
     if (!button || !input) return null;
     if (button.__alexVoice) return button.__alexVoice;
 
+    var hideIfUnsupported = opts.hideIfUnsupported !== false;
+
+    function paintIcons() {
+      if (!button.querySelector('.alex-voice-icon')) {
+        var keepLabel = button.querySelector('[data-alex-voice-label]');
+        var keepHtml = keepLabel ? keepLabel.outerHTML : '';
+        button.innerHTML = ICONS + keepHtml;
+      }
+      button.classList.add('alex-voice-btn');
+      button.setAttribute('aria-pressed', 'false');
+    }
+
     if (!isSupported()) {
-      button.hidden = true;
-      return null;
+      if (hideIfUnsupported) {
+        button.hidden = true;
+        return null;
+      }
+      // Reviews/partner: keep the mic visible so copy ("tap the mic") matches UI.
+      paintIcons();
+      button.hidden = false;
+      var unsupportedMsg =
+        'Voice isn’t available in this browser. Type the details, or open in Safari and allow the microphone.';
+      button.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (typeof opts.onUnsupported === 'function') opts.onUnsupported(unsupportedMsg);
+        else if (typeof opts.onState === 'function') opts.onState('unsupported', unsupportedMsg);
+      });
+      var stub = {
+        cancel: function () {},
+        stop: function () {},
+        getState: function () {
+          return 'unsupported';
+        },
+      };
+      button.__alexVoice = stub;
+      return stub;
     }
 
     var idleLabel = button.getAttribute('aria-label') || 'Dictate message';
@@ -132,13 +165,7 @@
     var awaitingMic = false;
     var fetchAbort = null;
 
-    if (!button.querySelector('.alex-voice-icon')) {
-      var keepLabel = button.querySelector('[data-alex-voice-label]');
-      var keepHtml = keepLabel ? keepLabel.outerHTML : '';
-      button.innerHTML = ICONS + keepHtml;
-    }
-    button.classList.add('alex-voice-btn');
-    button.setAttribute('aria-pressed', 'false');
+    paintIcons();
     button.hidden = false;
 
     var status = document.createElement('div');

@@ -148,6 +148,9 @@ test('new customer form includes speak-once flow and field mics', async () => {
     assert.match(html, /data-ma-voice-add-customer/);
     assert.match(html, /ma-voice-add__mic/);
     assert.match(html, /aria-label="Speak customer info"/);
+    // Mic is visible in HTML (not gated behind [hidden]) so “tap the mic” always has a control.
+    assert.match(html, /id="maVoiceAddCustomerBtn"[^>]*>[\s\S]*?alex-voice-icon--mic/);
+    assert.doesNotMatch(html, /id="maVoiceAddCustomerBtn"[^>]*\bhidden\b/);
     assert.match(html, /maVoiceCustomerConfirm/);
     assert.match(html, /Confirm &amp; create/);
     assert.match(html, /data-ma-voice-for="cuName"/);
@@ -155,6 +158,11 @@ test('new customer form includes speak-once flow and field mics', async () => {
     assert.match(html, /data-ma-voice-for="cuEmail"/);
     assert.match(html, /data-ma-voice-for="cuAddress"/);
     assert.match(html, /data-ma-voice-for="cuNotes"/);
+    assert.match(html, /data-ma-voice-for="cuName"[^>]*>[\s\S]*?alex-voice-icon--mic/);
+    const js = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
+    const voice = fs.readFileSync(path.join(__dirname, '../public/js/alex-voice-input.js'), 'utf8');
+    assert.match(js, /hideIfUnsupported:\s*false/);
+    assert.match(voice, /hideIfUnsupported/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
