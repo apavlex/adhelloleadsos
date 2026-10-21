@@ -1135,24 +1135,35 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   outline-offset: 2px;
 }
 .ma-voice-btn:disabled { cursor: progress; opacity: 0.75; }
-.ma-voice-btn .alex-voice-icon { width: 22px; height: 22px; flex-shrink: 0; }
-.ma-voice-btn .alex-voice-icon--stop,
-.ma-voice-btn .alex-voice-icon--spin { display: none; }
-.ma-voice-btn[data-state='listening'] .alex-voice-icon--mic,
-.ma-voice-btn[data-state='transcribing'] .alex-voice-icon--mic { display: none; }
-.ma-voice-btn[data-state='listening'] .alex-voice-icon--stop {
+.ma-voice-btn .alex-voice-icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
   display: block;
+}
+.ma-voice-btn .alex-voice-icon--stop,
+.ma-voice-btn .alex-voice-icon--spin { display: none !important; }
+.ma-voice-btn[data-state='listening'] .alex-voice-icon--mic,
+.ma-voice-btn[data-state='transcribing'] .alex-voice-icon--mic { display: none !important; }
+.ma-voice-btn[data-state='listening'] .alex-voice-icon--stop {
+  display: block !important;
   width: 16px;
   height: 16px;
 }
 .ma-voice-btn[data-state='transcribing'] .alex-voice-icon--spin {
-  display: block;
+  display: block !important;
   width: 18px;
   height: 18px;
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 9999px;
   animation: maVoiceSpin 0.75s linear infinite;
+}
+.ma-mark-lead {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 6px 10px;
+  font-size: 12px;
 }
 .ma-voice-btn[data-state='listening'] {
   background: #ef4444 !important;

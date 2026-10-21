@@ -151,6 +151,8 @@ test('new customer form includes speak-once flow and field mics', async () => {
     // Mic is visible in HTML (not gated behind [hidden]) so “tap the mic” always has a control.
     assert.match(html, /id="maVoiceAddCustomerBtn"[^>]*>[\s\S]*?alex-voice-icon--mic/);
     assert.doesNotMatch(html, /id="maVoiceAddCustomerBtn"[^>]*\bhidden\b/);
+    // Idle markup is mic-only — stop/spin squares must not show before voice JS runs.
+    assert.doesNotMatch(html, /id="maVoiceAddCustomerBtn"[\s\S]*?alex-voice-icon--stop/);
     assert.match(html, /maVoiceCustomerConfirm/);
     assert.match(html, /Confirm &amp; create/);
     assert.match(html, /data-ma-voice-for="cuName"/);
@@ -163,6 +165,7 @@ test('new customer form includes speak-once flow and field mics', async () => {
     const voice = fs.readFileSync(path.join(__dirname, '../public/js/alex-voice-input.js'), 'utf8');
     assert.match(js, /hideIfUnsupported:\s*false/);
     assert.match(voice, /hideIfUnsupported/);
+    assert.match(voice, /alex-voice-icon--stop/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

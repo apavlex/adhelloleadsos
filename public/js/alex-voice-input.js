@@ -109,9 +109,11 @@
     var hideIfUnsupported = opts.hideIfUnsupported !== false;
 
     function paintIcons() {
-      if (!button.querySelector('.alex-voice-icon')) {
-        var keepLabel = button.querySelector('[data-alex-voice-label]');
-        var keepHtml = keepLabel ? keepLabel.outerHTML : '';
+      // Always ensure mic + stop + spin exist. Pages may ship only the mic SVG so
+      // stale CSS can't leave stop/spin squares visible before JS runs.
+      var keepLabel = button.querySelector('[data-alex-voice-label]');
+      var keepHtml = keepLabel ? keepLabel.outerHTML : '';
+      if (!button.querySelector('.alex-voice-icon--mic') || !button.querySelector('.alex-voice-icon--stop')) {
         button.innerHTML = ICONS + keepHtml;
       }
       button.classList.add('alex-voice-btn');

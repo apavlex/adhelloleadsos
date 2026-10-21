@@ -166,6 +166,15 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn{background:color-mix(in srgb,va
 .ma-share-mate-pick .ma-typeahead{position:relative;overflow:visible}
 .ma-share-mate-pick .ma-typeahead__list{position:static!important;left:auto;right:auto;top:auto;margin:10px 0 0;max-height:min(240px,40vh);overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;box-shadow:none}
 .ma-input::placeholder,.ma-textarea::placeholder{color:var(--muted);opacity:1}
+/* Field mics — critical so stale SW CSS can't show stop/spin as random squares */
+.ma-voice-btn,.alex-voice-btn.ma-voice-btn{position:relative;display:inline-flex!important;align-items:center;justify-content:center;width:36px!important;height:36px!important;margin:0;padding:0;border:1.5px solid var(--line,#e2e8f0);border-radius:999px!important;background:var(--card,#fff);color:var(--ink,#0f172a);cursor:pointer;flex:0 0 36px;-webkit-appearance:none;appearance:none;box-sizing:border-box}
+.ma-voice-btn .alex-voice-icon,.alex-voice-btn.ma-voice-btn .alex-voice-icon{width:20px!important;height:20px!important;flex:0 0 20px;display:block}
+.ma-voice-btn .alex-voice-icon--stop,.ma-voice-btn .alex-voice-icon--spin,.alex-voice-btn.ma-voice-btn .alex-voice-icon--stop,.alex-voice-btn.ma-voice-btn .alex-voice-icon--spin{display:none!important}
+.ma-voice-btn[data-state=listening] .alex-voice-icon--mic,.ma-voice-btn[data-state=transcribing] .alex-voice-icon--mic{display:none!important}
+.ma-voice-btn[data-state=listening] .alex-voice-icon--stop{display:block!important;width:14px!important;height:14px!important}
+.ma-voice-btn[data-state=transcribing] .alex-voice-icon--spin{display:block!important;width:16px!important;height:16px!important;border:2px solid currentColor;border-right-color:transparent;border-radius:9999px}
+.ma-mark-lead{flex:0 0 auto;min-height:32px;padding:6px 10px;font-size:12px}
+.ma-label-actions{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}
 /* Bring in customers — thin strip even if SW serves a stale member-app.css */
 .ma-cust-tools.ma-fold{margin:0 0 8px!important;border-radius:10px!important}
 .ma-cust-tools.ma-fold>summary{box-sizing:border-box!important;height:36px!important;min-height:36px!important;max-height:36px!important;padding:0 12px!important;font-size:13px!important;font-weight:800!important;line-height:1!important;gap:8px!important}
