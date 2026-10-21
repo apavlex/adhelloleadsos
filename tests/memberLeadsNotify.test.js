@@ -63,8 +63,10 @@ describe('member leads + referral notifications', () => {
     assert.match(route, /leads\/:leadId\/to-customer/);
     assert.match(route, /marked_customer/);
     assert.match(route, /filter\(\(c\) => showLeads \|\| !c\.isLead\)/);
-    // Field mics ship mic-only markup (no idle stop/spin squares).
-    assert.doesNotMatch(page, /data-ma-voice-for="cuName"[\s\S]*?alex-voice-icon--stop/);
+    // Customer Details has no per-field mics (speak-once is New customer only).
+    assert.doesNotMatch(page, /data-ma-voice-for="cuName"/);
+    assert.doesNotMatch(page, /data-ma-voice-for="cuNotes"/);
+    assert.doesNotMatch(page, /Mic works while driving/);
     assert.match(head, /alex-voice-icon--stop[\s\S]*display:none!important/);
     assert.match(work, /isLead: c\.isLead === true/);
     assert.match(work, /setCustomerLeadFlag/);

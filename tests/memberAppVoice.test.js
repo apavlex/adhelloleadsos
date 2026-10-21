@@ -138,7 +138,7 @@ test('job page includes voice dictate controls', async () => {
   }
 });
 
-test('new customer form includes speak-once flow and field mics', async () => {
+test('new customer form includes speak-once mic only (no field mics)', async () => {
   const { token } = await setupMember();
   const { server, base } = await startApp();
   try {
@@ -179,6 +179,40 @@ test('new customer form includes speak-once flow and field mics', async () => {
     assert.match(voice, /preventFocus/);
     assert.match(voice, /alex-voice-icon--stop/);
     assert.match(head, /maVoiceMicPulseCritical/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('existing customer Details has no per-field mic icons', async () => {
+  const { network, member, token } = await setupMember();
+  const work = require('../services/memberWork');
+  const saved = await work.saveCustomer(network.id, member.id, {
+    name: 'Deane Gallimore',
+    phone: '+12405355964',
+    address: 'Silver Spring, MD',
+  });
+  assert.equal(saved.ok, true);
+  const { server, base } = await startApp();
+  try {
+    const res = await fetch(
+      `${base}/m/${encodeURIComponent(token)}/customers/c/${encodeURIComponent(saved.customer.id)}`,
+    );
+    const html = await res.text();
+    assert.equal(res.status, 200);
+    assert.match(html, /Deane Gallimore|deane gallimore/i);
+    assert.match(html, /Save changes/);
+    // Details form fields — no per-field mics (photo caption mics may still exist hidden).
+    assert.doesNotMatch(html, /data-ma-voice-for="cuName"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="cuPhone"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="cuEmail"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="cuAddress"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="cuNotes"/);
+    assert.doesNotMatch(html, /Mic works while driving/);
+    assert.doesNotMatch(html, /Tap the mic to dictate/);
+    assert.doesNotMatch(html, /data-ma-voice-add-customer/);
+    const page = fs.readFileSync(path.join(__dirname, '../views/member_app/customer.ejs'), 'utf8');
+    assert.doesNotMatch(page, /data-ma-voice-for="cu(?:Name|Phone|Email|Address|Notes)"/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
