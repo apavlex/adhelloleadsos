@@ -2645,11 +2645,6 @@
       statusEl.style.color = isError ? '#b91c1c' : '';
     }
 
-    function setLabel(text) {
-      var el = btn.querySelector('[data-ma-voice-add-label], [data-alex-voice-label]');
-      if (el) el.textContent = text;
-    }
-
     function fillForm(fields) {
       fields = fields || {};
       ['name', 'phone', 'email', 'address', 'notes'].forEach(function (key) {
@@ -2711,7 +2706,6 @@
       parsing = true;
       lastTranscript = cleaned;
       setStatus('Filling the form from what you said…');
-      setLabel('Working…');
       fetch(parseUrl, {
         method: 'POST',
         credentials: 'same-origin',
@@ -2738,7 +2732,6 @@
         })
         .finally(function () {
           parsing = false;
-          setLabel('Speak customer info');
         });
     }
 
@@ -2763,13 +2756,11 @@
         endpoint: endpoint,
         onState: function (state) {
           if (state === 'listening') {
-            setLabel('Listening… tap to stop');
-            setStatus('Listening — say name, phone, email, address, notes.');
+            setStatus('Listening — tap the mic again when you’re done.');
           } else if (state === 'transcribing') {
-            setLabel('Transcribing…');
             setStatus('Transcribing…');
-          } else if (state === 'idle' || state === 'error') {
-            if (!parsing) setLabel('Speak customer info');
+          } else if (state === 'idle' && !parsing) {
+            /* keep last status until parse finishes or errors */
           }
         },
         onCommit: function (text) {
