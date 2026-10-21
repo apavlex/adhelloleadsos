@@ -10,6 +10,7 @@
  *   /m/:token/review/settings  review links + default preview image
  *   /m/:token/customers  customers, jobs and schedule
  *   /m/:token/voice/transcribe  field speech-to-text (Reviews + paid apps)
+ *   /m/:token/voice/parse-customer  turn spoken blob into customer fields
  *   /m/:token/referrals  website/agency leads + network referrals (Leads & Referrals)
  *   /m/:token/send       send a referral (partners)
  *   /m/:token/join       free-plan upgrade / benefits (replaces Send in the tab bar)
@@ -58,6 +59,7 @@ const workspaceService = require('../services/workspaceService');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const { ICONS } = require('../services/memberAppIcons');
 const voiceTranscription = require('../services/voiceTranscription');
+const memberVoiceCustomerParse = require('../services/memberVoiceCustomerParse');
 
 /** Invite line pasted/shared with Review app short links (/a/…). */
 const REVIEW_APP_SHARE_INVITE = 'Here is a link to view and save your reviews app!';
@@ -1963,6 +1965,35 @@ router.use((err, req, res, next) => {
   }
   return next(err);
 });
+
+/** Speak-once → structured customer fields for the New customer form. */
+router.post(
+  '/m/:token/voice/parse-customer',
+  express.json({ limit: '32kb' }),
+  withMemberApi(async (req, res, ctx) => {
+    const rateKey = `member-parse:${ctx.member.id}|${ctx.network.id}`;
+    if (!voiceTranscription.takeRateSlot(rateKey)) {
+      return res.status(429).json({
+        success: false,
+        error: 'Too many voice parses. Wait a few minutes and try again.',
+      });
+    }
+    const text = String((req.body && req.body.text) || '').trim();
+    const parsed = await memberVoiceCustomerParse.parseCustomerFromSpeech(text, {
+      workspaceId: ctx.network && ctx.network.ownerWorkspaceId,
+    });
+    if (!parsed.ok) {
+      return res.status(400).json({ success: false, error: parsed.error || 'Could not parse that.' });
+    }
+    return res.json({
+      success: true,
+      fields: parsed.fields,
+      warning: parsed.warning || '',
+      transcript: parsed.transcript || text,
+      source: parsed.source || '',
+    });
+  }),
+);
 
 router.get('/m/:token/customers/jobs/new', withMember((req, res, ctx) => {
   const date = work.cleanDate(req.query.date);

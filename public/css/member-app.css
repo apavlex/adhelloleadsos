@@ -961,6 +961,85 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
 .ma-label-link { font-size: 12px; font-weight: 700; color: var(--acc); text-decoration: none; white-space: nowrap; }
 .ma-label-link:hover { text-decoration: underline; }
 
+.ma-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* Speak-once add customer */
+.ma-voice-add {
+  margin: 0 0 4px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1.5px dashed color-mix(in srgb, var(--acc) 55%, var(--line));
+  background: color-mix(in srgb, var(--acc) 10%, var(--card));
+}
+.ma-voice-add__btn {
+  min-height: 52px;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.ma-voice-add__btn[data-state='listening'] {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #fff !important;
+}
+.ma-voice-add__btn .alex-voice-icon { width: 22px; height: 22px; flex-shrink: 0; }
+.ma-voice-add__btn .alex-voice-icon--stop,
+.ma-voice-add__btn .alex-voice-icon--spin { display: none; }
+.ma-voice-add__btn[data-state='listening'] .alex-voice-icon--mic,
+.ma-voice-add__btn[data-state='transcribing'] .alex-voice-icon--mic { display: none; }
+.ma-voice-add__btn[data-state='listening'] .alex-voice-icon--stop { display: block; width: 16px; height: 16px; }
+.ma-voice-add__btn[data-state='transcribing'] .alex-voice-icon--spin {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: maVoiceSpin 0.75s linear infinite;
+}
+.ma-voice-preview {
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.ma-voice-preview > div {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.ma-voice-preview > div:last-child { border-bottom: 0; padding-bottom: 0; }
+.ma-voice-preview dt {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ma-voice-preview dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.ma-voice-preview dd.is-empty { color: var(--muted); font-weight: 600; font-style: italic; }
+
 /* Field speech-to-text (Reviews + paid partner apps) — large tap target for driving. */
 .ma-voice-btn,
 .alex-voice-btn.ma-voice-btn {

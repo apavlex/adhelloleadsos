@@ -2621,4 +2621,196 @@
   );
 
   window.__maAttachVoiceButtons = attachMaVoiceButtons;
+
+  /** Speak-once → parse → confirm → create on New customer. */
+  function bootSpeakAddCustomer() {
+    var form = document.querySelector('[data-ma-voice-customer-form="1"]');
+    var wrap = document.getElementById('maVoiceAddCustomer');
+    var btn = document.getElementById('maVoiceAddCustomerBtn');
+    var capture = document.getElementById('maVoiceAddCustomerCapture');
+    var statusEl = document.getElementById('maVoiceAddCustomerStatus');
+    var sheet = document.getElementById('maVoiceCustomerConfirm');
+    var preview = document.getElementById('maVoiceCustomerPreview');
+    var warningEl = document.getElementById('maVoiceCustomerConfirmWarning');
+    var createBtn = document.getElementById('maVoiceCustomerCreateBtn');
+    if (!form || !wrap || !btn || !capture) return;
+
+    var parseUrl = voiceEndpoint().replace(/\/voice\/transcribe$/, '/voice/parse-customer');
+    var parsing = false;
+    var lastTranscript = '';
+
+    function setStatus(msg, isError) {
+      if (!statusEl) return;
+      statusEl.textContent = msg || '';
+      statusEl.style.color = isError ? '#b91c1c' : '';
+    }
+
+    function setLabel(text) {
+      var el = btn.querySelector('[data-ma-voice-add-label], [data-alex-voice-label]');
+      if (el) el.textContent = text;
+    }
+
+    function fillForm(fields) {
+      fields = fields || {};
+      ['name', 'phone', 'email', 'address', 'notes'].forEach(function (key) {
+        var input = form.querySelector('[name="' + key + '"]');
+        if (!input) return;
+        input.value = fields[key] != null ? String(fields[key]) : '';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+
+    function showPreview(fields, warning) {
+      fields = fields || {};
+      if (preview) {
+        preview.querySelectorAll('[data-field]').forEach(function (dd) {
+          var key = dd.getAttribute('data-field');
+          var val = String(fields[key] || '').trim();
+          dd.textContent = val || '—';
+          dd.classList.toggle('is-empty', !val);
+        });
+      }
+      if (warningEl) {
+        if (warning) {
+          warningEl.hidden = false;
+          warningEl.textContent = warning;
+        } else {
+          warningEl.hidden = true;
+          warningEl.textContent = '';
+        }
+      }
+      if (createBtn) createBtn.disabled = !String(fields.name || '').trim();
+      if (sheet) {
+        sheet.hidden = false;
+        try {
+          sheet.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (_) {}
+      }
+    }
+
+    function closeSheet() {
+      if (sheet) sheet.hidden = true;
+    }
+
+    function parseTranscript(text) {
+      var cleaned = String(text || '').trim();
+      if (!cleaned || parsing) return;
+      if (cleaned === lastTranscript) {
+        showPreview(
+          {
+            name: (form.querySelector('[name="name"]') || {}).value,
+            phone: (form.querySelector('[name="phone"]') || {}).value,
+            email: (form.querySelector('[name="email"]') || {}).value,
+            address: (form.querySelector('[name="address"]') || {}).value,
+            notes: (form.querySelector('[name="notes"]') || {}).value,
+          },
+          ''
+        );
+        return;
+      }
+      parsing = true;
+      lastTranscript = cleaned;
+      setStatus('Filling the form from what you said…');
+      setLabel('Working…');
+      fetch(parseUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ text: cleaned }),
+      })
+        .then(function (r) {
+          return r.json().catch(function () { return {}; }).then(function (d) {
+            d.__status = r.status;
+            return d;
+          });
+        })
+        .then(function (d) {
+          if (!d || !d.success || !d.fields) {
+            setStatus((d && d.error) || 'Could not understand that. Try again.', true);
+            return;
+          }
+          fillForm(d.fields);
+          setStatus('Check the details, then confirm.');
+          showPreview(d.fields, d.warning || '');
+        })
+        .catch(function () {
+          setStatus('Connection error. Check your internet and try again.', true);
+        })
+        .finally(function () {
+          parsing = false;
+          setLabel('Speak customer info');
+        });
+    }
+
+    function attachSpeakAll() {
+      if (!window.AlexVoice || typeof window.AlexVoice.attach !== 'function') return;
+      if (btn.__alexVoice) return;
+      var endpoint = voiceEndpoint();
+      if (!endpoint) return;
+      // Clear capture before AlexVoice snapshots liveBase / starts recording.
+      btn.addEventListener(
+        'click',
+        function () {
+          if (btn.getAttribute('aria-pressed') === 'true') return;
+          capture.value = '';
+          lastTranscript = '';
+        },
+        true
+      );
+      window.AlexVoice.attach({
+        button: btn,
+        input: capture,
+        endpoint: endpoint,
+        onState: function (state) {
+          if (state === 'listening') {
+            setLabel('Listening… tap to stop');
+            setStatus('Listening — say name, phone, email, address, notes.');
+          } else if (state === 'transcribing') {
+            setLabel('Transcribing…');
+            setStatus('Transcribing…');
+          } else if (state === 'idle' || state === 'error') {
+            if (!parsing) setLabel('Speak customer info');
+          }
+        },
+        onCommit: function (text) {
+          parseTranscript(text);
+        },
+      });
+    }
+
+    if (window.AlexVoice) attachSpeakAll();
+    else document.addEventListener('alexvoice:ready', attachSpeakAll);
+
+    document.querySelectorAll('[data-ma-voice-customer-edit]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        closeSheet();
+        setStatus('Form is filled — edit anything, then tap Add customer.');
+        var nameInput = form.querySelector('#cuName');
+        if (nameInput) {
+          try { nameInput.focus({ preventScroll: false }); } catch (_) { nameInput.focus(); }
+        }
+      });
+    });
+
+    if (createBtn) {
+      createBtn.addEventListener('click', function () {
+        var nameInput = form.querySelector('[name="name"]');
+        if (!nameInput || !String(nameInput.value || '').trim()) {
+          setStatus('Add a name before creating.', true);
+          closeSheet();
+          if (nameInput) nameInput.focus();
+          return;
+        }
+        closeSheet();
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootSpeakAddCustomer);
+  } else {
+    bootSpeakAddCustomer();
+  }
 })();

@@ -138,19 +138,44 @@ test('job page includes voice dictate controls', async () => {
   }
 });
 
-test('new customer form includes voice on all text fields', async () => {
+test('new customer form includes speak-once flow and field mics', async () => {
   const { token } = await setupMember();
   const { server, base } = await startApp();
   try {
     const res = await fetch(`${base}/m/${encodeURIComponent(token)}/customers/new`);
     const html = await res.text();
     assert.equal(res.status, 200);
+    assert.match(html, /data-ma-voice-add-customer/);
+    assert.match(html, /Speak customer info/);
+    assert.match(html, /maVoiceCustomerConfirm/);
+    assert.match(html, /Confirm &amp; create/);
     assert.match(html, /data-ma-voice-for="cuName"/);
     assert.match(html, /data-ma-voice-for="cuPhone"/);
     assert.match(html, /data-ma-voice-for="cuEmail"/);
     assert.match(html, /data-ma-voice-for="cuAddress"/);
     assert.match(html, /data-ma-voice-for="cuNotes"/);
-    assert.match(html, /Mic on each field/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('parse-customer endpoint fills structured fields from speech text', async () => {
+  const { token } = await setupMember();
+  const { server, base } = await startApp();
+  try {
+    const res = await fetch(`${base}/m/${encodeURIComponent(token)}/voice/parse-customer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        text: 'Customer name is Riley Quinn phone 360-555-0142 email riley@example.com at 50 Pine St Camas. Prefers mornings.',
+      }),
+    });
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.success, true);
+    assert.match(body.fields.name, /Riley/i);
+    assert.match(body.fields.phone, /360/);
+    assert.match(String(body.fields.email || ''), /riley@example\.com/i);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

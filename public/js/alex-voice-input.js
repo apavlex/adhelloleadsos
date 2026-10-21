@@ -102,6 +102,7 @@
     var input = opts.input;
     var endpoint = typeof opts.endpoint === 'string' && opts.endpoint.trim() ? opts.endpoint.trim() : ENDPOINT;
     var onState = typeof opts.onState === 'function' ? opts.onState : function () {};
+    var onCommit = typeof opts.onCommit === 'function' ? opts.onCommit : null;
     if (!button || !input) return null;
     if (button.__alexVoice) return button.__alexVoice;
 
@@ -131,7 +132,11 @@
     var awaitingMic = false;
     var fetchAbort = null;
 
-    if (!button.querySelector('.alex-voice-icon')) button.innerHTML = ICONS;
+    if (!button.querySelector('.alex-voice-icon')) {
+      var keepLabel = button.querySelector('[data-alex-voice-label]');
+      var keepHtml = keepLabel ? keepLabel.outerHTML : '';
+      button.innerHTML = ICONS + keepHtml;
+    }
     button.classList.add('alex-voice-btn');
     button.setAttribute('aria-pressed', 'false');
     button.hidden = false;
@@ -229,6 +234,13 @@
           /* type=search on some engines */
         }
         if (input.tagName === 'TEXTAREA') input.scrollTop = input.scrollHeight;
+        if (onCommit) {
+          try {
+            onCommit(String(value || '').trim());
+          } catch (_) {
+            /* surface callbacks must not break dictation */
+          }
+        }
       }
     }
 
