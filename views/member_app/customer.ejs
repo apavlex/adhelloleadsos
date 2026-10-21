@@ -315,11 +315,11 @@
       <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off" id="<%= customer ? 'maCustomerEditForm' : 'maCustomerNewForm' %>" data-ma-voice-customer-form="<%= customer ? '0' : '1' %>">
         <% if (!customer) { %>
         <div class="ma-voice-add" id="maVoiceAddCustomer" data-ma-voice-add-customer>
-          <button type="button" class="ma-btn ma-btn--block ma-voice-add__btn" id="maVoiceAddCustomerBtn" aria-label="Speak customer info" title="Tap, say name phone address notes, tap again" hidden>
-            <span data-alex-voice-label data-ma-voice-add-label>Speak customer info</span>
-          </button>
-          <p class="ma-hint ma-voice-hint" style="margin:10px 0 0">Say it all at once — name, phone, email, address, notes. We’ll fill the form and ask you to confirm.</p>
-          <p class="ma-hint" id="maVoiceAddCustomerStatus" role="status" aria-live="polite" style="margin:8px 0 0"></p>
+          <div class="ma-voice-add__mic-wrap">
+            <button type="button" class="ma-voice-add__mic" id="maVoiceAddCustomerBtn" aria-label="Speak customer info" title="Tap to speak — say name, phone, address, notes" hidden></button>
+          </div>
+          <p class="ma-hint ma-voice-hint" style="margin:10px 0 0;text-align:center">Tap the mic and say it all at once — name, phone, email, address, notes. We’ll fill the form and ask you to confirm.</p>
+          <p class="ma-hint" id="maVoiceAddCustomerStatus" role="status" aria-live="polite" style="margin:8px 0 0;text-align:center"></p>
           <textarea id="maVoiceAddCustomerCapture" class="ma-sr-only" maxlength="4000" tabindex="-1" aria-hidden="true"></textarea>
         </div>
         <p class="ma-hint" style="margin:14px 0 12px;text-align:center;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:11px;color:var(--muted)">Or fill in manually</p>
