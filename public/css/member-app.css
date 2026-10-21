@@ -1028,7 +1028,9 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   margin: 0 !important;
   min-height: 0 !important;
 }
-/* One big New-customer mic — field mics stay .ma-voice-btn (small). */
+/* One big New-customer mic — field mics stay .ma-voice-btn (small).
+   Icons stack absolutely in the center so paintIcons() stop/spin never
+   sit beside the mic and shove it off-center. */
 .ma-voice-add__mic,
 .alex-voice-btn.ma-voice-add__mic {
   position: relative;
@@ -1051,6 +1053,7 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--acc) 0%, transparent);
   transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   animation: maVoiceMicIdle 2.4s ease-out infinite;
+  overflow: hidden;
 }
 .ma-voice-add__mic[hidden],
 .alex-voice-btn.ma-voice-add__mic[hidden] { display: none !important; }
@@ -1062,38 +1065,48 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   width: 104px;
   height: 104px;
   transform: translate(-50%, -50%);
+  pointer-events: none;
 }
 .ma-voice-add__mic:focus-visible {
   outline: 2px solid var(--acc);
   outline-offset: 4px;
 }
 .ma-voice-add__mic:disabled { cursor: progress; opacity: 0.8; animation: none; }
-.ma-voice-add__mic .alex-voice-icon {
+.ma-voice-add__mic .alex-voice-icon,
+.alex-voice-btn.ma-voice-add__mic .alex-voice-icon {
+  position: absolute !important;
+  left: 50% !important;
+  top: 50% !important;
   width: 40px !important;
   height: 40px !important;
-  flex-shrink: 0;
+  margin: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  flex: none !important;
+  display: none !important;
+}
+/* Keep the mic centered while recording — pulse shows it’s live (never show stop/spin). */
+.ma-voice-add__mic .alex-voice-icon--mic,
+.alex-voice-btn.ma-voice-add__mic .alex-voice-icon--mic {
   display: block !important;
 }
-/* Keep the mic visible while recording — pulse shows it’s live (hide stop glyph). */
 .ma-voice-add__mic .alex-voice-icon--stop,
-.ma-voice-add__mic .alex-voice-icon--spin { display: none !important; }
-.ma-voice-add__mic[data-state='listening'] .alex-voice-icon--mic,
-.ma-voice-add__mic[data-state='transcribing'] .alex-voice-icon--mic {
-  display: block !important;
+.ma-voice-add__mic .alex-voice-icon--spin,
+.alex-voice-btn.ma-voice-add__mic .alex-voice-icon--stop,
+.alex-voice-btn.ma-voice-add__mic .alex-voice-icon--spin {
+  display: none !important;
 }
-.ma-voice-add__mic[data-state='listening'] {
+.ma-voice-add__mic[data-state='listening'],
+.alex-voice-btn.ma-voice-add__mic[data-state='listening'] {
   background: #ef4444 !important;
   border-color: #ef4444 !important;
   color: #fff !important;
   animation: maVoiceMicPulse 1.1s ease-out infinite;
 }
-.ma-voice-add__mic[data-state='transcribing'] {
+.ma-voice-add__mic[data-state='transcribing'],
+.alex-voice-btn.ma-voice-add__mic[data-state='transcribing'] {
   color: var(--muted) !important;
   border-color: var(--line) !important;
   animation: maVoiceMicPulseSoft 1.4s ease-out infinite;
-}
-.ma-voice-add__mic[data-state='transcribing'] .alex-voice-icon--spin {
-  display: none !important;
 }
 @keyframes maVoiceMicIdle {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--acc) 28%, transparent); transform: scale(1); }

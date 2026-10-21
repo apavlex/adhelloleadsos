@@ -176,10 +176,11 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn{background:color-mix(in srgb,va
 /* New-customer speak-once: one big centered mic (never the tiny field style) */
 .ma-voice-add{display:flex;flex-direction:column;align-items:center;text-align:center}
 .ma-voice-add__mic-wrap{display:flex;justify-content:center;align-items:center;width:100%}
-.ma-voice-add__mic,.alex-voice-btn.ma-voice-add__mic{position:relative;display:inline-flex!important;align-items:center;justify-content:center;width:88px!important;height:88px!important;margin:0 auto;padding:0;border:3px solid color-mix(in srgb,var(--acc,#2563eb) 70%,var(--line,#e2e8f0));border-radius:999px!important;background:var(--card,#fff);color:var(--acc,#2563eb);cursor:pointer;flex:0 0 88px!important;-webkit-appearance:none;appearance:none;box-sizing:border-box}
-.ma-voice-add__mic .alex-voice-icon,.alex-voice-btn.ma-voice-add__mic .alex-voice-icon{width:40px!important;height:40px!important;flex:0 0 40px;display:block!important}
-.ma-voice-add__mic .alex-voice-icon--stop,.ma-voice-add__mic .alex-voice-icon--spin{display:none!important}
-.ma-voice-add__mic[data-state=listening]{background:#ef4444!important;border-color:#ef4444!important;color:#fff!important;animation:maVoiceMicPulseCritical 1.1s ease-out infinite}
+.ma-voice-add__mic,.alex-voice-btn.ma-voice-add__mic{position:relative;display:inline-flex!important;align-items:center;justify-content:center;width:88px!important;height:88px!important;margin:0 auto;padding:0;border:3px solid color-mix(in srgb,var(--acc,#2563eb) 70%,var(--line,#e2e8f0));border-radius:999px!important;background:var(--card,#fff);color:var(--acc,#2563eb);cursor:pointer;flex:0 0 88px!important;-webkit-appearance:none;appearance:none;box-sizing:border-box;overflow:hidden}
+.ma-voice-add__mic .alex-voice-icon,.alex-voice-btn.ma-voice-add__mic .alex-voice-icon{position:absolute!important;left:50%!important;top:50%!important;width:40px!important;height:40px!important;margin:0!important;transform:translate(-50%,-50%)!important;flex:none!important;display:none!important}
+.ma-voice-add__mic .alex-voice-icon--mic,.alex-voice-btn.ma-voice-add__mic .alex-voice-icon--mic{display:block!important}
+.ma-voice-add__mic .alex-voice-icon--stop,.ma-voice-add__mic .alex-voice-icon--spin,.alex-voice-btn.ma-voice-add__mic .alex-voice-icon--stop,.alex-voice-btn.ma-voice-add__mic .alex-voice-icon--spin{display:none!important}
+.ma-voice-add__mic[data-state=listening],.alex-voice-btn.ma-voice-add__mic[data-state=listening]{background:#ef4444!important;border-color:#ef4444!important;color:#fff!important;animation:maVoiceMicPulseCritical 1.1s ease-out infinite}
 .ma-voice-add__status[hidden],.ma-voice-add__status:empty{display:none!important;margin:0!important}
 @keyframes maVoiceMicPulseCritical{0%{box-shadow:0 0 0 0 rgb(239 68 68 / .55)}55%{box-shadow:0 0 0 18px rgb(239 68 68 / 0)}100%{box-shadow:0 0 0 0 rgb(239 68 68 / 0)}}
 .ma-mark-lead{flex:0 0 auto;min-height:32px;padding:6px 10px;font-size:12px}
