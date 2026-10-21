@@ -524,7 +524,20 @@ async function createLead(ctx, input) {
     source: 'manual',
     tags: tagKeys,
     ...(folder ? { folderKey: folder.key } : {}),
-    ...(clean(input.note) ? { updates: [{ type: 'note', value: clean(input.note), timestamp: now, source: 'ai_assistant' }] } : {}),
+    ...(clean(input.note)
+      ? {
+          updates: [
+            {
+              type: 'note',
+              value: clean(input.note),
+              timestamp: now,
+              source: 'ai_assistant',
+              by: clean(ctx.clientName) || 'AI assistant',
+              byEmail: (ctx.bot && ctx.bot.email) || 'bot:ai-assistant',
+            },
+          ],
+        }
+      : {}),
     workspaceId: ctx.workspaceId,
     savedAt: now,
   });
@@ -569,9 +582,27 @@ async function addLeadNote(ctx, input) {
   const ts = new Date().toISOString();
   const by = teamActivity.toolActivityContext(ctx);
   const author = (by && by.actor && (by.actor.name || by.actor.email)) || clean(ctx.clientName) || 'AI assistant';
-  const entry = { type: 'note', value: content, timestamp: ts, source: 'ai_assistant', by: author };
+  const authorEmail =
+    (by && by.actor && by.actor.email) ||
+    (ctx.bot && ctx.bot.email) ||
+    'bot:ai-assistant';
+  const entry = {
+    type: 'note',
+    value: content,
+    timestamp: ts,
+    source: 'ai_assistant',
+    by: author,
+    byEmail: String(authorEmail).toLowerCase(),
+  };
   const updates = [...(Array.isArray(lead.updates) ? lead.updates : []), entry];
-  await dbService.updateLead(fullKey, { updates, logs: [{ type: 'note', message: content, timestamp: ts, by: author }] }, ctx.workspaceId);
+  await dbService.updateLead(
+    fullKey,
+    {
+      updates,
+      logs: [{ type: 'note', message: content, timestamp: ts, by: author, byEmail: entry.byEmail, source: 'ai_assistant' }],
+    },
+    ctx.workspaceId,
+  );
   triggerGhlProspectSync(fullKey, ctx.workspaceId, { trigger: 'note_added', note: content });
   record(ctx, { category: 'notes', action: 'note_add', summary: `Note: ${content.slice(0, 200)}`, leadKey: fullKey, leadTitle: lead.title || '' });
   return { message: `Added a note to "${lead.title || fullKey}".`, lead_id: fullKey };

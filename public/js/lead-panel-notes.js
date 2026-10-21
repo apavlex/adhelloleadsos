@@ -143,8 +143,17 @@
     if (!raw || typeof raw !== 'object') return false;
     if (raw.source === 'quick_log_pill') return false;
     if (raw.disposition || raw.statusChange) return false;
+    const source = String(raw.source || '').toLowerCase();
+    if (source === 'ai_assistant' || source === 'ai' || source === 'pavlex' || source === 'mcp') return false;
+    if (String(raw.byEmail || '').startsWith('bot:')) return false;
+    if (
+      window.AdhelloLeadNoteAttribution &&
+      window.AdhelloLeadNoteAttribution.looksLikeAiNote(raw, String(raw.value || raw.message || ''))
+    ) {
+      return false;
+    }
     if (raw.source === 'panel_post' || raw.manual === true) return true;
-    if (String(raw.type || '') === 'note') return true;
+    if (String(raw.type || '') === 'note' && !raw.source) return true;
     return false;
   }
 
@@ -392,6 +401,7 @@
       host.innerHTML = `<div class="pl-10 text-xs text-brand-muted italic leading-relaxed">${emptyMsg}</div>`;
       return true;
     }
+    const noteAttr = window.AdhelloLeadNoteAttribution;
     host.innerHTML = filtered
       .map((e) => {
         const when = e.ts
@@ -402,7 +412,19 @@
               minute: '2-digit',
             })
           : '—';
-        const label = String(e.typ || 'note').replace(/_/g, ' ');
+        const typ = String(e.typ || 'note').toLowerCase();
+        const isNoteLike =
+          typ === 'note' || typ === 'user_note' || typ === 'post' || typ === 'comment' || typ === 'manual_note';
+        const label =
+          isNoteLike && noteAttr
+            ? noteAttr.noteTypeLabel(e.raw || {})
+            : String(e.typ || 'note').replace(/_/g, ' ');
+        const attr = isNoteLike && noteAttr ? noteAttr.classifyNoteAttribution(e.raw || {}) : null;
+        const badgeHtml = attr && noteAttr ? noteAttr.attributionBadgeHtml(attr) : '';
+        const bodyHtml =
+          isNoteLike && noteAttr
+            ? noteAttr.noteBodyHtml(e.text, { collapseAt: 420 })
+            : `<p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${escapeHtml(e.text)}</p>`;
         const canDelete = isManualNote(e.raw);
         const deleteBtn = canDelete
           ? `<button type="button" class="lead-activity-note-delete shrink-0 opacity-70 hover:opacity-100 text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition-opacity px-1.5 py-0.5 rounded-md hover:bg-rose-500/10" data-note-ts="${escapeHtmlAttr(String(e.ts || ''))}" data-note-value="${escapeHtmlAttr(encodeURIComponent(String(e.text || '')))}" aria-label="Delete this note">Delete</button>`
@@ -411,14 +433,18 @@
           <div class="absolute left-1 top-1 w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-sm ring-2 ring-white dark:ring-slate-900"></div>
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
-              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${escapeHtml(when)} · ${escapeHtml(label)}</p>
-              <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${escapeHtml(e.text)}</p>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${escapeHtml(when)} · ${escapeHtml(label)}</p>
+                ${badgeHtml}
+              </div>
+              ${bodyHtml}
             </div>
             ${deleteBtn}
           </div>
         </div>`;
       })
       .join('');
+    if (noteAttr) noteAttr.bindNoteExpand(host);
     return true;
   }
 

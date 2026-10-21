@@ -251,8 +251,11 @@
                   <p id="leadPanelLatestReplyText" class="text-[11px] text-brand-dark dark:text-slate-200 mt-0.5 line-clamp-3"></p>
                 </div>
                 <div id="leadPanelLastTouchCard">
-                  <p id="leadPanelLastTouchSummary" class="text-[13px] font-bold text-brand-dark dark:text-white leading-snug">—</p>
-                  <p id="leadPanelLastTouchDetail" class="text-[11px] text-brand-muted dark:text-slate-400 mt-0.5 line-clamp-2 hidden"></p>
+                  <div class="flex flex-wrap items-center gap-1.5 mb-0.5">
+                    <p id="leadPanelLastTouchSummary" class="text-[13px] font-bold text-brand-dark dark:text-white leading-snug">—</p>
+                    <span id="leadPanelLastTouchBadge" class="hidden"></span>
+                  </div>
+                  <div id="leadPanelLastTouchDetail" class="hidden"></div>
                 </div>
                 <span id="leadPanelEngagementBadge" class="hidden mt-2 inline-flex text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/40 text-emerald-800 dark:text-emerald-200"></span>
                 <button type="button" id="leadPanelTouchPointsToggle" aria-expanded="false" aria-controls="leadPanelTouchPointsList" class="hidden mt-2 w-full flex items-center justify-between gap-2 text-left">

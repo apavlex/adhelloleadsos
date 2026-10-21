@@ -140,7 +140,10 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
   const opp = scoreLeadRecord(l, scoreOpts);
   const whyReasons = (opp.reasons || []).slice(0, 5);
   const whyTier = opp.tier || 'low';
-  const touchPoints = buildLeadTouchPoints(l, { limit: 8 });
+  const touchPoints = buildLeadTouchPoints(l, {
+    limit: 8,
+    viewerEmail: (opts && opts.viewerEmail) || '',
+  });
 
   return {
     key: shortLeadKey(l),
@@ -236,8 +239,14 @@ router.get('/queue.json', async (req, res, next) => {
       earlyStagesOnly: true,
       ...scoreOpts,
     });
+    const viewerEmail = userEmail(req);
     let queue = ordered.map((l) =>
-      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency, scoreOpts, auditLinkFor }),
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, {
+        isAgency,
+        scoreOpts,
+        auditLinkFor,
+        viewerEmail,
+      }),
     );
     if (!sessionScope) {
       queue = queue.filter((item) => {
@@ -290,6 +299,7 @@ async function ensureExplicitFocusLead({
   isAgency,
   scoreOpts,
   auditLinkFor,
+  viewerEmail,
 }) {
   const key = String(explicitOpenKey || '').trim().replace(/^lead:/i, '');
   if (!key) return;
@@ -311,7 +321,12 @@ async function ensureExplicitFocusLead({
 
   promoteFocusLead(
     queue,
-    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys, { isAgency, scoreOpts, auditLinkFor }),
+    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys, {
+      isAgency,
+      scoreOpts,
+      auditLinkFor,
+      viewerEmail,
+    }),
   );
 }
 
@@ -368,8 +383,14 @@ router.get('/', async (req, res, next) => {
     const focusQueueTotal = ordered.length;
     const hydrateFullQueue = !bulkSelection && !selectedKeyOrder.length && focusQueueTotal > FOCUS_SSR_CHUNK;
     const ssrLeads = hydrateFullQueue ? ordered.slice(0, FOCUS_SSR_CHUNK) : ordered;
+    const viewerEmail = userEmail(req);
     const queue = ssrLeads.map((l) =>
-      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, { isAgency, scoreOpts, auditLinkFor }),
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys, {
+        isAgency,
+        scoreOpts,
+        auditLinkFor,
+        viewerEmail,
+      }),
     );
 
     await ensureExplicitFocusLead({
@@ -384,6 +405,7 @@ router.get('/', async (req, res, next) => {
       isAgency,
       scoreOpts,
       auditLinkFor,
+      viewerEmail,
     });
 
     const touchesToday = 0; // hydrated immediately via /focus/metrics.json — skip scanning all lead logs on SSR

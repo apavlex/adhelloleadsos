@@ -10974,6 +10974,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatActivityTypeLabel(typ, raw) {
     const t = String(typ || '').toLowerCase();
+    const noteLike =
+      t === 'note' || t === 'user_note' || t === 'post' || t === 'comment' || t === 'manual_note';
+    if (noteLike && window.AdhelloLeadNoteAttribution) {
+      return window.AdhelloLeadNoteAttribution.noteTypeLabel(raw || {});
+    }
     const map = {
       quick_log: 'Quick log',
       note: 'Note',
@@ -11152,8 +11157,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isQuickLogMirroredNote(entry)) return false;
     if (typ === 'call_disposition' || typ === 'status_change') return false;
     if (/^sequence|^cadence/i.test(typ)) return false;
+    const source = String(raw.source || '').toLowerCase();
+    if (source === 'ai_assistant' || source === 'ai' || source === 'pavlex' || source === 'mcp') return false;
+    if (String(raw.byEmail || '').startsWith('bot:')) return false;
+    if (
+      window.AdhelloLeadNoteAttribution &&
+      window.AdhelloLeadNoteAttribution.looksLikeAiNote(raw, String(entry.text || ''))
+    ) {
+      return false;
+    }
     if (raw.source === 'panel_post' || raw.manual === true) return true;
-    if (typ === 'note' && raw.source !== 'quick_log_pill') return true;
+    if (typ === 'note' && !raw.source) return true;
     return ['user_note', 'post', 'comment', 'manual_note'].includes(typ);
   }
 
@@ -11244,15 +11258,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const scrollHost = document.getElementById('activityLogScroll');
     if (scrollHost) scrollHost.scrollTop = 0;
 
+    const noteAttr = window.AdhelloLeadNoteAttribution;
     host.innerHTML = filtered
       .map((e) => {
         const when = e.ts
           ? new Date(e.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
           : '—';
         const typeLabel = formatActivityTypeLabel(e.typ, e.raw);
-        const body = formatActivityEntryText(e)
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;');
+        const typ = String(e.typ || '').toLowerCase();
+        const isNoteLike =
+          typ === 'note' || typ === 'user_note' || typ === 'post' || typ === 'comment' || typ === 'manual_note';
+        const attr = isNoteLike && noteAttr ? noteAttr.classifyNoteAttribution(e.raw || {}) : null;
+        const badgeHtml = attr && noteAttr ? noteAttr.attributionBadgeHtml(attr) : '';
+        const bodyText = formatActivityEntryText(e);
+        const bodyHtml =
+          isNoteLike && noteAttr
+            ? noteAttr.noteBodyHtml(bodyText, { collapseAt: 420 })
+            : `<p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${escapeHtml(bodyText)}</p>`;
         const canDelete = isManualPanelNote(e);
         const deleteBtn = canDelete
           ? `<button type="button" class="lead-activity-note-delete shrink-0 opacity-70 hover:opacity-100 text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition-opacity px-1.5 py-0.5 rounded-md hover:bg-rose-500/10" data-note-ts="${escapeHtmlAttr(String(e.ts || ''))}" data-note-value="${escapeHtmlAttr(encodeURIComponent(String(e.text || '')))}" aria-label="Delete this note">Delete</button>`
@@ -11261,14 +11283,18 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="absolute left-1 top-1 w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-sm ring-2 ring-white dark:ring-slate-900"></div>
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0 flex-1">
-              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${when} · ${typeLabel}</p>
-              <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${body}</p>
+              <div class="flex flex-wrap items-center gap-1.5">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${escapeHtml(when)} · ${escapeHtml(typeLabel)}</p>
+                ${badgeHtml}
+              </div>
+              ${bodyHtml}
             </div>
             ${deleteBtn}
           </div>
         </div>`;
       })
       .join('');
+    if (noteAttr) noteAttr.bindNoteExpand(host);
 
     const countEl = document.getElementById('activityLogCount');
     if (countEl) {
@@ -12900,13 +12926,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     summaryEl.textContent = summaryParts.length ? summaryParts.join(' · ') : 'No touches logged yet';
 
+    const noteAttr = window.AdhelloLeadNoteAttribution;
+    const badgeHost = document.getElementById('leadPanelLastTouchBadge');
+    if (badgeHost) {
+      const latestTyp = latest ? String(latest.typ || '').toLowerCase() : '';
+      const latestIsNote =
+        latestTyp === 'note' ||
+        latestTyp === 'user_note' ||
+        latestTyp === 'post' ||
+        latestTyp === 'comment' ||
+        latestTyp === 'manual_note';
+      const attr =
+        latestIsNote && noteAttr ? noteAttr.classifyNoteAttribution(latest.raw || {}) : null;
+      if (attr && attr.badge && noteAttr) {
+        badgeHost.innerHTML = noteAttr.attributionBadgeHtml(attr);
+        badgeHost.classList.remove('hidden');
+      } else {
+        badgeHost.innerHTML = '';
+        badgeHost.classList.add('hidden');
+      }
+    }
+
     if (detailEl) {
       const detail = latest ? formatActivityEntryText(latest) : '';
       if (detail) {
-        detailEl.textContent = detail;
+        const latestTyp = String(latest.typ || '').toLowerCase();
+        const latestIsNote =
+          latestTyp === 'note' ||
+          latestTyp === 'user_note' ||
+          latestTyp === 'post' ||
+          latestTyp === 'comment' ||
+          latestTyp === 'manual_note';
+        if (latestIsNote && noteAttr) {
+          detailEl.innerHTML = noteAttr.noteBodyHtml(detail, { collapseAt: 280 });
+          noteAttr.bindNoteExpand(detailEl);
+        } else {
+          detailEl.textContent = detail;
+        }
         detailEl.classList.remove('hidden');
       } else {
         detailEl.textContent = '';
+        detailEl.innerHTML = '';
         detailEl.classList.add('hidden');
       }
     }
@@ -12960,15 +13020,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const baseLabel = formatActivityTypeLabel(item.typ, item.raw);
         const typeLabel = isReplyEntry(item) ? `Business reply · ${baseLabel}` : baseLabel;
         const body = formatActivityEntryText(item);
+        const isNoteLike =
+          typ === 'note' || typ === 'user_note' || typ === 'post' || typ === 'comment' || typ === 'manual_note';
+        const attr = isNoteLike && noteAttr ? noteAttr.classifyNoteAttribution(item.raw || {}) : null;
+        const badgeHtml = attr && noteAttr ? noteAttr.attributionBadgeHtml(attr) : '';
+        const bodyHtml =
+          body && isNoteLike && noteAttr
+            ? noteAttr.noteBodyHtml(body, { collapseAt: 280 })
+            : body
+              ? `<p class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mt-0.5 leading-snug">${escapeHtml(body)}</p>`
+              : '';
         const warmClass = warm
           ? ' border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20'
           : ' border-brand-border/30 dark:border-white/10';
         return `<li class="rounded-lg border px-2.5 py-1.5${warmClass}">
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${escapeHtml(when)} · ${escapeHtml(typeLabel)}</p>
-          ${body ? `<p class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mt-0.5 leading-snug">${escapeHtml(body)}</p>` : ''}
+          <div class="flex flex-wrap items-center gap-1.5">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${escapeHtml(when)} · ${escapeHtml(typeLabel)}</p>
+            ${badgeHtml}
+          </div>
+          ${bodyHtml}
         </li>`;
       })
       .join('');
+    if (noteAttr) noteAttr.bindNoteExpand(listEl);
   }
 
   function populateCadenceSection(row) {

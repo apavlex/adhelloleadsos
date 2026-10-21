@@ -295,8 +295,11 @@
               </div>
               <div id="focus-last-touch-card" class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-2.5 py-2">
                 <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last touch</p>
-                <p id="focus-last-touch" class="text-[12px] font-bold text-brand-dark dark:text-white leading-snug">—</p>
-                <p id="focus-last-touch-detail" class="text-[11px] text-brand-muted mt-1 line-clamp-3 hidden"></p>
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <p id="focus-last-touch" class="text-[12px] font-bold text-brand-dark dark:text-white leading-snug">—</p>
+                  <span id="focus-last-touch-badge" class="hidden"></span>
+                </div>
+                <div id="focus-last-touch-detail" class="mt-1 hidden"></div>
                 <span id="focus-engagement-badge" class="hidden mt-2 inline-flex text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border border-emerald-500/40 text-emerald-800 dark:text-emerald-200"></span>
               </div>
               <button type="button" id="focusTouchPointsToggle" aria-expanded="false" aria-controls="focusTouchPointsBody" class="hidden mt-2 w-full flex items-center justify-between gap-2 text-left">
@@ -747,6 +750,7 @@
     window.__FOCUS_HYDRATE_QUEUE = <%= typeof focusHydrateQueue !== 'undefined' && focusHydrateQueue ? 'true' : 'false' %>;
     window.__FOCUS_QUEUE_TOTAL = <%= typeof focusQueueTotal === 'number' ? focusQueueTotal : 'null' %>;
   </script>
+  <script src="/js/lead-note-attribution.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/socialUrlNormalize.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/contact-finder-cell.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/review-stars.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
@@ -4347,13 +4351,30 @@
       if (elLast) {
         elLast.textContent = (last && last.summary) ? last.summary : (lead.lastTouchLabel || '—');
       }
+      var noteAttrLast = window.AdhelloLeadNoteAttribution;
+      var lastBadge = document.getElementById('focus-last-touch-badge');
+      if (lastBadge) {
+        if (last && last.isNote && last.attribution && noteAttrLast) {
+          lastBadge.innerHTML = noteAttrLast.attributionBadgeHtml(last.attribution);
+          lastBadge.classList.remove('hidden');
+        } else {
+          lastBadge.innerHTML = '';
+          lastBadge.classList.add('hidden');
+        }
+      }
       if (elLastDetail) {
         var detail = last && last.text ? String(last.text).trim() : '';
         if (detail) {
-          elLastDetail.textContent = detail;
+          if (last && last.isNote && noteAttrLast) {
+            elLastDetail.innerHTML = noteAttrLast.noteBodyHtml(detail, { collapseAt: 280 });
+            noteAttrLast.bindNoteExpand(elLastDetail);
+          } else {
+            elLastDetail.textContent = detail;
+          }
           elLastDetail.classList.remove('hidden');
         } else {
           elLastDetail.textContent = '';
+          elLastDetail.innerHTML = '';
           elLastDetail.classList.add('hidden');
         }
       }
@@ -4383,16 +4404,31 @@
         elTouchPointsList.innerHTML = '<li class="text-brand-muted italic">No touch history yet.</li>';
         return;
       }
+      var noteAttr = window.AdhelloLeadNoteAttribution;
       elTouchPointsList.innerHTML = items.map(function (item) {
         var warm = item.isEngagement ? ' border-emerald-500/30 bg-emerald-500/5' : ' border-brand-border/40 dark:border-white/10';
         var label = String(item.isReply ? 'Business reply · ' + (item.typeLabel || '') : (item.typeLabel || 'Touch')).replace(/</g, '&lt;').replace(/>/g, '&gt;');
         var when = String(item.atLabel || '—').replace(/</g, '&lt;');
-        var body = String(item.text || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        var body = String(item.text || '');
+        var badgeHtml = '';
+        var bodyHtml = '';
+        if (item.isNote && noteAttr) {
+          var attr = item.attribution || noteAttr.classifyNoteAttribution({ value: body });
+          badgeHtml = noteAttr.attributionBadgeHtml(attr);
+          bodyHtml = body ? noteAttr.noteBodyHtml(body, { collapseAt: 280 }) : '';
+        } else if (body) {
+          bodyHtml = '<p class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mt-0.5 leading-snug">' +
+            body.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>';
+        }
         return '<li class="rounded-lg border px-2.5 py-2' + warm + '">' +
+          '<div class="flex flex-wrap items-center gap-1.5">' +
           '<p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">' + when + ' · ' + label + '</p>' +
-          (body ? '<p class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mt-0.5 leading-snug">' + body + '</p>' : '') +
+          badgeHtml +
+          '</div>' +
+          bodyHtml +
           '</li>';
       }).join('');
+      if (noteAttr) noteAttr.bindNoteExpand(elTouchPointsList);
     }
 
     function renderReviewStars(score) {
