@@ -225,7 +225,7 @@ function requestUserName(req) {
 }
 
 /** Email the invite through the workspace's GHL; returns a query-string suffix for the Team page banner. */
-async function emailInviteQuery(req, ws, email, inviteLink) {
+async function emailInviteQuery(req, ws, email, inviteLink, role) {
   try {
     const r = await onboardingDrip.sendInviteEmail({
       ws,
@@ -233,6 +233,7 @@ async function emailInviteQuery(req, ws, email, inviteLink) {
       inviteLink,
       inviterName: requestUserName(req) || workspaceService.userEmail(req),
       baseUrl: requestBaseUrl(req),
+      role,
     });
     return r.sent ? '&emailed=1' : '';
   } catch (e) {
@@ -273,9 +274,9 @@ const WORKSPACE_SECTION_META = {
       'Invite people, set Admin / Manager / SDR / Viewer, and remove access anytime when someone is hired or fired.',
   },
   onboarding: {
-    title: 'Teammate onboarding',
+    title: 'Leader onboarding',
     description:
-      'Invite email and daily activation emails sent through this workspace’s GHL. The same steps power the in-app activation checklist.',
+      'Invite email for the team, plus a 7-day activation drip for workspace admins and managers (not SDR/viewer teammates). Reviews-app users get a separate Reviews onboarding. Same steps power the in-app activation checklist.',
   },
   integrations: {
     title: 'Integrations',
@@ -1112,7 +1113,7 @@ router.post('/team/invite', express.urlencoded({ extended: true }), async (req, 
     ws.pendingInvites = filtered.slice(-100);
     await dbService.saveWorkspace(wid, ws);
     const inviteLink = buildInvitePublicUrl(req, token);
-    const emailQuery = await emailInviteQuery(req, ws, email, inviteLink);
+    const emailQuery = await emailInviteQuery(req, ws, email, inviteLink, role);
     return res.redirect(
       `/workspace/team?invite=created&email=${encodeURIComponent(email)}&link=${encodeURIComponent(inviteLink)}${emailQuery}`,
     );
@@ -1169,7 +1170,10 @@ router.get('/invite/:token', async (req, res, next) => {
       await dbService.saveWorkspace(wid, ws);
       await dbService.addUserWorkspaceId(invEmail, wid);
       await dbService.saveUserPrefs(invEmail, { activeWorkspaceId: wid });
-      if (onboardingConfig.onboardingForWorkspace(ws).enabled) {
+      if (
+        onboardingConfig.onboardingForWorkspace(ws).enabled &&
+        onboardingConfig.roleEligibleForAgencyOnboarding(role)
+      ) {
         onboardingDrip
           .enrollMember({
             workspaceId: wid,
@@ -1177,6 +1181,7 @@ router.get('/invite/:token', async (req, res, next) => {
             name: requestUserName(req),
             baseUrl: requestBaseUrl(req),
             inviterName: inv.invitedByName || inv.invitedBy || '',
+            role,
           })
           .catch((e) => console.error('[ONBOARDING] enroll failed:', e.message));
       }
@@ -1259,7 +1264,7 @@ router.post('/team/invite/regenerate', express.urlencoded({ extended: true }), a
     ws.pendingInvites = pending;
     await dbService.saveWorkspace(wid, ws);
     const inviteLink = buildInvitePublicUrl(req, token);
-    const emailQuery = await emailInviteQuery(req, ws, email, inviteLink);
+    const emailQuery = await emailInviteQuery(req, ws, email, inviteLink, inv.role);
     return res.redirect(
       `/workspace/team?invite=created&email=${encodeURIComponent(email)}&link=${encodeURIComponent(inviteLink)}${emailQuery}`,
     );
@@ -1471,13 +1476,17 @@ router.post('/onboarding/member', express.json({ limit: '16kb' }), async (req, r
       await onboardingDrip.stopMember(wid, email);
     } else if (action === 'start' || action === 'restart') {
       const prev = await onboardingDrip.readEnrollment(wid, email);
+      const memberRole = ws.members[email].role;
       await onboardingDrip.enrollMember({
         workspaceId: wid,
         email,
         name: (prev && prev.name) || ws.members[email].name || '',
         baseUrl: requestBaseUrl(req),
         inviterName: requestUserName(req) || workspaceService.userEmail(req),
+        role: memberRole,
         restart: true,
+        // Manual start from settings can enroll any role (ops override).
+        force: true,
       });
     } else {
       return res.status(400).json({ success: false, error: 'Unknown action.' });

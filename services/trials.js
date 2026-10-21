@@ -359,6 +359,24 @@ async function createTrialWorkspace({ email, form, googleName, ip }, now = Date.
     createdAt: startedAt,
     ipHash: ip ? ipHash(ip) : '',
   });
+
+  // Agency OS 7-day leader onboarding for the new workspace owner (not teammates).
+  try {
+    const onboardingDrip = require('./onboardingDrip');
+    onboardingDrip
+      .enrollMember({
+        workspaceId: newId,
+        email: em,
+        name: String(googleName || form.name || '').trim(),
+        baseUrl: process.env.BASE_URL || '',
+        inviterName: 'Agency OS',
+        role: 'owner',
+      })
+      .catch((e) => console.error('[ONBOARDING] trial owner enroll failed:', e.message));
+  } catch (e) {
+    console.error('[ONBOARDING] trial owner enroll setup failed:', e.message);
+  }
+
   return { workspaceId: newId, signup };
 }
 

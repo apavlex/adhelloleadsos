@@ -1,10 +1,19 @@
 /**
- * Per-workspace teammate onboarding: invite email + daily activation steps.
+ * Per-workspace Agency OS onboarding: invite email + daily activation steps.
+ * The 7-day drip is for workspace leaders (owner / admin / manager) of a new
+ * workspace — not SDR/viewer teammates. Reviews-app users get a separate drip.
  * The same steps drive the in-app activation checklist and the daily GHL emails.
  */
 
 const MAX_STEPS = 14;
 const DEFAULT_SEND_HOUR = 9;
+
+/** Roles that receive the Agency OS 7-day email drip after join / workspace create. */
+const DRIP_ROLES = new Set(['owner', 'admin', 'manager']);
+
+function roleEligibleForAgencyOnboarding(role) {
+  return DRIP_ROLES.has(String(role || '').trim().toLowerCase());
+}
 
 const ACTIVATION_EVENTS = [
   { key: '', label: 'Manual — teammate clicks Mark done' },
@@ -46,15 +55,34 @@ const PLACEHOLDERS = [
 
 const SIGN_OFF = '\n\n— The {{workspace_name}} team';
 
+/** Invite for admin / manager (mentions the 7-day leader onboarding). */
 const DEFAULT_INVITE = {
+  subject: "You're invited to {{workspace_name}} on Agency OS",
+  body:
+    'Hi {{first_name}},\n\n' +
+    "{{inviter_name}} added you to the {{workspace_name}} workspace as a leader — it's where we find prospects, run outreach, and track every deal.\n\n" +
+    'Accept your invite and sign in with Google using this email address:\n{{invite_link}}\n\n' +
+    "The link expires in 14 days. Once you're in, you'll get one short email a day for {{total_days}} days showing exactly what to do next." +
+    SIGN_OFF,
+};
+
+/** Invite for SDR / viewer teammates — no Agency OS 7-day drip. */
+const DEFAULT_INVITE_TEAMMATE = {
   subject: "You're invited to {{workspace_name}} on Agency OS",
   body:
     'Hi {{first_name}},\n\n' +
     "{{inviter_name}} added you to the {{workspace_name}} workspace — it's where we find prospects, run outreach, and track every deal.\n\n" +
     'Accept your invite and sign in with Google using this email address:\n{{invite_link}}\n\n' +
-    "The link expires in 14 days. Once you're in, you'll get one short email a day for {{total_days}} days showing exactly what to do next." +
+    'The link expires in 14 days.' +
     SIGN_OFF,
 };
+
+function inviteTemplateForRole(cfg, role) {
+  if (roleEligibleForAgencyOnboarding(role)) {
+    return (cfg && cfg.invite) || DEFAULT_INVITE;
+  }
+  return DEFAULT_INVITE_TEAMMATE;
+}
 
 const DEFAULT_STEPS = [
   {
@@ -242,13 +270,17 @@ function renderTemplate(template, vars) {
 module.exports = {
   MAX_STEPS,
   DEFAULT_SEND_HOUR,
+  DRIP_ROLES,
   ACTIVATION_EVENTS,
   EVENT_KEYS,
   SUGGESTED_LINKS,
   PLACEHOLDERS,
   DEFAULT_INVITE,
+  DEFAULT_INVITE_TEAMMATE,
   DEFAULT_STEPS,
   DEFAULT_ONBOARDING,
+  roleEligibleForAgencyOnboarding,
+  inviteTemplateForRole,
   normalizeOnboarding,
   onboardingForWorkspace,
   normalizeStep,

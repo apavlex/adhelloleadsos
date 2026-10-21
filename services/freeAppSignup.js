@@ -315,6 +315,16 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
 
     setImmediate(() => {
       notifyOperatorNewFreeApp({ network, member }).catch(() => {});
+      // Reviews-app 7-day onboarding (separate from Agency OS leader drip).
+      // Day 1 = welcome just sent; schedule Days 2–7.
+      try {
+        const reviewsOnboardingDrip = require('./reviewsOnboardingDrip');
+        reviewsOnboardingDrip
+          .enrollMember({ network, member, baseUrl, skipDay1: true })
+          .catch((err) => console.error('[REVIEWS-ONBOARDING] enroll failed:', err.message));
+      } catch (err) {
+        console.error('[REVIEWS-ONBOARDING] enroll setup failed:', err.message);
+      }
     });
 
     return { ok: true, member, network, notified, created: true };

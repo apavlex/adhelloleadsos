@@ -155,7 +155,7 @@
     <p class="mt-3 text-[11px] text-brand-muted">
       Creates a secure invite link for this email.
       <% const _obDays = Array.isArray(_obCfg.steps) && _obCfg.steps.length ? _obCfg.steps.length : 7; %>
-      <% if (_obInviteOn) { %>The invite and <%= _obDays %> daily onboarding emails go out through this workspace&apos;s GHL.<% } else if (_obCfg.enabled !== false) { %><%= _obDays %> daily onboarding emails start after they join (invite email is off).<% } else { %>Onboarding emails are off.<% } %>
+      <% if (_obInviteOn) { %>Invite emails go through this workspace&apos;s GHL. The <%= _obDays %>-day drip starts only for <strong>Admin</strong> or <strong>Manager</strong> roles (not SDR/Viewer).<% } else if (_obCfg.enabled !== false) { %><%= _obDays %>-day drip starts after Admin/Manager join (invite email is off).<% } else { %>Onboarding emails are off.<% } %>
       <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %><a href="/workspace/onboarding" class="font-bold text-brand-dark dark:text-white underline">Edit onboarding emails</a><% } %>
     </p>
   </form>
