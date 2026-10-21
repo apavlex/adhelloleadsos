@@ -27,7 +27,7 @@ async function startServer() {
   return { server, base: `http://127.0.0.1:${port}` };
 }
 
-test('Home banner shows open jobs; review visits sit on the secondary line', async () => {
+test('Home banner shows leads; open jobs sit on the secondary line', async () => {
   const network = await store.getOrCreateNetworkForWorkspace(`ws_rv_visit_${Date.now()}`, {
     name: 'Visit Net',
   });
@@ -61,6 +61,12 @@ test('Home banner shows open jobs; review visits sit on the secondary line', asy
     phone: '+15551230001',
   });
   assert.equal(cust.ok, true);
+  const leadCust = await work.saveCustomer(network.id, member.id, {
+    name: 'Lead Contact',
+    phone: '+15551230002',
+  });
+  assert.equal(leadCust.ok, true);
+  await work.setCustomerLeadFlag(network.id, member.id, leadCust.customer.id, true);
   const job1 = await work.saveJob(network.id, member.id, {
     customerId: cust.customer.id,
     title: 'Deck repair',
@@ -86,13 +92,14 @@ test('Home banner shows open jobs; review visits sit on the secondary line', asy
     const home = await fetch(`${base}/m/${token}`);
     assert.equal(home.status, 200);
     const html = await home.text();
-    // Banner keeps open jobs (2 active) — not frozen brand 91 or review visits.
-    assert.match(html, /ma-hero__stat">\s*2\s*<small>open jobs<\/small>/i);
+    // Banner shows leads (1) — not frozen brand 91, review visits, or open jobs as the big number.
+    assert.match(html, /ma-hero__stat">\s*1\s*<small>leads<\/small>/i);
     assert.doesNotMatch(html, /ma-hero__stat">\s*91\s*</);
     assert.doesNotMatch(html, /ma-hero__stat">\s*22\s*</);
+    assert.doesNotMatch(html, /ma-hero__stat">\s*2\s*<small>open jobs<\/small>/i);
+    assert.match(html, /2\s*open jobs/i);
     assert.match(html, /22\s*review visits/i);
-    assert.match(html, /open jobs/i);
-    // First tile is Leads (jobs → leads swap); hero still shows open jobs.
+    // First tile is Leads; open jobs live under the hero number.
     assert.match(html, /ma-tile__label">Leads</i);
     assert.doesNotMatch(html, /ma-tile__label">Open jobs</i);
     assert.doesNotMatch(html, /ma-tile__label">Review visits</i);

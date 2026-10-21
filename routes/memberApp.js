@@ -1164,7 +1164,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   }
   render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
-    // Leads → customers → referrals (hero still shows open jobs; review visits on secondary line).
+    // Leads → customers → referrals (hero shows leads; open jobs sit on the secondary line).
     tiles: [
       { key: 'leads', label: 'Leads', value: openLeadCount, href: `${ctx.base}/referrals`, icon: 'leads' },
       { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
