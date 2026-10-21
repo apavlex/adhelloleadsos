@@ -146,7 +146,8 @@ test('new customer form includes speak-once flow and field mics', async () => {
     const html = await res.text();
     assert.equal(res.status, 200);
     assert.match(html, /data-ma-voice-add-customer/);
-    assert.match(html, /Speak customer info/);
+    assert.match(html, /ma-voice-add__mic/);
+    assert.match(html, /aria-label="Speak customer info"/);
     assert.match(html, /maVoiceCustomerConfirm/);
     assert.match(html, /Confirm &amp; create/);
     assert.match(html, /data-ma-voice-for="cuName"/);
