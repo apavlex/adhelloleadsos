@@ -299,6 +299,9 @@
     <section class="ma-section">
       <% if (customer) { %><div class="ma-section__head"><h2>Details</h2></div><% } %>
       <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off">
+        <% if (!customer) { %>
+        <p class="ma-hint ma-voice-hint" style="margin:0 0 12px">Mic on each field — tap, speak, tap again. Works while driving.</p>
+        <% } %>
         <div class="ma-field">
           <div class="ma-label-row">
             <label class="ma-label" for="cuName">Name</label>
@@ -308,11 +311,17 @@
         </div>
         <div class="ma-grid2">
           <div class="ma-field">
-            <label class="ma-label" for="cuPhone">Phone</label>
+            <div class="ma-label-row">
+              <label class="ma-label" for="cuPhone">Phone</label>
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="cuPhone" aria-label="Dictate phone number" title="Tap to speak" hidden></button>
+            </div>
             <input id="cuPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.phone || '' %>">
           </div>
           <div class="ma-field">
-            <label class="ma-label" for="cuEmail">Email</label>
+            <div class="ma-label-row">
+              <label class="ma-label" for="cuEmail">Email</label>
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="cuEmail" aria-label="Dictate email" title="Tap to speak" hidden></button>
+            </div>
             <input id="cuEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= fv.email || '' %>">
           </div>
         </div>
@@ -323,9 +332,12 @@
           }); %>
           <div class="ma-label-row">
             <label class="ma-label" for="cuAddress">Address</label>
-            <% if (addressMapsHref) { %><a class="ma-label-link" href="<%= addressMapsHref %>" target="_blank" rel="noopener">Google Maps</a><% } %>
+            <span class="ma-label-actions">
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="cuAddress" aria-label="Dictate address" title="Tap to speak — hands-free while driving" hidden></button>
+              <% if (addressMapsHref) { %><a class="ma-label-link" href="<%= addressMapsHref %>" target="_blank" rel="noopener">Google Maps</a><% } %>
+            </span>
           </div>
-          <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address">
+          <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address" placeholder="Street, city… Tap the mic to dictate.">
         </div>
         <div class="ma-field">
           <div class="ma-label-row">
@@ -333,7 +345,7 @@
             <button type="button" class="ma-voice-btn" data-ma-voice-for="cuNotes" aria-label="Dictate notes" title="Tap to speak — hands-free while driving" hidden></button>
           </div>
           <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history… Tap the mic to dictate."><%= fv.notes || '' %></textarea>
-          <p class="ma-hint ma-voice-hint">Mic works while driving — tap, speak, tap again to stop.</p>
+          <% if (customer) { %><p class="ma-hint ma-voice-hint">Mic works while driving — tap, speak, tap again to stop.</p><% } %>
         </div>
         <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> <%= customer ? 'Save changes' : 'Add customer' %></button>
       </form>

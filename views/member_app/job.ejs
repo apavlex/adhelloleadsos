@@ -58,7 +58,10 @@
             <input id="jbNewName" name="newCustomerName" class="ma-input" maxlength="120" value="<%= fv.newCustomerName || '' %>" autocapitalize="words">
           </div>
           <div class="ma-field">
-            <label class="ma-label" for="jbNewPhone">Phone</label>
+            <div class="ma-label-row">
+              <label class="ma-label" for="jbNewPhone">Phone</label>
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="jbNewPhone" aria-label="Dictate phone number" title="Tap to speak" hidden></button>
+            </div>
             <input id="jbNewPhone" name="newCustomerPhone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.newCustomerPhone || '' %>">
           </div>
         </div>

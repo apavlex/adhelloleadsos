@@ -128,9 +128,29 @@ test('job page includes voice dictate controls', async () => {
     assert.equal(res.status, 200);
     assert.match(html, /data-ma-voice-for="jbNotes"/);
     assert.match(html, /data-ma-voice-for="jbTitle"/);
+    assert.match(html, /data-ma-voice-for="jbNewName"/);
+    assert.match(html, /data-ma-voice-for="jbNewPhone"/);
     assert.match(html, /alex-voice-input\.js/);
     assert.match(html, /__maVoiceEndpoint/);
     assert.match(html, /\/voice\/transcribe/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('new customer form includes voice on all text fields', async () => {
+  const { token } = await setupMember();
+  const { server, base } = await startApp();
+  try {
+    const res = await fetch(`${base}/m/${encodeURIComponent(token)}/customers/new`);
+    const html = await res.text();
+    assert.equal(res.status, 200);
+    assert.match(html, /data-ma-voice-for="cuName"/);
+    assert.match(html, /data-ma-voice-for="cuPhone"/);
+    assert.match(html, /data-ma-voice-for="cuEmail"/);
+    assert.match(html, /data-ma-voice-for="cuAddress"/);
+    assert.match(html, /data-ma-voice-for="cuNotes"/);
+    assert.match(html, /Mic on each field/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
