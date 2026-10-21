@@ -20,16 +20,34 @@ describe('member leads + referral notifications', () => {
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_formLeads\.forEach/);
+    assert.match(page, /From contacts/);
+    assert.match(page, /_contactLeads\.forEach/);
     assert.match(page, /maPushRoot/);
     assert.match(page, /member-app-push\.js/);
     assert.match(page, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/close/);
     assert.match(page, /Send to a partner/);
     assert.match(page, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/refer/);
     assert.match(route, /formLeads,/);
+    assert.match(route, /contactLeads,/);
+    assert.match(route, /listContactLeads/);
     assert.match(route, /openLeadCount:/);
     assert.match(route, /partnerDirectory/);
     assert.match(route, /appt \? \(appt\.formLeads \|\| \[\]\) : \[\]/);
     assert.match(route, /leads\/:leadId\/refer/);
+    assert.match(route, /customers\/c\/:id\/mark-lead/);
+    assert.match(route, /customers\/c\/:id\/unmark-lead/);
+  });
+
+  it('customer detail can mark a contact as a lead for the Leads folder', () => {
+    const page = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
+    const work = fs.readFileSync(path.join(root, 'services/memberWork.js'), 'utf8');
+    assert.match(page, /Mark as lead/);
+    assert.match(page, /mark-lead/);
+    assert.match(page, /unmark-lead/);
+    assert.match(page, /Remove from Leads/);
+    assert.match(work, /isLead: c\.isLead === true/);
+    assert.match(work, /setCustomerLeadFlag/);
+    assert.match(work, /listContactLeads/);
   });
 
   it('form-lead SMS and push deep-link to /referrals (not legacy /leads alone)', () => {

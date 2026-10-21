@@ -128,6 +128,7 @@
             <span class="ma-row__meta"><%= c.top ? [c.top.title, c.top.whenLabel].filter(Boolean).join(' · ') : (c.phone || c.email || c.address || 'No jobs yet') %><% if (c.isPartner) { %> · Partner<% } %></span>
           </span>
           <span class="ma-row__end">
+            <% if (c.isLead) { %><span class="ma-pill ma-pill--accepted">Lead</span><% } %>
             <% if (c.isPartner) { %><span class="ma-pill">Partner</span><% } %>
             <% if (c.top) { %><span class="ma-pill ma-pill--job-<%= c.top.status %>"><%= c.top.statusLabel %></span><% } %>
             <% if (c.openCount > 1) { %><small><%= c.openCount %> open</small><% } %>

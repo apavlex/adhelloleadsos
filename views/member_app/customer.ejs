@@ -11,6 +11,7 @@
     <div class="ma-titlebar">
       <h1 class="ma-page-title"><%= customer.name %></h1>
       <% if (customer.referralId) { %><span class="ma-pill ma-pill--sent">From referral</span><% } %>
+      <% if (customer.isLead) { %><span class="ma-pill ma-pill--accepted">Lead</span><% } %>
     </div>
     <% const tel = String(customer.phone || '').replace(/[^0-9+]/g, ''); %>
     <% const mapsHref = googleMapsSearchUrl({ name: customer.name, address: customer.address }); %>
@@ -28,6 +29,19 @@
       <% } %>
       <a class="ma-quick__btn<%= mapsHref ? '' : ' is-off' %>" <%- mapsHref ? 'href="' + mapsHref + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
     </div>
+    <div class="ma-actions" style="margin:10px 0 0">
+      <% if (customer.isLead) { %>
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/unmark-lead">
+        <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Remove from Leads</button>
+      </form>
+      <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/referrals">View in Leads</a>
+      <% } else { %>
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-lead">
+        <button type="submit" class="ma-btn ma-btn--sm"><%- icons.leads %> Mark as lead</button>
+      </form>
+      <% } %>
+    </div>
+    <p class="ma-hint" style="margin:8px 0 0"><% if (customer.isLead) { %>This contact is in your Leads folder (Received → From contacts).<% } else { %>SMS and call contacts stay here until you mark them as a lead.<% } %></p>
     <% if (typeof reviewSendLocked !== 'undefined' && reviewSendLocked) { %>
     <p class="ma-hint" style="margin:8px 0 0">Text/email review sends need a GHL CRM account on the monthly plan. Share your QR from the Review tab for free, or <a href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">upgrade</a>.</p>
     <% } else if (typeof reviewAskStatus !== 'undefined' && reviewAskStatus) { %>

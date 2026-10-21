@@ -193,6 +193,8 @@ const OK_MESSAGES = {
   review_email: 'Review request sent by email via GHL CRM.',
   customer: 'Customer saved.',
   customer_deleted: 'Customer deleted.',
+  marked_lead: 'Marked as lead — it shows in Leads & Referrals.',
+  unmarked_lead: 'Removed from Leads. Contact stays in Customers.',
   tag: 'Tags updated and synced with GHL CRM.',
   job: 'Job saved.',
   job_deleted: 'Job deleted.',
@@ -1233,13 +1235,29 @@ router.post('/m/:token/brand/hero', (req, res, next) => {
 
 // ── Referrals ────────────────────────────────────────────────────────────────
 
+function presentContactLead(customer, base) {
+  const c = customer || {};
+  const notes = String(c.notes || '').trim();
+  return {
+    id: c.id,
+    name: c.name || 'Contact',
+    phone: c.phone || '',
+    email: c.email || '',
+    address: c.address || '',
+    preview: notes.length > 160 ? `${notes.slice(0, 157)}…` : notes,
+    at: c.markedAsLeadAt || c.updatedAt || c.createdAt || '',
+    href: `${base}/customers/c/${encodeURIComponent(c.id)}`,
+  };
+}
+
 async function renderReferrals(req, res, ctx, flash, status) {
   const view = ['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received';
-  const [referrals, members, jobs, leadRequest] = await Promise.all([
+  const [referrals, members, jobs, leadRequest, contactLeadRows] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
     work.listJobs(ctx.network.id, ctx.member.id),
     memberLeadRequests.leadRequestState(ctx),
+    work.listContactLeads(ctx.network.id, ctx.member.id),
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
@@ -1265,6 +1283,8 @@ async function renderReferrals(req, res, ctx, flash, status) {
   const appt = ctx.appointment;
   const formLeads = (appt ? (appt.formLeads || []) : []).map((lead) =>
     memberLeadRequests.presentFormLead(lead, { detailsAllowed }));
+  // Own contacts marked as leads — always show full details (member owns them).
+  const contactLeads = contactLeadRows.slice(0, 60).map((c) => presentContactLead(c, ctx.base));
   // Free app + unpaid/expired trial: name teasers only (paid unlocks details).
   const referralsLocked = !detailsAllowed;
   let partnerDirectory = [];
@@ -1291,6 +1311,7 @@ async function renderReferrals(req, res, ctx, flash, status) {
     sent,
     pool,
     formLeads,
+    contactLeads,
     partnerDirectory,
     partnerMembers,
     openLeadCount: appt ? (appt.openLeadCount || 0) : 0,
@@ -1751,6 +1772,39 @@ router.post('/m/:token/customers/c/:id/tags/remove', form, withMember(async (req
 router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res, ctx) => {
   await work.deleteCustomer(ctx.network.id, ctx.member.id, req.params.id);
   return res.redirect(303, `${ctx.base}/customers?ok=customer_deleted`);
+}));
+
+/** Mark / unmark a contact so it appears under Leads & Referrals → From contacts. */
+router.post('/m/:token/customers/c/:id/mark-lead', form, withMember(async (req, res, ctx) => {
+  const result = await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, req.params.id, true);
+  if (!result.ok) {
+    const data = await customerPageData(req, ctx, req.params.id);
+    if (!data) return res.redirect(303, `${ctx.base}/customers`);
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: result.error || 'Could not mark as lead.' },
+      status: 400,
+    });
+  }
+  return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_lead`);
+}));
+
+router.post('/m/:token/customers/c/:id/unmark-lead', form, withMember(async (req, res, ctx) => {
+  const result = await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, req.params.id, false);
+  if (!result.ok) {
+    const data = await customerPageData(req, ctx, req.params.id);
+    if (!data) return res.redirect(303, `${ctx.base}/customers`);
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: result.error || 'Could not remove from leads.' },
+      status: 400,
+    });
+  }
+  const back = String((req.body && req.body.back) || '').trim();
+  if (back.startsWith(`${ctx.base}/referrals`)) {
+    return res.redirect(303, `${back}${back.includes('?') ? '&' : '?'}ok=unmarked_lead`);
+  }
+  return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=unmarked_lead`);
 }));
 
 /**
