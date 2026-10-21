@@ -61,6 +61,25 @@ test('customers: create, update, list and validate', async () => {
   assert.equal(list.length, 1);
 });
 
+test('listCustomers sorts recent to oldest by updatedAt', async () => {
+  const older = await work.saveCustomer(NET, MEM_A, { name: 'Zed Old' });
+  assert.equal(older.ok, true);
+  // Ensure a measurable gap so ISO timestamps differ.
+  await new Promise((r) => setTimeout(r, 5));
+  const newer = await work.saveCustomer(NET, MEM_A, { name: 'Amy New' });
+  assert.equal(newer.ok, true);
+  const names = (await work.listCustomers(NET, MEM_A)).map((c) => c.name);
+  assert.equal(names[0], 'Amy New');
+  assert.ok(names.indexOf('Amy New') < names.indexOf('Zed Old'));
+  assert.equal(
+    work.compareCustomersRecentFirst(
+      { name: 'A', updatedAt: '2026-01-02T00:00:00.000Z' },
+      { name: 'B', updatedAt: '2026-01-01T00:00:00.000Z' },
+    ) < 0,
+    true,
+  );
+});
+
 test('customers and jobs are scoped to one member of one network', async () => {
   const mine = await work.saveCustomer(NET, MEM_B, { name: 'Bo' });
   assert.equal((await work.listCustomers(NET, MEM_B)).length, 1);

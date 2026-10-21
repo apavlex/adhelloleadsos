@@ -10,7 +10,7 @@
       <h1 class="ma-page-title">Customers</h1>
       <a class="ma-iconbtn ma-iconbtn--fill" href="<%= base %>/customers/<%= view === 'calendar' ? 'jobs/new?date=' + selected : (view === 'pending' ? 'jobs/new' : 'new') %>" aria-label="<%= view === 'list' ? 'Add a customer' : 'Add a job' %>"><%- icons.plus %></a>
     </div>
-    <p class="ma-page-sub">Your customers, jobs and schedule in one place.</p>
+    <p class="ma-page-sub"><%= view === 'list' ? 'Contacts, newest first — then jobs and schedule.' : 'Your customers, jobs and schedule in one place.' %></p>
 
     <%- include('_flash') %>
 
@@ -120,6 +120,7 @@
           data-phone="<%= c.phone || '' %>"
           data-email="<%= c.email || '' %>"
           data-address="<%= c.address || '' %>"
+          data-updated="<%= c.updatedAt || c.createdAt || '' %>"
           <% if (c.isPartner) { %>data-partner="1"<% } %>
         >
           <span class="ma-row__avatar"><%= c.name.charAt(0).toUpperCase() %></span>

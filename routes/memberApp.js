@@ -1463,14 +1463,15 @@ async function renderCustomers(req, res, ctx, flash, status) {
         jobCount: mine.length,
         openCount: open.length,
         top: lead ? present(lead) : null,
-        sortKey: lead ? lead.updatedAt : c.updatedAt,
+        // Contacts list: newest activity first (customer touch, not job open-count).
+        sortKey: c.updatedAt || c.createdAt || '',
         isPartner,
       };
     });
     const partnerCount = annotated.filter((c) => c.isPartner).length;
     const rows = annotated
       .filter((c) => showPartners || !c.isPartner)
-      .sort((a, b) => (b.openCount > 0) - (a.openCount > 0) || String(b.sortKey).localeCompare(String(a.sortKey)));
+      .sort(work.compareCustomersRecentFirst);
     Object.assign(extra, {
       q,
       rows,

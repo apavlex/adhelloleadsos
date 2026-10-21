@@ -357,9 +357,17 @@ async function countKeys(prefix) {
 const custPrefix = (networkId, memberId) => `netcust:${scope(networkId, memberId)}:`;
 const jobPrefix = (networkId, memberId) => `netjob:${scope(networkId, memberId)}:`;
 
+/** Newest activity first (updatedAt, then createdAt), then name. */
+function compareCustomersRecentFirst(a, b) {
+  const aKey = String((a && (a.updatedAt || a.createdAt)) || '');
+  const bKey = String((b && (b.updatedAt || b.createdAt)) || '');
+  if (aKey !== bKey) return bKey.localeCompare(aKey);
+  return String((a && a.name) || '').localeCompare(String((b && b.name) || ''));
+}
+
 async function listCustomers(networkId, memberId) {
   const rows = await readAll(custPrefix(networkId, memberId));
-  return rows.map(normalizeCustomer).sort((a, b) => a.name.localeCompare(b.name));
+  return rows.map(normalizeCustomer).sort(compareCustomersRecentFirst);
 }
 
 async function getCustomer(networkId, memberId, id) {
@@ -1045,6 +1053,7 @@ module.exports = {
   normalizeCustomerTags,
   normalizeJob,
   findCustomerMatch,
+  compareCustomersRecentFirst,
   listCustomers,
   getCustomer,
   saveCustomer,
