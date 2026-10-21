@@ -13,6 +13,7 @@
     <% const _reviewViews = typeof reviewViews !== 'undefined' ? reviewViews : 0; %>
     <% const _customerCount = typeof customerCount !== 'undefined' ? customerCount : 0; %>
     <% const _openJobs = typeof openJobCount !== 'undefined' ? openJobCount : 0; %>
+    <% const _openLeads = typeof openLeadCount !== 'undefined' ? openLeadCount : 0; %>
 
     <section class="ma-hello">
       <h1>Hi, <%= greetingName %></h1>
@@ -64,9 +65,9 @@
         <p class="ma-hero__stat"><%= brand.statValueLabel %><% if (brand.statSuffix) { %><small><%= brand.statSuffix %></small><% } %></p>
         <% if (brand.statLabel) { %><p class="ma-hero__label"><%= brand.statLabel %></p><% } %>
         <% } else { %>
-        <%/* Banner leads with open jobs; review visits sit in the secondary line (swapped). */%>
-        <p class="ma-hero__stat"><%= Number(_openJobs || 0).toLocaleString('en-US') %><small>open jobs</small></p>
-        <p class="ma-hero__label"><%= _customerCount %> customers · <%= Number(_reviewViews || 0).toLocaleString('en-US') %> review visits</p>
+        <%/* Banner leads first; open jobs moved below with customers / review visits. */%>
+        <p class="ma-hero__stat"><%= Number(_openLeads || 0).toLocaleString('en-US') %><small>leads</small></p>
+        <p class="ma-hero__label"><%= Number(_openJobs || 0).toLocaleString('en-US') %> open jobs · <%= _customerCount %> customers · <%= Number(_reviewViews || 0).toLocaleString('en-US') %> review visits</p>
         <% } %>
       </div>
     </section>
