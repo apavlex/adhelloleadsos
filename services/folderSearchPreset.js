@@ -22,7 +22,7 @@ const LAND_MODE_LABELS = {
 };
 
 const MAPS_PROVIDER_LABELS = {
-  auto: 'Auto (all providers)',
+  auto: 'Primary API → Outscraper',
   rapidapi: 'RapidAPI → Outscraper',
   searchapi: 'SearchAPI.io',
   serpapi: 'SerpAPI',

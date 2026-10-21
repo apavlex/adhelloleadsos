@@ -384,7 +384,7 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     integrationsMessage: null,
     persistenceDeploymentHint: '',
     persistenceIntegrationsHint: '',
-    mapsSearchPrimary: 'auto',
+    mapsSearchPrimary: 'rapidapi',
     mapsProviderStatus: [],
     contactEnrichPrimary: 'moltsets',
     contactEnrichProviderStatus: [],
@@ -432,11 +432,13 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     contactEnrichPreference.getContactEnrichProviderStatusList(resolvedEnv);
   const sharedIntegrationProviders = await workspaceIntegrations.sharedProvidersFor(wid);
   let mapsSearchPrimary = String(
-    (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'auto',
+    (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'rapidapi',
   )
     .trim()
     .toLowerCase();
-  if (!mapsSearchPrimary || mapsSearchPrimary === 'monid') mapsSearchPrimary = 'auto';
+  if (!mapsSearchPrimary || mapsSearchPrimary === 'monid' || mapsSearchPrimary === 'auto') {
+    mapsSearchPrimary = 'rapidapi';
+  }
   const contactEnrichPrimary = contactEnrichPreference.resolvePrimary(resolvedEnv);
   const enrichPrimary = String(
     (resolvedEnv && resolvedEnv.ENRICH_PRIMARY) || process.env.ENRICH_PRIMARY || 'auto',
