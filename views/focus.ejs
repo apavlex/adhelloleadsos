@@ -525,15 +525,20 @@
           </div>
         </div>
         <div id="focus-outcome-details" class="space-y-3">
-        <div class="rounded-xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 overflow-visible">
-          <button type="button" id="focusSendInfoToggle" aria-expanded="false" aria-controls="focusSendInfoDrawer" class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
-            <span class="text-[10px] font-black uppercase tracking-[0.12em] text-brand-muted dark:text-slate-400">Send info</span>
-            <svg id="focusSendInfoChevron" class="w-4 h-4 shrink-0 text-brand-muted transition-transform duration-300 ease-out rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-          </button>
-          <div id="focusSendInfoDrawer" class="focus-send-info-drawer border-t border-brand-border/15 dark:border-white/10" role="region" aria-label="Send info">
-            <%- include('/partials/lead_send_info', { sendInfoId: 'focusSendInfo', sendInfoWrapClass: 'mx-3 my-2', sendInfoCompact: true }) %>
-          </div>
-        </div>
+        <button
+          type="button"
+          id="focusSendInfoOpenBtn"
+          class="w-full flex items-center justify-between gap-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-3 py-2.5 text-left hover:border-brand-yellow/50 hover:bg-brand-cream/40 dark:hover:bg-slate-800/80 transition-colors"
+          aria-haspopup="dialog"
+          aria-controls="focusSendInfoModal"
+        >
+          <span class="min-w-0">
+            <span class="block text-[10px] font-black uppercase tracking-[0.12em] text-brand-muted dark:text-slate-400">Send info</span>
+            <span class="block text-[11px] font-semibold text-brand-dark dark:text-white mt-0.5">SMS or email · opens popup</span>
+          </span>
+          <span class="shrink-0 inline-flex items-center gap-1 rounded-lg bg-brand-yellow/20 border border-brand-yellow/40 px-2 py-1 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow">Open</span>
+        </button>
+        <%- include('/partials/lead_send_info_modal', { modalId: 'focusSendInfoModal', sendInfoId: 'focusSendInfo', sendInfoCompact: true }) %>
         <input type="hidden" id="focus-outcome" value="" />
         </div>
         <section id="focus-sms-compose-section" class="hidden w-full rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-emerald-500/25 dark:border-emerald-500/20 p-4 space-y-3" aria-label="SMS composer">
@@ -934,9 +939,8 @@
     var elOutcomeCompactIcon = document.getElementById('focus-outcome-compact-icon');
     var elOutcomeHeading = document.getElementById('focus-outcome-heading');
     var elOutcomeShortcuts = document.getElementById('focus-outcome-shortcuts');
-    var btnFocusSendInfoToggle = document.getElementById('focusSendInfoToggle');
-    var elFocusSendInfoDrawer = document.getElementById('focusSendInfoDrawer');
-    var elFocusSendInfoChevron = document.getElementById('focusSendInfoChevron');
+    var btnFocusSendInfoOpen = document.getElementById('focusSendInfoOpenBtn');
+    var elFocusSendInfoModal = document.getElementById('focusSendInfoModal');
     var focusSendInfoOpen = false;
     var btnFocusNotesToggle = document.getElementById('focusNotesToggle');
     var elFocusNotesDrawer = document.getElementById('focusNotesDrawer');
@@ -956,17 +960,22 @@
 
     function setFocusSendInfoOpen(open) {
       focusSendInfoOpen = !!open;
-      if (elFocusSendInfoDrawer) {
-        elFocusSendInfoDrawer.classList.toggle('focus-send-info-drawer--open', focusSendInfoOpen);
+      var focusRoot = document.getElementById('focusSendInfo');
+      if (focusSendInfoOpen) {
+        if (typeof window.__openSendInfoModal === 'function') {
+          window.__openSendInfoModal(focusRoot || 'focusSendInfo');
+        } else if (elFocusSendInfoModal && typeof elFocusSendInfoModal.showModal === 'function' && !elFocusSendInfoModal.open) {
+          try { elFocusSendInfoModal.showModal(); } catch (_) { elFocusSendInfoModal.setAttribute('open', ''); }
+        }
+      } else if (typeof window.__closeSendInfoModal === 'function') {
+        window.__closeSendInfoModal(focusRoot || 'focusSendInfo');
+      } else if (elFocusSendInfoModal && elFocusSendInfoModal.open && typeof elFocusSendInfoModal.close === 'function') {
+        elFocusSendInfoModal.close();
       }
-      if (btnFocusSendInfoToggle) {
-        btnFocusSendInfoToggle.setAttribute('aria-expanded', focusSendInfoOpen ? 'true' : 'false');
-      }
-      if (elFocusSendInfoChevron) {
-        elFocusSendInfoChevron.classList.toggle('rotate-180', !focusSendInfoOpen);
+      if (btnFocusSendInfoOpen) {
+        btnFocusSendInfoOpen.setAttribute('aria-expanded', focusSendInfoOpen ? 'true' : 'false');
       }
       if (!focusSendInfoOpen) {
-        var focusRoot = document.getElementById('focusSendInfo');
         if (focusRoot && typeof window.__resetSendInfoCustomize === 'function') {
           window.__resetSendInfoCustomize(focusRoot);
         } else if (elOutcomePanel) {
@@ -5467,14 +5476,13 @@
       });
     }
     setOutcomePanelCompact(outcomePanelCompact);
-    if (btnFocusSendInfoToggle) {
-      btnFocusSendInfoToggle.addEventListener('click', function () {
-        var open = elFocusSendInfoDrawer && elFocusSendInfoDrawer.classList.contains('focus-send-info-drawer--open');
-        setFocusSendInfoOpen(!open);
+    if (elFocusSendInfoModal) {
+      elFocusSendInfoModal.addEventListener('close', function () {
+        focusSendInfoOpen = false;
+        if (btnFocusSendInfoOpen) btnFocusSendInfoOpen.setAttribute('aria-expanded', 'false');
       });
     }
     window.__setFocusSendInfoOpen = setFocusSendInfoOpen;
-    setFocusSendInfoOpen(false);
     if (btnFocusContactDetailsToggle) {
       btnFocusContactDetailsToggle.addEventListener('click', function () {
         var open = elFocusContactDetailsDrawer && elFocusContactDetailsDrawer.classList.contains('focus-contact-details-drawer--open');

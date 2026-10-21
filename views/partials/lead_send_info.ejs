@@ -1,10 +1,15 @@
 <% var _sid = typeof sendInfoId !== 'undefined' ? sendInfoId : 'leadPanelSendInfo'; %>
 <% var _compact = typeof sendInfoCompact !== 'undefined' && sendInfoCompact; %>
 <% var _hidden = typeof sendInfoHidden !== 'undefined' && sendInfoHidden; %>
+<% var _inModal = typeof sendInfoInModal !== 'undefined' && sendInfoInModal; %>
 <% var _wrapClass = typeof sendInfoWrapClass !== 'undefined' ? sendInfoWrapClass : ''; %>
-<div id="<%= _sid %>" class="lead-send-info<%= _compact ? ' lead-send-info--compact' : '' %><%= _hidden ? ' hidden' : '' %> <%= _wrapClass %> rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 px-3 py-2.5 space-y-2" data-send-info-root>
+<div id="<%= _sid %>" class="lead-send-info<%= _compact ? ' lead-send-info--compact' : '' %><%= _inModal ? ' lead-send-info--modal' : '' %><%= _hidden ? ' hidden' : '' %> <%= _wrapClass %> <%= _inModal ? '' : 'rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 px-3 py-2.5' %> space-y-2" data-send-info-root<%= _inModal ? ' data-send-info-in-modal="1"' : '' %>>
   <div class="flex items-center justify-between gap-2">
+    <% if (!_inModal) { %>
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Send info</p>
+    <% } else { %>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Channel</p>
+    <% } %>
     <div class="flex gap-1" role="group" aria-label="Channel">
       <button type="button" class="lead-send-info-channel px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-yellow/50 bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow" data-channel="sms" aria-pressed="true">SMS</button>
       <button type="button" class="lead-send-info-channel px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-border/40 dark:border-white/10 text-brand-muted hover:border-brand-yellow/40" data-channel="email" aria-pressed="false">Email</button>
