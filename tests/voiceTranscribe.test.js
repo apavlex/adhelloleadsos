@@ -4,15 +4,18 @@ const path = require('path');
 
 const tmpDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'voice-transcribe-'));
 process.env.APP_DATA_DIR = tmpDataDir;
+process.env.WORKSPACE_INTEGRATIONS_SECRET = 'voice-transcribe-test-secret';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const http = require('http');
 const express = require('express');
 const voiceRoutes = require('../routes/voiceTranscribe');
+const { encryptIntegrations } = require('../services/workspaceIntegrationSecrets');
 
 const USER = 'owner@example.com';
 const savedKey = process.env.OPENAI_API_KEY;
+const savedOrKey = process.env.OPENROUTER_API_KEY;
 
 let openAiCalls = [];
 let openAiResponder = null;
@@ -66,23 +69,34 @@ function post(base, { body = Buffer.alloc(4000, 1), type = 'audio/mp4', user = U
   }));
 }
 
-test.beforeEach(() => {
+test.beforeEach(async () => {
   openAiCalls = [];
   openAiResponder = null;
   voiceRoutes._resetRateLimit();
   process.env.OPENAI_API_KEY = 'sk-test-voice';
+  // Default path is OpenAI-only unless a test seeds a workspace OpenRouter key.
+  delete process.env.OPENROUTER_API_KEY;
+  const dbService = require('../services/database');
+  await dbService.saveWorkspace('ws_voice', {
+    id: 'ws_voice',
+    name: 'Voice WS',
+    ownerUserId: USER,
+  });
 });
 
 test.after(() => {
   if (savedKey === undefined) delete process.env.OPENAI_API_KEY;
   else process.env.OPENAI_API_KEY = savedKey;
+  if (savedOrKey === undefined) delete process.env.OPENROUTER_API_KEY;
+  else process.env.OPENROUTER_API_KEY = savedOrKey;
 });
 
 test('transcribes audio with gpt-4o-mini-transcribe and returns text', async () => {
   await withServer(async (base) => {
     const res = await post(base, { type: 'audio/webm;codecs=opus', query: '?lang=en' });
     assert.equal(res.status, 200);
-    assert.deepEqual(res.body, { success: true, text: 'Find plumbers in Camas' });
+    assert.equal(res.body.success, true);
+    assert.equal(res.body.text, 'Find plumbers in Camas');
     assert.equal(openAiCalls.length, 1);
     const call = openAiCalls[0];
     assert.equal(call.url, 'https://api.openai.com/v1/audio/transcriptions');
@@ -94,6 +108,26 @@ test('transcribes audio with gpt-4o-mini-transcribe and returns text', async () 
     assert.equal(call.language, 'en');
     assert.match(call.prompt, /Voice WS/);
     assert.match(call.prompt, /GHL/);
+  });
+});
+
+test('prefers workspace OpenRouter key over OPENAI_API_KEY', async () => {
+  const dbService = require('../services/database');
+  process.env.OPENAI_API_KEY = 'sk-test-openai-should-not-win';
+  await dbService.saveWorkspace('ws_voice', {
+    id: 'ws_voice',
+    name: 'Voice WS',
+    ownerUserId: USER,
+    integrationsCipher: encryptIntegrations({ openrouterApiKey: 'sk-or-test-workspace' }),
+  });
+  await withServer(async (base) => {
+    const res = await post(base, { type: 'audio/webm', query: '?lang=en' });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.text, 'Find plumbers in Camas');
+    assert.equal(openAiCalls.length, 1);
+    assert.equal(openAiCalls[0].url, 'https://openrouter.ai/api/v1/audio/transcriptions');
+    assert.equal(openAiCalls[0].auth, 'Bearer sk-or-test-workspace');
+    assert.equal(openAiCalls[0].model, 'openai/whisper-1');
   });
 });
 
@@ -122,6 +156,30 @@ test('falls back to whisper-1 when the primary model is unavailable', async () =
   });
 });
 
+test('OpenRouter falls back to whisper-large-v3 when whisper-1 is unavailable', async () => {
+  const dbService = require('../services/database');
+  delete process.env.OPENAI_API_KEY;
+  await dbService.saveWorkspace('ws_voice', {
+    id: 'ws_voice',
+    name: 'Voice WS',
+    ownerUserId: USER,
+    integrationsCipher: encryptIntegrations({ openrouterApiKey: 'sk-or-fallback' }),
+  });
+  openAiResponder = (n) =>
+    n === 1
+      ? { status: 404, body: { error: { code: 'model_not_found', message: 'The model does not exist' } } }
+      : { status: 200, body: { text: 'hello from large whisper' } };
+  await withServer(async (base) => {
+    const res = await post(base);
+    assert.equal(res.status, 200);
+    assert.equal(res.body.text, 'hello from large whisper');
+    assert.deepEqual(
+      openAiCalls.map((c) => c.model),
+      ['openai/whisper-1', 'openai/whisper-large-v3'],
+    );
+  });
+});
+
 test('upstream failures return JSON errors without retrying on non-model errors', async () => {
   openAiResponder = () => ({ status: 500, body: { error: { message: 'boom' } } });
   await withServer(async (base) => {
@@ -132,12 +190,19 @@ test('upstream failures return JSON errors without retrying on non-model errors'
   });
 });
 
-test('missing OpenAI key → 503 with a clear message', async () => {
+test('missing OpenRouter and OpenAI keys → 503 with a clear message', async () => {
   delete process.env.OPENAI_API_KEY;
+  delete process.env.OPENROUTER_API_KEY;
+  const dbService = require('../services/database');
+  await dbService.saveWorkspace('ws_voice', {
+    id: 'ws_voice',
+    name: 'Voice WS',
+    ownerUserId: USER,
+  });
   await withServer(async (base) => {
     const res = await post(base);
     assert.equal(res.status, 503);
-    assert.equal(res.body.error, 'Voice transcription needs OPENAI_API_KEY on the server.');
+    assert.match(res.body.error, /OpenRouter|OPENAI_API_KEY/i);
     assert.equal(openAiCalls.length, 0);
   });
 });

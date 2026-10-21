@@ -29,6 +29,7 @@ test('only AI chat endpoints count as allowed AI requests', () => {
   assert.equal(guestEgress.isAiRequest('openrouter.ai', '/api/v1/chat/completions'), true);
   assert.equal(guestEgress.isAiRequest('api.openai.com', '/v1/chat/completions'), true);
   assert.equal(guestEgress.isAiRequest('api.openai.com', '/v1/audio/transcriptions'), true);
+  assert.equal(guestEgress.isAiRequest('openrouter.ai', '/api/v1/audio/transcriptions'), true);
   assert.equal(guestEgress.isAiRequest('api.openai.com', '/v1/responses'), false);
   assert.equal(guestEgress.isAiRequest('api.openai.com', '/v1/images/generations'), false);
   assert.equal(
