@@ -29,19 +29,6 @@
       <% } %>
       <a class="ma-quick__btn<%= mapsHref ? '' : ' is-off' %>" <%- mapsHref ? 'href="' + mapsHref + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
     </div>
-    <div class="ma-actions" style="margin:10px 0 0">
-      <% if (customer.isLead) { %>
-      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/unmark-lead">
-        <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Remove from Leads</button>
-      </form>
-      <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/referrals">View in Leads</a>
-      <% } else { %>
-      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-lead">
-        <button type="submit" class="ma-btn ma-btn--sm"><%- icons.leads %> Mark as lead</button>
-      </form>
-      <% } %>
-    </div>
-    <p class="ma-hint" style="margin:8px 0 0"><% if (customer.isLead) { %>This contact is in your Leads folder (Received → From contacts).<% } else { %>SMS and call contacts stay here until you mark them as a lead.<% } %></p>
     <% if (typeof reviewSendLocked !== 'undefined' && reviewSendLocked) { %>
     <p class="ma-hint" style="margin:8px 0 0">Text/email review sends need a GHL CRM account on the monthly plan. Share your QR from the Review tab for free, or <a href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">upgrade</a>.</p>
     <% } else if (typeof reviewAskStatus !== 'undefined' && reviewAskStatus) { %>
@@ -312,14 +299,19 @@
     <% if (customer || _custTab === 'one') { %>
     <section class="ma-section">
       <% if (customer) { %><div class="ma-section__head"><h2>Details</h2></div><% } %>
+      <% if (customer) { %>
+      <% if (customer.isLead) { %>
+      <form id="maUnmarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/unmark-lead" hidden></form>
+      <% } else { %>
+      <form id="maMarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-lead" hidden></form>
+      <% } %>
+      <% } %>
       <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off" id="<%= customer ? 'maCustomerEditForm' : 'maCustomerNewForm' %>" data-ma-voice-customer-form="<%= customer ? '0' : '1' %>">
         <% if (!customer) { %>
         <div class="ma-voice-add" id="maVoiceAddCustomer" data-ma-voice-add-customer>
           <div class="ma-voice-add__mic-wrap">
             <button type="button" class="ma-voice-add__mic alex-voice-btn" id="maVoiceAddCustomerBtn" aria-label="Speak customer info" title="Tap to speak — say name, phone, address, notes" aria-pressed="false">
               <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-              <svg class="alex-voice-icon alex-voice-icon--stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>
-              <span class="alex-voice-icon alex-voice-icon--spin" aria-hidden="true"></span>
             </button>
           </div>
           <p class="ma-hint ma-voice-hint" style="margin:10px 0 0;text-align:center">Tap the mic and say it all at once — name, phone, email, address, notes. We’ll fill the form and ask you to confirm.</p>
@@ -331,11 +323,18 @@
         <div class="ma-field">
           <div class="ma-label-row">
             <label class="ma-label" for="cuName">Name</label>
-            <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuName" aria-label="Dictate customer name" title="Tap to speak — hands-free while driving" aria-pressed="false">
-              <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-              <svg class="alex-voice-icon alex-voice-icon--stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>
-              <span class="alex-voice-icon alex-voice-icon--spin" aria-hidden="true"></span>
-            </button>
+            <span class="ma-label-actions">
+              <% if (customer) { %>
+              <% if (customer.isLead) { %>
+              <button type="submit" form="maUnmarkLeadForm" class="ma-label-link">Remove from Leads</button>
+              <% } else { %>
+              <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as lead</button>
+              <% } %>
+              <% } %>
+              <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuName" aria-label="Dictate customer name" title="Tap to speak — hands-free while driving" aria-pressed="false">
+                <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
+              </button>
+            </span>
           </div>
           <input id="cuName" name="name" class="ma-input" maxlength="120" value="<%= fv.name || '' %>" required autocapitalize="words" <%= customer ? '' : 'autofocus' %>>
         </div>
@@ -345,8 +344,6 @@
               <label class="ma-label" for="cuPhone">Phone</label>
               <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuPhone" aria-label="Dictate phone number" title="Tap to speak" aria-pressed="false">
                 <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-                <svg class="alex-voice-icon alex-voice-icon--stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>
-                <span class="alex-voice-icon alex-voice-icon--spin" aria-hidden="true"></span>
               </button>
             </div>
             <input id="cuPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.phone || '' %>">
@@ -356,8 +353,6 @@
               <label class="ma-label" for="cuEmail">Email</label>
               <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuEmail" aria-label="Dictate email" title="Tap to speak" aria-pressed="false">
                 <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-                <svg class="alex-voice-icon alex-voice-icon--stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>
-                <span class="alex-voice-icon alex-voice-icon--spin" aria-hidden="true"></span>
               </button>
             </div>
             <input id="cuEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= fv.email || '' %>">
@@ -373,8 +368,6 @@
             <span class="ma-label-actions">
               <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuAddress" aria-label="Dictate address" title="Tap to speak — hands-free while driving" aria-pressed="false">
                 <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-                <svg class="alex-voice-icon alex-voice-icon--stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>
-                <span class="alex-voice-icon alex-voice-icon--spin" aria-hidden="true"></span>
               </button>
               <% if (addressMapsHref) { %><a class="ma-label-link" href="<%= addressMapsHref %>" target="_blank" rel="noopener">Google Maps</a><% } %>
             </span>
@@ -386,8 +379,6 @@
             <label class="ma-label" for="cuNotes">Notes</label>
             <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuNotes" aria-label="Dictate notes" title="Tap to speak — hands-free while driving" aria-pressed="false">
               <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-              <svg class="alex-voice-icon alex-voice-icon--stop" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6.5" y="6.5" width="11" height="11" rx="2.5"/></svg>
-              <span class="alex-voice-icon alex-voice-icon--spin" aria-hidden="true"></span>
             </button>
           </div>
           <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history… Tap the mic to dictate."><%= fv.notes || '' %></textarea>

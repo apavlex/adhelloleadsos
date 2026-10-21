@@ -40,11 +40,18 @@ describe('member leads + referral notifications', () => {
 
   it('customer detail can mark a contact as a lead for the Leads folder', () => {
     const page = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
+    const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
     const work = fs.readFileSync(path.join(root, 'services/memberWork.js'), 'utf8');
     assert.match(page, /Mark as lead/);
+    assert.match(page, /maMarkLeadForm/);
+    assert.match(page, /form="maMarkLeadForm"/);
+    assert.match(page, /for="cuName"[\s\S]*Mark as lead/);
     assert.match(page, /mark-lead/);
     assert.match(page, /unmark-lead/);
     assert.match(page, /Remove from Leads/);
+    // Field mics ship mic-only markup (no idle stop/spin squares).
+    assert.doesNotMatch(page, /data-ma-voice-for="cuName"[\s\S]*?alex-voice-icon--stop/);
+    assert.match(head, /alex-voice-icon--stop[\s\S]*display:none!important/);
     assert.match(work, /isLead: c\.isLead === true/);
     assert.match(work, /setCustomerLeadFlag/);
     assert.match(work, /listContactLeads/);
