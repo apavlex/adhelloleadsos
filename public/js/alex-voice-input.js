@@ -1,11 +1,12 @@
 /**
  * Voice dictation for the Alex chat surfaces (full /chat page, floating chat, AI search bar).
  *
- *   var voice = AlexVoice.attach({ button, input, onState });
+ *   var voice = AlexVoice.attach({ button, input, onState, endpoint });
  *   voice.cancel();   // drop any recording / transcription in progress
  *
  * Live browser speech recognition when it works; otherwise records audio and POSTs it to
- * /api/voice/transcribe. Dictated text only ever lands in the input — it is never sent.
+ * endpoint (default /api/voice/transcribe; member apps pass /m/:token/voice/transcribe).
+ * Dictated text only ever lands in the input — it is never sent.
  */
 (function () {
   'use strict';
