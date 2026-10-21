@@ -48,10 +48,12 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /Mark as lead/);
     assert.match(page, /Mark as customer/);
     assert.match(page, /maMarkLeadForm/);
+    assert.match(page, /ma-titlebar__actions/);
     assert.match(page, /form="maMarkLeadForm"/);
-    assert.match(page, /for="cuName"[\s\S]*Mark as lead/);
+    assert.match(page, /ma-titlebar[\s\S]*Mark as lead/);
     assert.match(page, /mark-lead/);
     assert.match(page, /unmark-lead/);
+    assert.doesNotMatch(page, /for="cuName"[\s\S]*Mark as lead/);
     assert.match(referrals, /Mark as customer/);
     assert.match(referrals, /mark-customer/);
     assert.match(referrals, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/to-customer/);
