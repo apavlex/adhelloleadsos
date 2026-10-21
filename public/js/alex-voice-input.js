@@ -99,6 +99,7 @@
     opts = opts || {};
     var button = opts.button;
     var input = opts.input;
+    var endpoint = typeof opts.endpoint === 'string' && opts.endpoint.trim() ? opts.endpoint.trim() : ENDPOINT;
     var onState = typeof opts.onState === 'function' ? opts.onState : function () {};
     if (!button || !input) return null;
     if (button.__alexVoice) return button.__alexVoice;
@@ -410,7 +411,7 @@
       setState('transcribing', { mode: 'record' });
       showStatus('Transcribing…', 'info');
       fetchAbort = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      fetch(ENDPOINT + langParam(), {
+      fetch(endpoint + langParam(), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': blob.type || 'audio/webm', Accept: 'application/json' },

@@ -300,7 +300,10 @@
       <% if (customer) { %><div class="ma-section__head"><h2>Details</h2></div><% } %>
       <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off">
         <div class="ma-field">
-          <label class="ma-label" for="cuName">Name</label>
+          <div class="ma-label-row">
+            <label class="ma-label" for="cuName">Name</label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="cuName" aria-label="Dictate customer name" title="Tap to speak — hands-free while driving" hidden></button>
+          </div>
           <input id="cuName" name="name" class="ma-input" maxlength="120" value="<%= fv.name || '' %>" required autocapitalize="words" <%= customer ? '' : 'autofocus' %>>
         </div>
         <div class="ma-grid2">
@@ -325,8 +328,12 @@
           <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address">
         </div>
         <div class="ma-field">
-          <label class="ma-label" for="cuNotes">Notes</label>
-          <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history…"><%= fv.notes || '' %></textarea>
+          <div class="ma-label-row">
+            <label class="ma-label" for="cuNotes">Notes</label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="cuNotes" aria-label="Dictate notes" title="Tap to speak — hands-free while driving" hidden></button>
+          </div>
+          <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history… Tap the mic to dictate."><%= fv.notes || '' %></textarea>
+          <p class="ma-hint ma-voice-hint">Mic works while driving — tap, speak, tap again to stop.</p>
         </div>
         <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> <%= customer ? 'Save changes' : 'Add customer' %></button>
       </form>

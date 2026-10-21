@@ -955,10 +955,119 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
 /* Forms */
 .ma-field { margin-bottom: 12px; }
 .ma-label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); margin-bottom: 6px; }
-.ma-label-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.ma-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
 .ma-label-row .ma-label { margin-bottom: 0; }
 .ma-label-link { font-size: 12px; font-weight: 700; color: var(--acc); text-decoration: none; white-space: nowrap; }
 .ma-label-link:hover { text-decoration: underline; }
+
+/* Field speech-to-text (Reviews + paid partner apps) — large tap target for driving. */
+.ma-voice-btn,
+.alex-voice-btn.ma-voice-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  cursor: pointer;
+  flex: 0 0 44px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ma-voice-btn[hidden],
+.alex-voice-btn.ma-voice-btn[hidden] { display: none !important; }
+.ma-voice-btn::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 52px;
+  height: 52px;
+  transform: translate(-50%, -50%);
+}
+.ma-voice-btn:focus-visible {
+  outline: 2px solid var(--acc);
+  outline-offset: 2px;
+}
+.ma-voice-btn:disabled { cursor: progress; opacity: 0.75; }
+.ma-voice-btn .alex-voice-icon { width: 22px; height: 22px; flex-shrink: 0; }
+.ma-voice-btn .alex-voice-icon--stop,
+.ma-voice-btn .alex-voice-icon--spin { display: none; }
+.ma-voice-btn[data-state='listening'] .alex-voice-icon--mic,
+.ma-voice-btn[data-state='transcribing'] .alex-voice-icon--mic { display: none; }
+.ma-voice-btn[data-state='listening'] .alex-voice-icon--stop {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+.ma-voice-btn[data-state='transcribing'] .alex-voice-icon--spin {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: maVoiceSpin 0.75s linear infinite;
+}
+.ma-voice-btn[data-state='listening'] {
+  background: #ef4444 !important;
+  border-color: #ef4444 !important;
+  color: #fff !important;
+  animation: maVoicePulse 1.4s ease-out infinite;
+}
+.ma-voice-btn[data-state='transcribing'] { color: var(--muted) !important; }
+.ma-voice-hint { margin: 6px 0 0; font-size: 12px; }
+@keyframes maVoicePulse {
+  0% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.55); }
+  70% { box-shadow: 0 0 0 10px rgb(239 68 68 / 0); }
+  100% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0); }
+}
+@keyframes maVoiceSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .ma-voice-btn[data-state='listening'] {
+    animation: none;
+    box-shadow: 0 0 0 3px rgb(239 68 68 / 0.35);
+  }
+  .ma-voice-btn[data-state='transcribing'] .alex-voice-icon--spin { animation-duration: 1.6s; }
+}
+.alex-voice-status {
+  position: fixed;
+  z-index: 2147483000;
+  max-width: min(22rem, calc(100vw - 1rem));
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.75rem;
+  background: #0f172a;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 10px 28px rgb(15 23 42 / 0.25);
+  pointer-events: none;
+}
+.alex-voice-status[hidden] { display: none; }
+.alex-voice-status[data-kind='live']::before {
+  content: '';
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.4rem;
+  border-radius: 9999px;
+  background: #ef4444;
+  vertical-align: 0.05rem;
+}
+.alex-voice-status[data-kind='error'] { background: #b91c1c; color: #fff; }
+html[data-ma-theme="dark"] .ma-voice-btn {
+  background: color-mix(in srgb, var(--card) 88%, #fff);
+  border-color: color-mix(in srgb, var(--line) 80%, #fff);
+}
 
 /* Customer tags (GHL 2-way; search + create) */
 .ma-tags { overflow: visible; }

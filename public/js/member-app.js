@@ -2561,4 +2561,64 @@
   } else {
     bootGhlActivity();
   }
+
+  /** Speech-to-text on job / customer / photo fields (Reviews + paid partner apps). */
+  function voiceEndpoint() {
+    if (typeof window.__maVoiceEndpoint === 'string' && window.__maVoiceEndpoint) {
+      return window.__maVoiceEndpoint;
+    }
+    var path = String(window.location.pathname || '');
+    var m = path.match(/^(\/m\/[^/]+)/);
+    return m ? m[1] + '/voice/transcribe' : '';
+  }
+
+  function attachMaVoiceButtons(root) {
+    if (!window.AlexVoice || typeof window.AlexVoice.attach !== 'function') return;
+    var endpoint = voiceEndpoint();
+    if (!endpoint) return;
+    var scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll('[data-ma-voice-for]').forEach(function (btn) {
+      if (btn.__alexVoice) return;
+      var id = btn.getAttribute('data-ma-voice-for');
+      var input = id ? document.getElementById(id) : null;
+      if (!input) return;
+      window.AlexVoice.attach({
+        button: btn,
+        input: input,
+        endpoint: endpoint,
+      });
+    });
+  }
+
+  function bootMaVoiceDictate() {
+    attachMaVoiceButtons(document);
+  }
+
+  if (window.AlexVoice) {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', bootMaVoiceDictate);
+    } else {
+      bootMaVoiceDictate();
+    }
+  } else {
+    document.addEventListener('alexvoice:ready', bootMaVoiceDictate);
+  }
+
+  // Photo sheets open later — re-scan when a modal becomes visible.
+  document.addEventListener(
+    'click',
+    function (e) {
+      var openBtn =
+        e.target && e.target.closest
+          ? e.target.closest('[data-ma-photo-open], [data-ma-photo-note-open]')
+          : null;
+      if (!openBtn) return;
+      setTimeout(function () {
+        attachMaVoiceButtons(document);
+      }, 0);
+    },
+    true
+  );
+
+  window.__maAttachVoiceButtons = attachMaVoiceButtons;
 })();

@@ -9,6 +9,7 @@
  *   /m/:token/review     QR / share + send review requests
  *   /m/:token/review/settings  review links + default preview image
  *   /m/:token/customers  customers, jobs and schedule
+ *   /m/:token/voice/transcribe  field speech-to-text (Reviews + paid apps)
  *   /m/:token/referrals  website/agency leads + network referrals (Leads & Referrals)
  *   /m/:token/send       send a referral (partners)
  *   /m/:token/join       free-plan upgrade / benefits (replaces Send in the tab bar)
@@ -56,6 +57,7 @@ const workspaceTeammatePush = require('../services/workspaceTeammatePush');
 const workspaceService = require('../services/workspaceService');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const { ICONS } = require('../services/memberAppIcons');
+const voiceTranscription = require('../services/voiceTranscription');
 
 /** Invite line pasted/shared with Review app short links (/a/…). */
 const REVIEW_APP_SHARE_INVITE = 'Here is a link to view and save your reviews app!';
@@ -421,6 +423,27 @@ function withMember(handler) {
     } catch (err) {
       console.error('[member-app]', req.method, req.path.replace(/\/m\/[^/]+/, '/m/:token'), err.message);
       return renderInvalid(res, 500, 'Something went wrong. Try again in a moment.');
+    }
+  };
+}
+
+/** Same as withMember but always returns JSON (voice / API helpers). */
+function withMemberApi(handler) {
+  return async (req, res) => {
+    try {
+      const ctx = await loadContext(req.params.token);
+      if (!ctx) return res.status(401).json({ success: false, error: 'Open your app link again.' });
+      if (freeAppSignup.isAppTrialExpired(ctx.member)) {
+        return res.status(403).json({
+          success: false,
+          error: 'Your 30-day reviews app trial has ended. Ask your agency to activate your account.',
+        });
+      }
+      ctx.appTrial = freeAppSignup.appTrialStatus(ctx.member);
+      return await handler(req, res, ctx);
+    } catch (err) {
+      console.error('[member-app]', req.method, req.path.replace(/\/m\/[^/]+/, '/m/:token'), err.message);
+      return res.status(500).json({ success: false, error: 'Something went wrong. Try again in a moment.' });
     }
   };
 }
@@ -1890,6 +1913,56 @@ async function renderJobPage(req, res, ctx, { job, formValues, flash, status, in
     today,
   }, status);
 }
+
+/**
+ * Field speech-to-text for Reviews + paid partner apps (PWA / while driving).
+ * Body: raw audio, same contract as POST /api/voice/transcribe.
+ */
+router.post(
+  '/m/:token/voice/transcribe',
+  (req, res, next) => {
+    const declared = Number(req.get('content-length') || 0);
+    if (declared > voiceTranscription.MAX_BYTES) {
+      return res.status(413).json({ success: false, error: 'Recording is too long. Keep it under 2 minutes.' });
+    }
+    return next();
+  },
+  express.raw({ type: ['audio/*', 'application/octet-stream'], limit: voiceTranscription.MAX_BYTES }),
+  withMemberApi(async (req, res, ctx) => {
+    const rateKey = `member:${ctx.member.id}|${ctx.network.id}`;
+    if (!voiceTranscription.takeRateSlot(rateKey)) {
+      return res.status(429).json({
+        success: false,
+        error: 'Too many voice messages. Wait a few minutes and try again.',
+      });
+    }
+    const mime = String(req.get('content-type') || 'audio/webm').split(';')[0].trim() || 'audio/webm';
+    const langRaw = String(req.query.lang || '').trim().toLowerCase();
+    const language = /^[a-z]{2}$/.test(langRaw) ? langRaw : '';
+    const brandName = (ctx.brand && ctx.brand.appName) || networkBrand.FREE_APP_NAME;
+    const result = await voiceTranscription.transcribeAudio({
+      audio: req.body,
+      mime,
+      language,
+      workspaceId: ctx.network && ctx.network.ownerWorkspaceId,
+      prompt: voiceTranscription.memberFieldPromptHint(brandName),
+    });
+    if (!result.ok) return res.status(result.status).json({ success: false, error: result.error });
+    return res.json({ success: true, text: result.text });
+  }),
+);
+
+// JSON errors for oversized / unreadable voice uploads (express.raw).
+router.use((err, req, res, next) => {
+  if (!err || !req.path || !/\/voice\/transcribe\/?$/.test(req.path)) return next(err);
+  if (err.type === 'entity.too.large' || err.status === 413) {
+    return res.status(413).json({ success: false, error: 'Recording is too long. Keep it under 2 minutes.' });
+  }
+  if (err.status && err.status < 500) {
+    return res.status(err.status).json({ success: false, error: 'Could not read the recording.' });
+  }
+  return next(err);
+});
 
 router.get('/m/:token/customers/jobs/new', withMember((req, res, ctx) => {
   const date = work.cleanDate(req.query.date);

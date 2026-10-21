@@ -7,7 +7,10 @@
     <form method="post" action="" class="ma-photo-note-form" autocomplete="off" data-ma-loading="Saving note…">
       <input type="hidden" name="returnTo" value="">
       <div class="ma-field ma-photo-note">
-        <label class="ma-label" for="maPhotoNoteCaption">Notes <span class="ma-optional">(optional)</span></label>
+        <div class="ma-label-row">
+          <label class="ma-label" for="maPhotoNoteCaption">Notes <span class="ma-optional">(optional)</span></label>
+          <button type="button" class="ma-voice-btn" data-ma-voice-for="maPhotoNoteCaption" aria-label="Dictate photo note" title="Tap to speak" hidden></button>
+        </div>
         <div class="ma-photo-note__box">
           <textarea
             id="maPhotoNoteCaption"
