@@ -977,24 +977,56 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   margin: -1px !important;
   overflow: hidden !important;
   clip: rect(0, 0, 0, 0) !important;
+  clip-path: inset(50%) !important;
   white-space: nowrap !important;
   border: 0 !important;
+  /* Never paint as a form field if focus sneaks through */
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
-/* Speak-once add customer — mic icon (pulses while recording) */
+/* Speak-once add customer — one centered mic (pulses while recording) */
 .ma-voice-add {
-  margin: 0 0 4px;
-  padding: 20px 16px 18px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 8px;
+  padding: 24px 16px 20px;
   border-radius: 16px;
   border: 1.5px dashed color-mix(in srgb, var(--acc) 55%, var(--line));
   background: color-mix(in srgb, var(--acc) 10%, var(--card));
   text-align: center;
 }
+.ma-voice-add.is-listening {
+  border-color: color-mix(in srgb, #ef4444 70%, var(--line));
+  background: color-mix(in srgb, #ef4444 12%, var(--card));
+}
 .ma-voice-add__mic-wrap {
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 96px;
+  width: 100%;
+  margin: 0 auto;
+}
+.ma-voice-add__hint {
+  margin: 14px 0 0;
+  max-width: 16rem;
+  text-align: center;
+}
+.ma-voice-add__status {
+  margin: 10px 0 0;
+  max-width: 16rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--acc);
+}
+.ma-voice-add__status[hidden],
+.ma-voice-add__status:empty {
+  display: none !important;
+  margin: 0 !important;
+  min-height: 0 !important;
 }
 /* One big New-customer mic — field mics stay .ma-voice-btn (small). */
 .ma-voice-add__mic,

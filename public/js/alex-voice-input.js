@@ -107,6 +107,9 @@
     if (button.__alexVoice) return button.__alexVoice;
 
     var hideIfUnsupported = opts.hideIfUnsupported !== false;
+    // Speak-once capture fields are visually hidden — focusing them opens the
+    // keyboard / leaves an empty box under the mic on mobile.
+    var preventFocus = opts.preventFocus === true;
 
     function paintIcons() {
       // Always ensure mic + stop + spin exist. Pages may ship only the mic SVG so
@@ -252,17 +255,19 @@
       input.value = value;
       input.dispatchEvent(new Event('input', { bubbles: true }));
       if (commit) {
-        try {
-          input.focus({ preventScroll: true });
-        } catch (_) {
-          input.focus();
+        if (!preventFocus) {
+          try {
+            input.focus({ preventScroll: true });
+          } catch (_) {
+            input.focus();
+          }
+          try {
+            input.setSelectionRange(value.length, value.length);
+          } catch (_) {
+            /* type=search on some engines */
+          }
+          if (input.tagName === 'TEXTAREA') input.scrollTop = input.scrollHeight;
         }
-        try {
-          input.setSelectionRange(value.length, value.length);
-        } catch (_) {
-          /* type=search on some engines */
-        }
-        if (input.tagName === 'TEXTAREA') input.scrollTop = input.scrollHeight;
         if (onCommit) {
           try {
             onCommit(String(value || '').trim());

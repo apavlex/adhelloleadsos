@@ -162,14 +162,23 @@ test('new customer form includes speak-once flow and field mics', async () => {
     assert.doesNotMatch(html, /data-ma-voice-for="cuAddress"/);
     assert.doesNotMatch(html, /data-ma-voice-for="cuNotes"/);
     assert.match(html, /ma-voice-add__mic/);
+    assert.match(html, /ma-voice-add__status[^>]*\bhidden\b/);
+    assert.match(html, /maVoiceAddCustomerCapture[^>]*\breadonly\b/);
     const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
     const js = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
     const voice = fs.readFileSync(path.join(__dirname, '../public/js/alex-voice-input.js'), 'utf8');
+    const head = fs.readFileSync(path.join(__dirname, '../views/member_app/_head.ejs'), 'utf8');
     assert.match(css, /maVoiceMicPulse/);
     assert.match(css, /\.ma-voice-add__mic[\s\S]*?88px/);
+    assert.match(css, /\.ma-voice-add__status\[hidden\]/);
+    assert.match(css, /align-items:\s*center/);
     assert.match(js, /hideIfUnsupported:\s*false/);
+    assert.match(js, /preventFocus:\s*true/);
+    assert.match(js, /data-state',\s*'listening'/);
     assert.match(voice, /hideIfUnsupported/);
+    assert.match(voice, /preventFocus/);
     assert.match(voice, /alex-voice-icon--stop/);
+    assert.match(head, /maVoiceMicPulseCritical/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

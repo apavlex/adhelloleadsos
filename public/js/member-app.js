@@ -2642,8 +2642,12 @@
 
     function setStatus(msg, isError) {
       if (!statusEl) return;
-      statusEl.textContent = msg || '';
+      var text = String(msg || '').trim();
+      statusEl.textContent = text;
+      statusEl.hidden = !text;
       statusEl.style.color = isError ? '#b91c1c' : '';
+      wrap.classList.toggle('is-listening', /listening/i.test(text) && !isError);
+      wrap.classList.toggle('is-busy', /transcrib|filling/i.test(text) && !isError);
     }
 
     function fillForm(fields) {
@@ -2742,12 +2746,17 @@
       var endpoint = voiceEndpoint();
       if (!endpoint) return;
       // Clear capture before AlexVoice snapshots liveBase / starts recording.
+      // Optimistic listening UI so the mic shows it’s working on the first tap.
       btn.addEventListener(
         'click',
         function () {
           if (btn.getAttribute('aria-pressed') === 'true') return;
+          if (btn.getAttribute('data-state') === 'transcribing') return;
           capture.value = '';
           lastTranscript = '';
+          btn.setAttribute('data-state', 'listening');
+          btn.setAttribute('aria-pressed', 'true');
+          setStatus('Listening — tap the mic again when you’re done.');
         },
         true
       );
@@ -2756,6 +2765,7 @@
         input: capture,
         endpoint: endpoint,
         hideIfUnsupported: false,
+        preventFocus: true,
         onUnsupported: function (msg) {
           setStatus(msg || 'Voice isn’t available here. Type the details instead.', true);
         },
@@ -2767,7 +2777,11 @@
           } else if (state === 'transcribing') {
             setStatus('Transcribing…');
           } else if (state === 'idle' && !parsing) {
+            wrap.classList.remove('is-listening', 'is-busy');
             /* keep last status until parse finishes or errors */
+          } else if (state === 'error') {
+            wrap.classList.remove('is-listening', 'is-busy');
+            setStatus((detail && detail.message) || 'Could not start the mic. Try again.', true);
           }
         },
         onCommit: function (text) {
