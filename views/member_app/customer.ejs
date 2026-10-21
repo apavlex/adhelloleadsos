@@ -8,10 +8,23 @@
     <%- include('_top', { topBack: { href: base + '/customers', label: 'Customers' } }) %>
     <% const fv = formValues || {}; %>
     <% if (customer) { %>
+    <% if (customer.isLead) { %>
+    <form id="maUnmarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/unmark-lead" hidden>
+      <input type="hidden" name="stay" value="1">
+    </form>
+    <% } else { %>
+    <form id="maMarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-lead" hidden></form>
+    <% } %>
     <div class="ma-titlebar">
       <h1 class="ma-page-title"><%= customer.name %></h1>
-      <% if (customer.referralId) { %><span class="ma-pill ma-pill--sent">From referral</span><% } %>
-      <% if (customer.isLead) { %><span class="ma-pill ma-pill--accepted">Lead</span><% } %>
+      <div class="ma-titlebar__actions">
+        <% if (customer.referralId) { %><span class="ma-pill ma-pill--sent">From referral</span><% } %>
+        <% if (customer.isLead) { %>
+        <button type="submit" form="maUnmarkLeadForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
+        <% } else { %>
+        <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
+        <% } %>
+      </div>
     </div>
     <% const tel = String(customer.phone || '').replace(/[^0-9+]/g, ''); %>
     <% const mapsHref = googleMapsSearchUrl({ name: customer.name, address: customer.address }); %>
@@ -299,13 +312,6 @@
     <% if (customer || _custTab === 'one') { %>
     <section class="ma-section">
       <% if (customer) { %><div class="ma-section__head"><h2>Details</h2></div><% } %>
-      <% if (customer) { %>
-      <% if (customer.isLead) { %>
-      <form id="maUnmarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/unmark-lead" hidden></form>
-      <% } else { %>
-      <form id="maMarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-lead" hidden></form>
-      <% } %>
-      <% } %>
       <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off" id="<%= customer ? 'maCustomerEditForm' : 'maCustomerNewForm' %>" data-ma-voice-customer-form="<%= customer ? '0' : '1' %>">
         <% if (!customer) { %>
         <div class="ma-voice-add" id="maVoiceAddCustomer" data-ma-voice-add-customer>
@@ -324,16 +330,9 @@
           <div class="ma-label-row">
             <label class="ma-label" for="cuName">Name</label>
             <% if (customer) { %>
-            <span class="ma-label-actions">
-              <% if (customer.isLead) { %>
-              <button type="submit" form="maUnmarkLeadForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
-              <% } else { %>
-              <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
-              <% } %>
-              <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuName" aria-label="Dictate customer name" title="Tap to speak — hands-free while driving" aria-pressed="false">
-                <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
-              </button>
-            </span>
+            <button type="button" class="ma-voice-btn alex-voice-btn" data-ma-voice-for="cuName" aria-label="Dictate customer name" title="Tap to speak — hands-free while driving" aria-pressed="false">
+              <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
+            </button>
             <% } %>
           </div>
           <input id="cuName" name="name" class="ma-input" maxlength="120" value="<%= fv.name || '' %>" required autocapitalize="words" <%= customer ? '' : 'autofocus' %>>

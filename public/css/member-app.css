@@ -775,7 +775,15 @@ html[data-ma-theme="dark"] .ma-pill--sent, html[data-ma-theme="dark"] .ma-pill--
 
 /* Customers tab */
 .ma-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 16px 0 4px; }
-.ma-titlebar .ma-page-title { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.ma-titlebar .ma-page-title { margin: 0; min-width: 0; flex: 1 1 auto; overflow-wrap: anywhere; }
+.ma-titlebar__actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+  max-width: 48%;
+}
 .ma-search { position: relative; margin-bottom: 12px; }
 .ma-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--muted); pointer-events: none; }
 .ma-search .ma-input { padding: 10px 12px 10px 38px; border-radius: 12px; background: color-mix(in srgb, var(--muted) 12%, var(--card)); border-color: transparent; }
@@ -1174,6 +1182,10 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
   min-height: 32px;
   padding: 6px 10px;
   font-size: 12px;
+  white-space: nowrap;
+}
+.ma-titlebar__actions .ma-mark-lead {
+  max-width: 100%;
 }
 .ma-voice-btn[data-state='listening'] {
   background: #ef4444 !important;
