@@ -316,7 +316,11 @@
                 <span id="focusNotesIndicator" class="hidden text-[10px] font-semibold text-brand-yellow truncate">Has notes</span>
               </div>
               <div id="focusNotesDrawer" role="region" aria-label="Call notes">
-                <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step… saves automatically"></textarea>
+                <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step…"></textarea>
+                <div class="mt-2 flex items-center justify-between gap-2">
+                  <p id="focusNotesSaveStatus" class="min-h-[1rem] text-[11px] text-brand-muted m-0" role="status" aria-live="polite"></p>
+                  <button type="button" id="focus-btn-add-note" class="btn-pill shrink-0 bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors disabled:opacity-50 disabled:pointer-events-none">Add note</button>
+                </div>
               </div>
             </div>
             <div id="focus-builtwith-wrap" class="lead-panel-agency-only hidden mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
@@ -666,6 +670,9 @@
           <div>
             <label for="focus-outcome-notes-log" class="block text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Notes <span class="normal-case tracking-normal font-semibold text-brand-muted/80">· last note, synced with notes above</span></label>
             <textarea id="focus-outcome-notes-log" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-base sm:text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-1 focus:ring-brand-yellow" placeholder="Owner response, objection, timing, next step…"></textarea>
+            <div class="mt-2 flex justify-end">
+              <button type="button" id="focus-btn-add-note-log" class="btn-pill shrink-0 bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-colors disabled:opacity-50 disabled:pointer-events-none">Add note</button>
+            </div>
           </div>
           <div>
             <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Open tasks on this lead</p>
@@ -834,6 +841,9 @@
     var elSelectedOutcomeLabel = document.getElementById('focus-selected-outcome-label');
     var elQuickOutcomeBtns = document.querySelectorAll('.focus-quick-outcome');
     var elOutcomeNotes = document.getElementById('focus-outcome-notes');
+    var btnFocusAddNote = document.getElementById('focus-btn-add-note');
+    var btnFocusAddNoteLog = document.getElementById('focus-btn-add-note-log');
+    var elFocusNotesSaveStatus = document.getElementById('focusNotesSaveStatus');
     var elFollowupStrip = document.getElementById('focus-followup-strip');
     var elFollowupEnable = document.getElementById('focus-followup-enable');
     var elFollowupWrap = document.getElementById('focus-followup-wrap');
@@ -5534,7 +5544,8 @@
     }
     var focusNotesPending = null;
     var focusNotesTimer = null;
-    /** Persist the Notes box to the lead it was typed on (not whichever lead is showing now). */
+    var focusAddNoteInflight = false;
+    /** Persist the Notes box draft to the lead it was typed on (lead switch / page leave). */
     function flushFocusNotesSave() {
       if (focusNotesTimer) {
         clearTimeout(focusNotesTimer);
@@ -5558,36 +5569,162 @@
         })
         .catch(function () {
           if (p.lead.lastDispositionNotes === p.text) p.lead.lastDispositionNotes = prev;
-          setOutcomeFeedback('Could not save notes — check your connection and try again.', true);
+          setFocusNotesSaveStatus('Could not save draft — try Add note again.', true);
         });
     }
-    function queueFocusNotesSave() {
+    function queueFocusNotesDraft() {
       var lead = currentLead();
       if (!lead || !lead.key || !elOutcomeNotes) return;
       focusNotesPending = { lead: lead, text: String(elOutcomeNotes.value || '').trim().slice(0, 2000) };
       if (focusNotesTimer) clearTimeout(focusNotesTimer);
       focusNotesTimer = setTimeout(flushFocusNotesSave, 800);
     }
+    function setFocusNotesSaveStatus(msg, isError) {
+      if (elFocusNotesSaveStatus) {
+        elFocusNotesSaveStatus.textContent = msg || '';
+        elFocusNotesSaveStatus.classList.toggle('text-rose-600', !!isError);
+        elFocusNotesSaveStatus.classList.toggle('text-emerald-700', !!msg && !isError);
+        elFocusNotesSaveStatus.classList.toggle('text-brand-muted', !msg);
+      }
+      if (msg) setOutcomeFeedback(msg, !!isError);
+    }
+    function setFocusAddNoteBusy(busy) {
+      focusAddNoteInflight = !!busy;
+      [btnFocusAddNote, btnFocusAddNoteLog].forEach(function (btn) {
+        if (!btn) return;
+        btn.disabled = !!busy;
+        if (busy) {
+          if (!btn.getAttribute('data-default-label')) {
+            btn.setAttribute('data-default-label', btn.textContent.trim() || 'Add note');
+          }
+          btn.textContent = 'Saving…';
+        } else {
+          btn.textContent = btn.getAttribute('data-default-label') || 'Add note';
+        }
+      });
+    }
+    function prependFocusNoteTouch(lead, content) {
+      if (!lead) return;
+      var at = new Date().toISOString();
+      var whenLabel = 'Just now';
+      try {
+        whenLabel = new Date(at).toLocaleString(undefined, {
+          month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit',
+        });
+      } catch (e) {}
+      var entry = {
+        at: at,
+        atLabel: whenLabel,
+        typeLabel: 'Note',
+        text: String(content || '').slice(0, 220),
+        isEngagement: false,
+        isReply: false,
+      };
+      if (!lead.touchPoints) lead.touchPoints = { recentTouches: [], totalCount: 0, replyCount: 0, lastTouch: null };
+      var tp = lead.touchPoints;
+      var recent = Array.isArray(tp.recentTouches) ? tp.recentTouches.slice() : [];
+      recent.unshift(entry);
+      tp.recentTouches = recent.slice(0, 16);
+      tp.totalCount = (typeof tp.totalCount === 'number' ? tp.totalCount : 0) + 1;
+      tp.lastTouch = {
+        at: entry.at,
+        atLabel: entry.atLabel,
+        channel: '',
+        channelLabel: 'Note',
+        typeLabel: 'Note',
+        text: entry.text,
+        summary: 'Note · ' + entry.atLabel,
+      };
+      lead.lastDispositionNotes = '';
+      renderTouchPoints(lead);
+    }
+    function submitFocusAddNote() {
+      if (focusAddNoteInflight) return Promise.resolve(false);
+      var lead = currentLead();
+      if (!lead || !lead.key) {
+        setFocusNotesSaveStatus('No lead selected.', true);
+        return Promise.resolve(false);
+      }
+      var content = String((elOutcomeNotes && elOutcomeNotes.value) || '').trim().slice(0, 2000);
+      if (!content) {
+        setFocusNotesSaveStatus('Type a note first.', true);
+        return Promise.resolve(false);
+      }
+      setFocusAddNoteBusy(true);
+      setFocusNotesSaveStatus('Saving…', false);
+      if (focusNotesTimer) {
+        clearTimeout(focusNotesTimer);
+        focusNotesTimer = null;
+      }
+      focusNotesPending = null;
+      return fetch('/leads/' + encodeURIComponent(lead.key) + '/notes', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ content: content }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save note.');
+            return j;
+          });
+        })
+        .then(function (data) {
+          if (elOutcomeNotes) elOutcomeNotes.value = '';
+          if (elOutcomeNotesLog) elOutcomeNotesLog.value = '';
+          lead.lastDispositionNotes = '';
+          if (data && Array.isArray(data.updates)) lead.updates = data.updates;
+          prependFocusNoteTouch(lead, content);
+          syncFocusNotesIndicator();
+          setFocusNotesSaveStatus('Note saved.', false);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Note saved.', { variant: 'success' });
+          }
+          fetch('/leads/' + encodeURIComponent(lead.key) + '/update', {
+            method: 'POST',
+            credentials: 'same-origin',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ lastDispositionNotes: '' }),
+          }).catch(function () {});
+          return true;
+        })
+        .catch(function (err) {
+          setFocusNotesSaveStatus((err && err.message) || 'Could not save note.', true);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast((err && err.message) || 'Could not save note.', { variant: 'error' });
+          }
+          return false;
+        })
+        .finally(function () {
+          setFocusAddNoteBusy(false);
+        });
+    }
     if (elOutcomeNotes) {
       elOutcomeNotes.addEventListener('input', function () {
         syncFocusNotesIndicator();
-        queueFocusNotesSave();
+        queueFocusNotesDraft();
       });
-      elOutcomeNotes.addEventListener('blur', flushFocusNotesSave);
     }
     if (elOutcomeNotesLog && elOutcomeNotes) {
       elOutcomeNotesLog.addEventListener('input', function () {
         elOutcomeNotes.value = elOutcomeNotesLog.value;
         syncFocusNotesIndicator();
-        queueFocusNotesSave();
+        queueFocusNotesDraft();
       });
-      elOutcomeNotesLog.addEventListener('blur', flushFocusNotesSave);
+    }
+    if (btnFocusAddNote) {
+      btnFocusAddNote.addEventListener('click', function () { void submitFocusAddNote(); });
+    }
+    if (btnFocusAddNoteLog) {
+      btnFocusAddNoteLog.addEventListener('click', function () { void submitFocusAddNote(); });
     }
     window.addEventListener('pagehide', flushFocusNotesSave);
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') flushFocusNotesSave();
     });
     window.__setFocusNotesOpen = setFocusNotesOpen;
+    window.__submitFocusAddNote = submitFocusAddNote;
     setFocusNotesOpen(false);
     syncFocusNotesIndicator();
     if (btnOpenDialer) {
