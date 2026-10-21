@@ -1469,29 +1469,39 @@ async function renderCustomers(req, res, ctx, flash, status) {
     // Full list is rendered; live client search filters as you type (same ranking as review ask).
     const q = String(req.query.q || '').trim().slice(0, 80);
     const showPartners = String(req.query.partners || '') === '1';
-    const tagCatalog = ctx.network && ctx.network.ownerWorkspaceId
-      ? await memberCustomerGhl.listActiveWorkspaceTags(ctx.network.ownerWorkspaceId)
-      : [];
+    const wid = ctx.network && ctx.network.ownerWorkspaceId;
+    const [tagCatalog, leadTouchIndex] = await Promise.all([
+      wid ? memberCustomerGhl.listActiveWorkspaceTags(wid) : Promise.resolve([]),
+      wid
+        ? dbService.getAllLeads(wid)
+            .then((leads) => work.buildLeadTouchIndex(leads))
+            .catch(() => work.buildLeadTouchIndex([]))
+        : Promise.resolve(work.buildLeadTouchIndex([])),
+    ]);
     const tagNameByKey = new Map(tagCatalog.map((t) => [t.key, t.name]));
     const annotated = customers.map((c) => {
       const mine = jobs.filter((j) => j.customerId === c.id);
       const open = mine.filter(work.isOpen);
       const lead = open[0] || mine[mine.length - 1];
       const isPartner = memberCustomerGhl.customerLooksLikePartner(c, tagNameByKey);
+      const crmTouchMs = work.leadTouchMsForCustomer(c, leadTouchIndex);
+      const lastTouchMs = Math.max(work.customerLastTouchMs(c, mine), crmTouchMs);
       return {
         ...c,
         href: `${ctx.base}/customers/c/${c.id}`,
         jobCount: mine.length,
         openCount: open.length,
         top: lead ? present(lead) : null,
-        sortKey: lead ? lead.updatedAt : c.updatedAt,
+        // Like notifications: latest SMS/call/job/update first.
+        lastTouchMs,
+        lastTouchAt: lastTouchMs ? new Date(lastTouchMs).toISOString() : '',
         isPartner,
       };
     });
     const partnerCount = annotated.filter((c) => c.isPartner).length;
     const rows = annotated
       .filter((c) => showPartners || !c.isPartner)
-      .sort((a, b) => (b.openCount > 0) - (a.openCount > 0) || String(b.sortKey).localeCompare(String(a.sortKey)));
+      .sort(work.compareCustomersRecentFirst);
     Object.assign(extra, {
       q,
       rows,

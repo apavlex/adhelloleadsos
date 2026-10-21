@@ -61,6 +61,59 @@ test('customers: create, update, list and validate', async () => {
   assert.equal(list.length, 1);
 });
 
+test('listCustomers sorts recent to oldest by updatedAt', async () => {
+  const older = await work.saveCustomer(NET, MEM_A, { name: 'Zed Old' });
+  assert.equal(older.ok, true);
+  // Ensure a measurable gap so ISO timestamps differ.
+  await new Promise((r) => setTimeout(r, 5));
+  const newer = await work.saveCustomer(NET, MEM_A, { name: 'Amy New' });
+  assert.equal(newer.ok, true);
+  const names = (await work.listCustomers(NET, MEM_A)).map((c) => c.name);
+  assert.equal(names[0], 'Amy New');
+  assert.ok(names.indexOf('Amy New') < names.indexOf('Zed Old'));
+  assert.equal(
+    work.compareCustomersRecentFirst(
+      { name: 'A', updatedAt: '2026-01-02T00:00:00.000Z' },
+      { name: 'B', updatedAt: '2026-01-01T00:00:00.000Z' },
+    ) < 0,
+    true,
+  );
+});
+
+test('customer sort prefers latest SMS/call touch like notifications', () => {
+  const index = work.buildLeadTouchIndex([
+    {
+      ghlContactId: 'ghl_sms',
+      phone: '360-555-0100',
+      inboundEvents: [{ type: 'sms', at: '2026-10-21T21:45:00.000Z' }],
+    },
+    {
+      phone: '503-555-0199',
+      inboundEvents: [{ type: 'missed_call', at: '2026-10-20T12:00:00.000Z' }],
+    },
+  ]);
+  const freshSms = {
+    name: 'C Hattenhauer',
+    ghlContactId: 'ghl_sms',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+  };
+  const olderCall = {
+    name: 'Will Wormington',
+    phone: '5035550199',
+    updatedAt: '2026-10-21T00:00:00.000Z',
+  };
+  const stale = {
+    name: 'Old Contact',
+    updatedAt: '2026-09-01T00:00:00.000Z',
+  };
+  const rows = [stale, olderCall, freshSms].map((c) => ({
+    ...c,
+    lastTouchMs: Math.max(work.customerLastTouchMs(c), work.leadTouchMsForCustomer(c, index)),
+  }));
+  rows.sort(work.compareCustomersRecentFirst);
+  assert.deepEqual(rows.map((r) => r.name), ['C Hattenhauer', 'Will Wormington', 'Old Contact']);
+});
+
 test('customers: mark as lead lists under contact leads and survives detail edits', async () => {
   const created = await work.saveCustomer(NET, MEM_A, {
     name: 'Sam Caller',
