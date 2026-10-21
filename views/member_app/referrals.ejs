@@ -126,6 +126,9 @@
             <a class="ma-btn ma-btn--sm" href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">Upgrade to unlock</a>
             <% } else { %>
             <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
+            <form method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/to-customer">
+              <button type="submit" class="ma-btn ma-btn--sm"><%- icons.customers %> Mark as customer</button>
+            </form>
             <form method="post" action="<%= base %>/leads/<%= encodeURIComponent(lead.id) %>/close">
               <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Mark closed</button>
             </form>
@@ -219,11 +222,10 @@
           </div>
           <div class="ma-actions">
             <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
-            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.href %>"><%- icons.customers %> Open contact</a>
-            <form method="post" action="<%= base %>/customers/c/<%= encodeURIComponent(lead.id) %>/unmark-lead">
-              <input type="hidden" name="back" value="<%= base %>/referrals">
-              <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Remove from Leads</button>
+            <form method="post" action="<%= base %>/customers/c/<%= encodeURIComponent(lead.id) %>/mark-customer">
+              <button type="submit" class="ma-btn ma-btn--sm"><%- icons.customers %> Mark as customer</button>
             </form>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.href %>">Open</a>
           </div>
         </article>
         <% }); %>

@@ -41,14 +41,26 @@ describe('member leads + referral notifications', () => {
   it('customer detail can mark a contact as a lead for the Leads folder', () => {
     const page = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
+    const referrals = fs.readFileSync(path.join(root, 'views/member_app/referrals.ejs'), 'utf8');
+    const customers = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
+    const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     const work = fs.readFileSync(path.join(root, 'services/memberWork.js'), 'utf8');
     assert.match(page, /Mark as lead/);
+    assert.match(page, /Mark as customer/);
     assert.match(page, /maMarkLeadForm/);
     assert.match(page, /form="maMarkLeadForm"/);
     assert.match(page, /for="cuName"[\s\S]*Mark as lead/);
     assert.match(page, /mark-lead/);
     assert.match(page, /unmark-lead/);
-    assert.match(page, /Remove from Leads/);
+    assert.match(referrals, /Mark as customer/);
+    assert.match(referrals, /mark-customer/);
+    assert.match(referrals, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/to-customer/);
+    assert.match(customers, /Open Leads/);
+    assert.match(customers, /showLeads/);
+    assert.match(route, /customers\/c\/:id\/mark-customer/);
+    assert.match(route, /leads\/:leadId\/to-customer/);
+    assert.match(route, /marked_customer/);
+    assert.match(route, /filter\(\(c\) => showLeads \|\| !c\.isLead\)/);
     // Field mics ship mic-only markup (no idle stop/spin squares).
     assert.doesNotMatch(page, /data-ma-voice-for="cuName"[\s\S]*?alex-voice-icon--stop/);
     assert.match(head, /alex-voice-icon--stop[\s\S]*display:none!important/);
