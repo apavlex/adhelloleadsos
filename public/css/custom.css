@@ -4447,25 +4447,42 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     border-color: rgb(14 165 233 / 0.35);
 }
 
-/* Focus mode — send info drawer — collapsed by default */
-#focusSendInfoDrawer.focus-send-info-drawer {
-    max-height: 0;
-    opacity: 0;
-    transition:
-        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
-        opacity 0.22s ease;
-    overflow: hidden;
-    pointer-events: none;
-}
-#focusSendInfoDrawer.focus-send-info-drawer.focus-send-info-drawer--open {
+/* Send info modal (Focus + lead panel) */
+dialog.lead-send-info-dialog {
+    border: 0;
+    padding: 0;
+    background: transparent;
+    max-width: none;
     max-height: none;
-    opacity: 1;
-    pointer-events: auto;
-    overflow: visible;
-    padding-bottom: 0.75rem;
+    width: 100%;
+    height: 100%;
 }
-#focusSendInfoDrawer.focus-send-info-drawer--open .lead-send-info {
-    overflow: visible;
+dialog.lead-send-info-dialog[open] {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+@media (min-width: 640px) {
+    dialog.lead-send-info-dialog[open] {
+        align-items: center;
+    }
+}
+dialog.lead-send-info-dialog::backdrop {
+    background: rgb(2 6 23 / 0.55);
+    backdrop-filter: blur(2px);
+}
+.lead-send-info-dialog__sheet {
+    animation: leadSendInfoSheetIn 0.22s ease-out;
+}
+@keyframes leadSendInfoSheetIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Focus mode — notes drawer — collapsed by default */

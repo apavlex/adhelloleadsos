@@ -89,6 +89,62 @@
     }
   }
 
+  function findModalForRoot(root) {
+    if (!root) return null;
+    return root.closest('dialog[data-send-info-modal]') || null;
+  }
+
+  function openSendInfoModal(rootOrId) {
+    const root =
+      typeof rootOrId === 'string' ? document.getElementById(rootOrId) : rootOrId;
+    if (!root) return false;
+    const modal = findModalForRoot(root);
+    if (!modal) return false;
+    if (typeof modal.showModal === 'function') {
+      if (!modal.open) {
+        try {
+          modal.showModal();
+        } catch (_) {
+          modal.setAttribute('open', '');
+        }
+      }
+    } else {
+      modal.setAttribute('open', '');
+      modal.classList.remove('hidden');
+    }
+    const btn =
+      root.id === 'focusSendInfo'
+        ? document.getElementById('focusSendInfoOpenBtn')
+        : document.getElementById('leadPanelOutreachToggle');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (root.id === 'leadPanelSendInfo' && typeof window.__syncLeadPanelSendInfoExpanded === 'function') {
+      window.__syncLeadPanelSendInfoExpanded();
+    }
+    return true;
+  }
+
+  function closeSendInfoModal(rootOrId) {
+    const root =
+      typeof rootOrId === 'string' ? document.getElementById(rootOrId) : rootOrId;
+    const modal = root ? findModalForRoot(root) : null;
+    if (!modal) return false;
+    if (modal.open && typeof modal.close === 'function') modal.close();
+    else {
+      modal.removeAttribute('open');
+      modal.classList.add('hidden');
+    }
+    resetSendInfoCustomize(root);
+    const btn =
+      root && root.id === 'focusSendInfo'
+        ? document.getElementById('focusSendInfoOpenBtn')
+        : document.getElementById('leadPanelOutreachToggle');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (root && root.id === 'leadPanelSendInfo' && typeof window.__syncLeadPanelSendInfoExpanded === 'function') {
+      window.__syncLeadPanelSendInfoExpanded();
+    }
+    return true;
+  }
+
   function openSendInfoWithAudit(opts) {
     opts = opts || {};
     const rootId = opts.rootId || 'leadPanelSendInfo';
@@ -116,40 +172,15 @@
     const leadKey = resolveLeadKey(root);
     prefillAuditSnippet(root, leadKey);
 
-    if (root.id === 'leadPanelSendInfo' || root.closest('#leadPanelOutreachDrawer')) {
-      const drawer = document.getElementById('leadPanelOutreachDrawer');
-      const btn = document.getElementById('leadPanelOutreachToggle');
-      const ch = document.getElementById('leadPanelOutreachChevron');
-      if (drawer) drawer.classList.add('lead-panel-outreach-drawer--open');
-      if (btn) btn.setAttribute('aria-expanded', 'true');
-      if (ch) {
-        ch.classList.remove('rotate-180');
-        ch.style.transform = '';
-      }
-      if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
-      if (typeof window.__syncLeadPanelSendInfoExpanded === 'function') {
-        window.__syncLeadPanelSendInfoExpanded();
-      }
+    if (root.id === 'leadPanelSendInfo' && typeof openLeadPanelNotepad === 'function') {
+      openLeadPanelNotepad();
     }
 
-    if (root.id === 'focusSendInfo' || root.closest('#focusSendInfoDrawer')) {
-      if (typeof window.__setFocusSendInfoOpen === 'function') {
-        window.__setFocusSendInfoOpen(true);
-      } else {
-        const drawer = document.getElementById('focusSendInfoDrawer');
-        const btn = document.getElementById('focusSendInfoToggle');
-        const ch = document.getElementById('focusSendInfoChevron');
-        if (drawer) drawer.classList.add('focus-send-info-drawer--open');
-        if (btn) btn.setAttribute('aria-expanded', 'true');
-        if (ch) {
-          ch.classList.remove('rotate-180');
-          ch.style.transform = '';
-        }
+    if (!openSendInfoModal(root)) {
+      // Legacy inline drawer fallback (softphone still uses inline reveal).
+      if (root.id === 'softphoneSendInfo') {
+        root.classList.remove('hidden');
       }
-    }
-
-    if (opts.scroll !== false) {
-      root.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }
 
@@ -631,8 +662,50 @@
     sp.classList.toggle('hidden', !show);
   }
 
+  function bindModalChrome() {
+    document.querySelectorAll('dialog[data-send-info-modal]').forEach((modal) => {
+      if (modal.dataset.sendInfoModalBound) return;
+      modal.dataset.sendInfoModalBound = '1';
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          const root = modal.querySelector('[data-send-info-root]');
+          closeSendInfoModal(root || modal);
+        }
+      });
+      modal.querySelectorAll('[data-send-info-modal-close]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const root = modal.querySelector('[data-send-info-root]');
+          closeSendInfoModal(root || modal);
+        });
+      });
+      modal.addEventListener('close', () => {
+        const root = modal.querySelector('[data-send-info-root]');
+        if (root) resetSendInfoCustomize(root);
+        if (root && root.id === 'leadPanelSendInfo' && typeof window.__syncLeadPanelSendInfoExpanded === 'function') {
+          window.__syncLeadPanelSendInfoExpanded();
+        }
+        const openBtn =
+          root && root.id === 'focusSendInfo'
+            ? document.getElementById('focusSendInfoOpenBtn')
+            : document.getElementById('leadPanelOutreachToggle');
+        if (openBtn) openBtn.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    const focusOpen = document.getElementById('focusSendInfoOpenBtn');
+    if (focusOpen && !focusOpen.dataset.sendInfoOpenBound) {
+      focusOpen.dataset.sendInfoOpenBound = '1';
+      focusOpen.addEventListener('click', () => {
+        const root = document.getElementById('focusSendInfo');
+        if (root) populateFromRow(root);
+        openSendInfoModal('focusSendInfo');
+      });
+    }
+  }
+
   function init() {
     document.querySelectorAll('[data-send-info-root]').forEach(bindRoot);
+    bindModalChrome();
 
     document.addEventListener('adhello-softphone-state', (e) => {
       const d = (e && e.detail) || {};
@@ -671,4 +744,6 @@
   };
   window.__leadSendInfoOpenWithAudit = openSendInfoWithAudit;
   window.__resetSendInfoCustomize = resetSendInfoCustomize;
+  window.__openSendInfoModal = openSendInfoModal;
+  window.__closeSendInfoModal = closeSendInfoModal;
 })();

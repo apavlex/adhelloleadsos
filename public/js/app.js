@@ -4567,52 +4567,47 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncLeadPanelSendInfoExpanded() {
-    const drawer = document.getElementById('leadPanelOutreachDrawer');
+    const modal = document.getElementById('leadPanelSendInfoModal');
     const card = document.getElementById('leadPanelSendInfoCard');
-    const drawerOpen = !!(drawer && drawer.classList.contains('lead-panel-outreach-drawer--open'));
-    if (card) card.classList.toggle('lead-panel-send-info-card--open', drawerOpen);
+    const open = !!(modal && modal.open);
+    if (card) card.classList.toggle('lead-panel-send-info-card--open', open);
+    const btn = document.getElementById('leadPanelOutreachToggle');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
   function openLeadPanelOutreach() {
-    const d = document.getElementById('leadPanelOutreachDrawer');
-    const btn = document.getElementById('leadPanelOutreachToggle');
-    const ch = document.getElementById('leadPanelOutreachChevron');
-    if (d) d.classList.add('lead-panel-outreach-drawer--open');
-    if (btn) btn.setAttribute('aria-expanded', 'true');
-    if (ch) {
-      ch.classList.remove('rotate-180');
-      ch.style.transform = '';
+    if (typeof window.__openSendInfoModal === 'function') {
+      window.__openSendInfoModal('leadPanelSendInfo');
+      return;
+    }
+    const modal = document.getElementById('leadPanelSendInfoModal');
+    if (modal && typeof modal.showModal === 'function' && !modal.open) {
+      try {
+        modal.showModal();
+      } catch (_) {
+        modal.setAttribute('open', '');
+      }
     }
     syncLeadPanelSendInfoExpanded();
-    window.setTimeout(function () {
-      const root = document.getElementById('leadPanelSendInfo');
-      if (root && root.scrollIntoView) root.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 80);
   }
 
   function closeLeadPanelOutreach() {
-    const d = document.getElementById('leadPanelOutreachDrawer');
-    const btn = document.getElementById('leadPanelOutreachToggle');
-    const ch = document.getElementById('leadPanelOutreachChevron');
-    if (d) d.classList.remove('lead-panel-outreach-drawer--open');
-    if (btn) btn.setAttribute('aria-expanded', 'false');
-    if (ch) {
-      ch.classList.add('rotate-180');
-      ch.style.transform = '';
+    if (typeof window.__closeSendInfoModal === 'function') {
+      window.__closeSendInfoModal('leadPanelSendInfo');
+      return;
     }
+    const modal = document.getElementById('leadPanelSendInfoModal');
+    if (modal && modal.open && typeof modal.close === 'function') modal.close();
+    else if (modal) modal.removeAttribute('open');
     syncLeadPanelSendInfoExpanded();
   }
 
   window.__syncLeadPanelSendInfoExpanded = syncLeadPanelSendInfoExpanded;
 
   function toggleLeadPanelOutreach() {
-    const drawer = document.getElementById('leadPanelOutreachDrawer');
-    if (!drawer) return;
-    if (drawer.classList.contains('lead-panel-outreach-drawer--open')) {
-      closeLeadPanelOutreach();
-    } else {
-      openLeadPanelOutreach();
-    }
+    const modal = document.getElementById('leadPanelSendInfoModal');
+    if (modal && modal.open) closeLeadPanelOutreach();
+    else openLeadPanelOutreach();
   }
 
   const LEAD_PANEL_CADENCE_PLAYBOOK_COLLAPSED_KEY = 'adhelloLeadPanelCadencePlaybookCollapsed';
