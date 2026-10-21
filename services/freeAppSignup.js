@@ -2,7 +2,9 @@
  * Public reviews-app signup (AdHello.io → /app).
  * Creates (or reopens) a network member on the AdHello Agency network with
  * plan "app_free" on a 30-day trial, then texts/emails the installable /m/:token link.
- * Does not create an Agency OS workspace trial or GHL sub-account.
+ * Does not create an Agency OS workspace trial or GHL sub-account at signup.
+ * A managed Agency OS workspace is created later on first customer-list upload
+ * (see freeAppListWorkspace) so ops can run that list from the CRM.
  * Platform / network admins can activate the member to a paid partner plan early.
  */
 

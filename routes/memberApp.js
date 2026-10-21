@@ -41,6 +41,7 @@ const memberActivity = require('../services/memberActivity');
 const memberGhlAlerts = require('../services/memberGhlAlerts');
 const { GHL_ACTIVITY_TYPES } = require('../services/inboundEvents');
 const freeAppSignup = require('../services/freeAppSignup');
+const freeAppListWorkspace = require('../services/freeAppListWorkspace');
 const memberShareInvite = require('../services/memberShareInvite');
 const jobMedia = require('../services/memberJobMedia');
 const contractorPortal = require('../services/contractorPortal');
@@ -1571,7 +1572,31 @@ router.post('/m/:token/customers/import', (req, res, next) => {
   const out = await memberCustomerCsv.importCustomers(ctx.network.id, ctx.member.id, parsed.rows, {
     pushToGhl: async (saved) => memberCustomerGhl.pushCustomersMissingGhl(ctx.network, ctx.member.id, saved, { limit: 100 }),
   });
-  const detail = `(${out.created} new, ${out.updated} updated${out.ghl && out.ghl.pushed ? `, ${out.ghl.pushed} synced to GHL CRM` : ''})`;
+  let workspaceDetail = '';
+  if (freeAppSignup.isAppFreeMember(ctx.member) && (out.created > 0 || out.updated > 0)) {
+    try {
+      const wsOut = await freeAppListWorkspace.syncListUpload({
+        network: ctx.network,
+        member: ctx.member,
+        rows: parsed.rows,
+      });
+      if (wsOut && wsOut.workspaceId && !wsOut.skipped) {
+        if (wsOut.created) {
+          workspaceDetail = ', Agency OS workspace created for your list';
+        } else if (wsOut.imported) {
+          const n = (wsOut.imported.created || 0) + (wsOut.imported.merged || 0);
+          if (n > 0) workspaceDetail = `, ${n} synced to Agency OS workspace`;
+        }
+        if (wsOut.member) ctx.member = wsOut.member;
+      }
+    } catch (err) {
+      console.warn(
+        '[member] free-app list workspace sync skipped:',
+        err && err.message ? err.message : err,
+      );
+    }
+  }
+  const detail = `(${out.created} new, ${out.updated} updated${out.ghl && out.ghl.pushed ? `, ${out.ghl.pushed} synced to GHL CRM` : ''}${workspaceDetail})`;
   return res.redirect(303, `${back}${fromNew ? '&' : '?'}ok=customers_imported&detail=${encodeURIComponent(detail)}`);
 }));
 

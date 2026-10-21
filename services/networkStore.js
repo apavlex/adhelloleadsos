@@ -167,6 +167,11 @@ function normalizeMember(raw) {
     trialEndsAt: cleanText(m.trialEndsAt, 40),
     /** ISO when an admin activated this member off the freemium trial. */
     planActivatedAt: cleanText(m.planActivatedAt, 40),
+    /**
+     * Agency OS workspace created when this free-app member first uploads a
+     * customer list — so ops can manage that list from the CRM.
+     */
+    managedWorkspaceId: cleanText(m.managedWorkspaceId, 80),
     ghlLocationId: cleanText(m.ghlLocationId, 80),
     ghlSubaccountUrl: cleanText(m.ghlSubaccountUrl, 400),
     ghlError: cleanText(m.ghlError, 300),
