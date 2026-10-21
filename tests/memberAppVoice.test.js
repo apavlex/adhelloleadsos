@@ -155,14 +155,18 @@ test('new customer form includes speak-once flow and field mics', async () => {
     assert.doesNotMatch(html, /id="maVoiceAddCustomerBtn"[\s\S]*?alex-voice-icon--stop/);
     assert.match(html, /maVoiceCustomerConfirm/);
     assert.match(html, /Confirm &amp; create/);
-    assert.match(html, /data-ma-voice-for="cuName"/);
-    assert.match(html, /data-ma-voice-for="cuPhone"/);
-    assert.match(html, /data-ma-voice-for="cuEmail"/);
-    assert.match(html, /data-ma-voice-for="cuAddress"/);
-    assert.match(html, /data-ma-voice-for="cuNotes"/);
-    assert.match(html, /data-ma-voice-for="cuName"[^>]*>[\s\S]*?alex-voice-icon--mic/);
+    // New customer: one big speak-once mic only — no per-field mics.
+    assert.doesNotMatch(html, /data-ma-voice-for="cuName"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="cuPhone"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="cuEmail"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="cuAddress"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="cuNotes"/);
+    assert.match(html, /ma-voice-add__mic/);
+    const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
     const js = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
     const voice = fs.readFileSync(path.join(__dirname, '../public/js/alex-voice-input.js'), 'utf8');
+    assert.match(css, /maVoiceMicPulse/);
+    assert.match(css, /\.ma-voice-add__mic[\s\S]*?88px/);
     assert.match(js, /hideIfUnsupported:\s*false/);
     assert.match(voice, /hideIfUnsupported/);
     assert.match(voice, /alex-voice-icon--stop/);
