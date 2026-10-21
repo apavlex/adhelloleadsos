@@ -5,6 +5,7 @@
  */
 const dbService = require('./database');
 const store = require('./networkStore');
+const work = require('./memberWork');
 const { isOwnerMember } = require('./memberAppointmentLink');
 const {
   pendingInboundItems,
@@ -15,6 +16,20 @@ const workspaceIntegrations = require('./workspaceIntegrations');
 const memberAppointmentLink = require('./memberAppointmentLink');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const { createMemberPortalToken } = require('./networkLinkSign');
+
+/** In-app customer profile path (member portal base is prepended in the bell UI). */
+function profileOpenHref(customer) {
+  if (!customer || !customer.id) return '';
+  return `/customers/c/${encodeURIComponent(customer.id)}`;
+}
+
+function matchCustomerForInbound(customers, row) {
+  return work.findCustomerMatch(customers, {
+    ghlContactId: row && row.ghlContactId,
+    email: row && row.email,
+    phone: row && row.phone,
+  });
+}
 
 function canUseGhlAlerts(member, network) {
   if (!member || !network || !String(network.ownerWorkspaceId || '').trim()) return false;
@@ -63,8 +78,16 @@ async function listPendingForMember(member, network, opts = {}) {
     limit: opts.limit || 25,
   }).filter((row) => row && GHL_ACTIVITY_TYPES.has(row.type));
 
+  const customers = await work.listCustomers(network.id, member.id);
   return rows.map((row) => {
-    const openHref = row.ghlHref || row.callHref || '';
+    const customer = matchCustomerForInbound(customers, row);
+    // Open stays in the member app (customer profile). Lead Connector / Call in LC
+    // still use callHref for the CRM handoff button.
+    const openHref = customer
+      ? profileOpenHref(customer)
+      : (row.title
+        ? `/customers?q=${encodeURIComponent(String(row.title).slice(0, 80))}`
+        : '/customers');
     return {
       id: `ghl:${row.leadKey}:${row.type}:${row.at}`,
       kind: row.type,
@@ -79,6 +102,8 @@ async function listPendingForMember(member, network, opts = {}) {
       at: row.at,
       callHref: row.callHref || '',
       openHref,
+      customerId: customer ? customer.id : '',
+      ghlHref: row.ghlHref || '',
       callOpensLeadConnector: !!row.callOpensLeadConnector,
       handled: false,
       read: false,
@@ -135,9 +160,21 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
     const body = [label, preview].filter(Boolean).join(' · ').slice(0, 200)
       || (type === 'sms' ? 'Tap to reply in Lead Connector.' : 'Tap to call back.');
 
+    const customersByMember = new Map();
     let sent = 0;
     for (const member of members) {
-      const href = memberAppUrl(network, member);
+      let customers = customersByMember.get(member.id);
+      if (!customers) {
+        customers = await work.listCustomers(network.id, member.id);
+        customersByMember.set(member.id, customers);
+      }
+      const customer = matchCustomerForInbound(customers, {
+        ghlContactId: lead.ghlContactId,
+        email: lead.email,
+        phone: lead.phone,
+      });
+      const path = customer ? profileOpenHref(customer) : '';
+      const href = memberAppUrl(network, member, path);
       memberActivity.add(network.id, member.id, {
         kind: type,
         title: `${typeLabel}: ${who}`.slice(0, 140),
