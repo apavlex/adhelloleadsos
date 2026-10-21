@@ -35,6 +35,19 @@ describe('memberGhlAlerts', () => {
     await dbService.putStorageKey(`wsnetwork:${WID}`, { networkId: NID, role: 'operator' });
     dbService.deleteKvSync(`memberActivity:${NID}:owner`);
     dbService.deleteKvSync(`memberActivity:${NID}:partner`);
+
+    // Isolate Open / ensureCustomer tests from leftover customers + inbound leads.
+    const work = require('../services/memberWork');
+    for (const memberId of ['owner', 'partner']) {
+      const customers = await work.listCustomers(NID, memberId);
+      for (const c of customers) {
+        await work.deleteCustomer(NID, memberId, c.id);
+      }
+    }
+    const leads = await dbService.listLeads(WID);
+    for (const lead of leads) {
+      await dbService.deleteLead(lead.key || lead.id);
+    }
   });
 
   afterEach(async () => {
@@ -114,10 +127,51 @@ describe('memberGhlAlerts', () => {
     assert.match(rows[0].title, /T Munezero/);
     assert.equal(rows[0].customerId, saved.customer.id);
     assert.equal(rows[0].openHref, `/customers/c/${encodeURIComponent(saved.customer.id)}`);
-    assert.doesNotMatch(rows[0].openHref, /gohighlevel|leadconnector/i);
+    assert.doesNotMatch(rows[0].openHref, /gohighlevel|leadconnector|\/focus|\/pipeline/i);
 
     const off = await store.saveMember(NID, { ...owner, ghlAlertsEnabled: false });
     assert.equal((await memberGhlAlerts.listPendingForMember(off, network, { now })).length, 0);
+  });
+
+  it('Open creates an in-app customer for unmatched GHL inbound (never CRM focus/pipeline)', async () => {
+    const network = await store.getNetwork(NID);
+    const owner = await store.saveMember(NID, {
+      id: 'owner',
+      companyName: 'Owner Co',
+      email: 'owner@example.com',
+      ghlAlertsEnabled: true,
+    });
+    const now = Date.parse('2026-10-19T12:00:00.000Z');
+    await dbService.saveLead({
+      key: 'lead:emailonly',
+      workspaceId: WID,
+      title: 'ismaelbonilla096@gmail.com',
+      email: 'ismaelbonilla096@gmail.com',
+      ghlContactId: 'ghl_email_only',
+      inboundEvents: [
+        {
+          id: 's1',
+          type: 'sms',
+          at: '2026-10-19T11:10:00.000Z',
+          label: 'Reply to missed-call text',
+          preview: 'Ok',
+        },
+      ],
+    });
+
+    const work = require('../services/memberWork');
+    assert.equal((await work.listCustomers(NID, 'owner')).length, 0);
+
+    const rows = await memberGhlAlerts.listPendingForMember(owner, network, { now });
+    assert.equal(rows.length, 1);
+    assert.ok(rows[0].customerId);
+    assert.match(rows[0].openHref, /^\/customers\/c\//);
+    assert.doesNotMatch(rows[0].openHref, /\/focus|\/pipeline|gohighlevel|leadconnector|https?:/i);
+
+    const customers = await work.listCustomers(NID, 'owner');
+    assert.equal(customers.length, 1);
+    assert.equal(customers[0].id, rows[0].customerId);
+    assert.equal(customers[0].ghlContactId, 'ghl_email_only');
   });
 
   it('notifyEnabledMembers records activity for opted-in owners', async () => {
@@ -159,8 +213,11 @@ describe('memberGhlAlerts', () => {
     assert.match(js, /ghlAlertsEnabled/);
     assert.match(js, /Waiting on a reply/);
     assert.match(js, /GHL_KINDS/);
-    assert.match(js, /function portalHref/);
-    assert.match(js, /portalHref\(rawOpen\)/);
+    assert.match(js, /function ghlProfileHref/);
+    assert.match(js, /ghlProfileHref\(item\)/);
+    assert.match(js, /data-ma-bell-ghl-open/);
+    assert.match(js, /\/\?\(focus\|pipeline\|leads\|prospecting\)/);
+    assert.doesNotMatch(js, /portalHref\(rawOpen\)/);
     assert.match(css, /\.ma-bell__ghl-row/);
     assert.match(route, /activity\/ghl-alerts/);
     assert.match(route, /activity\/ghl-done/);

@@ -23,12 +23,56 @@ function profileOpenHref(customer) {
   return `/customers/c/${encodeURIComponent(customer.id)}`;
 }
 
-function matchCustomerForInbound(customers, row) {
-  return work.findCustomerMatch(customers, {
+function looksLikeEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function inboundMatchFields(row) {
+  const title = String((row && row.title) || '').trim();
+  const email = String((row && row.email) || '').trim() || (looksLikeEmail(title) ? title : '');
+  return {
     ghlContactId: row && row.ghlContactId,
-    email: row && row.email,
+    email,
     phone: row && row.phone,
-  });
+  };
+}
+
+function matchCustomerForInbound(customers, row) {
+  return work.findCustomerMatch(customers, inboundMatchFields(row));
+}
+
+/**
+ * Match or create a Reviews-app customer so Open always has an in-app profile.
+ * Never returns a CRM /focus or /pipeline path.
+ */
+async function ensureCustomerForInbound(network, member, customers, row) {
+  const list = Array.isArray(customers) ? customers : [];
+  const existing = matchCustomerForInbound(list, row);
+  if (existing) return existing;
+
+  const fields = inboundMatchFields(row);
+  const title = String((row && row.title) || '').trim();
+  const name = looksLikeEmail(title)
+    ? title.split('@')[0].replace(/[._]+/g, ' ').trim() || 'Contact'
+    : (title || fields.phone || fields.email || 'Contact');
+  if (!fields.ghlContactId && !fields.phone && !fields.email && !title) return null;
+
+  const saved = await work.saveCustomer(
+    network.id,
+    member.id,
+    {
+      name: String(name).slice(0, 120) || 'Contact',
+      phone: fields.phone || '',
+      email: fields.email || '',
+    },
+    {
+      ghlContactId: fields.ghlContactId || undefined,
+      source: 'ghl',
+    },
+  );
+  if (!saved.ok || !saved.customer) return null;
+  list.push(saved.customer);
+  return saved.customer;
 }
 
 function canUseGhlAlerts(member, network) {
@@ -79,16 +123,14 @@ async function listPendingForMember(member, network, opts = {}) {
   }).filter((row) => row && GHL_ACTIVITY_TYPES.has(row.type));
 
   const customers = await work.listCustomers(network.id, member.id);
-  return rows.map((row) => {
-    const customer = matchCustomerForInbound(customers, row);
-    // Open stays in the member app (customer profile). Lead Connector / Call in LC
-    // still use callHref for the CRM handoff button.
-    const openHref = customer
-      ? profileOpenHref(customer)
-      : (row.title
-        ? `/customers?q=${encodeURIComponent(String(row.title).slice(0, 80))}`
-        : '/customers');
-    return {
+  const out = [];
+  for (const row of rows) {
+    // eslint-disable-next-line no-await-in-loop
+    const customer = await ensureCustomerForInbound(network, member, customers, row);
+    // Open is ONLY the Reviews-app profile. Never /focus, /pipeline, or GHL —
+    // those paths hit the leads workspace login when opened from /m/:token.
+    const openHref = customer ? profileOpenHref(customer) : '/customers';
+    out.push({
       id: `ghl:${row.leadKey}:${row.type}:${row.at}`,
       kind: row.type,
       source: 'ghl',
@@ -107,8 +149,9 @@ async function listPendingForMember(member, network, opts = {}) {
       callOpensLeadConnector: !!row.callOpensLeadConnector,
       handled: false,
       read: false,
-    };
-  });
+    });
+  }
+  return out;
 }
 
 async function markLeadDone(member, network, leadKey) {
