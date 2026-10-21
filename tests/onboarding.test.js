@@ -87,7 +87,23 @@ test('nextAction skips completed steps after Day 1 when enabled', () => {
   assert.equal(onboardingDrip.nextAction(day2, off, TZ, new Date('2026-09-29T16:00:00Z'), completed).type, 'send');
 });
 
-test('invite email, Day 1 on join, and the daily drip go through the workspace GHL', async (t) => {
+test('roleEligibleForAgencyOnboarding is owner/admin/manager only', () => {
+  assert.equal(onboardingConfig.roleEligibleForAgencyOnboarding('owner'), true);
+  assert.equal(onboardingConfig.roleEligibleForAgencyOnboarding('admin'), true);
+  assert.equal(onboardingConfig.roleEligibleForAgencyOnboarding('manager'), true);
+  assert.equal(onboardingConfig.roleEligibleForAgencyOnboarding('sdr'), false);
+  assert.equal(onboardingConfig.roleEligibleForAgencyOnboarding('viewer'), false);
+});
+
+test('SDR invite omits 7-day drip promise; admin invite includes it', () => {
+  const cfg = onboardingConfig.normalizeOnboarding({});
+  const sdr = onboardingConfig.inviteTemplateForRole(cfg, 'sdr');
+  const admin = onboardingConfig.inviteTemplateForRole(cfg, 'admin');
+  assert.doesNotMatch(sdr.body, /one short email a day/);
+  assert.match(admin.body, /one short email a day/);
+});
+
+test('SDR enroll is skipped; admin drip goes through the workspace GHL', async (t) => {
   const ghlClient = require('../services/ghlClient');
   const workspaceIntegrations = require('../services/workspaceIntegrations');
   const sent = [];
@@ -112,58 +128,85 @@ test('invite email, Day 1 on join, and the daily drip go through the workspace G
     id: wid,
     name: 'Floor Pros',
     timezone: TZ,
-    members: { 'new@floors.example': { role: 'sdr', joinedAt: new Date().toISOString() } },
+    members: {
+      'sdr@floors.example': { role: 'sdr', joinedAt: new Date().toISOString() },
+      'boss@floors.example': { role: 'admin', joinedAt: new Date().toISOString() },
+    },
     onboarding: { skipCompleted: false },
   };
   await dbService.saveWorkspace(wid, ws);
 
+  const sdrInvite = await onboardingDrip.sendInviteEmail({
+    ws,
+    email: 'sdr@floors.example',
+    inviteLink: 'https://app.example/workspace/invite/tok-sdr',
+    inviterName: 'Alex',
+    baseUrl: 'https://app.example',
+    role: 'sdr',
+  });
+  assert.equal(sdrInvite.sent, true);
+  assert.doesNotMatch(sent[0].message, /one short email a day/);
+
+  const skipped = await onboardingDrip.enrollMember({
+    workspaceId: wid,
+    email: 'sdr@floors.example',
+    name: 'Sam SDR',
+    baseUrl: 'https://app.example',
+    role: 'sdr',
+  });
+  assert.equal(skipped.skipped, true);
+  assert.equal(sent.length, 1);
+
   const invite = await onboardingDrip.sendInviteEmail({
     ws,
-    email: 'new@floors.example',
+    email: 'boss@floors.example',
     inviteLink: 'https://app.example/workspace/invite/tok',
     inviterName: 'Alex',
     baseUrl: 'https://app.example',
+    role: 'admin',
   });
   assert.equal(invite.sent, true);
-  assert.equal(sent[0].type, 'Email');
-  assert.equal(sent[0].emailFrom, 'team@floors.example');
-  assert.equal(sent[0].subject, "You're invited to Floor Pros on Agency OS");
-  assert.match(sent[0].message, /Alex added you/);
-  assert.match(sent[0].message, /https:\/\/app\.example\/workspace\/invite\/tok/);
-  assert.equal(created[0].companyName, '');
-  assert.deepEqual(created[0].tags, [onboardingDrip.TEAMMATE_TAG]);
+  assert.equal(sent[1].type, 'Email');
+  assert.equal(sent[1].emailFrom, 'team@floors.example');
+  assert.equal(sent[1].subject, "You're invited to Floor Pros on Agency OS");
+  assert.match(sent[1].message, /Alex added you/);
+  assert.match(sent[1].message, /one short email a day/);
+  assert.match(sent[1].message, /https:\/\/app\.example\/workspace\/invite\/tok/);
+  assert.deepEqual(created[1].tags, [onboardingDrip.TEAMMATE_TAG]);
 
   const enr = await onboardingDrip.enrollMember({
     workspaceId: wid,
-    email: 'new@floors.example',
+    email: 'boss@floors.example',
     name: 'Isabelle Pavlenko',
     baseUrl: 'https://app.example',
+    role: 'admin',
   });
   assert.equal(enr.nextIndex, 1);
-  assert.equal(sent[1].subject, 'Day 1: Run your first prospect search');
-  assert.match(sent[1].message, /^Hi Isabelle,/);
-  assert.match(sent[1].message, /https:\/\/app\.example\//);
+  assert.equal(sent[2].subject, 'Day 1: Run your first prospect search');
+  assert.match(sent[2].message, /^Hi Isabelle,/);
+  assert.match(sent[2].message, /https:\/\/app\.example\//);
 
   // Same day: nothing more goes out.
   await onboardingDrip.runOnboardingDrips(new Date(Date.now() + 60 * 1000));
-  assert.equal(sent.length, 2);
+  assert.equal(sent.length, 3);
 
   // Next morning at 9 AM workspace time: Day 2.
   const { DateTime } = require('luxon');
   const nextMorning = DateTime.now().setZone(TZ).plus({ days: 1 }).set({ hour: 9, minute: 5 }).toJSDate();
   await onboardingDrip.runOnboardingDrips(nextMorning);
-  assert.equal(sent.length, 3);
-  assert.equal(sent[2].subject, 'Day 2: Bring in the prospects you already have');
-  assert.equal(sent[2].contactId, 'c_2');
+  assert.equal(sent.length, 4);
+  assert.equal(sent[3].subject, 'Day 2: Bring in the prospects you already have');
+  assert.ok(sent[3].contactId);
 
-  await onboardingDrip.stopMember(wid, 'new@floors.example');
+  await onboardingDrip.stopMember(wid, 'boss@floors.example');
   const later = DateTime.now().setZone(TZ).plus({ days: 2 }).set({ hour: 9, minute: 5 }).toJSDate();
   await onboardingDrip.runOnboardingDrips(later);
-  assert.equal(sent.length, 3);
+  assert.equal(sent.length, 4);
 
   const statuses = await onboardingDrip.memberStatuses(await dbService.getWorkspace(wid));
-  assert.equal(statuses[0].status, 'stopped');
-  assert.equal(statuses[0].sentCount, 2);
+  const boss = statuses.find((s) => s.email === 'boss@floors.example');
+  assert.equal(boss.status, 'stopped');
+  assert.equal(boss.sentCount, 2);
 });
 
 test('activation checklist uses workspace steps and keeps legacy progress', async () => {

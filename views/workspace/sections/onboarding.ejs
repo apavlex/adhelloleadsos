@@ -15,19 +15,19 @@
   </div>
   <% } else { %>
   <div class="rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-6 py-3 text-sm text-emerald-900 dark:text-emerald-100">
-    GHL email is connected. New teammates are added to this workspace&apos;s GHL as contacts tagged <strong>agency os teammate</strong> so the emails can be delivered.
+    GHL email is connected. Workspace leaders (admin / manager) are added to this workspace&apos;s GHL as contacts tagged <strong>agency os teammate</strong> so the drip can be delivered. SDR/viewer teammates get the invite only — Reviews-app users get a separate Reviews onboarding.
   </div>
   <% } %>
 
   <section class="<%= _card %> space-y-5">
     <div>
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">How it works</h2>
-      <p class="text-sm text-brand-muted max-w-3xl">When you invite someone, they get the invite email. After they accept, Day 1 arrives right away and each following day arrives at the time below. The steps you edit here are also the activation checklist they see on Today.</p>
+      <p class="text-sm text-brand-muted max-w-3xl">Everyone you invite gets an invite email. The 7-day drip starts only for <strong>admins and managers</strong> (and new workspace owners) — not SDR/viewer teammates. Day 1 arrives when they join; later days arrive at the time below. These steps also power the in-app activation checklist.</p>
     </div>
     <div class="grid gap-4 md:grid-cols-2">
       <label class="inline-flex items-center gap-2 text-sm font-semibold cursor-pointer">
         <input type="checkbox" id="obEnabled" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" <%= _cfg.enabled ? 'checked' : '' %> />
-        Send onboarding emails to new teammates
+        Send 7-day onboarding emails to new admins &amp; managers
       </label>
       <label class="inline-flex items-center gap-2 text-sm font-semibold cursor-pointer">
         <input type="checkbox" id="obSendInvite" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" <%= _cfg.sendInviteEmail ? 'checked' : '' %> />

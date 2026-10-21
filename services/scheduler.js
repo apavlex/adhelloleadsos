@@ -12,6 +12,7 @@ const signalwire = require('./signalwire');
 const trials = require('./trials');
 const { maybeRunDailyOutreachForEnabledWorkspaces } = require('./dailyOutreachScheduler');
 const { runOnboardingDrips } = require('./onboardingDrip');
+const { runReviewsOnboardingDrips } = require('./reviewsOnboardingDrip');
 const { runTaskPushReminders } = require('./taskPushReminders');
 const { runReviewAskReminders } = require('./reviewAsk');
 const { runJobVisitReminders } = require('./jobVisitReminders');
@@ -384,7 +385,10 @@ module.exports = {
         console.error('[SCHEDULER] Weekly voicemail drops failed:', e.message)
       );
       runOnboardingDrips().catch((e) =>
-        console.error('[SCHEDULER] Teammate onboarding emails failed:', e.message)
+        console.error('[SCHEDULER] Agency OS leader onboarding emails failed:', e.message)
+      );
+      runReviewsOnboardingDrips().catch((e) =>
+        console.error('[SCHEDULER] Reviews-app onboarding emails failed:', e.message)
       );
       require('./ghlOpportunitySync').runScheduledSyncs().catch((e) =>
         console.error('[SCHEDULER] GHL opportunity sync failed:', e.message)

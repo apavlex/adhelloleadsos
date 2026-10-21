@@ -1,6 +1,7 @@
 /**
- * Teammate onboarding emails sent through the workspace's own GHL sub-account:
- * an invite email when someone is invited, then one activation email per day after they join.
+ * Agency OS leader onboarding emails via the workspace's GHL sub-account:
+ * invite email on invite, then one activation email per day for owner/admin/manager.
+ * SDR/viewer teammates get invite only (no 7-day drip). Reviews app has its own drip.
  */
 const { DateTime } = require('luxon');
 const dbService = require('./database');
@@ -9,7 +10,12 @@ const { messagingReady } = require('./ghlMessaging');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { resolveWorkspaceTimezone } = require('./workspaceTimezone');
 const activationService = require('./activationService');
-const { onboardingForWorkspace, renderTemplate } = require('./onboardingConfig');
+const {
+  onboardingForWorkspace,
+  renderTemplate,
+  roleEligibleForAgencyOnboarding,
+  inviteTemplateForRole,
+} = require('./onboardingConfig');
 
 const TEAMMATE_TAG = 'agency os teammate';
 const MAX_ATTEMPTS = 3;
@@ -132,19 +138,21 @@ async function sendTeammateEmail({ env, email, name, subject, body, contactId })
 
 /**
  * Email the invite link. Returns { sent: false, reason } when disabled; throws when GHL email is not ready.
+ * Leader roles (admin/manager) get the 7-day drip promise; SDR/viewer get invite-only copy.
  */
-async function sendInviteEmail({ ws, email, inviteLink, inviterName, baseUrl }) {
+async function sendInviteEmail({ ws, email, inviteLink, inviterName, baseUrl, role }) {
   const cfg = onboardingForWorkspace(ws);
   if (!cfg.enabled || !cfg.sendInviteEmail) return { sent: false, reason: 'disabled' };
   const { env, ready } = await workspaceEmailEnv(ws.id);
   if (!ready) throw new Error(NOT_READY_MESSAGE);
+  const inviteTpl = inviteTemplateForRole(cfg, role);
   const vars = templateVars({ ws, cfg, name: '', baseUrl: appBaseUrl(baseUrl), inviteLink, inviterName });
   const out = await sendTeammateEmail({
     env,
     email,
     name: '',
-    subject: renderTemplate(cfg.invite.subject, vars),
-    body: renderTemplate(cfg.invite.body, vars),
+    subject: renderTemplate(inviteTpl.subject, vars),
+    body: renderTemplate(inviteTpl.body, vars),
   });
   return { sent: true, ...out };
 }
@@ -270,10 +278,33 @@ async function processMember(workspaceId, email, now = new Date()) {
   return processEnrollment({ ws, cfg, env, ready, tz: resolveWorkspaceTimezone(ws), enr, now });
 }
 
-/** Start (or restart) the daily emails for a member and send Day 1 right away. */
-async function enrollMember({ workspaceId, email, name, baseUrl, inviterName, restart = false }) {
+/**
+ * Start (or restart) the daily emails for a workspace leader and send Day 1 right away.
+ * Pass force: true to enroll SDR/viewer from the settings UI override.
+ */
+async function enrollMember({
+  workspaceId,
+  email,
+  name,
+  baseUrl,
+  inviterName,
+  role,
+  restart = false,
+  force = false,
+}) {
   const em = normEmail(email);
   if (!workspaceId || !em) return null;
+
+  let memberRole = role;
+  if (memberRole == null) {
+    const ws = await dbService.getWorkspace(workspaceId);
+    const row = ws && ws.members && ws.members[em];
+    memberRole = row && row.role;
+  }
+  if (!force && !roleEligibleForAgencyOnboarding(memberRole)) {
+    return { skipped: true, reason: 'role_not_eligible', email: em, role: memberRole || '' };
+  }
+
   const existing = await readEnrollment(workspaceId, em);
   if (existing && !restart) return existing;
   const now = new Date().toISOString();
@@ -330,6 +361,14 @@ async function runOnboardingDrips(now = new Date()) {
       if (!members[enr.email]) {
         enr.status = 'stopped';
         enr.lastError = 'No longer a member of this workspace.';
+        enr.updatedAt = now.toISOString();
+        await saveEnrollment(enr);
+        continue;
+      }
+      const memberRole = members[enr.email] && members[enr.email].role;
+      if (!roleEligibleForAgencyOnboarding(memberRole)) {
+        enr.status = 'stopped';
+        enr.lastError = 'Agency OS onboarding is for workspace admins and managers only.';
         enr.updatedAt = now.toISOString();
         await saveEnrollment(enr);
         continue;
@@ -416,4 +455,5 @@ module.exports = {
   sendTestEmail,
   memberStatuses,
   readEnrollment,
+  roleEligibleForAgencyOnboarding,
 };

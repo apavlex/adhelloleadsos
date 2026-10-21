@@ -565,6 +565,24 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
         delete req.session.createWorkspaceWizard;
       }
 
+      // Agency OS 7-day leader onboarding for the new workspace owner.
+      try {
+        const onboardingDrip = require('../services/onboardingDrip');
+        const ownerName = String((req.user && req.user.displayName) || '').trim();
+        onboardingDrip
+          .enrollMember({
+            workspaceId: newId,
+            email: em,
+            name: ownerName,
+            baseUrl: process.env.BASE_URL || `${req.protocol}://${req.get('host')}`,
+            inviterName: 'Agency OS',
+            role: 'owner',
+          })
+          .catch((e) => console.error('[ONBOARDING] workspace owner enroll failed:', e.message));
+      } catch (e) {
+        console.error('[ONBOARDING] workspace owner enroll setup failed:', e.message);
+      }
+
       await pipelineStagesService.deleteAllStages(newId);
       await pipelineStagesService.persistNormalizedStages(newId, stages);
       if (referralNiches) {
