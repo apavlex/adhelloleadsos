@@ -113,7 +113,7 @@
     <% } %>
     <% } else { %>
     <h1 class="ma-page-title">New customer</h1>
-    <p class="ma-page-sub">Add one contact, or upload a list.</p>
+    <p class="ma-page-sub">Speak the details once, confirm, and create — or type / upload a list.</p>
     <% } %>
 
     <%- include('_flash') %>
@@ -298,18 +298,38 @@
     <% if (customer || _custTab === 'one') { %>
     <section class="ma-section">
       <% if (customer) { %><div class="ma-section__head"><h2>Details</h2></div><% } %>
-      <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off">
+      <form method="post" action="<%= base %>/customers/<%= customer ? 'c/' + customer.id : 'new' %>" class="ma-card" autocomplete="off" id="<%= customer ? 'maCustomerEditForm' : 'maCustomerNewForm' %>" data-ma-voice-customer-form="<%= customer ? '0' : '1' %>">
+        <% if (!customer) { %>
+        <div class="ma-voice-add" id="maVoiceAddCustomer" data-ma-voice-add-customer>
+          <button type="button" class="ma-btn ma-btn--block ma-voice-add__btn" id="maVoiceAddCustomerBtn" aria-label="Speak customer info" title="Tap, say name phone address notes, tap again" hidden>
+            <span data-alex-voice-label data-ma-voice-add-label>Speak customer info</span>
+          </button>
+          <p class="ma-hint ma-voice-hint" style="margin:10px 0 0">Say it all at once — name, phone, email, address, notes. We’ll fill the form and ask you to confirm.</p>
+          <p class="ma-hint" id="maVoiceAddCustomerStatus" role="status" aria-live="polite" style="margin:8px 0 0"></p>
+          <textarea id="maVoiceAddCustomerCapture" class="ma-sr-only" maxlength="4000" tabindex="-1" aria-hidden="true"></textarea>
+        </div>
+        <p class="ma-hint" style="margin:14px 0 12px;text-align:center;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:11px;color:var(--muted)">Or fill in manually</p>
+        <% } %>
         <div class="ma-field">
-          <label class="ma-label" for="cuName">Name</label>
+          <div class="ma-label-row">
+            <label class="ma-label" for="cuName">Name</label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="cuName" aria-label="Dictate customer name" title="Tap to speak — hands-free while driving" hidden></button>
+          </div>
           <input id="cuName" name="name" class="ma-input" maxlength="120" value="<%= fv.name || '' %>" required autocapitalize="words" <%= customer ? '' : 'autofocus' %>>
         </div>
         <div class="ma-grid2">
           <div class="ma-field">
-            <label class="ma-label" for="cuPhone">Phone</label>
+            <div class="ma-label-row">
+              <label class="ma-label" for="cuPhone">Phone</label>
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="cuPhone" aria-label="Dictate phone number" title="Tap to speak" hidden></button>
+            </div>
             <input id="cuPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.phone || '' %>">
           </div>
           <div class="ma-field">
-            <label class="ma-label" for="cuEmail">Email</label>
+            <div class="ma-label-row">
+              <label class="ma-label" for="cuEmail">Email</label>
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="cuEmail" aria-label="Dictate email" title="Tap to speak" hidden></button>
+            </div>
             <input id="cuEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= fv.email || '' %>">
           </div>
         </div>
@@ -320,16 +340,44 @@
           }); %>
           <div class="ma-label-row">
             <label class="ma-label" for="cuAddress">Address</label>
-            <% if (addressMapsHref) { %><a class="ma-label-link" href="<%= addressMapsHref %>" target="_blank" rel="noopener">Google Maps</a><% } %>
+            <span class="ma-label-actions">
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="cuAddress" aria-label="Dictate address" title="Tap to speak — hands-free while driving" hidden></button>
+              <% if (addressMapsHref) { %><a class="ma-label-link" href="<%= addressMapsHref %>" target="_blank" rel="noopener">Google Maps</a><% } %>
+            </span>
           </div>
-          <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address">
+          <input id="cuAddress" name="address" maxlength="200" class="ma-input" value="<%= fv.address || '' %>" autocomplete="street-address" placeholder="Street, city… Tap the mic to dictate.">
         </div>
         <div class="ma-field">
-          <label class="ma-label" for="cuNotes">Notes</label>
-          <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history…"><%= fv.notes || '' %></textarea>
+          <div class="ma-label-row">
+            <label class="ma-label" for="cuNotes">Notes</label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="cuNotes" aria-label="Dictate notes" title="Tap to speak — hands-free while driving" hidden></button>
+          </div>
+          <textarea id="cuNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Gate code, preferences, history… Tap the mic to dictate."><%= fv.notes || '' %></textarea>
+          <% if (customer) { %><p class="ma-hint ma-voice-hint">Mic works while driving — tap, speak, tap again to stop.</p><% } %>
         </div>
-        <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> <%= customer ? 'Save changes' : 'Add customer' %></button>
+        <button type="submit" class="ma-btn ma-btn--block" id="maCustomerSubmitBtn"><%- icons.completed %> <%= customer ? 'Save changes' : 'Add customer' %></button>
       </form>
+      <% if (!customer) { %>
+      <div class="ma-photo-modal" id="maVoiceCustomerConfirm" data-ma-voice-customer-confirm hidden role="dialog" aria-modal="true" aria-labelledby="maVoiceCustomerConfirmTitle">
+        <div class="ma-photo-sheet">
+          <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-voice-customer-edit>&times;</button>
+          <h2 id="maVoiceCustomerConfirmTitle">Confirm customer</h2>
+          <p class="ma-photo-lead">Here’s what I heard. Create this contact, or edit the form first.</p>
+          <p class="ma-hint" id="maVoiceCustomerConfirmWarning" hidden style="margin:0 0 10px;color:#b91c1c"></p>
+          <dl class="ma-voice-preview" id="maVoiceCustomerPreview">
+            <div><dt>Name</dt><dd data-field="name">—</dd></div>
+            <div><dt>Phone</dt><dd data-field="phone">—</dd></div>
+            <div><dt>Email</dt><dd data-field="email">—</dd></div>
+            <div><dt>Address</dt><dd data-field="address">—</dd></div>
+            <div><dt>Notes</dt><dd data-field="notes">—</dd></div>
+          </dl>
+          <div class="ma-photo-actions">
+            <button type="button" class="ma-btn ma-btn--block" id="maVoiceCustomerCreateBtn" data-ma-voice-customer-create><%- icons.completed %> Confirm &amp; create</button>
+            <button type="button" class="ma-btn ma-btn--soft ma-btn--block" data-ma-voice-customer-edit>Edit form</button>
+          </div>
+        </div>
+      </div>
+      <% } %>
     </section>
     <% } %>
 

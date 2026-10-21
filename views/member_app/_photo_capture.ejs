@@ -30,7 +30,10 @@
       >
         <% if (_returnTo) { %><input type="hidden" name="returnTo" value="<%= _returnTo %>"><% } %>
         <div class="ma-field ma-photo-note">
-          <label class="ma-label" for="<%= _fid %>Caption">Notes <span class="ma-optional">(optional)</span></label>
+          <div class="ma-label-row">
+            <label class="ma-label" for="<%= _fid %>Caption">Notes <span class="ma-optional">(optional)</span></label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="<%= _fid %>Caption" aria-label="Dictate photo note" title="Tap to speak" hidden></button>
+          </div>
           <div class="ma-photo-note__box">
             <textarea
               id="<%= _fid %>Caption"

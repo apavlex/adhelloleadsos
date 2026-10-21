@@ -51,17 +51,26 @@
         <% if (!job) { %>
         <div class="ma-grid2 ma-newcust" id="maNewCustomer" <%= selectedCustomer === 'new' ? '' : 'hidden' %>>
           <div class="ma-field">
-            <label class="ma-label" for="jbNewName">Customer name</label>
+            <div class="ma-label-row">
+              <label class="ma-label" for="jbNewName">Customer name</label>
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="jbNewName" aria-label="Dictate customer name" title="Tap to speak" hidden></button>
+            </div>
             <input id="jbNewName" name="newCustomerName" class="ma-input" maxlength="120" value="<%= fv.newCustomerName || '' %>" autocapitalize="words">
           </div>
           <div class="ma-field">
-            <label class="ma-label" for="jbNewPhone">Phone</label>
+            <div class="ma-label-row">
+              <label class="ma-label" for="jbNewPhone">Phone</label>
+              <button type="button" class="ma-voice-btn" data-ma-voice-for="jbNewPhone" aria-label="Dictate phone number" title="Tap to speak" hidden></button>
+            </div>
             <input id="jbNewPhone" name="newCustomerPhone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.newCustomerPhone || '' %>">
           </div>
         </div>
         <% } %>
         <div class="ma-field">
-          <label class="ma-label" for="jbTitle">Job</label>
+          <div class="ma-label-row">
+            <label class="ma-label" for="jbTitle">Job</label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="jbTitle" aria-label="Dictate job name" title="Tap to speak — hands-free while driving" hidden></button>
+          </div>
           <input id="jbTitle" name="title" class="ma-input" maxlength="120" value="<%= fv.title || '' %>" placeholder="e.g. Kitchen floor install" required>
         </div>
         <div class="ma-grid2">
@@ -94,8 +103,12 @@
           </select>
         </div>
         <div class="ma-field">
-          <label class="ma-label" for="jbNotes">Notes</label>
-          <textarea id="jbNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Scope, materials, access, what you found on site…"><%= fv.notes || '' %></textarea>
+          <div class="ma-label-row">
+            <label class="ma-label" for="jbNotes">Notes</label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="jbNotes" aria-label="Dictate notes" title="Tap to speak — hands-free while driving" hidden></button>
+          </div>
+          <textarea id="jbNotes" name="notes" class="ma-textarea" maxlength="2000" placeholder="Scope, materials, access, what you found on site… Tap the mic to dictate."><%= fv.notes || '' %></textarea>
+          <p class="ma-hint ma-voice-hint">Mic works while driving — tap, speak, tap again to stop.</p>
         </div>
         <div class="ma-grid2">
           <div class="ma-field">

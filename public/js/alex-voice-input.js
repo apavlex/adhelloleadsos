@@ -1,11 +1,12 @@
 /**
  * Voice dictation for the Alex chat surfaces (full /chat page, floating chat, AI search bar).
  *
- *   var voice = AlexVoice.attach({ button, input, onState });
+ *   var voice = AlexVoice.attach({ button, input, onState, endpoint });
  *   voice.cancel();   // drop any recording / transcription in progress
  *
  * Live browser speech recognition when it works; otherwise records audio and POSTs it to
- * /api/voice/transcribe. Dictated text only ever lands in the input — it is never sent.
+ * endpoint (default /api/voice/transcribe; member apps pass /m/:token/voice/transcribe).
+ * Dictated text only ever lands in the input — it is never sent.
  */
 (function () {
   'use strict';
@@ -99,7 +100,9 @@
     opts = opts || {};
     var button = opts.button;
     var input = opts.input;
+    var endpoint = typeof opts.endpoint === 'string' && opts.endpoint.trim() ? opts.endpoint.trim() : ENDPOINT;
     var onState = typeof opts.onState === 'function' ? opts.onState : function () {};
+    var onCommit = typeof opts.onCommit === 'function' ? opts.onCommit : null;
     if (!button || !input) return null;
     if (button.__alexVoice) return button.__alexVoice;
 
@@ -129,7 +132,11 @@
     var awaitingMic = false;
     var fetchAbort = null;
 
-    if (!button.querySelector('.alex-voice-icon')) button.innerHTML = ICONS;
+    if (!button.querySelector('.alex-voice-icon')) {
+      var keepLabel = button.querySelector('[data-alex-voice-label]');
+      var keepHtml = keepLabel ? keepLabel.outerHTML : '';
+      button.innerHTML = ICONS + keepHtml;
+    }
     button.classList.add('alex-voice-btn');
     button.setAttribute('aria-pressed', 'false');
     button.hidden = false;
@@ -227,6 +234,13 @@
           /* type=search on some engines */
         }
         if (input.tagName === 'TEXTAREA') input.scrollTop = input.scrollHeight;
+        if (onCommit) {
+          try {
+            onCommit(String(value || '').trim());
+          } catch (_) {
+            /* surface callbacks must not break dictation */
+          }
+        }
       }
     }
 
@@ -410,7 +424,7 @@
       setState('transcribing', { mode: 'record' });
       showStatus('Transcribing…', 'info');
       fetchAbort = typeof AbortController !== 'undefined' ? new AbortController() : null;
-      fetch(ENDPOINT + langParam(), {
+      fetch(endpoint + langParam(), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': blob.type || 'audio/webm', Accept: 'application/json' },

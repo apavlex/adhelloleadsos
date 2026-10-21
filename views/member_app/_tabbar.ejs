@@ -89,6 +89,8 @@
     </div>
   </div>
 </div>
+<script>window.__maVoiceEndpoint = <%- JSON.stringify((typeof base !== 'undefined' && base ? base : '') + '/voice/transcribe') %>;</script>
+<script src="/js/alex-voice-input.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/member-customer-search.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/member-app-notifications.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/member-app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
