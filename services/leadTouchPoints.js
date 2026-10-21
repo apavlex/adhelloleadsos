@@ -9,6 +9,7 @@ const {
 } = require('./leadActivityFeed');
 const { engagementBadgeForLead } = require('./engagementSignals');
 const { lastActivityMs } = require('./focusQueue');
+const { classifyNoteAttribution, noteTypeLabel } = require('./leadNoteAttribution');
 
 const TOUCH_CHANNEL_LABELS = Object.freeze({
   call: 'Phone call',
@@ -54,16 +55,24 @@ function isBusinessReply(entry) {
   return /reply/i.test(String(raw.signalType || raw.signal || ''));
 }
 
-function mapTouchEntry(entry) {
+function mapTouchEntry(entry, opts = {}) {
   const at = entry.ts || '';
-  const typeLabel = formatActivityTypeLabel(entry.typ, entry.raw);
-  const text = formatActivityEntryText(entry).slice(0, 220);
   const typ = String(entry.typ || '').toLowerCase();
+  const fullText = formatActivityEntryText(entry);
+  const isNoteLike = typ === 'note' || typ === 'user_note' || typ === 'post' || typ === 'comment' || typ === 'manual_note';
+  const attribution = isNoteLike ? classifyNoteAttribution(entry.raw || {}, opts) : null;
+  const typeLabel = isNoteLike
+    ? noteTypeLabel(entry.raw || {}, opts)
+    : formatActivityTypeLabel(entry.typ, entry.raw);
   return {
     at,
     atLabel: formatTouchWhen(at),
     typeLabel,
-    text,
+    /** Full note text for UI (expandable). Preview kept for compact rows. */
+    text: fullText,
+    textPreview: fullText.length > 220 ? `${fullText.slice(0, 220)}…` : fullText,
+    attribution,
+    isNote: isNoteLike,
     isEngagement: typ === 'engagement_signal' || typ === 'sms_inbound' || typ === 'email_inbound',
     isReply: isBusinessReply(entry),
   };
@@ -71,16 +80,17 @@ function mapTouchEntry(entry) {
 
 /**
  * @param {object} lead
- * @param {{ limit?: number, windowDays?: number, now?: Date }} [opts]
+ * @param {{ limit?: number, windowDays?: number, now?: Date, viewerEmail?: string }} [opts]
  */
 function buildLeadTouchPoints(lead, opts = {}) {
   const limit = typeof opts.limit === 'number' ? opts.limit : 8;
   const windowDays = typeof opts.windowDays === 'number' ? opts.windowDays : 7;
   const now = opts.now instanceof Date ? opts.now : new Date(opts.now || Date.now());
+  const mapOpts = { viewerEmail: opts.viewerEmail || '' };
 
   const merged = mergeLeadActivityEntries(lead, { maxPerSource: 40 });
   const primary = collapsePrimaryActivities(merged);
-  const all = primary.map(mapTouchEntry);
+  const all = primary.map((e) => mapTouchEntry(e, mapOpts));
   const replies = all.filter((t) => t.isReply);
   const recentTouches = replies.slice(0, limit).concat(all.filter((t) => !t.isReply).slice(0, limit));
   const latestReply = replies[0]
@@ -101,6 +111,9 @@ function buildLeadTouchPoints(lead, opts = {}) {
         channelLabel: channelLabel || latest.typeLabel,
         typeLabel: latest.typeLabel,
         text: latest.text,
+        textPreview: latest.textPreview,
+        attribution: latest.attribution || null,
+        isNote: !!latest.isNote,
         summary: [channelLabel || latest.typeLabel, latest.atLabel].filter(Boolean).join(' · '),
       }
     : {
@@ -110,6 +123,9 @@ function buildLeadTouchPoints(lead, opts = {}) {
         channelLabel: channelLabel || 'Not set',
         typeLabel: '',
         text: '',
+        textPreview: '',
+        attribution: null,
+        isNote: false,
         summary: channelLabel
           ? `${channelLabel}${fallbackMs ? ` · ${formatTouchWhen(new Date(fallbackMs).toISOString())}` : ''}`
           : fallbackMs

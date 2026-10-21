@@ -1714,6 +1714,7 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
     const entryType = rawType === 'quick_log' ? 'quick_log' : 'note';
     const ts = new Date().toISOString();
     const author = teamActivity.authorLabel(req);
+    const authorEmail = String(userEmail(req) || '').trim().toLowerCase();
     const entry = {
       type: entryType,
       value: content,
@@ -1721,6 +1722,7 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
       source: entryType === 'quick_log' ? 'quick_log_pill' : 'panel_post',
     };
     if (author) entry.by = author;
+    if (authorEmail) entry.byEmail = authorEmail;
     if (req.body && req.body.disposition) {
       entry.disposition = String(req.body.disposition).trim();
     }
@@ -1740,6 +1742,7 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
             message: content,
             timestamp: ts,
             ...(author ? { by: author } : {}),
+            ...(authorEmail ? { byEmail: authorEmail } : {}),
           },
         ],
       },

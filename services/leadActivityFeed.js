@@ -224,8 +224,12 @@ function isManualPanelNote(entry) {
   if (isQuickLogMirroredNote(entry)) return false;
   if (typ === 'call_disposition' || typ === 'status_change') return false;
   if (/^sequence|^cadence/i.test(typ)) return false;
+  const source = String(raw.source || '').toLowerCase();
+  if (source === 'ai_assistant' || source === 'ai' || source === 'pavlex' || source === 'mcp') return false;
+  if (String(raw.byEmail || '').startsWith('bot:')) return false;
   if (raw.source === 'panel_post' || raw.manual === true) return true;
-  if (typ === 'note' && raw.source !== 'quick_log_pill') return true;
+  // Legacy human notes (no source) stay in "My notes"; other sourced notes do not.
+  if (typ === 'note' && !raw.source) return true;
   return ['user_note', 'post', 'comment', 'manual_note'].includes(typ);
 }
 
