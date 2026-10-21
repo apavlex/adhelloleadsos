@@ -8,7 +8,8 @@
         ? (base + '/icon-192.png?v=' + encodeURIComponent(String(brand.logoUrl)))
         : brand.logoUrl;
     %><img class="ma-top__logo" src="<%= _topLogoSrc %>" alt="" width="28" height="28"><% } %>
-    <p class="ma-top__title"><%= typeof topTitle !== 'undefined' && topTitle ? topTitle : brand.appName %></p>
+    <% const _topTitle = typeof topTitle !== 'undefined' ? topTitle : brand.appName; %>
+    <% if (_topTitle) { %><p class="ma-top__title"><%= _topTitle %></p><% } %>
     <% } %>
   </div>
   <div class="ma-top__actions">
