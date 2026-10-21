@@ -80,8 +80,8 @@ function buildSourceCards(live = {}, resolvedEnv) {
       configured: os,
       live: live.outscraper || null,
       tip: os
-        ? 'Powers Google review scrape (highest/lowest quotes) during Hunt. Also runs in Find Leads Auto mode after RapidAPI, SearchAPI.io, and SerpAPI.'
-        : 'Set OUTSCRAPER_API_KEY for review quotes on Hunt and as another Maps list provider.',
+        ? 'Powers Google review scrape (highest/lowest quotes) during Hunt. Also the Maps fallback after your primary API fails or returns short.'
+        : 'Set OUTSCRAPER_API_KEY for review quotes on Hunt and as the Maps fallback after your primary API.',
     },
     {
       id: 'rapidapi',
@@ -104,7 +104,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
       configured: apify,
       live: null,
       tip: apify
-        ? 'Used after RapidAPI, SearchAPI.io, SerpAPI, and Outscraper when earlier providers return nothing or fail. Override chain with SEARCH_MAPS_PRIMARY.'
+        ? 'Set as Maps primary (SEARCH_MAPS_PRIMARY=apify) to try Apify first, then Outscraper.'
         : 'Set APIFY_API_TOKEN (and optionally other Maps keys) to run prospect searches from Find Prospects.',
     },
     {
@@ -140,7 +140,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
       configured: searchapi,
       live: null,
       tip: searchapi
-        ? 'Runs after RapidAPI in Auto mode when SEARCHAPI_API_KEY is set. Force with SEARCH_MAPS_PRIMARY=searchapi.'
+        ? 'Set as Maps primary (SEARCH_MAPS_PRIMARY=searchapi) to try SearchAPI first, then Outscraper.'
         : 'Set SEARCHAPI_API_KEY from SearchAPI.io to enable Google Local as a Maps list source.',
     },
     {
@@ -152,7 +152,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
       configured: serpapi,
       live: null,
       tip: serpapi
-        ? 'Runs after SearchAPI.io in Auto mode when SERPAPI_API_KEY is set. Force with SEARCH_MAPS_PRIMARY=serpapi.'
+        ? 'Set as Maps primary (SEARCH_MAPS_PRIMARY=serpapi) to try SerpAPI first, then Outscraper.'
         : 'Set SERPAPI_API_KEY from serpapi.com for Google Local as a Maps list source.',
     },
     {
@@ -229,7 +229,7 @@ function buildTaskRows() {
         'Compare SearchAPI.io vs SerpAPI vs Outscraper vs Apify unit price for the same query; keep keys you like and run small test batches.',
       keepPaid:
         'If you need the least ops friction, Apify (already integrated on Find Leads) stays the fastest path.',
-      inApp: 'Find Leads: RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto (workspace keys or env). Workspace → API integrations applies the same keys to all members.',
+      inApp: 'Find Leads: primary Maps API (default RapidAPI) → Outscraper fallback. Workspace → API integrations applies the same keys to all members.',
     },
     {
       task: 'Deep website audit + structured fields on a lead',

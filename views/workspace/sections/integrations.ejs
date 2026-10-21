@@ -34,7 +34,7 @@
   <% } %>
   <% if (integrationsReady) { %>
   <% const masks = integrationMasks || {}; %>
-  <% let _mapsPrimary = (mapsSearchPrimary || 'rapidapi').toString().toLowerCase(); if (_mapsPrimary === 'monid' || !_mapsPrimary) _mapsPrimary = 'rapidapi'; %>
+  <% let _mapsPrimary = (mapsSearchPrimary || 'rapidapi').toString().toLowerCase(); if (_mapsPrimary === 'monid' || _mapsPrimary === 'auto' || !_mapsPrimary) _mapsPrimary = 'rapidapi'; %>
   <% const _enrichPrimary = (enrichPrimary || 'auto').toString().toLowerCase(); %>
   <% let _contactEnrichPrimary = (contactEnrichPrimary || 'moltsets').toString().toLowerCase(); if (_contactEnrichPrimary !== 'outscraper') _contactEnrichPrimary = 'moltsets'; %>
   <% const _mapsProviders = Array.isArray(mapsProviderStatus) ? mapsProviderStatus : []; %>
@@ -78,12 +78,12 @@
           </div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
           <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-            <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' || _mapsPrimary === '' || _mapsPrimary === 'auto' ? 'selected' : '' %>>RapidAPI → Outscraper fallback (recommended)</option>
-            <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io only</option>
-            <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI only</option>
-            <option value="oxylabs" <%= _mapsPrimary === 'oxylabs' ? 'selected' : '' %>>Oxylabs only</option>
+            <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' || _mapsPrimary === '' ? 'selected' : '' %>>RapidAPI (primary) → Outscraper fallback (recommended)</option>
+            <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io (primary) → Outscraper fallback</option>
+            <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI (primary) → Outscraper fallback</option>
+            <option value="oxylabs" <%= _mapsPrimary === 'oxylabs' ? 'selected' : '' %>>Oxylabs (primary) → Outscraper fallback</option>
+            <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify (primary) → Outscraper fallback</option>
             <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
-            <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
           </select>
           <p class="text-xs text-brand-muted mt-3 leading-relaxed">Looking for <strong class="text-brand-dark dark:text-white">MoltSets</strong>? That&apos;s for Enhance / Get More Contacts — set it under <a href="#integration-contact-enrich" class="js-integration-connect underline font-semibold text-brand-dark dark:text-brand-yellow">Data enhance ↓</a>.</p>
         </section>

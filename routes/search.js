@@ -24,7 +24,7 @@ const {
   runBestEffort,
 } = require('../services/leadRunProgress');
 
-// POST /search — Google Maps list (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto)
+// POST /search — Google Maps list (primary API → Outscraper fallback; default primary RapidAPI)
 router.post('/', async (req, res, next) => {
   try {
     const wid = req.workspaceId;

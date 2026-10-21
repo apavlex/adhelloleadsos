@@ -8,14 +8,14 @@
   <div>
     <label for="<%= _pfx %>MapsProvider" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Maps scraper</label>
     <select id="<%= _pfx %>MapsProvider" name="mapsProvider" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
-      <option value="rapidapi"<%= !_pre.mapsProvider || _pre.mapsProvider === 'rapidapi' || _pre.mapsProvider === 'monid' || _pre.mapsProvider === 'auto' ? ' selected' : '' %>>RapidAPI → Outscraper (recommended)</option>
-      <option value="searchapi"<%= _pre.mapsProvider === 'searchapi' ? ' selected' : '' %>>SearchAPI.io</option>
-      <option value="serpapi"<%= _pre.mapsProvider === 'serpapi' ? ' selected' : '' %>>SerpAPI</option>
-      <option value="oxylabs"<%= _pre.mapsProvider === 'oxylabs' ? ' selected' : '' %>>Oxylabs</option>
-      <option value="outscraper"<%= _pre.mapsProvider === 'outscraper' ? ' selected' : '' %>>Outscraper</option>
-      <option value="apify"<%= _pre.mapsProvider === 'apify' ? ' selected' : '' %>>Apify</option>
+      <option value="auto"<%= !_pre.mapsProvider || _pre.mapsProvider === 'auto' || _pre.mapsProvider === 'monid' || _pre.mapsProvider === 'rapidapi' ? ' selected' : '' %>>Primary API → Outscraper (recommended)</option>
+      <option value="searchapi"<%= _pre.mapsProvider === 'searchapi' ? ' selected' : '' %>>SearchAPI.io only</option>
+      <option value="serpapi"<%= _pre.mapsProvider === 'serpapi' ? ' selected' : '' %>>SerpAPI only</option>
+      <option value="oxylabs"<%= _pre.mapsProvider === 'oxylabs' ? ' selected' : '' %>>Oxylabs only</option>
+      <option value="outscraper"<%= _pre.mapsProvider === 'outscraper' ? ' selected' : '' %>>Outscraper only</option>
+      <option value="apify"<%= _pre.mapsProvider === 'apify' ? ' selected' : '' %>>Apify only</option>
     </select>
-    <p class="text-[11px] text-brand-muted mt-1">Configure RapidAPI + Outscraper under Workspace → Integrations. Default tries RapidAPI first, then Outscraper.</p>
+    <p class="text-[11px] text-brand-muted mt-1">Uses your Maps primary (default RapidAPI), then Outscraper if that fails. Set the primary under Workspace → Integrations.</p>
   </div>
 
   <fieldset class="rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 space-y-4">

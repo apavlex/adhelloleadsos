@@ -436,7 +436,9 @@ async function loadWorkspacePageLocals(req, opts = {}) {
   )
     .trim()
     .toLowerCase();
-  if (!mapsSearchPrimary || mapsSearchPrimary === 'monid') mapsSearchPrimary = 'rapidapi';
+  if (!mapsSearchPrimary || mapsSearchPrimary === 'monid' || mapsSearchPrimary === 'auto') {
+    mapsSearchPrimary = 'rapidapi';
+  }
   const contactEnrichPrimary = contactEnrichPreference.resolvePrimary(resolvedEnv);
   const enrichPrimary = String(
     (resolvedEnv && resolvedEnv.ENRICH_PRIMARY) || process.env.ENRICH_PRIMARY || 'auto',

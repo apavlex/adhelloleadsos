@@ -1,7 +1,7 @@
 /**
  * Step 1 — Google Maps lead list.
- * Default chain: RapidAPI → Outscraper fallback.
- * Forced single-provider modes still available via SEARCH_MAPS_PRIMARY / mapsProvider.
+ * Default / Auto: configured primary API → Outscraper fallback.
+ * Primary defaults to RapidAPI (Local Business). Override via SEARCH_MAPS_PRIMARY / mapsProvider.
  * Monid is no longer used for Maps.
  */
 
@@ -45,15 +45,14 @@ function resolvePrimary(integrationEnv) {
   const fromEnv = String(process.env.SEARCH_MAPS_PRIMARY || '').toLowerCase().trim();
   let v = fromWs || fromEnv;
   // Monid Maps retired — treat legacy preference as RapidAPI (+ Outscraper fallback).
-  if (v === 'monid') v = 'rapidapi';
+  if (v === 'monid' || v === 'auto') v = 'rapidapi';
   if (
     v === 'rapidapi' ||
     v === 'searchapi' ||
     v === 'serpapi' ||
     v === 'apify' ||
     v === 'outscraper' ||
-    v === 'oxylabs' ||
-    v === 'auto'
+    v === 'oxylabs'
   )
     return v;
   return 'rapidapi';
@@ -84,7 +83,7 @@ function mergeMapsLeadLists(primary, extra, maxTotal) {
 }
 
 /**
- * Preferred Maps path: RapidAPI first, Outscraper if RapidAPI fails / returns short.
+ * Run Maps providers in order until enough results are collected.
  * @param {{ continueOnNoResults?: boolean }} [opts]
  */
 async function runProviderChain(params, integrationEnv, providers, opts = {}) {
@@ -154,90 +153,148 @@ async function runProviderChain(params, integrationEnv, providers, opts = {}) {
     );
   }
   throw new Error(
-    `No Maps search results found for "${params.keyword}" in ${params.city}, ${params.state}. Providers: ${JSON.stringify(providerStatus)}. Env keys: ${JSON.stringify(envStatus)}. Configure RapidAPI and/or Outscraper under Workspace → Integrations.`,
+    `No Maps search results found for "${params.keyword}" in ${params.city}, ${params.state}. Providers: ${JSON.stringify(providerStatus)}. Env keys: ${JSON.stringify(envStatus)}. Configure your primary Maps API and/or Outscraper under Workspace → Integrations.`,
   );
 }
 
-function preferredProviders(integrationEnv) {
-  return [
-    {
-      id: 'rapidapi',
-      label: 'RapidAPI',
-      configured: () => rapidapi.isConfigured(integrationEnv),
-      search: (p) => rapidapi.searchGoogleMaps(p),
-    },
-    {
-      id: 'outscraper',
-      label: 'Outscraper',
-      configured: () => outscraper.isConfigured(integrationEnv),
-      search: (p) => outscraper.searchGoogleMaps(p),
-    },
-  ];
+function providerEntry(id, integrationEnv) {
+  switch (id) {
+    case 'rapidapi':
+      return {
+        id: 'rapidapi',
+        label: 'RapidAPI',
+        configured: () => rapidapi.isConfigured(integrationEnv),
+        search: (p) => rapidapi.searchGoogleMaps(p),
+      };
+    case 'searchapi':
+      return {
+        id: 'searchapi',
+        label: 'SearchAPI.io',
+        configured: () => searchapiConfigured(integrationEnv),
+        search: (p) => searchapi.searchGoogleMaps(p),
+      };
+    case 'serpapi':
+      return {
+        id: 'serpapi',
+        label: 'SerpAPI',
+        configured: () => serpapiConfigured(integrationEnv),
+        search: (p) => serpapi.searchGoogleMaps(p),
+      };
+    case 'oxylabs':
+      return {
+        id: 'oxylabs',
+        label: 'Oxylabs',
+        configured: () => oxylabsConfigured(integrationEnv),
+        search: (p) => oxylabsGoogleLocal.searchGoogleMaps(p),
+      };
+    case 'outscraper':
+      return {
+        id: 'outscraper',
+        label: 'Outscraper',
+        configured: () => outscraper.isConfigured(integrationEnv),
+        search: (p) => outscraper.searchGoogleMaps(p),
+      };
+    case 'apify':
+      return {
+        id: 'apify',
+        label: 'Apify',
+        configured: () => apifyConfigured(integrationEnv),
+        search: (p) => apify.searchGoogleMaps(p),
+      };
+    default:
+      return null;
+  }
 }
 
-/** Default Maps path: RapidAPI → Outscraper. */
+/**
+ * Primary API platform, then Outscraper fallback (unless primary is already Outscraper).
+ * Used by Auto / default automated folder search.
+ */
+function primaryThenOutscraperProviders(primaryId, integrationEnv) {
+  const primary = providerEntry(primaryId, integrationEnv);
+  const fallback = providerEntry('outscraper', integrationEnv);
+  if (!primary) return [fallback].filter(Boolean);
+  if (primaryId === 'outscraper') return [primary];
+  return [primary, fallback];
+}
+
+/** @deprecated name kept for callers — RapidAPI → Outscraper. */
 async function runRapidapiOutscraperMapsSearch(params, integrationEnv) {
-  const providers = preferredProviders(integrationEnv);
+  return runPrimaryThenOutscraperMapsSearch(params, integrationEnv, 'rapidapi');
+}
+
+/**
+ * Run configured primary Maps API, then Outscraper if primary fails / returns short.
+ */
+async function runPrimaryThenOutscraperMapsSearch(params, integrationEnv, primaryId) {
+  const primary = String(primaryId || 'rapidapi').toLowerCase().trim() || 'rapidapi';
+  const providers = primaryThenOutscraperProviders(primary, integrationEnv);
   if (!providers.some((p) => p.configured())) {
+    const label = primary === 'rapidapi' ? 'RapidAPI' : primary;
     throw new Error(
-      'Maps search needs RapidAPI or Outscraper. Add RAPIDAPI_KEY and/or OUTSCRAPER_API_KEY under Workspace → Integrations.',
+      `Maps search needs ${label} and/or Outscraper. Add the primary API key and/or OUTSCRAPER_API_KEY under Workspace → Integrations.`,
     );
   }
   return runProviderChain(params, integrationEnv, providers, { continueOnNoResults: true });
 }
 
 /**
- * @param {{ keyword: string, city: string, state: string, maxResults?: number, integrationEnv?: Record<string, string> }} params
+ * @param {{ keyword: string, city: string, state: string, maxResults?: number, integrationEnv?: Record<string, string>, mapsProvider?: string }} params
  * @returns {Promise<object[]>} same shape as apify.searchGoogleMaps
  */
 async function searchGoogleMaps(params) {
   const integrationEnv = params.integrationEnv || null;
   const override = String(params.mapsProvider || '').toLowerCase().trim();
-  let primary =
-    override && override !== 'auto' ? override : resolvePrimary(integrationEnv);
-  if (primary === 'monid') primary = 'rapidapi';
 
-  // Default + Auto: RapidAPI with Outscraper fallback.
-  if (primary === 'rapidapi' || primary === 'auto') {
-    return runRapidapiOutscraperMapsSearch(params, integrationEnv);
+  // Auto / unset → workspace primary (default RapidAPI) → Outscraper.
+  if (!override || override === 'auto' || override === 'monid') {
+    const primary = resolvePrimary(integrationEnv);
+    return runPrimaryThenOutscraperMapsSearch(params, integrationEnv, primary);
   }
 
-  if (primary === 'searchapi') {
+  // Explicit rapidapi mode: same short chain.
+  if (override === 'rapidapi') {
+    return runPrimaryThenOutscraperMapsSearch(params, integrationEnv, 'rapidapi');
+  }
+
+  // Forced single provider (no Outscraper fallback).
+  if (override === 'searchapi') {
     if (!searchapiConfigured(integrationEnv)) {
       throw new Error('Maps provider is set to SearchAPI.io, but SEARCHAPI_API_KEY is missing.');
     }
     return searchapi.searchGoogleMaps(params);
   }
 
-  if (primary === 'serpapi') {
+  if (override === 'serpapi') {
     if (!serpapiConfigured(integrationEnv)) {
       throw new Error('Maps provider is set to SerpAPI, but SERPAPI_API_KEY is missing.');
     }
     return serpapi.searchGoogleMaps(params);
   }
 
-  if (primary === 'apify') {
+  if (override === 'apify') {
     if (!apifyConfigured(integrationEnv)) {
       throw new Error('Maps provider is set to Apify, but APIFY_API_TOKEN is missing.');
     }
     return apify.searchGoogleMaps(params);
   }
 
-  if (primary === 'outscraper') {
+  if (override === 'outscraper') {
     if (!outscraper.isConfigured(integrationEnv)) {
       throw new Error('Maps provider is set to Outscraper, but OUTSCRAPER_API_KEY is missing.');
     }
     return outscraper.searchGoogleMaps(params);
   }
 
-  if (primary === 'oxylabs') {
+  if (override === 'oxylabs') {
     if (!oxylabsConfigured(integrationEnv)) {
       throw new Error('Maps provider is set to Oxylabs, but OXYLABS_USERNAME / OXYLABS_PASSWORD are missing.');
     }
     return oxylabsGoogleLocal.searchGoogleMaps(params);
   }
 
-  return runRapidapiOutscraperMapsSearch(params, integrationEnv);
+  const primary = resolvePrimary(integrationEnv);
+  return runPrimaryThenOutscraperMapsSearch(params, integrationEnv, primary);
 }
 
 function filterMapsResults(results, criteria = {}) {
@@ -253,7 +310,7 @@ function filterMapsResults(results, criteria = {}) {
   return out;
 }
 
-/** Status row for Workspace → Integrations (preferred chain order first). */
+/** Status row for Workspace → Integrations (primary then Outscraper first). */
 function getMapsProviderStatusList(integrationEnv) {
   return [
     {
@@ -296,4 +353,5 @@ module.exports = {
   getMapsProviderStatusList,
   filterMapsResults,
   runRapidapiOutscraperMapsSearch,
+  runPrimaryThenOutscraperMapsSearch,
 };

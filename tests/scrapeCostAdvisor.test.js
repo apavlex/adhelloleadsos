@@ -12,7 +12,7 @@ test('buildSourceCards includes RapidAPI with configured flag', () => {
     assert.ok(rapid);
     assert.equal(rapid.name, 'RapidAPI (Local Business Data)');
     assert.equal(rapid.configured, true);
-    assert.match(rapid.role, /first in Auto/i);
+    assert.match(rapid.role, /primary.*Outscraper fallback/i);
   } finally {
     if (prev === undefined) delete process.env.RAPIDAPI_KEY;
     else process.env.RAPIDAPI_KEY = prev;
