@@ -86,14 +86,15 @@ test('Home banner shows open jobs; review visits sit on the secondary line', asy
     const home = await fetch(`${base}/m/${token}`);
     assert.equal(home.status, 200);
     const html = await home.text();
-    // Banner leads with open jobs (2 active) — not frozen brand 91 or review visits.
+    // Banner keeps open jobs (2 active) — not frozen brand 91 or review visits.
     assert.match(html, /ma-hero__stat">\s*2\s*<small>open jobs<\/small>/i);
     assert.doesNotMatch(html, /ma-hero__stat">\s*91\s*</);
     assert.doesNotMatch(html, /ma-hero__stat">\s*22\s*</);
     assert.match(html, /22\s*review visits/i);
-    assert.match(html, /Open jobs/i);
-    // First tile is open jobs, not review visits.
-    assert.match(html, /ma-tile__label">Open jobs</i);
+    assert.match(html, /open jobs/i);
+    // First tile is Leads (jobs → leads swap); hero still shows open jobs.
+    assert.match(html, /ma-tile__label">Leads</i);
+    assert.doesNotMatch(html, /ma-tile__label">Open jobs</i);
     assert.doesNotMatch(html, /ma-tile__label">Review visits</i);
 
     const page = await fetch(`${base}/rv/visit-pros`);
