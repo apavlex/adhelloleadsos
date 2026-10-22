@@ -51,26 +51,17 @@
         <% if (!job) { %>
         <div class="ma-grid2 ma-newcust" id="maNewCustomer" <%= selectedCustomer === 'new' ? '' : 'hidden' %>>
           <div class="ma-field">
-            <div class="ma-label-row">
-              <label class="ma-label" for="jbNewName">Customer name</label>
-              <button type="button" class="ma-voice-btn" data-ma-voice-for="jbNewName" aria-label="Dictate customer name" title="Tap to speak" hidden></button>
-            </div>
+            <label class="ma-label" for="jbNewName">Customer name</label>
             <input id="jbNewName" name="newCustomerName" class="ma-input" maxlength="120" value="<%= fv.newCustomerName || '' %>" autocapitalize="words">
           </div>
           <div class="ma-field">
-            <div class="ma-label-row">
-              <label class="ma-label" for="jbNewPhone">Phone</label>
-              <button type="button" class="ma-voice-btn" data-ma-voice-for="jbNewPhone" aria-label="Dictate phone number" title="Tap to speak" hidden></button>
-            </div>
+            <label class="ma-label" for="jbNewPhone">Phone</label>
             <input id="jbNewPhone" name="newCustomerPhone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.newCustomerPhone || '' %>">
           </div>
         </div>
         <% } %>
         <div class="ma-field">
-          <div class="ma-label-row">
-            <label class="ma-label" for="jbTitle">Job</label>
-            <button type="button" class="ma-voice-btn" data-ma-voice-for="jbTitle" aria-label="Dictate job name" title="Tap to speak — hands-free while driving" hidden></button>
-          </div>
+          <label class="ma-label" for="jbTitle">Job</label>
           <input id="jbTitle" name="title" class="ma-input" maxlength="120" value="<%= fv.title || '' %>" placeholder="e.g. Kitchen floor install" required>
         </div>
         <div class="ma-grid2">
