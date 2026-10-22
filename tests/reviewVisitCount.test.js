@@ -27,7 +27,7 @@ async function startServer() {
   return { server, base: `http://127.0.0.1:${port}` };
 }
 
-test('Home banner shows leads; open jobs sit on the secondary line', async () => {
+test('Home banner shows projects; open jobs sit on the secondary line', async () => {
   const network = await store.getOrCreateNetworkForWorkspace(`ws_rv_visit_${Date.now()}`, {
     name: 'Visit Net',
   });
@@ -92,8 +92,8 @@ test('Home banner shows leads; open jobs sit on the secondary line', async () =>
     const home = await fetch(`${base}/m/${token}`);
     assert.equal(home.status, 200);
     const html = await home.text();
-    // Banner shows leads (1) — not frozen brand 91, review visits, or open jobs as the big number.
-    assert.match(html, /ma-hero__stat">\s*1\s*<small>leads<\/small>/i);
+    // Banner shows projects (1) — not frozen brand 91, review visits, or open jobs as the big number.
+    assert.match(html, /ma-hero__stat">\s*1\s*<small>projects<\/small>/i);
     assert.doesNotMatch(html, /ma-hero__stat">\s*91\s*</);
     assert.doesNotMatch(html, /ma-hero__stat">\s*22\s*</);
     assert.doesNotMatch(html, /ma-hero__stat">\s*2\s*<small>open jobs<\/small>/i);

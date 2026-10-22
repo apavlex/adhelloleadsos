@@ -65,8 +65,8 @@
         <p class="ma-hero__stat"><%= brand.statValueLabel %><% if (brand.statSuffix) { %><small><%= brand.statSuffix %></small><% } %></p>
         <% if (brand.statLabel) { %><p class="ma-hero__label"><%= brand.statLabel %></p><% } %>
         <% } else { %>
-        <%/* Banner leads first; open jobs moved below with customers / review visits. */%>
-        <p class="ma-hero__stat"><%= Number(_openLeads || 0).toLocaleString('en-US') %><small>leads</small></p>
+        <%/* Banner projects (contact leads) first; open jobs moved below with customers / review visits. */%>
+        <p class="ma-hero__stat"><%= Number(_openLeads || 0).toLocaleString('en-US') %><small>projects</small></p>
         <p class="ma-hero__label"><%= Number(_openJobs || 0).toLocaleString('en-US') %> open jobs · <%= _customerCount %> customers · <%= Number(_reviewViews || 0).toLocaleString('en-US') %> review visits</p>
         <% } %>
       </div>
