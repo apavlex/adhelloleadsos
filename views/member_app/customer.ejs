@@ -93,9 +93,12 @@
       <p class="ma-hint" style="margin:0"><%= _ghlAct.error %></p>
       <% } else if (!_ghlItems.length) { %>
       <p class="ma-hint" style="margin:0">No calls or texts in GHL for this contact yet.</p>
-      <% } else { %>
-      <ul class="ma-ghl-feed" aria-label="GHL calls and texts">
-        <% _ghlItems.forEach(function (m) {
+      <% } else {
+        const _ghlPreview = 2;
+        const _ghlRest = Math.max(0, _ghlItems.length - _ghlPreview);
+      %>
+      <ul class="ma-ghl-feed" aria-label="GHL calls and texts" data-ma-ghl-feed>
+        <% _ghlItems.forEach(function (m, i) {
           const when = m.at ? new Date(m.at) : null;
           const ago = when && !isNaN(when.getTime())
             ? (function () {
@@ -108,8 +111,9 @@
               })()
             : '';
           const dir = m.direction === 'inbound' ? 'In' : 'Out';
+          const _extra = i >= _ghlPreview;
         %>
-        <li class="ma-ghl-feed__item ma-ghl-feed__item--<%= m.kind %> ma-ghl-feed__item--<%= m.direction %>">
+        <li class="ma-ghl-feed__item ma-ghl-feed__item--<%= m.kind %> ma-ghl-feed__item--<%= m.direction %><%= _extra ? ' ma-ghl-feed__item--more' : '' %>"<%= _extra ? ' hidden' : '' %>>
           <div class="ma-ghl-feed__meta">
             <strong><%= m.title %></strong>
             <span><%= dir %><% if (ago) { %> · <%= ago %><% } %></span>
@@ -121,6 +125,9 @@
         </li>
         <% }); %>
       </ul>
+      <% if (_ghlRest > 0) { %>
+      <button type="button" class="ma-ghl-feed__more" data-ma-ghl-feed-more>More · <%= _ghlRest %> older</button>
+      <% } %>
       <% } %>
       </div>
     </section>

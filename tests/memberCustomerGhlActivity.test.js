@@ -113,13 +113,18 @@ describe('memberCustomerGhlActivity', () => {
     assert.match(view, /ghlContactId/);
     assert.match(view, /Open in GHL/);
     assert.match(view, /data-ma-ghl-activity-url/);
+    assert.match(view, /data-ma-ghl-feed-more/);
+    assert.match(view, /_ghlPreview\s*=\s*2/);
     assert.match(css, /\.ma-ghl-feed/);
+    assert.match(css, /\.ma-ghl-feed__more/);
     assert.match(route, /memberCustomerGhlActivity/);
     assert.match(route, /ensureCustomerGhlLink/);
     // Profile paints first; history loads via JSON so the tap is not blocked on GHL.
     assert.match(route, /loadGhlActivity:\s*false/);
     assert.match(route, /customers\/c\/:id\/ghl-activity\.json/);
     assert.match(js, /bootGhlActivity|data-ma-ghl-activity-url/);
+    assert.match(js, /GHL_FEED_PREVIEW\s*=\s*2/);
+    assert.match(js, /data-ma-ghl-feed-more/);
     assert.match(svc, /localInboundItems/);
     assert.match(svc, /ensureCustomerGhlLink/);
   });
