@@ -426,7 +426,7 @@ async function seedNetwork(ctx) {
     name: NETWORK_NAME,
     autoGhlSubaccount: false,
     seatLimit: 1,
-    brand: { appName: NETWORK_NAME, tagline: 'The quick and easy review and referrals engine for your business', accent: '#0EA5E9' },
+    brand: { appName: NETWORK_NAME, tagline: 'The quick and easy reviews & referrals engine', accent: '#0EA5E9' },
   });
 
   const zoneIds = {};
@@ -935,7 +935,7 @@ async function seedOwnerReviewBrand(network, owner, now) {
     brand: {
       ...(network.brand || {}),
       appName: WORKSPACE_NAME,
-      tagline: 'The quick and easy review and referrals engine for your business',
+      tagline: 'The quick and easy reviews & referrals engine',
       accent: '#0EA5E9',
       heroUrl: `/m/brand/${network.id}/hero?v=${heroV}`,
       logoUrl: `/m/brand/${network.id}/logo?v=${logoV}`,

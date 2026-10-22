@@ -1095,7 +1095,7 @@
             </div>
             <div class="sm:col-span-2">
               <label class="net-label" for="brTagline">Greeting line</label>
-              <input id="brTagline" name="tagline" value="<%= network.brand.tagline %>" placeholder="The quick and easy review and referrals engine for your business" maxlength="120" class="net-input" data-br="tagline" />
+              <input id="brTagline" name="tagline" value="<%= network.brand.tagline %>" placeholder="The quick and easy reviews & referrals engine" maxlength="120" class="net-input" data-br="tagline" />
             </div>
             <div>
               <label class="net-label" for="brAccent">Accent color</label>
@@ -1363,7 +1363,7 @@
       if (brandForm && frame) {
         var pick = document.getElementById('brAccentPick');
         var accentInput = document.getElementById('brAccent');
-        var fallbacks = { appName: <%- JSON.stringify(network.name).replace(/</g, '\\u003c') %>, tagline: 'The quick and easy review and referrals engine for your business', subtitle: 'Reviews, customers & network' };
+        var fallbacks = { appName: <%- JSON.stringify(network.name).replace(/</g, '\\u003c') %>, tagline: 'The quick and easy reviews & referrals engine', subtitle: 'Reviews, customers & network' };
         var saved = <%- JSON.stringify({ logo: brand.logoUrl || '', hero: brand.heroUrl || '' }).replace(/</g, '\\u003c') %>;
         var blobs = { logo: '', hero: '' };
         var badgeIcon = '';

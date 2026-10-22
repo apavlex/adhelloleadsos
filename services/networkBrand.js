@@ -11,10 +11,11 @@ const FREE_APP_NAME = 'AdHello Reviews App';
 const FREE_APP_HERO_URL = '/images/member-hero-your-business.jpg';
 const DEFAULT_HERO_URL = FREE_APP_HERO_URL;
 /** Home greeting subtitle under “Hi, …”. */
-const DEFAULT_TAGLINE = 'The quick and easy review and referrals engine for your business';
+const DEFAULT_TAGLINE = 'The quick and easy reviews & referrals engine';
 /** Older defaults we quietly retire so live networks pick up the new Home line. */
 const LEGACY_TAGLINES = new Set([
   'Trusted local pros who send each other work',
+  'The quick and easy review and referrals engine for your business',
 ]);
 const IMAGE_KINDS = new Set(['logo', 'hero']);
 
