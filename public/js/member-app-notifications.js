@@ -132,7 +132,7 @@
           (item.callHref
             ? '<a class="ma-bell__ghl-link" href="' + esc(item.callHref) + '"' + callAttrs + ' data-ma-no-nav-progress>' + esc(callLabel) + '</a>'
             : '') +
-          '<button type="button" class="ma-bell__ghl-link" data-ma-bell-ghl-done="' + esc(item.leadKey) + '">Done</button>' +
+          '<button type="button" class="ma-bell__ghl-done" data-ma-bell-ghl-done="' + esc(item.leadKey) + '">Done</button>' +
         '</div>' +
       '</div>'
     );
@@ -158,7 +158,11 @@
     }
     var html = '';
     if (ghl.length) {
-      html += '<p class="ma-bell__section">Waiting on a reply</p>';
+      html +=
+        '<div class="ma-bell__section-row">' +
+          '<p class="ma-bell__section">Waiting on a reply</p>' +
+          '<button type="button" class="ma-bell__done-all" data-ma-bell-ghl-done-all>Done all</button>' +
+        '</div>';
       html += ghl.map(ghlHtml).join('');
     }
     if (activity.length) {
@@ -219,14 +223,71 @@
       });
   }
 
-  function markGhlDone(leadKey) {
+  function ghlRowCount() {
+    return listEl ? listEl.querySelectorAll('[data-ma-bell-ghl-row]').length : 0;
+  }
+
+  function removeGhlSectionIfEmpty() {
+    if (!listEl || ghlRowCount()) return;
+    var doneAll = listEl.querySelector('[data-ma-bell-ghl-done-all]');
+    var section = doneAll && doneAll.closest('.ma-bell__section-row');
+    if (section) section.remove();
+  }
+
+  function removeGhlRow(leadKey) {
+    if (!listEl || !leadKey) return false;
+    var want = String(leadKey);
+    var rows = listEl.querySelectorAll('[data-ma-bell-ghl-row]');
+    for (var i = 0; i < rows.length; i += 1) {
+      if (rows[i].getAttribute('data-ma-bell-ghl-row') === want) {
+        rows[i].remove();
+        removeGhlSectionIfEmpty();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function markGhlDone(btn) {
+    var leadKey = btn && btn.getAttribute('data-ma-bell-ghl-done');
+    if (!leadKey) return Promise.resolve();
+    btn.disabled = true;
+    btn.textContent = '…';
     return post('/activity/ghl-done', { leadKey: leadKey })
       .then(function (data) {
-        if (!data || !data.success) return;
+        if (!data || !data.success) throw new Error((data && data.error) || 'Could not mark done.');
+        removeGhlRow(leadKey);
         setPing(data.unread || 0);
         return loadFeed();
       })
-      .catch(function () { /* ignore */ });
+      .catch(function () {
+        if (btn.isConnected) {
+          btn.disabled = false;
+          btn.textContent = 'Retry';
+        }
+      });
+  }
+
+  function markGhlDoneAll(btn) {
+    if (!btn) return Promise.resolve();
+    btn.disabled = true;
+    btn.textContent = '…';
+    return post('/activity/ghl-done', { all: true })
+      .then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || 'Could not clear alerts.');
+        var rows = listEl ? Array.prototype.slice.call(listEl.querySelectorAll('[data-ma-bell-ghl-row]')) : [];
+        rows.forEach(function (row) { row.remove(); });
+        removeGhlSectionIfEmpty();
+        setPing(data.unread || 0);
+        return loadFeed();
+      })
+      .catch(function () {
+        if (btn.isConnected) {
+          btn.disabled = false;
+          btn.textContent = 'Retry';
+        }
+        return loadFeed();
+      });
   }
 
   function markAllRead() {
@@ -433,10 +494,18 @@
   }
   if (listEl) {
     listEl.addEventListener('click', function (e) {
+      var doneAll = e.target.closest('[data-ma-bell-ghl-done-all]');
+      if (doneAll) {
+        e.preventDefault();
+        e.stopPropagation();
+        markGhlDoneAll(doneAll);
+        return;
+      }
       var btn = e.target.closest('[data-ma-bell-ghl-done]');
       if (!btn) return;
       e.preventDefault();
-      markGhlDone(btn.getAttribute('data-ma-bell-ghl-done'));
+      e.stopPropagation();
+      markGhlDone(btn);
     });
   }
 

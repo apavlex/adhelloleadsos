@@ -352,6 +352,21 @@ html[data-ma-theme="dark"] .ma-bell__item.is-unread {
   font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--muted); background: inherit;
 }
+.ma-bell__section-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-right: 10px;
+}
+.ma-bell__section-row .ma-bell__section {
+  flex: 1; min-width: 0; padding-right: 0;
+}
+.ma-bell__done-all {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 8px 10px; margin: 2px 0 0;
+  color: var(--acc);
+  font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  flex-shrink: 0;
+}
+.ma-bell__done-all:disabled { opacity: 0.55; cursor: default; }
 .ma-bell__item--ghl { cursor: default; }
 .ma-bell__ghl-actions {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
@@ -367,6 +382,19 @@ html[data-ma-theme="dark"] .ma-bell__item.is-unread {
   border: 0; background: transparent; cursor: pointer;
   padding: 6px 8px; text-decoration: none; color: var(--muted);
   font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.ma-bell__ghl-done {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 28px; min-width: 52px; padding: 0 10px; border-radius: 999px;
+  border: 1.5px solid var(--line, #e2e8f0); background: var(--card, #fff);
+  color: var(--ink, #0f172a); cursor: pointer;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+}
+.ma-bell__ghl-done:disabled { opacity: 0.55; cursor: default; }
+html[data-ma-theme="dark"] .ma-bell__ghl-done {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: #2c2c2e;
+  color: #f5f5f7;
 }
 .ma-bell__ghl {
   padding: 12px 16px; border-top: 1px solid var(--line);

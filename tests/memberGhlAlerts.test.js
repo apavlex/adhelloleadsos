@@ -238,6 +238,46 @@ describe('memberGhlAlerts', () => {
     assert.ok(network);
   });
 
+  it('marks a pending GHL inbound lead done and clears Done all', async () => {
+    const network = await store.getNetwork(NID);
+    const owner = await store.saveMember(NID, {
+      id: 'owner',
+      companyName: 'Owner Co',
+      email: 'owner@example.com',
+      ghlAlertsEnabled: true,
+    });
+    const now = Date.parse('2026-10-19T12:00:00.000Z');
+    await dbService.saveLead({
+      key: 'lead:done1',
+      workspaceId: WID,
+      title: 'C Hattenhauer',
+      phone: '+15551110001',
+      inboundEvents: [
+        { id: 's1', type: 'sms', at: '2026-10-19T11:10:00.000Z', preview: 'MSI Stella' },
+      ],
+    });
+    await dbService.saveLead({
+      key: 'lead:done2',
+      workspaceId: WID,
+      title: 'Will Wormington',
+      phone: '+15551110002',
+      inboundEvents: [
+        { id: 'm1', type: 'missed_call', at: '2026-10-18T12:00:00.000Z', label: 'New caller' },
+      ],
+    });
+
+    assert.equal((await memberGhlAlerts.listPendingForMember(owner, network, { now })).length, 2);
+
+    const one = await memberGhlAlerts.markLeadDone(owner, network, 'done1');
+    assert.equal(one.ok, true);
+    assert.equal((await memberGhlAlerts.listPendingForMember(owner, network, { now })).length, 1);
+
+    const all = await memberGhlAlerts.markAllPendingDone(owner, network, { now });
+    assert.equal(all.ok, true);
+    assert.equal(all.updated, 1);
+    assert.equal((await memberGhlAlerts.listPendingForMember(owner, network, { now })).length, 0);
+  });
+
   it('UI and routes expose the GHL alerts toggle and hide GHL duplicates from Leads & referrals', () => {
     const top = fs.readFileSync(path.join(root, 'views/member_app/_top.ejs'), 'utf8');
     const js = fs.readFileSync(path.join(root, 'public/js/member-app-notifications.js'), 'utf8');
@@ -251,19 +291,27 @@ describe('memberGhlAlerts', () => {
     assert.match(js, /activity\/ghl-done/);
     assert.match(js, /ghlAlertsEnabled/);
     assert.match(js, /Waiting on a reply/);
+    assert.match(js, /data-ma-bell-ghl-done-all/);
+    assert.match(js, /Done all/);
+    assert.match(js, /markGhlDoneAll/);
     assert.match(js, /GHL_KINDS/);
     assert.match(js, /function ghlProfileHref/);
     assert.match(js, /ghlProfileHref\(item\)/);
     assert.match(js, /data-ma-bell-ghl-open/);
-    // Open is the primary pill; Lead Connector / Call in LC match Done (text link).
+    // Open is the primary pill; Lead Connector / Call in LC are text links; Done is its own control.
     assert.match(js, /ma-bell__ghl-btn"[^>]*>Open</);
     assert.match(js, /ma-bell__ghl-link"[^>]*data-ma-no-nav-progress/);
+    assert.match(js, /ma-bell__ghl-done"[^>]*data-ma-bell-ghl-done/);
+    assert.match(js, /stopPropagation/);
     assert.match(js, /\/\?\(focus\|pipeline\|leads\|prospecting\)/);
     assert.doesNotMatch(js, /portalHref\(rawOpen\)/);
     assert.doesNotMatch(js, /ma-bell__ghl-btn"[^>]*data-ma-no-nav-progress/);
     assert.match(css, /\.ma-bell__ghl-row/);
+    assert.match(css, /\.ma-bell__done-all/);
+    assert.match(css, /\.ma-bell__ghl-done/);
     assert.match(route, /activity\/ghl-alerts/);
     assert.match(route, /activity\/ghl-done/);
+    assert.match(route, /markAllPendingDone/);
     assert.match(route, /memberGhlAlerts/);
     assert.match(route, /excludeGhlKinds/);
     assert.match(route, /GHL_ACTIVITY_TYPES/);
