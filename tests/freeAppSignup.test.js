@@ -37,13 +37,22 @@ describe('freeAppSignup', () => {
   it('validates the public form', () => {
     const empty = freeAppSignup.readForm({});
     assert.ok(empty.errors.length >= 2);
-    const ok = freeAppSignup.readForm({
+    assert.ok(empty.errors.some((e) => /Terms/i.test(e)));
+    const noTerms = freeAppSignup.readForm({
       contactName: 'Sam',
       companyName: 'Sam Plumbing',
       phone: '(503) 555-0199',
     });
+    assert.ok(noTerms.errors.some((e) => /pay-per-performance|Terms/i.test(e)));
+    const ok = freeAppSignup.readForm({
+      contactName: 'Sam',
+      companyName: 'Sam Plumbing',
+      phone: '(503) 555-0199',
+      acceptTerms: 'on',
+    });
     assert.deepEqual(ok.errors, []);
     assert.equal(ok.digits, '5035550199');
+    assert.equal(ok.form.acceptTerms, true);
   });
 
   it('resolves the adhello-agency network', async () => {
@@ -64,6 +73,7 @@ describe('freeAppSignup', () => {
       companyName: 'Alex Electric',
       phone: '503-555-0100',
       email: 'alex@example.com',
+      acceptTerms: 'on',
     });
     const result = await freeAppSignup.signupFreeApp({
       form,
@@ -77,6 +87,8 @@ describe('freeAppSignup', () => {
     assert.equal(result.member.plan, 'app_free');
     assert.equal(result.member.companyName, 'Alex Electric');
     assert.ok(result.member.trialEndsAt);
+    assert.ok(result.member.termsAcceptedAt);
+    assert.equal(result.member.termsVersion, freeAppSignup.TERMS_VERSION);
     const trial = freeAppSignup.appTrialStatus(result.member);
     assert.equal(trial.state, 'trial');
     assert.ok(trial.daysLeft >= 29 && trial.daysLeft <= 30);
@@ -113,6 +125,7 @@ describe('freeAppSignup', () => {
       contactName: 'Alex',
       companyName: 'Alex Electric Again',
       phone: '503-555-0100',
+      acceptTerms: 'on',
     });
     const again = await freeAppSignup.signupFreeApp({
       form,
@@ -142,6 +155,7 @@ describe('freeAppSignup', () => {
       contactName: 'Casey',
       companyName: 'Casey Roofing',
       phone: '503-555-0177',
+      acceptTerms: 'on',
     });
     const args = {
       form,
@@ -236,6 +250,21 @@ describe('freeAppSignup', () => {
       assert.match(html, /btn\.disabled = true/);
       assert.match(html, /\.fa-btn:disabled/);
       assert.match(html, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);
+      assert.match(html, /name="acceptTerms"/);
+      assert.match(html, /pay-per-performance/i);
+      assert.match(html, /commission/i);
+
+      const rejected = await fetch(`${base}/app`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          contactName: 'Jordan',
+          companyName: 'Jordan HVAC',
+          email: 'jordan@example.com',
+        }),
+      });
+      assert.equal(rejected.status, 400);
+      assert.match(await rejected.text(), /Terms/i);
 
       const post = await fetch(`${base}/app`, {
         method: 'POST',
@@ -244,6 +273,7 @@ describe('freeAppSignup', () => {
           contactName: 'Jordan',
           companyName: 'Jordan HVAC',
           email: 'jordan@example.com',
+          acceptTerms: 'on',
         }),
       });
       assert.equal(post.status, 200);
@@ -265,6 +295,8 @@ describe('freeAppSignup', () => {
     assert.match(view, /Start your 30-day trial/);
     assert.match(view, /Text me my trial link/);
     assert.match(view, /id="fa-form"/);
+    assert.match(view, /name="acceptTerms"/);
+    assert.match(view, /pay-per-performance/i);
     assert.match(view, /btn\.disabled = true/);
     assert.match(view, /\.fa-btn:disabled/);
     assert.match(view, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);

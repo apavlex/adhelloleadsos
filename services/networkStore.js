@@ -167,6 +167,10 @@ function normalizeMember(raw) {
     trialEndsAt: cleanText(m.trialEndsAt, 40),
     /** ISO when an admin activated this member off the freemium trial. */
     planActivatedAt: cleanText(m.planActivatedAt, 40),
+    /** ISO when the member accepted Reviews app Terms (pay-per-performance). */
+    termsAcceptedAt: cleanText(m.termsAcceptedAt, 40),
+    /** Terms document id accepted at signup (e.g. reviews-ppp-v1). */
+    termsVersion: cleanText(m.termsVersion, 40),
     /**
      * Agency OS workspace created when this free-app member first uploads a
      * customer list — so ops can manage that list from the CRM.

@@ -110,14 +110,26 @@ function takeIpSlot(ip, now = Date.now()) {
   return true;
 }
 
+/** Checkbox truthy values from the public signup form. */
+function acceptedTerms(body = {}) {
+  const raw = body.acceptTerms != null ? body.acceptTerms : body.terms;
+  const v = String(raw == null ? '' : raw).trim().toLowerCase();
+  return v === 'on' || v === '1' || v === 'true' || v === 'yes';
+}
+
+/** Current Reviews app signup terms id (pay-per-performance / lead commission). */
+const TERMS_VERSION = 'reviews-ppp-v1';
+
 /** @returns {{ form: object, errors: string[] }} */
 function readForm(body = {}) {
   const pick = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+  const termsOk = acceptedTerms(body);
   const form = {
     contactName: pick(body.contactName || body.name, 120),
     companyName: pick(body.companyName || body.company, 160),
     phone: pick(body.phone, 40),
     email: pick(body.email, 200),
+    acceptTerms: termsOk,
   };
   const errors = [];
   if (!form.contactName) errors.push('Add your name.');
@@ -127,6 +139,9 @@ function readForm(body = {}) {
   if (!digits && !email) errors.push('Add a mobile number or email so we can send your app link.');
   if (form.phone && !digits) errors.push('That phone number does not look valid.');
   if (form.email && !email) errors.push('That email does not look valid.');
+  if (!termsOk) {
+    errors.push('Agree to the Terms & Conditions (pay-per-performance commission on leads you approve) to continue.');
+  }
   return {
     form: { ...form, email: email || form.email, phone: form.phone },
     errors,
@@ -270,6 +285,11 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
         const start = Date.parse(member.joinedAt || '') || Date.now();
         patch.trialEndsAt = new Date(start + appTrialDays() * DAY_MS).toISOString();
       }
+      // Record / refresh Terms acceptance from this signup submit.
+      if (form.acceptTerms) {
+        patch.termsAcceptedAt = new Date().toISOString();
+        patch.termsVersion = TERMS_VERSION;
+      }
       if (Object.keys(patch).length) {
         member = await store.saveMember(network.id, { ...member, ...patch });
       }
@@ -309,6 +329,8 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
       plan: PLAN_APP_FREE,
       trialEndsAt,
       joinedAt,
+      termsAcceptedAt: joinedAt,
+      termsVersion: TERMS_VERSION,
     });
 
     const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: true })
@@ -414,6 +436,7 @@ function matchesMemberPlanFilter(member, filter) {
 module.exports = {
   PLAN_APP_FREE,
   DEFAULT_WORKSPACE_SLUG,
+  TERMS_VERSION,
   SEND_COOLDOWN_PREFIX,
   INFLIGHT_PREFIX,
   appTrialDays,
