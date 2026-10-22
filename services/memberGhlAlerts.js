@@ -47,10 +47,40 @@ function matchCustomerForInbound(customers, row) {
  */
 async function ensureCustomerForInbound(network, member, customers, row) {
   const list = Array.isArray(customers) ? customers : [];
-  const existing = matchCustomerForInbound(list, row);
-  if (existing) return existing;
-
   const fields = inboundMatchFields(row);
+  const existing = matchCustomerForInbound(list, row);
+  if (existing) {
+    // Patch GHL id / phone / email onto an existing match so Calls & texts can link.
+    const needGhl = fields.ghlContactId && !existing.ghlContactId;
+    const needPhone = fields.phone && !existing.phone;
+    const needEmail = fields.email && !existing.email;
+    if (!needGhl && !needPhone && !needEmail) return existing;
+    const saved = await work.saveCustomer(
+      network.id,
+      member.id,
+      {
+        name: existing.name,
+        phone: needPhone ? fields.phone : existing.phone,
+        email: needEmail ? fields.email : existing.email,
+        address: existing.address,
+        notes: existing.notes,
+      },
+      {
+        id: existing.id,
+        ghlContactId: needGhl ? fields.ghlContactId : existing.ghlContactId,
+        source: existing.source || 'ghl',
+        tags: existing.tags,
+        isReferralPartner: existing.isReferralPartner,
+      },
+    );
+    if (saved.ok && saved.customer) {
+      const idx = list.findIndex((c) => c && c.id === existing.id);
+      if (idx >= 0) list[idx] = saved.customer;
+      return saved.customer;
+    }
+    return existing;
+  }
+
   const title = String((row && row.title) || '').trim();
   const name = looksLikeEmail(title)
     ? title.split('@')[0].replace(/[._]+/g, ' ').trim() || 'Contact'

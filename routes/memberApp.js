@@ -1693,6 +1693,10 @@ router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ct
 async function customerPageData(req, ctx, id, { refreshTags = false, loadGhlActivity = false } = {}) {
   let customer = await work.getCustomer(ctx.network.id, ctx.member.id, id);
   if (!customer) return null;
+  // Attach ghlContactId from a matching workspace lead when missing so Calls & texts connects.
+  customer = await memberCustomerGhlActivity
+    .ensureCustomerGhlLink(ctx.network, ctx.member.id, customer)
+    .catch(() => customer) || customer;
   if (refreshTags && customer.ghlContactId) {
     const pulled = await memberCustomerGhl
       .pullCustomerTagsFromGhl(ctx.network, ctx.member.id, customer)
@@ -1732,10 +1736,13 @@ router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
 /** JSON: GHL call + SMS history for a synced customer contact. */
 router.get('/m/:token/customers/c/:id/ghl-activity.json', withMember(async (req, res, ctx) => {
   noStore(res);
-  const customer = await work.getCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  let customer = await work.getCustomer(ctx.network.id, ctx.member.id, req.params.id);
   if (!customer) return res.status(404).json({ success: false, error: 'Customer not found.' });
+  customer = await memberCustomerGhlActivity
+    .ensureCustomerGhlLink(ctx.network, ctx.member.id, customer)
+    .catch(() => customer) || customer;
   const activity = await memberCustomerGhlActivity.listForCustomer(ctx.network, customer);
-  return res.json({ success: true, ...activity });
+  return res.json({ success: true, ...activity, customerId: customer.id, ghlContactId: customer.ghlContactId || '' });
 }));
 
 router.post('/m/:token/customers/c/:id', form, withMember(async (req, res, ctx) => {
