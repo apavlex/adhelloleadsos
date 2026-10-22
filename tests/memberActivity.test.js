@@ -43,6 +43,29 @@ describe('memberActivity store', () => {
     assert.equal(updated, 2);
     assert.equal(memberActivity.unreadCount(nid, mid), 0);
     assert.ok(memberActivity.list(nid, mid).every((e) => e.read));
+    // Read items stay in the inbox until Done / Clear.
+    assert.equal(memberActivity.listInbox(nid, mid).length, 2);
+    assert.equal(memberActivity.listHistory(nid, mid).length, 0);
+  });
+
+  it('Clear / Done moves inbox alerts into History', () => {
+    const a = memberActivity.add(nid, mid, { kind: 'sms', title: 'Text: Pat' });
+    const b = memberActivity.add(nid, mid, { kind: 'form', title: 'New website lead' });
+    assert.equal(memberActivity.listInbox(nid, mid).length, 2);
+
+    const one = memberActivity.clear(nid, mid, [a.id]);
+    assert.equal(one.updated, 1);
+    assert.equal(memberActivity.listInbox(nid, mid).length, 1);
+    assert.equal(memberActivity.listInbox(nid, mid)[0].id, b.id);
+    assert.equal(memberActivity.listHistory(nid, mid).length, 1);
+    assert.equal(memberActivity.listHistory(nid, mid)[0].id, a.id);
+    assert.ok(memberActivity.listHistory(nid, mid)[0].clearedAt);
+
+    const all = memberActivity.clearAll(nid, mid);
+    assert.equal(all.updated, 1);
+    assert.equal(memberActivity.listInbox(nid, mid).length, 0);
+    assert.equal(memberActivity.listHistory(nid, mid).length, 2);
+    assert.equal(memberActivity.unreadCount(nid, mid), 0);
   });
 
   it('rejects empty titles and strips unsafe hrefs', () => {
@@ -86,20 +109,29 @@ describe('member lead bell UI + routes', () => {
     assert.match(top, /GHL calls &amp; texts/);
     assert.match(top, /Turn off on this device/);
     assert.match(top, /All leads &amp; referrals/);
+    assert.match(top, /data-ma-bell-clear/);
+    assert.match(top, /data-ma-bell-history/);
+    assert.match(top, />History</);
     assert.match(tab, /member-app-notifications\.js/);
     assert.match(js, /Turn on /);
     assert.match(js, /on · Send test/);
     assert.match(js, /ma-bell-open/);
     assert.match(js, /\/activity\.json/);
     assert.match(js, /\/activity\/ghl-alerts/);
+    assert.match(js, /\/activity\/clear/);
+    assert.match(js, /data-ma-bell-activity-done/);
+    assert.match(js, /clearInbox/);
     assert.match(js, /\/push\/subscribe/);
     assert.match(js, /\/push\/unsubscribe/);
     assert.match(css, /\.ma-bell__panel/);
     assert.match(css, /\.ma-bell__scrim/);
     assert.match(css, /\.ma-bell__ghl/);
+    assert.match(css, /\.ma-bell__clear/);
     assert.match(css, /background:\s*#ffffff/);
     assert.match(css, /position:\s*fixed/);
     assert.match(icons, /bell:/);
+    const historyPage = fs.readFileSync(path.join(root, 'views/member_app/notifications.ejs'), 'utf8');
+    assert.match(historyPage, /Notification history/);
   });
 
   it('memberApp exposes activity feed + push subscribe routes', () => {
@@ -108,6 +140,10 @@ describe('member lead bell UI + routes', () => {
     assert.match(route, /require\('\.\.\/services\/memberGhlAlerts'\)/);
     assert.match(route, /\/m\/:token\/activity\.json/);
     assert.match(route, /\/m\/:token\/activity\/read/);
+    assert.match(route, /\/m\/:token\/activity\/clear/);
+    assert.match(route, /\/m\/:token\/notifications/);
+    assert.match(route, /listInbox/);
+    assert.match(route, /listHistory/);
     assert.match(route, /\/m\/:token\/activity\/ghl-alerts/);
     assert.match(route, /\/m\/:token\/activity\/ghl-done/);
     assert.match(route, /\/m\/:token\/push\/subscribe/);

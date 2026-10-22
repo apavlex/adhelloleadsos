@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'Notification history' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', { topTitle: 'History', topBack: typeof topBack !== 'undefined' ? topBack : { href: base, label: 'Home' } }) %>
+    <h1 class="ma-page-title">Notification history</h1>
+    <p class="ma-page-sub">Alerts you marked Done or Clear. New ones stay in the bell until you clear them.</p>
+
+    <%- include('_flash') %>
+
+    <% const rows = Array.isArray(history) ? history : []; %>
+    <% if (!rows.length) { %>
+    <p class="ma-empty">No cleared alerts yet. Open the bell and tap Done or Clear to archive them here.</p>
+    <% } else { %>
+    <div class="ma-list ma-notif-history" role="list">
+      <% rows.forEach(function (item) { %>
+      <%
+        const href = item && item.href ? item.href : (base + '/referrals');
+        const when = item.clearedAt || item.at || '';
+        let whenLabel = '';
+        if (when) {
+          const ms = Date.now() - Date.parse(when);
+          if (Number.isFinite(ms)) {
+            const m = Math.max(0, Math.round(ms / 60000));
+            if (m < 60) whenLabel = m < 1 ? 'just now' : (m + 'm ago');
+            else if (m < 60 * 24) whenLabel = Math.round(m / 60) + 'h ago';
+            else whenLabel = Math.round(m / (60 * 24)) + 'd ago';
+          }
+        }
+        const kind = String((item && item.kind) || 'lead');
+        const kindLabel = kind === 'referral' ? 'Referral'
+          : kind === 'pool' ? 'Pool'
+          : kind === 'agency' ? 'Agency lead'
+          : kind === 'form' ? 'Website lead'
+          : kind === 'missed_call' ? 'Missed call'
+          : kind === 'voicemail' ? 'Voicemail'
+          : kind === 'sms' ? 'Text'
+          : 'Lead';
+      %>
+      <a class="ma-row ma-notif-history__row" href="<%= href %>" role="listitem">
+        <span class="ma-row__body">
+          <strong class="ma-row__title"><%= item.title %></strong>
+          <% if (item.body) { %><span class="ma-row__meta"><%= item.body %></span><% } %>
+          <small><%= kindLabel %><% if (whenLabel) { %> · <%= whenLabel %><% } %></small>
+        </span>
+        <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+      </a>
+      <% }); %>
+    </div>
+    <% } %>
+  </main>
+  <%- include('_tabbar', { active: 'home' }) %>
+</body>
+</html>
