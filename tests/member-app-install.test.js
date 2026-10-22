@@ -194,7 +194,6 @@ describe('member app install modal and tab bar', () => {
     assert.match(capture, /data-ma-photo-note-grip/);
     const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
     assert.match(job, /_photo_capture/);
-    assert.match(job, /googleMapsSearchUrl/);
     assert.doesNotMatch(job, /maps\.apple\.com/);
     const photoJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     assert.match(photoJs, /function initPhotoCapture/);

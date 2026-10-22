@@ -115,6 +115,9 @@ describe('memberCustomerGhlActivity', () => {
     assert.match(view, /data-ma-ghl-activity-url/);
     assert.match(view, /data-ma-ghl-feed-more/);
     assert.match(view, /_ghlPreview\s*=\s*2/);
+    // Calls & texts sits above Details (after Tags).
+    assert.ok(view.indexOf('maCustomerGhlActivity') < view.indexOf('<h2>Details</h2>'));
+    assert.ok(view.indexOf('ma-tags-section') < view.indexOf('maCustomerGhlActivity'));
     assert.match(css, /\.ma-ghl-feed/);
     assert.match(css, /\.ma-ghl-feed__more/);
     assert.match(route, /memberCustomerGhlActivity/);
