@@ -71,7 +71,7 @@ test('brand normalization keeps safe values and readable accent text', () => {
   const defaults = networkBrand.brandView({});
   assert.equal(defaults.appName, 'Partner network');
   assert.equal(defaults.tagline, networkBrand.DEFAULT_TAGLINE);
-  assert.match(defaults.tagline, /review and referrals engine/i);
+  assert.match(defaults.tagline, /reviews & referrals engine/i);
   assert.match(defaults.subtitle, /Reviews/);
   assert.match(defaults.heroUrl, /member-hero-your-business\.jpg/);
   const legacyTagline = networkBrand.brandView({
@@ -79,6 +79,12 @@ test('brand normalization keeps safe values and readable accent text', () => {
     brand: { tagline: 'Trusted local pros who send each other work' },
   });
   assert.equal(legacyTagline.tagline, networkBrand.DEFAULT_TAGLINE);
+  const priorDefault = networkBrand.brandView({
+    name: 'TPR Flooring',
+    brand: { tagline: 'The quick and easy review and referrals engine for your business' },
+  });
+  assert.equal(priorDefault.tagline, networkBrand.DEFAULT_TAGLINE);
+  assert.equal(priorDefault.tagline, 'The quick and easy reviews & referrals engine');
   const customHero = networkBrand.brandView({
     name: 'TPR Flooring',
     brand: { heroUrl: '/m/brand/tpr/hero?v=1' },
