@@ -1,10 +1,6 @@
 {
   "name": "google-maps-lead-agent",
-<<<<<<< HEAD
-  "version": "1.0.565",
-=======
-  "version": "1.0.566",
->>>>>>> ac2783e4 (Swap Alex AI avatar to brown-haired guy)
+  "version": "1.0.567",
   "description": "Google Maps lead generation tool using Apify",
   "main": "server.js",
   "scripts": {
