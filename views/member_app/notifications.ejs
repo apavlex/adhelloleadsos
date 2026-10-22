@@ -42,11 +42,11 @@
       %>
       <a class="ma-row ma-notif-history__row" href="<%= href %>" role="listitem">
         <span class="ma-row__body">
-          <strong><%= item.title %></strong>
-          <% if (item.body) { %><span><%= item.body %></span><% } %>
+          <strong class="ma-row__title"><%= item.title %></strong>
+          <% if (item.body) { %><span class="ma-row__meta"><%= item.body %></span><% } %>
           <small><%= kindLabel %><% if (whenLabel) { %> · <%= whenLabel %><% } %></small>
         </span>
-        <span class="ma-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+        <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
       </a>
       <% }); %>
     </div>
