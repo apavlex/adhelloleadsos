@@ -255,8 +255,12 @@ describe('memberGhlAlerts', () => {
     assert.match(js, /function ghlProfileHref/);
     assert.match(js, /ghlProfileHref\(item\)/);
     assert.match(js, /data-ma-bell-ghl-open/);
+    // Open is the primary pill; Lead Connector / Call in LC match Done (text link).
+    assert.match(js, /ma-bell__ghl-btn"[^>]*>Open</);
+    assert.match(js, /ma-bell__ghl-link"[^>]*data-ma-no-nav-progress/);
     assert.match(js, /\/\?\(focus\|pipeline\|leads\|prospecting\)/);
     assert.doesNotMatch(js, /portalHref\(rawOpen\)/);
+    assert.doesNotMatch(js, /ma-bell__ghl-btn"[^>]*data-ma-no-nav-progress/);
     assert.match(css, /\.ma-bell__ghl-row/);
     assert.match(route, /activity\/ghl-alerts/);
     assert.match(route, /activity\/ghl-done/);

@@ -126,11 +126,11 @@
         '<span>' + meta + '</span>' +
         (item.preview ? '<span>' + esc(item.preview) + '</span>' : '') +
         '<div class="ma-bell__ghl-actions">' +
-          (item.callHref
-            ? '<a class="ma-bell__ghl-btn" href="' + esc(item.callHref) + '"' + callAttrs + ' data-ma-no-nav-progress>' + esc(callLabel) + '</a>'
-            : '') +
           (openHref
-            ? '<a class="ma-bell__ghl-link" href="' + esc(openHref) + '" data-ma-bell-ghl-open>Open</a>'
+            ? '<a class="ma-bell__ghl-btn" href="' + esc(openHref) + '" data-ma-bell-ghl-open>Open</a>'
+            : '') +
+          (item.callHref
+            ? '<a class="ma-bell__ghl-link" href="' + esc(item.callHref) + '"' + callAttrs + ' data-ma-no-nav-progress>' + esc(callLabel) + '</a>'
             : '') +
           '<button type="button" class="ma-bell__ghl-link" data-ma-bell-ghl-done="' + esc(item.leadKey) + '">Done</button>' +
         '</div>' +
