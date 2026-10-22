@@ -3,29 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#FFDB3A">
+  <meta name="theme-color" content="#FFFDF5">
   <meta name="description" content="AdHello Reviews App — collect 5-star Google reviews on every job, manage customers &amp; field work, and turn happy customers into referrals. 30-day free trial, no credit card.">
   <meta property="og:title" content="AdHello Reviews App — grow reviews &amp; referrals">
   <meta property="og:description" content="Collect 5-star reviews on every job. Manage customers and jobs. Turn happy customers into referrals. 30 days free — no credit card.">
   <meta property="og:type" content="website">
   <title>AdHello Reviews App · Start your 30-day trial</title>
   <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Manrope:wght@700;800&display=swap">
   <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
   <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
   <style>
+    /* Match AdHello.io marketing tokens: cream #FFFDF5, ink #1f242e, yellow #facc15 / #eab308 */
     :root {
-      --fa-yellow: #FFDB3A;
-      --fa-yellow-hot: #FFD600;
-      --fa-ink: #0F172A;
-      --fa-muted: #64748b;
-      --fa-cream: #FDFBF7;
+      --fa-yellow: #facc15;
+      --fa-yellow-hot: #eab308;
+      --fa-ink: #1f242e;
+      --fa-muted: rgba(31, 36, 46, 0.75);
+      --fa-muted-soft: rgba(31, 36, 46, 0.6);
+      --fa-cream: #FFFDF5;
       --fa-card: #ffffff;
-      --fa-line: #e2e8f0;
-      --fa-font: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
-      --fa-display: Manrope, Inter, ui-sans-serif, system-ui, sans-serif;
+      --fa-line: rgba(31, 36, 46, 0.1);
+      --fa-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --fa-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --fa-btn-radius: 12px;
+      --fa-btn-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
     }
     body.fa-sales {
       margin: 0;
@@ -38,36 +39,38 @@
     @media (min-width: 640px) { .fa-wrap { padding: 0 1.75rem; } }
 
     .fa-nav {
-      position: sticky; top: 0; z-index: 40;
-      background: color-mix(in srgb, var(--fa-cream) 92%, transparent);
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(255, 253, 245, 0.95);
       -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
-      border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+      border-bottom: 1px solid rgba(31, 36, 46, 0.08);
     }
     .fa-nav__inner {
       display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-      min-height: 3.75rem; max-width: 72rem; margin: 0 auto; padding: 0.65rem 1.25rem;
+      min-height: 3.75rem; max-width: 80rem; margin: 0 auto; padding: 0.85rem 1.25rem;
     }
-    .fa-nav__brand { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; color: inherit; min-width: 0; }
-    .fa-nav__brand img { width: 2.25rem; height: 2.25rem; border-radius: 0.7rem; border: 1px solid #f1f5f9; flex-shrink: 0; }
+    .fa-nav__brand { display: flex; align-items: center; gap: 0.65rem; text-decoration: none; color: var(--fa-ink); min-width: 0; }
+    .fa-nav__brand img { height: 2.35rem; width: auto; border-radius: 0.55rem; flex-shrink: 0; }
     .fa-nav__mark {
-      font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--fa-muted);
+      font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; color: var(--fa-ink);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .fa-nav__mark small {
+      display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--fa-muted-soft); margin-top: 0.05rem;
     }
     .fa-nav__cta {
       display: inline-flex; align-items: center; justify-content: center;
-      min-height: 2.5rem; padding: 0 1.1rem; border-radius: 9999px;
-      background: var(--fa-yellow); color: #111827; text-decoration: none;
-      font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
-      box-shadow: 0 8px 16px -10px rgba(250, 204, 21, 0.7);
+      min-height: 2.4rem; padding: 0.55rem 1.15rem; border-radius: var(--fa-btn-radius);
+      background: var(--fa-yellow); color: var(--fa-ink); text-decoration: none;
+      font-size: 14px; font-weight: 800;
+      box-shadow: var(--fa-btn-shadow);
       flex-shrink: 0;
     }
     .fa-nav__cta:hover { background: var(--fa-yellow-hot); }
 
     .fa-hero {
       padding: 2.25rem 0 1.5rem;
-      background:
-        radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--fa-yellow) 28%, transparent), transparent 55%),
-        var(--fa-cream);
+      background: var(--fa-cream);
     }
     @media (min-width: 768px) { .fa-hero { padding: 3.5rem 0 2.25rem; } }
     .fa-hero__grid {
@@ -78,82 +81,82 @@
     }
     .fa-kicker {
       display: inline-flex; align-items: center; gap: 0.4rem;
-      font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #92400e;
-      background: color-mix(in srgb, var(--fa-yellow) 22%, #fff);
-      border: 1px solid color-mix(in srgb, var(--fa-yellow) 45%, #fff);
-      border-radius: 9999px; padding: 0.35rem 0.75rem; margin: 0 0 1rem;
+      font-size: 12px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; color: var(--fa-ink);
+      background: rgba(250, 204, 21, 0.22);
+      border-radius: 9999px; padding: 0.4rem 0.9rem; margin: 0 0 1.25rem;
     }
     .fa-hero h1 {
       margin: 0; font-family: var(--fa-display); font-weight: 800;
-      font-size: clamp(2rem, 5.5vw, 3.35rem); line-height: 1.08; letter-spacing: -0.03em; color: var(--fa-ink);
+      font-size: clamp(2.25rem, 5.5vw, 3.75rem); line-height: 1.08; letter-spacing: -0.025em; color: var(--fa-ink);
     }
-    .fa-hero h1 em { font-style: normal; color: #a16207; }
+    .fa-hero h1 em { font-style: normal; color: var(--fa-yellow-hot); }
     .fa-hero__lead {
-      margin: 1rem 0 0; max-width: 36rem;
-      font-size: 1.05rem; line-height: 1.55; color: #475569; font-weight: 500;
+      margin: 1.25rem 0 0; max-width: 36rem;
+      font-size: 1.125rem; line-height: 1.625; color: var(--fa-muted); font-weight: 400;
     }
     .fa-hero__actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.5rem; }
     .fa-btn-primary {
       display: inline-flex; align-items: center; justify-content: center;
-      min-height: 3.1rem; padding: 0 1.35rem; border-radius: 9999px; border: 0;
-      background: var(--fa-yellow); color: #111827; text-decoration: none;
-      font-weight: 800; font-size: 15px;
-      box-shadow: 0 12px 22px -12px rgba(250, 204, 21, 0.75);
+      min-height: 3.1rem; padding: 0.85rem 1.5rem; border-radius: var(--fa-btn-radius); border: 0;
+      background: var(--fa-yellow); color: var(--fa-ink); text-decoration: none;
+      font-weight: 900; font-size: 1rem;
+      box-shadow: var(--fa-btn-shadow);
     }
     .fa-btn-primary:hover { background: var(--fa-yellow-hot); }
     .fa-btn-ghost {
       display: inline-flex; align-items: center; justify-content: center;
-      min-height: 3.1rem; padding: 0 1.2rem; border-radius: 9999px;
+      min-height: 3.1rem; padding: 0.85rem 1.35rem; border-radius: var(--fa-btn-radius);
       border: 1px solid var(--fa-line); background: #fff; color: var(--fa-ink);
-      text-decoration: none; font-weight: 700; font-size: 14px;
+      text-decoration: none; font-weight: 700; font-size: 1rem;
+      box-shadow: var(--fa-btn-shadow);
     }
     .fa-hero__proof {
       display: flex; flex-wrap: wrap; gap: 0.55rem 1.1rem; margin: 1.35rem 0 0;
-      font-size: 13px; font-weight: 600; color: #475569;
+      font-size: 0.875rem; font-weight: 600; color: var(--fa-muted-soft);
     }
-    .fa-hero__proof span::before { content: '✓'; color: #16a34a; font-weight: 900; margin-right: 0.35rem; }
+    .fa-hero__proof span::before { content: '✓'; color: #10b981; font-weight: 900; margin-right: 0.35rem; }
 
     .fa-phone {
       position: relative; margin: 0 auto; width: min(100%, 20rem);
-      border-radius: 2rem; background: #fff;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      box-shadow: 0 30px 60px -28px rgba(15, 23, 42, 0.28);
+      border-radius: 1.25rem; background: #fff;
+      border: 1px solid var(--fa-line);
+      box-shadow: 0 24px 48px -28px rgba(31, 36, 46, 0.28);
       padding: 1.25rem 1.15rem 1.4rem; overflow: hidden;
     }
     .fa-phone::before {
       content: ''; position: absolute; inset: 0 0 auto 0; height: 4.5rem;
-      background: linear-gradient(135deg, color-mix(in srgb, var(--fa-yellow) 55%, #fff), #fff 70%);
+      background: linear-gradient(135deg, rgba(250, 204, 21, 0.45), #fff 72%);
     }
     .fa-phone__bar {
       position: relative; display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1rem;
     }
     .fa-phone__dot {
       width: 2.25rem; height: 2.25rem; border-radius: 9999px;
-      background: var(--fa-yellow); color: #111827;
+      background: var(--fa-yellow); color: var(--fa-ink);
       display: inline-flex; align-items: center; justify-content: center;
       font-family: var(--fa-display); font-weight: 800; font-size: 13px;
     }
-    .fa-phone__bar strong { display: block; font-size: 13px; font-weight: 800; }
-    .fa-phone__bar small { display: block; font-size: 11px; color: var(--fa-muted); font-weight: 600; }
+    .fa-phone__bar strong { display: block; font-size: 13px; font-weight: 800; color: var(--fa-ink); }
+    .fa-phone__bar small { display: block; font-size: 11px; color: var(--fa-muted-soft); font-weight: 600; }
     .fa-phone__row {
       position: relative; display: flex; align-items: flex-start; gap: 0.65rem;
-      padding: 0.7rem 0.75rem; border-radius: 0.9rem; background: #f8fafc; margin-top: 0.5rem;
+      padding: 0.7rem 0.75rem; border-radius: 0.85rem; background: rgba(31, 36, 46, 0.03); margin-top: 0.5rem;
     }
     .fa-phone__ico {
       width: 1.85rem; height: 1.85rem; border-radius: 0.55rem; flex-shrink: 0;
-      background: color-mix(in srgb, var(--fa-yellow) 35%, #fff);
-      display: inline-flex; align-items: center; justify-content: center; font-size: 12px;
+      background: rgba(250, 204, 21, 0.28);
+      display: inline-flex; align-items: center; justify-content: center; font-size: 12px; color: var(--fa-ink);
     }
-    .fa-phone__row strong { display: block; font-size: 12.5px; font-weight: 800; line-height: 1.25; }
-    .fa-phone__row span { display: block; margin-top: 0.15rem; font-size: 11.5px; color: var(--fa-muted); line-height: 1.35; }
+    .fa-phone__row strong { display: block; font-size: 12.5px; font-weight: 800; line-height: 1.25; color: var(--fa-ink); }
+    .fa-phone__row span { display: block; margin-top: 0.15rem; font-size: 11.5px; color: var(--fa-muted-soft); line-height: 1.35; }
 
     .fa-section { padding: 2.5rem 0; }
     @media (min-width: 768px) { .fa-section { padding: 3.25rem 0; } }
     .fa-section h2 {
       margin: 0; font-family: var(--fa-display); font-weight: 800;
-      font-size: clamp(1.55rem, 3.5vw, 2.15rem); letter-spacing: -0.02em; line-height: 1.15;
+      font-size: clamp(1.55rem, 3.5vw, 2.15rem); letter-spacing: -0.025em; line-height: 1.15; color: var(--fa-ink);
     }
-    .fa-section__lead { margin: 0.65rem 0 0; max-width: 36rem; color: #475569; font-size: 1rem; line-height: 1.55; }
+    .fa-section__lead { margin: 0.65rem 0 0; max-width: 36rem; color: var(--fa-muted); font-size: 1rem; line-height: 1.55; }
     .fa-features {
       display: grid; gap: 1rem; margin-top: 1.75rem;
       grid-template-columns: 1fr;
@@ -161,18 +164,18 @@
     @media (min-width: 640px) { .fa-features { grid-template-columns: 1fr 1fr; } }
     @media (min-width: 960px) { .fa-features { grid-template-columns: repeat(4, 1fr); } }
     .fa-feature {
-      background: #fff; border: 1px solid rgba(15, 23, 42, 0.07);
+      background: #fff; border: 1px solid var(--fa-line);
       border-radius: 1.25rem; padding: 1.25rem 1.2rem;
-      box-shadow: 0 10px 24px -20px rgba(15, 23, 42, 0.35);
+      box-shadow: var(--fa-btn-shadow);
     }
     .fa-feature__ico {
-      width: 2.5rem; height: 2.5rem; border-radius: 0.8rem; margin-bottom: 0.85rem;
-      background: color-mix(in srgb, var(--fa-yellow) 28%, #fff);
+      width: 2.5rem; height: 2.5rem; border-radius: 0.75rem; margin-bottom: 0.85rem;
+      background: rgba(250, 204, 21, 0.22);
       display: inline-flex; align-items: center; justify-content: center;
-      font-size: 1.15rem;
+      font-size: 1.15rem; color: var(--fa-ink);
     }
-    .fa-feature h3 { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; }
-    .fa-feature p { margin: 0.4rem 0 0; font-size: 13.5px; line-height: 1.45; color: #475569; }
+    .fa-feature h3 { margin: 0; font-size: 1rem; font-weight: 800; letter-spacing: -0.01em; color: var(--fa-ink); }
+    .fa-feature p { margin: 0.4rem 0 0; font-size: 13.5px; line-height: 1.45; color: var(--fa-muted); }
 
     .fa-steps {
       display: grid; gap: 1rem; margin-top: 1.75rem;
@@ -180,77 +183,98 @@
     }
     @media (min-width: 768px) { .fa-steps { grid-template-columns: repeat(3, 1fr); } }
     .fa-step {
-      position: relative; background: #fff; border: 1px solid rgba(15, 23, 42, 0.07);
+      position: relative; background: #fff; border: 1px solid var(--fa-line);
       border-radius: 1.25rem; padding: 1.35rem 1.25rem 1.4rem;
+      box-shadow: var(--fa-btn-shadow);
     }
     .fa-step__n {
       width: 2rem; height: 2rem; border-radius: 9999px; margin-bottom: 0.85rem;
-      background: var(--fa-yellow); color: #111827;
+      background: var(--fa-yellow); color: var(--fa-ink);
       display: inline-flex; align-items: center; justify-content: center;
       font-family: var(--fa-display); font-weight: 800; font-size: 13px;
     }
-    .fa-step h3 { margin: 0; font-size: 1.05rem; font-weight: 800; }
-    .fa-step p { margin: 0.4rem 0 0; font-size: 13.5px; line-height: 1.45; color: #475569; }
+    .fa-step h3 { margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--fa-ink); }
+    .fa-step p { margin: 0.4rem 0 0; font-size: 13.5px; line-height: 1.45; color: var(--fa-muted); }
 
     .fa-cta-band {
       padding: 2.75rem 0 3.5rem;
-      background:
-        linear-gradient(180deg, transparent, color-mix(in srgb, var(--fa-yellow) 10%, transparent) 30%, color-mix(in srgb, var(--fa-yellow) 16%, var(--fa-cream)));
+      background: linear-gradient(180deg, transparent, rgba(250, 204, 21, 0.12) 40%, rgba(250, 204, 21, 0.18));
     }
     .fa-cta-band__intro { text-align: center; max-width: 36rem; margin: 0 auto 1.5rem; }
-    .fa-cta-band__intro h2 { margin: 0; font-family: var(--fa-display); font-weight: 800; font-size: clamp(1.6rem, 3.8vw, 2.2rem); letter-spacing: -0.02em; }
-    .fa-cta-band__intro p { margin: 0.6rem 0 0; color: #475569; font-size: 1rem; line-height: 1.5; }
+    .fa-cta-band__intro h2 { margin: 0; font-family: var(--fa-display); font-weight: 800; font-size: clamp(1.6rem, 3.8vw, 2.2rem); letter-spacing: -0.025em; color: var(--fa-ink); }
+    .fa-cta-band__intro p { margin: 0.6rem 0 0; color: var(--fa-muted); font-size: 1rem; line-height: 1.5; }
 
-    .fa-card { max-width: 28rem; width: 100%; margin: 0 auto; background: #fff; border-radius: 2rem; box-shadow: 0 32px 64px -16px rgba(0,0,0,0.08); padding: 2rem; }
+    .fa-card {
+      max-width: 28rem; width: 100%; margin: 0 auto; background: #fff;
+      border-radius: 1.25rem; border: 1px solid var(--fa-line);
+      box-shadow: 0 24px 48px -24px rgba(31, 36, 46, 0.18); padding: 2rem;
+    }
     @media (min-width: 640px) { .fa-card { padding: 2.5rem; } }
+    .fa-brand-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.35rem; }
+    .fa-brand-row img { width: 2.5rem; height: 2.5rem; border-radius: 0.7rem; }
+    .fa-brand-row strong {
+      display: block; font-size: 1.05rem; font-weight: 800; letter-spacing: -0.02em; color: var(--fa-ink); line-height: 1.15;
+    }
+    .fa-brand-row span {
+      display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--fa-muted-soft); margin-top: 0.1rem;
+    }
+    .fa-card > h1, .fa-card .fa-card-title {
+      margin: 0; font-family: var(--fa-display); font-weight: 800;
+      font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.025em; color: var(--fa-ink);
+    }
+    .fa-card > .fa-card-lead {
+      margin: 0.5rem 0 0; font-size: 0.925rem; line-height: 1.5; color: var(--fa-muted);
+    }
     .fa-field { margin-top: 0.9rem; }
-    .fa-field label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #64748b; margin-bottom: 0.35rem; }
-    .fa-field label .opt { font-weight: 600; text-transform: none; letter-spacing: 0; color: #94a3b8; }
-    .fa-field input { width: 100%; height: 2.9rem; border-radius: 0.85rem; border: 1px solid #e2e8f0; background: #fbfaf6; padding: 0 0.9rem; font-size: 16px; color: #0f172a; outline: none; box-sizing: border-box; }
-    .fa-field input:focus { border-color: #eab308; box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.25); background: #fff; }
-    .fa-perks { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-size: 12px; color: #475569; }
-    .fa-perks span::before { content: '✓'; color: #16a34a; font-weight: 900; margin-right: 0.35rem; }
+    .fa-field label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fa-muted-soft); margin-bottom: 0.35rem; }
+    .fa-field label .opt { font-weight: 600; text-transform: none; letter-spacing: 0; color: rgba(31, 36, 46, 0.45); }
+    .fa-field input { width: 100%; height: 2.9rem; border-radius: 0.75rem; border: 1px solid var(--fa-line); background: #fff; padding: 0 0.9rem; font-size: 16px; color: var(--fa-ink); outline: none; box-sizing: border-box; font-family: var(--fa-font); }
+    .fa-field input:focus { border-color: var(--fa-yellow-hot); box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.28); }
+    .fa-perks { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-size: 12px; color: var(--fa-muted); }
+    .fa-perks span::before { content: '✓'; color: #10b981; font-weight: 900; margin-right: 0.35rem; }
     .fa-terms {
       margin-top: 1.25rem; display: flex; align-items: flex-start; gap: 0.65rem;
-      font-size: 12.5px; line-height: 1.45; color: #334155;
+      font-size: 12.5px; line-height: 1.45; color: var(--fa-ink);
     }
     .fa-terms input {
       margin-top: 0.15rem; width: 1.1rem; height: 1.1rem; flex-shrink: 0;
-      accent-color: #eab308; cursor: pointer;
+      accent-color: var(--fa-yellow-hot); cursor: pointer;
     }
-    .fa-terms label { cursor: pointer; font-weight: 600; }
-    .fa-terms a { color: #0f172a; font-weight: 800; text-decoration: underline; }
+    .fa-terms label { cursor: pointer; font-weight: 600; color: var(--fa-muted); }
+    .fa-terms a { color: var(--fa-ink); font-weight: 800; text-decoration: underline; }
     .fa-terms-details {
-      margin-top: 0.65rem; border: 1px solid var(--fa-line); border-radius: 0.9rem;
-      background: #fbfaf6; padding: 0.75rem 0.9rem; font-size: 12px; line-height: 1.5; color: #475569;
+      margin-top: 0.65rem; border: 1px solid var(--fa-line); border-radius: 0.75rem;
+      background: rgba(255, 253, 245, 0.8); padding: 0.75rem 0.9rem; font-size: 12px; line-height: 1.5; color: var(--fa-muted);
     }
     .fa-terms-details summary {
-      cursor: pointer; font-weight: 800; color: #0f172a; list-style: none;
+      cursor: pointer; font-weight: 800; color: var(--fa-ink); list-style: none;
     }
     .fa-terms-details summary::-webkit-details-marker { display: none; }
     .fa-terms-details[open] summary { margin-bottom: 0.45rem; }
     .fa-terms-details ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
     .fa-terms-details li + li { margin-top: 0.25rem; }
-    .fa-btn { width: 100%; height: 3.5rem; margin-top: 2.75rem; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: #FFDB3A; color: #111827; font-weight: 800; font-size: 16px; box-shadow: 0 10px 20px -8px rgba(250, 204, 21, 0.5); cursor: pointer; transition: background 0.15s; }
-    .fa-btn:hover { background: #FFD600; }
-    .fa-btn:disabled { opacity: 0.72; cursor: wait; pointer-events: none; background: #F5D020; }
-    .fa-foot { margin-top: 2.5rem; font-size: 12px; color: #64748b; line-height: 1.45; }
-    .fa-errors { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 1rem; padding: 0.75rem 1rem; font-size: 13px; margin-top: 1rem; }
+    .fa-btn { width: 100%; height: 3.5rem; margin-top: 2.75rem; display: flex; align-items: center; justify-content: center; border: 0; border-radius: var(--fa-btn-radius); background: #facc15; color: #1f242e; font-weight: 900; font-size: 16px; box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1); cursor: pointer; transition: background 0.15s; font-family: var(--fa-font); }
+    .fa-btn:hover { background: #eab308; }
+    .fa-btn:disabled { opacity: 0.72; cursor: wait; pointer-events: none; background: #e5c412; }
+    .fa-foot { margin-top: 2.5rem; font-size: 12px; color: var(--fa-muted-soft); line-height: 1.45; }
+    .fa-foot a { color: var(--fa-ink); font-weight: 700; }
+    .fa-errors { background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c; border-radius: 0.75rem; padding: 0.75rem 1rem; font-size: 13px; margin-top: 1rem; }
     .fa-errors li + li { margin-top: 0.2rem; }
-    .fa-ok { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; border-radius: 1rem; padding: 0.9rem 1rem; font-size: 14px; line-height: 1.45; }
+    .fa-ok { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 0.75rem; padding: 0.9rem 1rem; font-size: 14px; line-height: 1.45; }
 
     .fa-footer {
-      padding: 1.75rem 0 2.25rem; border-top: 1px solid rgba(15, 23, 42, 0.06);
-      text-align: center; font-size: 12px; color: var(--fa-muted); line-height: 1.5;
+      padding: 1.75rem 0 2.25rem; border-top: 1px solid rgba(31, 36, 46, 0.08);
+      text-align: center; font-size: 12px; color: var(--fa-muted-soft); line-height: 1.5;
     }
-    .fa-footer a { color: #334155; font-weight: 700; }
+    .fa-footer a { color: var(--fa-ink); font-weight: 700; }
 
     @media (max-width: 639px) {
-      .fa-nav__mark { max-width: 9.5rem; }
+      .fa-nav__mark { max-width: 11rem; }
       .fa-hero__actions { flex-direction: column; align-items: stretch; }
       .fa-btn-primary, .fa-btn-ghost { width: 100%; }
       .fa-phone { margin-top: 0.25rem; }
-      .fa-card { border-radius: 1.5rem; padding: 1.5rem 1.25rem; }
+      .fa-card { border-radius: 1.1rem; padding: 1.5rem 1.25rem; }
       .fa-perks { gap: 0.35rem 0.85rem; }
     }
 
@@ -288,8 +312,8 @@
   <header class="fa-nav">
     <div class="fa-nav__inner">
       <a class="fa-nav__brand" href="/app">
-        <img src="/images/adhello-app-icon.png" alt="AdHello" width="36" height="36" />
-        <span class="fa-nav__mark">AdHello · Reviews app</span>
+        <img src="/images/adhello-app-icon.png" alt="AdHello" width="38" height="38" />
+        <span class="fa-nav__mark">AdHello<small>Reviews app</small></span>
       </a>
       <% if (!sent) { %>
       <a class="fa-nav__cta" href="#start">Start trial</a>
@@ -301,14 +325,17 @@
   <main class="fa-cta-band" style="min-height:70vh;display:flex;align-items:center">
     <div class="fa-wrap" style="width:100%">
       <div class="fa-card">
-        <div class="flex items-center gap-3 mb-6">
-          <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" class="w-10 h-10 rounded-xl border border-slate-100" />
-          <span class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">AdHello · Reviews app</span>
+        <div class="fa-brand-row">
+          <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" />
+          <div>
+            <strong>AdHello</strong>
+            <span>Reviews app</span>
+          </div>
         </div>
-        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Check your phone</h1>
-        <p class="mt-2 text-sm text-slate-600 leading-relaxed">If that number or email is valid, your reviews app link is on its way. Open it, then Share → Add to Home Screen.</p>
+        <h1 class="fa-card-title">Check your phone</h1>
+        <p class="fa-card-lead">If that number or email is valid, your reviews app link is on its way. Open it, then Share → Add to Home Screen.</p>
         <div class="fa-ok mt-5" role="status">Link sent. It can take a minute. Already have it? <a class="font-semibold underline" href="<%= _login %>">Get a fresh link</a>.</div>
-        <p class="mt-6 text-xs text-slate-500 leading-relaxed">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="font-semibold text-slate-700 underline" href="<%= _trial %>">Start a free trial</a>.</p>
+        <p class="fa-foot" style="margin-top:1.5rem">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="underline" href="<%= _trial %>">Start a free trial</a>.</p>
       </div>
     </div>
   </main>
@@ -317,9 +344,9 @@
   <section class="fa-hero">
     <div class="fa-wrap fa-hero__grid">
       <div>
-        <p class="fa-kicker">30-day free trial · no credit card</p>
-        <h1>Grow more <em>reviews</em> &amp; referrals. Grow your business.</h1>
-        <p class="fa-hero__lead">Collect 5-star Google reviews on every job. Manage customers and field work. Turn happy customers into referrals — white-labeled to your business, no app store download.</p>
+        <p class="fa-kicker">★ 30-day free trial — reviews &amp; business app</p>
+        <h1>Grow more reviews &amp; referrals. <em>Grow Your Business.</em></h1>
+        <p class="fa-hero__lead">Collect 5-star reviews on every job. Turn happy customers into referrals. Manage customers and field work — white-labeled to your business, no app store download.</p>
         <div class="fa-hero__actions">
           <a class="fa-btn-primary" href="#start">Start your 30-day trial</a>
           <a class="fa-btn-ghost" href="#how">See how it works</a>
@@ -424,13 +451,16 @@
       </div>
 
       <div class="fa-card">
-        <div class="flex items-center gap-3 mb-6">
-          <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" class="w-10 h-10 rounded-xl border border-slate-100" />
-          <span class="text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">AdHello · Reviews app</span>
+        <div class="fa-brand-row">
+          <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" />
+          <div>
+            <strong>AdHello</strong>
+            <span>Reviews app</span>
+          </div>
         </div>
 
-        <h1 class="font-display font-extrabold text-2xl text-[#0F172A] leading-tight">Start your 30-day trial</h1>
-        <p class="mt-2 text-sm text-slate-600 leading-relaxed">Request Google reviews, manage customers and jobs, and send referrals. 30 days free — no credit card. No Agency OS workspace.</p>
+        <h1 class="fa-card-title">Start your 30-day trial</h1>
+        <p class="fa-card-lead">Request Google reviews, manage customers and jobs, and send referrals. 30 days free — no credit card. No Agency OS workspace.</p>
         <div class="fa-perks mt-4"><span>30-day trial</span><span>Reviews</span><span>Customers &amp; jobs</span></div>
 
         <% if (errors && errors.length) { %>
@@ -501,7 +531,7 @@
           })();
         </script>
 
-        <p class="fa-foot">Already in a network? <a class="font-semibold text-slate-700 underline" href="<%= _login %>">Get your link</a>. Need leads + CRM? <a class="font-semibold text-slate-700 underline" href="<%= _trial %>">Start Agency OS trial</a>.</p>
+        <p class="fa-foot">Already in a network? <a class="underline" href="<%= _login %>">Get your link</a>. Need leads + CRM? <a class="underline" href="<%= _trial %>">Start Agency OS trial</a>.</p>
       </div>
     </div>
   </section>
