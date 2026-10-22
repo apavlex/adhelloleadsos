@@ -94,6 +94,51 @@
       line-height: 1.5;
       color: var(--fa-muted);
     }
+    .fa-benefits {
+      list-style: none;
+      margin: 1.1rem 0 0;
+      padding: 0;
+      display: grid;
+      gap: 0.65rem;
+    }
+    .fa-benefits li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.65rem;
+      padding: 0.7rem 0.75rem;
+      border-radius: 0.75rem;
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid rgba(250, 204, 21, 0.28);
+    }
+    .fa-benefits__ico {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 0.5rem;
+      flex-shrink: 0;
+      background: var(--fa-yellow);
+      color: var(--fa-ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .fa-benefits strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--fa-ink);
+      line-height: 1.25;
+    }
+    .fa-benefits span {
+      display: block;
+      margin-top: 0.15rem;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--fa-muted);
+      font-weight: 500;
+    }
     .fa-field { margin-top: 0.9rem; }
     .fa-field label {
       display: block;
@@ -267,8 +312,32 @@
         <p class="fa-foot" style="margin-top:1.5rem">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="underline" href="<%= _trial %>">Start a free trial</a>.</p>
       <% } else { %>
         <h1>Start your 30-day trial</h1>
-        <p class="fa-card-lead">Request Google reviews, manage customers and jobs, and send referrals. 30 days free — no credit card. No Agency OS workspace.</p>
-        <div class="fa-perks"><span>30-day trial</span><span>Reviews</span><span>Customers &amp; jobs</span></div>
+        <p class="fa-card-lead">The phone app for local businesses: collect 5-star Google reviews on every job, manage customers &amp; field work, and turn happy customers into referrals. Free for 30 days — no credit card.</p>
+
+        <ul class="fa-benefits" aria-label="What you get">
+          <li>
+            <span class="fa-benefits__ico" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 16.4 6.6 19.3l1-6.1L3.2 8.9l6.1-.9L12 2.5z"/></svg></span>
+            <div>
+              <strong>More 5-star Google reviews</strong>
+              <span>Text a review link before you leave the job site — while they’re still smiling.</span>
+            </div>
+          </li>
+          <li>
+            <span class="fa-benefits__ico" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></span>
+            <div>
+              <strong>Customers &amp; jobs in one place</strong>
+              <span>Track jobs, notes, and photos from estimate to done — built for the field.</span>
+            </div>
+          </li>
+          <li>
+            <span class="fa-benefits__ico" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-5.25-5.25M19.5 12l-5.25 5.25"/></svg></span>
+            <div>
+              <strong>Referrals that grow your business</strong>
+              <span>Send and receive referrals with partners. White-labeled on your Home Screen — no App Store.</span>
+            </div>
+          </li>
+        </ul>
+        <div class="fa-perks"><span>30-day trial</span><span>No credit card</span><span>No Agency OS needed</span></div>
 
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
