@@ -2480,6 +2480,29 @@
     return Math.round(hrs / 24) + 'd ago';
   }
 
+  var GHL_FEED_PREVIEW = 2;
+
+  function ghlFeedItemHtml(m) {
+    var ago = formatGhlAgo(m.at);
+    var dir = m.direction === 'inbound' ? 'In' : 'Out';
+    var html =
+      '<li class="ma-ghl-feed__item ma-ghl-feed__item--' + escHtml(m.kind || 'sms') +
+      ' ma-ghl-feed__item--' + escHtml(m.direction || 'inbound') + '">' +
+      '<div class="ma-ghl-feed__meta"><strong>' + escHtml(m.title || '') + '</strong>' +
+      '<span>' + dir + (ago ? ' · ' + ago : '') + '</span></div>';
+    if (m.kind === 'sms' && m.body) {
+      html += '<p class="ma-ghl-feed__body">' + escHtml(m.body) + '</p>';
+    }
+    if (m.openHref) {
+      html +=
+        '<a class="ma-ghl-feed__open" href="' + escHtml(m.openHref) +
+        '" target="_blank" rel="noopener noreferrer">' +
+        (m.kind === 'call' ? 'Open in LC' : 'Reply in LC') +
+        '</a>';
+    }
+    return html + '</li>';
+  }
+
   function renderGhlActivity(section, payload) {
     var body = section.querySelector('[data-ma-ghl-activity-body]');
     var open = section.querySelector('[data-ma-ghl-open]');
@@ -2503,34 +2526,50 @@
       body.innerHTML = '<p class="ma-hint" style="margin:0">No calls or texts in GHL for this contact yet.</p>';
       return;
     }
-    var html = '<ul class="ma-ghl-feed" aria-label="GHL calls and texts">';
-    items.forEach(function (m) {
-      var ago = formatGhlAgo(m.at);
-      var dir = m.direction === 'inbound' ? 'In' : 'Out';
-      html +=
-        '<li class="ma-ghl-feed__item ma-ghl-feed__item--' + escHtml(m.kind || 'sms') +
-        ' ma-ghl-feed__item--' + escHtml(m.direction || 'inbound') + '">' +
-        '<div class="ma-ghl-feed__meta"><strong>' + escHtml(m.title || '') + '</strong>' +
-        '<span>' + dir + (ago ? ' · ' + ago : '') + '</span></div>';
-      if (m.kind === 'sms' && m.body) {
-        html += '<p class="ma-ghl-feed__body">' + escHtml(m.body) + '</p>';
+    var preview = Math.min(GHL_FEED_PREVIEW, items.length);
+    var rest = items.length - preview;
+    var html = '<ul class="ma-ghl-feed" aria-label="GHL calls and texts" data-ma-ghl-feed>';
+    items.forEach(function (m, i) {
+      var row = ghlFeedItemHtml(m);
+      if (i >= preview) {
+        row = row.replace(
+          'class="ma-ghl-feed__item',
+          'class="ma-ghl-feed__item ma-ghl-feed__item--more" hidden',
+        );
       }
-      if (m.openHref) {
-        html +=
-          '<a class="ma-ghl-feed__open" href="' + escHtml(m.openHref) +
-          '" target="_blank" rel="noopener noreferrer">' +
-          (m.kind === 'call' ? 'Open in LC' : 'Reply in LC') +
-          '</a>';
-      }
-      html += '</li>';
+      html += row;
     });
     html += '</ul>';
+    if (rest > 0) {
+      html +=
+        '<button type="button" class="ma-ghl-feed__more" data-ma-ghl-feed-more>' +
+        'More · ' + rest + ' older</button>';
+    }
     body.innerHTML = html;
+    bindGhlFeedMore(body);
+  }
+
+  function bindGhlFeedMore(root) {
+    var scope = root || document;
+    var moreBtn = scope.querySelector('[data-ma-ghl-feed-more]');
+    if (!moreBtn || moreBtn.getAttribute('data-bound') === '1') return;
+    moreBtn.setAttribute('data-bound', '1');
+    moreBtn.addEventListener('click', function () {
+      var body = moreBtn.closest('[data-ma-ghl-activity-body]') || moreBtn.parentElement;
+      var feed = body && body.querySelector('[data-ma-ghl-feed]');
+      if (!feed) return;
+      feed.querySelectorAll('.ma-ghl-feed__item--more').forEach(function (el) {
+        el.hidden = false;
+        el.classList.remove('ma-ghl-feed__item--more');
+      });
+      moreBtn.remove();
+    });
   }
 
   function bootGhlActivity() {
     var section = document.getElementById('maCustomerGhlActivity');
     if (!section) return;
+    bindGhlFeedMore(section);
     var url = section.getAttribute('data-ma-ghl-activity-url');
     if (!url) return;
     fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
