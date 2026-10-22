@@ -189,12 +189,31 @@ async function markLeadDone(member, network, leadKey) {
     return { ok: false, error: 'Turn on GHL alerts first.' };
   }
   const wid = String(network.ownerWorkspaceId || '').trim();
-  const key = String(leadKey || '').trim();
-  if (!wid || !key) return { ok: false, error: 'Lead required.' };
-  const lead = await dbService.getLead(key, wid);
+  const raw = String(leadKey || '').trim();
+  if (!wid || !raw) return { ok: false, error: 'Lead required.' };
+  // Same resolution path as Agency OS /today/inbound/done — short keys and
+  // storage keys both resolve before the handled stamp is written.
+  const storageKey = (await dbService.resolveLeadStorageKey(raw, wid)) || raw;
+  const lead = await dbService.getLead(storageKey, wid);
   if (!lead) return { ok: false, error: 'Lead not found.' };
-  await dbService.updateLead(lead.key || key, { inboundHandledAt: new Date().toISOString() }, wid);
-  return { ok: true };
+  await dbService.updateLead(lead.key || storageKey, { inboundHandledAt: new Date().toISOString() }, wid);
+  return { ok: true, leadKey: lead.key || storageKey };
+}
+
+/** Clear every pending GHL inbound row shown under Waiting on a reply. */
+async function markAllPendingDone(member, network, opts = {}) {
+  if (!canUseGhlAlerts(member, network) || !isEnabled(member)) {
+    return { ok: false, error: 'Turn on GHL alerts first.', updated: 0 };
+  }
+  const pending = await listPendingForMember(member, network, opts);
+  const keys = [...new Set(pending.map((row) => String(row && row.leadKey || '').trim()).filter(Boolean))];
+  let updated = 0;
+  for (const key of keys) {
+    // eslint-disable-next-line no-await-in-loop
+    const done = await markLeadDone(member, network, key);
+    if (done && done.ok) updated += 1;
+  }
+  return { ok: true, updated };
 }
 
 function memberAppUrl(network, member, path = '') {
@@ -284,6 +303,7 @@ module.exports = {
   setEnabled,
   listPendingForMember,
   markLeadDone,
+  markAllPendingDone,
   notifyEnabledMembers,
   ghlLinkContext,
 };

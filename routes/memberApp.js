@@ -3225,12 +3225,16 @@ router.post('/m/:token/activity/ghl-alerts', express.json(), withMember(async (r
 /** Mark a GHL inbound lead done from the Reviews bell (same as Agency OS Done). */
 router.post('/m/:token/activity/ghl-done', express.json(), withMember(async (req, res, ctx) => {
   noStore(res);
-  const done = await memberGhlAlerts.markLeadDone(ctx.member, ctx.network, req.body && req.body.leadKey);
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const done = body.all === true || body.leadKey === 'all'
+    ? await memberGhlAlerts.markAllPendingDone(ctx.member, ctx.network)
+    : await memberGhlAlerts.markLeadDone(ctx.member, ctx.network, body.leadKey);
   if (!done.ok) return res.status(400).json({ success: false, error: done.error });
   const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);
   const ghlEnabled = memberGhlAlerts.isEnabled(ctx.member);
   return res.json({
     success: true,
+    updated: done.updated != null ? done.updated : 1,
     ghlItems,
     unread: bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }) + ghlItems.length,
   });
