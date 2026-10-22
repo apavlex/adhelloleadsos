@@ -111,9 +111,13 @@
     }
 
     function attachVoice() {
-      if (micBtn && chatInputFloat && window.AlexVoice) {
-        voice = window.AlexVoice.attach({ button: micBtn, input: chatInputFloat });
-      }
+      if (!micBtn || !chatInputFloat || !window.AlexVoice || typeof window.AlexVoice.attach !== 'function') return;
+      // Always show the mic; speech lands in the composer (never auto-sends).
+      voice = window.AlexVoice.attach({
+        button: micBtn,
+        input: chatInputFloat,
+        hideIfUnsupported: false,
+      });
     }
     if (window.AlexVoice) attachVoice();
     else document.addEventListener('alexvoice:ready', attachVoice, { once: true });
@@ -369,6 +373,7 @@
         document.documentElement.classList.add('acw-open');
         if (chatBackdrop) chatBackdrop.hidden = false;
         if (chatBubbleDot) chatBubbleDot.classList.add('hidden');
+        attachVoice();
         pinChatFloat();
         syncViewport();
         setTimeout(function () {

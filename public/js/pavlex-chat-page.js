@@ -850,7 +850,14 @@
 
   var micBtn = document.getElementById('pcMic');
   function attachVoice() {
-    if (micBtn && window.AlexVoice) state.voice = window.AlexVoice.attach({ button: micBtn, input: els.input });
+    if (!micBtn || !els.input || !window.AlexVoice || typeof window.AlexVoice.attach !== 'function') return;
+    // Always show the mic; speech lands in the composer (never auto-sends).
+    // Server POST /api/voice/transcribe when live browser speech isn't available.
+    state.voice = window.AlexVoice.attach({
+      button: micBtn,
+      input: els.input,
+      hideIfUnsupported: false,
+    });
   }
   if (window.AlexVoice) attachVoice();
   else document.addEventListener('alexvoice:ready', attachVoice, { once: true });
