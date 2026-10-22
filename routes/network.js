@@ -282,6 +282,19 @@ router.get('/', async (req, res, next) => {
     // Leads sent = referrals routed to a member (same idea as Referral Leads partner "sent").
     const leadsSent = referrals.filter((r) => String(r && r.toMemberId || '').trim()).length;
 
+    let networkJoinSlug = '';
+    let networkJoinUrl = '';
+    if (canManage(req)) {
+      try {
+        networkJoinSlug = await freeAppSignup.getOrEnsureJoinSlug(network);
+        const { getNetworkJoinUrl } = require('../lib/publicBaseUrl');
+        networkJoinUrl = getNetworkJoinUrl(networkJoinSlug);
+      } catch (_) {
+        networkJoinSlug = '';
+        networkJoinUrl = '';
+      }
+    }
+
     res.render('network', {
       title: tab === 'field-work' || tab === 'calendar' ? 'Leads Network' : 'Referral Network',
       activePage: 'network',
@@ -316,6 +329,8 @@ router.get('/', async (req, res, next) => {
         partnerMembers,
       },
       canManage: canManage(req),
+      networkJoinSlug,
+      networkJoinUrl,
       ghlSubaccounts: networkMembers.ghlSubaccountsAllowedFor(req.workspace),
       notice: String(req.query.notice || '').trim(),
       editZoneId: String(req.query.zone || '').trim(),

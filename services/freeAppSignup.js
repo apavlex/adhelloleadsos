@@ -150,6 +150,19 @@ function readForm(body = {}) {
   };
 }
 
+function cleanJoinSlug(slug) {
+  return String(slug || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64);
+}
+
+function slugifyJoinName(name) {
+  return cleanJoinSlug(name) || 'network';
+}
+
 async function resolveFreeAppNetwork() {
   const forcedId = envNetworkId();
   if (forcedId) {
@@ -171,6 +184,45 @@ async function resolveFreeAppNetwork() {
     name: (ws && ws.name) || 'AdHello',
     ownerEmail,
   });
+}
+
+/**
+ * Resolve a network from a public join slug (workspace slug).
+ * @returns {Promise<object|null>}
+ */
+async function resolveNetworkByJoinSlug(joinSlug) {
+  const slug = cleanJoinSlug(joinSlug);
+  if (!slug) return null;
+  const workspaceId = await dbService.getWorkspaceIdForSlug(slug);
+  if (!workspaceId) return null;
+  return store.getNetworkForWorkspace(workspaceId);
+}
+
+/**
+ * Workspace slug used in https://reviews.adhello.io/join/{slug}.
+ * Ensures the slug KV mapping exists; creates a slug from the workspace name if missing.
+ */
+async function getOrEnsureJoinSlug(network) {
+  if (!network || !network.ownerWorkspaceId) return '';
+  const ws = await dbService.getWorkspace(network.ownerWorkspaceId);
+  if (!ws) return '';
+  let slug = cleanJoinSlug(ws.slug);
+  if (!slug) {
+    const base = slugifyJoinName(ws.name || network.name || 'network');
+    slug = base;
+    for (let i = 0; i < 40; i += 1) {
+      const candidate = i === 0 ? base : `${base}-${i + 1}`;
+      // eslint-disable-next-line no-await-in-loop
+      const taken = await dbService.getWorkspaceIdForSlug(candidate);
+      if (!taken || taken === ws.id) {
+        slug = candidate;
+        break;
+      }
+    }
+    await dbService.saveWorkspace(ws.id, { ...ws, slug });
+  }
+  await dbService.saveWorkspaceSlug(slug, ws.id);
+  return slug;
 }
 
 function matchesContact(member, { digits, email }) {
@@ -212,14 +264,23 @@ async function notifyOperatorNewFreeApp({ network, member }) {
  * Double-submit safe: per-contact inflight lock + short send cooldown.
  * @returns {{ ok: true, member, network, notified, created: boolean } | { ok: false, error: string, code?: string }}
  */
-async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
+async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networkOpt = null, joinSlug = '' } = {}) {
   const lockKey = contactLockKey({ digits, email });
+  const viaJoin = !!cleanJoinSlug(joinSlug) || !!(networkOpt && networkOpt.id);
 
-  let network;
-  try {
-    network = await resolveFreeAppNetwork();
-  } catch (err) {
-    return { ok: false, code: 'config', error: err.message || 'Free app signup is not available right now.' };
+  let network = networkOpt || null;
+  if (!network && joinSlug) {
+    network = await resolveNetworkByJoinSlug(joinSlug);
+    if (!network) {
+      return { ok: false, code: 'not_found', error: 'That signup link is not valid or the network was removed.' };
+    }
+  }
+  if (!network) {
+    try {
+      network = await resolveFreeAppNetwork();
+    } catch (err) {
+      return { ok: false, code: 'config', error: err.message || 'Free app signup is not available right now.' };
+    }
   }
 
   // Fast path: same contact just got a link (classic double-click after first send).
@@ -305,8 +366,10 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip }) {
       contactName: form.contactName || '',
       phone: form.phone || 'N/A',
       email: email || form.email || 'N/A',
-      source: 'free_app_signup',
-      message: 'Signed up for the AdHello reviews app trial',
+      source: viaJoin ? 'network_join_signup' : 'free_app_signup',
+      message: viaJoin
+        ? `Joined ${network.name || 'network'} via public signup link`
+        : 'Signed up for the AdHello reviews app trial',
     });
     const lead = await dbService.getLead(saved.key, network.ownerWorkspaceId);
     if (!lead || !lead.key) {
@@ -441,11 +504,14 @@ module.exports = {
   INFLIGHT_PREFIX,
   appTrialDays,
   contactLockKey,
+  cleanJoinSlug,
   readForm,
   phoneDigits,
   cleanEmail,
   takeIpSlot,
   resolveFreeAppNetwork,
+  resolveNetworkByJoinSlug,
+  getOrEnsureJoinSlug,
   findExistingMember,
   signupFreeApp,
   isAppFreeMember,
