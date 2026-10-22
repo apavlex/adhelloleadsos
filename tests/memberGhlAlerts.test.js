@@ -174,6 +174,45 @@ describe('memberGhlAlerts', () => {
     assert.equal(customers[0].ghlContactId, 'ghl_email_only');
   });
 
+  it('Open patches ghlContactId onto an existing phone-matched customer', async () => {
+    const network = await store.getNetwork(NID);
+    const owner = await store.saveMember(NID, {
+      id: 'owner',
+      companyName: 'Owner Co',
+      email: 'owner@example.com',
+      ghlAlertsEnabled: true,
+    });
+    const work = require('../services/memberWork');
+    const prior = await work.saveCustomer(NID, 'owner', {
+      name: 'C Hattenhauer',
+      phone: '+15559876543',
+    });
+    assert.equal(prior.ok, true);
+    assert.equal(prior.customer.ghlContactId || '', '');
+
+    const now = Date.parse('2026-10-19T12:00:00.000Z');
+    await dbService.saveLead({
+      key: 'lead:hatten',
+      workspaceId: WID,
+      title: 'C Hattenhauer',
+      phone: '+15559876543',
+      ghlContactId: 'ghl_hatten_1',
+      inboundEvents: [
+        {
+          id: 's1',
+          type: 'sms',
+          at: '2026-10-19T11:10:00.000Z',
+          preview: 'MSI Stella La Perla',
+        },
+      ],
+    });
+
+    const rows = await memberGhlAlerts.listPendingForMember(owner, network, { now });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].customerId, prior.customer.id);
+    assert.equal(rows[0].customerId && (await work.getCustomer(NID, 'owner', rows[0].customerId)).ghlContactId, 'ghl_hatten_1');
+  });
+
   it('notifyEnabledMembers records activity for opted-in owners', async () => {
     const network = await store.getNetwork(NID);
     await store.saveMember(NID, {
