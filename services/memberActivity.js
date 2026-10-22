@@ -1,6 +1,8 @@
 /**
  * In-app activity feed for the member PWA (/m) — leads & referrals that need
  * immediate attention. Separate from the workspace CRM bell (staff-only).
+ *
+ * Inbox = not cleared (stays until Done / Clear). History = cleared entries.
  */
 const dbService = require('./database');
 
@@ -36,8 +38,24 @@ function list(networkId, memberId) {
   return Array.isArray(raw) ? raw : [];
 }
 
+function isCleared(entry) {
+  return !!(entry && (entry.cleared || entry.clearedAt));
+}
+
+/** Active alerts for the Notifications sheet (not cleared). */
+function listInbox(networkId, memberId) {
+  return list(networkId, memberId).filter((e) => e && !isCleared(e));
+}
+
+/** Cleared alerts for the History page. */
+function listHistory(networkId, memberId) {
+  return list(networkId, memberId)
+    .filter((e) => e && isCleared(e))
+    .sort((a, b) => Date.parse(b.clearedAt || b.at || 0) - Date.parse(a.clearedAt || a.at || 0));
+}
+
 function unreadCount(networkId, memberId) {
-  return list(networkId, memberId).filter((e) => e && !e.read).length;
+  return listInbox(networkId, memberId).filter((e) => e && !e.read).length;
 }
 
 /**
@@ -56,6 +74,7 @@ function add(networkId, memberId, item = {}) {
     body: clean(item.body, 280),
     href: safeHref(item.href),
     read: false,
+    cleared: false,
   };
   const next = [entry, ...list(nid, mid)].slice(0, MAX_ENTRIES);
   dbService.setKvSync(kvKey(nid, mid), next);
@@ -71,7 +90,7 @@ function markRead(networkId, memberId, ids) {
     : new Set([].concat(ids).map((id) => String(id || '').trim()).filter(Boolean));
   let updated = 0;
   const next = list(nid, mid).map((e) => {
-    if (!e || e.read) return e;
+    if (!e || e.read || isCleared(e)) return e;
     if (want && !want.has(e.id)) return e;
     updated += 1;
     return { ...e, read: true };
@@ -84,11 +103,56 @@ function markAllRead(networkId, memberId) {
   return markRead(networkId, memberId, null);
 }
 
+/**
+ * Move inbox entries to History. Pass null/undefined/'all' for every active alert.
+ */
+function clear(networkId, memberId, ids) {
+  const nid = String(networkId || '').trim();
+  const mid = String(memberId || '').trim();
+  if (!nid || !mid) return { updated: 0 };
+  const all = ids == null || ids === 'all';
+  const want = all
+    ? null
+    : new Set([].concat(ids).map((id) => String(id || '').trim()).filter(Boolean));
+  if (!all && (!want || !want.size)) return { updated: 0 };
+  const at = new Date().toISOString();
+  let updated = 0;
+  const next = list(nid, mid).map((e) => {
+    if (!e || isCleared(e)) return e;
+    if (want && !want.has(e.id)) return e;
+    updated += 1;
+    return { ...e, read: true, cleared: true, clearedAt: at };
+  });
+  if (updated) dbService.setKvSync(kvKey(nid, mid), next);
+  return { updated };
+}
+
+function clearAll(networkId, memberId) {
+  return clear(networkId, memberId, 'all');
+}
+
+/** Clear inbox entries whose kind is in the given set (e.g. GHL sms/missed_call). */
+function clearKinds(networkId, memberId, kinds) {
+  const nid = String(networkId || '').trim();
+  const mid = String(memberId || '').trim();
+  const set = new Set([].concat(kinds || []).map((k) => String(k || '').toLowerCase()).filter(Boolean));
+  if (!nid || !mid || !set.size) return { updated: 0 };
+  const ids = listInbox(nid, mid)
+    .filter((e) => set.has(String(e.kind || '').toLowerCase()))
+    .map((e) => e.id);
+  return clear(nid, mid, ids);
+}
+
 module.exports = {
   add,
   list,
+  listInbox,
+  listHistory,
   unreadCount,
   markRead,
   markAllRead,
+  clear,
+  clearAll,
+  clearKinds,
   MAX_ENTRIES,
 };

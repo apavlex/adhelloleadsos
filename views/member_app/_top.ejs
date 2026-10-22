@@ -26,7 +26,10 @@
       <div class="ma-bell__panel" id="maBellPanel" hidden role="dialog" aria-label="Lead notifications" aria-modal="true">
         <div class="ma-bell__head">
           <h2>Notifications</h2>
-          <button type="button" class="ma-bell__close" data-ma-bell-close aria-label="Close">✕</button>
+          <div class="ma-bell__head-actions">
+            <button type="button" class="ma-bell__clear" data-ma-bell-clear hidden>Clear</button>
+            <button type="button" class="ma-bell__close" data-ma-bell-close aria-label="Close">✕</button>
+          </div>
         </div>
         <div class="ma-bell__list" data-ma-bell-list>
           <p class="ma-bell__empty">No new lead alerts</p>
@@ -46,6 +49,7 @@
           <button type="button" class="ma-bell__push-off" data-ma-bell-push-off hidden>Turn off on this device</button>
         </div>
         <div class="ma-bell__foot">
+          <a href="<%= base %>/notifications" data-ma-bell-history>History</a>
           <a href="<%= base %>/referrals" data-ma-bell-all>All leads &amp; referrals</a>
         </div>
       </div>

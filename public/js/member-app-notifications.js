@@ -21,6 +21,7 @@
   var ghlRow = root.querySelector('[data-ma-bell-ghl]');
   var ghlToggle = root.querySelector('[data-ma-bell-ghl-toggle]');
   var ghlStatus = root.querySelector('[data-ma-bell-ghl-status]');
+  var clearBtn = root.querySelector('[data-ma-bell-clear]');
 
   var ua = navigator.userAgent || '';
   var isIos = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -30,6 +31,7 @@
   var supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   var label = isMobile ? 'phone alerts' : 'desktop alerts';
   var ghlEnabled = false;
+  var inboxCount = 0;
 
   function setOpen(on) {
     if (!panel || !openBtn) return;
@@ -77,16 +79,38 @@
     return Math.round(h / 24) + 'd ago';
   }
 
+  function activityOpenHref(item) {
+    var raw = String((item && item.href) || '').trim();
+    if (!raw) return base + '/referrals';
+    if (/^https?:/i.test(raw) || raw.indexOf('//') === 0) return base + '/referrals';
+    if (raw.indexOf(base) === 0) return raw;
+    if (raw.charAt(0) === '/') return raw;
+    return base + '/referrals';
+  }
+
   function activityHtml(item) {
-    var href = item.href || (base + '/referrals');
-    var cls = 'ma-bell__item' + (item.read ? '' : ' is-unread');
+    var href = activityOpenHref(item);
+    var cls = 'ma-bell__item ma-bell__item--activity' + (item.read ? '' : ' is-unread');
+    var id = esc(item.id || '');
     return (
-      '<a class="' + cls + '" href="' + esc(href) + '">' +
+      '<div class="' + cls + '" data-ma-bell-activity-row="' + id + '">' +
         '<strong>' + esc(item.title) + '</strong>' +
         (item.body ? '<span>' + esc(item.body) + '</span>' : '') +
-        '<small>' + esc(kindLabel(item.kind)) + ' · Open</small>' +
-      '</a>'
+        '<div class="ma-bell__ghl-actions">' +
+          '<a class="ma-bell__ghl-btn" href="' + esc(href) + '">Open</a>' +
+          '<button type="button" class="ma-bell__ghl-done" data-ma-bell-activity-done="' + id + '">Done</button>' +
+        '</div>' +
+      '</div>'
     );
+  }
+
+  function setClearVisible(on) {
+    if (!clearBtn) return;
+    clearBtn.hidden = !on;
+    if (!on) {
+      clearBtn.disabled = false;
+      clearBtn.textContent = 'Clear';
+    }
   }
 
   /**
@@ -150,6 +174,8 @@
       if (!ghl.length && !ghlEnabled) return true;
       return !GHL_KINDS[String(it.kind || '').toLowerCase()];
     });
+    inboxCount = activity.length + ghl.length;
+    setClearVisible(inboxCount > 0);
     if (!activity.length && !ghl.length) {
       listEl.innerHTML = '<p class="ma-bell__empty">' +
         (ghlEnabled ? 'No new alerts' : 'No new lead alerts') +
@@ -290,7 +316,68 @@
       });
   }
 
+  function removeActivityRow(id) {
+    if (!listEl || !id) return false;
+    var want = String(id);
+    var rows = listEl.querySelectorAll('[data-ma-bell-activity-row]');
+    for (var i = 0; i < rows.length; i += 1) {
+      if (rows[i].getAttribute('data-ma-bell-activity-row') === want) {
+        rows[i].remove();
+        inboxCount = Math.max(0, inboxCount - 1);
+        setClearVisible(inboxCount > 0 || ghlRowCount() > 0);
+        if (!listEl.querySelector('[data-ma-bell-activity-row], [data-ma-bell-ghl-row]')) {
+          listEl.innerHTML = '<p class="ma-bell__empty">' +
+            (ghlEnabled ? 'No new alerts' : 'No new lead alerts') +
+            '</p>';
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function markActivityDone(btn) {
+    var id = btn && btn.getAttribute('data-ma-bell-activity-done');
+    if (!id) return Promise.resolve();
+    btn.disabled = true;
+    btn.textContent = '…';
+    return post('/activity/clear', { ids: [id] })
+      .then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || 'Could not clear alert.');
+        removeActivityRow(id);
+        setPing(data.unread || 0);
+        return loadFeed();
+      })
+      .catch(function () {
+        if (btn.isConnected) {
+          btn.disabled = false;
+          btn.textContent = 'Retry';
+        }
+      });
+  }
+
+  function clearInbox() {
+    if (!clearBtn || clearBtn.disabled) return Promise.resolve();
+    clearBtn.disabled = true;
+    clearBtn.textContent = '…';
+    return post('/activity/clear', { ids: 'all' })
+      .then(function (data) {
+        if (!data || !data.success) throw new Error((data && data.error) || 'Could not clear alerts.');
+        setPing(data.unread || 0);
+        renderList(data.items || [], data.ghlItems || []);
+        return loadFeed();
+      })
+      .catch(function () {
+        if (clearBtn.isConnected) {
+          clearBtn.disabled = false;
+          clearBtn.textContent = 'Retry';
+        }
+        return loadFeed();
+      });
+  }
+
   function markAllRead() {
+    // Clears the red ping only — items stay in the sheet until Done / Clear.
     return fetch(base + '/activity/read', {
       method: 'POST',
       credentials: 'same-origin',
@@ -487,6 +574,13 @@
 
   if (pushEnable) pushEnable.addEventListener('click', enablePush);
   if (pushOff) pushOff.addEventListener('click', disablePush);
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      clearInbox();
+    });
+  }
   if (ghlToggle) {
     ghlToggle.addEventListener('change', function () {
       setGhlAlerts(!!ghlToggle.checked);
@@ -499,6 +593,13 @@
         e.preventDefault();
         e.stopPropagation();
         markGhlDoneAll(doneAll);
+        return;
+      }
+      var activityDone = e.target.closest('[data-ma-bell-activity-done]');
+      if (activityDone) {
+        e.preventDefault();
+        e.stopPropagation();
+        markActivityDone(activityDone);
         return;
       }
       var btn = e.target.closest('[data-ma-bell-ghl-done]');
