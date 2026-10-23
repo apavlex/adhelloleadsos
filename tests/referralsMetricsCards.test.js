@@ -53,3 +53,15 @@ test('admin workspace signup link renders above the summary cards', () => {
   const cardsAt = html.indexOf('grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6');
   assert.ok(joinAt > -1 && cardsAt > joinAt, 'signup link should sit above the metric cards');
 });
+
+test('News & updates sits under the workspace signup link on Referral Network', () => {
+  assert.match(html, /partials\/network_news_updates/);
+  assert.match(route, /networkMemberTotals/);
+  assert.match(route, /networkNewsPosts/);
+  assert.match(route, /networkNews\.list/);
+  const joinAt = html.indexOf('id="ref-join-link"');
+  const newsAt = html.indexOf("include('partials/network_news_updates')");
+  const cardsAt = html.indexOf('grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6');
+  assert.ok(joinAt > -1 && newsAt > joinAt, 'News & updates should sit under the signup link');
+  assert.ok(cardsAt > newsAt, 'News & updates should sit above the Partners / Connected cards');
+});

@@ -1,5 +1,12 @@
-<%# News & updates — workspace → Reviews-app members (app alert and/or SMS). %>
-<% if (typeof canManage !== 'undefined' && canManage && totals && totals.members) { %>
+<%# News & updates — workspace → Reviews-app members (app alert and/or SMS).
+    Accepts canManage + totals.members on Referral Leads, or networkMemberTotals on Referral Network. %>
+<%
+  const newsCanManage = typeof canManage !== 'undefined' ? !!canManage : !!(typeof canShareJoinUrl !== 'undefined' && canShareJoinUrl);
+  const newsTotals = (typeof networkMemberTotals !== 'undefined' && networkMemberTotals)
+    ? networkMemberTotals
+    : (typeof totals !== 'undefined' ? totals : null);
+%>
+<% if (newsCanManage && newsTotals && newsTotals.members) { %>
 <details class="net-card net-more mb-4" id="net-message-members" <%= typeof notice !== 'undefined' && notice && /Posted news|phone alert|News & updates|text/i.test(String(notice)) ? 'open' : '' %>>
   <summary class="flex items-center justify-between gap-2">
     <span class="font-display font-bold">News &amp; updates</span>
@@ -33,9 +40,9 @@
     <div>
       <label class="net-label" for="netBroadcastAudience">Audience</label>
       <select id="netBroadcastAudience" name="audience" class="net-input">
-        <option value="all">All active members (<%= totals.members %>)</option>
-        <option value="free">App trial only (<%= totals.freeMembers %>)</option>
-        <option value="partner">Partners only (<%= totals.partnerMembers %>)</option>
+        <option value="all">All active members (<%= newsTotals.members %>)</option>
+        <option value="free">App trial only (<%= newsTotals.freeMembers || 0 %>)</option>
+        <option value="partner">Partners only (<%= newsTotals.partnerMembers || 0 %>)</option>
       </select>
     </div>
     <button type="submit" class="net-btn net-btn-yellow" onclick="return confirm('Post this update and notify the selected members?');">Post update</button>

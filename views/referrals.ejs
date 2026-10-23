@@ -147,6 +147,21 @@
     .ref-niche-body strong { display: block; font-weight: 700; }
     .ref-niche-body em { display: block; font-style: normal; font-size: 0.74rem; line-height: 1.3; color: #64748b; margin-top: 0.1rem; }
     .ref-niche-form { margin-top: 0.9rem; }
+    /* News & updates panel (shared partial uses net-* classes). */
+    .net-card { border: 1px solid rgba(15, 23, 42, 0.08); background: #fff; border-radius: 1.35rem; padding: 1rem 1.05rem; }
+    html.dark .net-card { background: rgba(15, 23, 42, 0.78); border-color: rgba(255, 255, 255, 0.08); }
+    .net-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0.45rem 0.85rem; font-size: 0.74rem; font-weight: 700; line-height: 1; white-space: nowrap; border: 1px solid transparent; cursor: pointer; text-decoration: none; }
+    .net-btn-yellow { background: var(--brand-yellow, #FFD644); color: var(--brand-on-accent, #111827); }
+    .net-btn-yellow:hover { background: color-mix(in srgb, var(--brand-yellow, #FFD644) 88%, #000); }
+    .net-btn-ghost { background: transparent; border-color: rgba(15, 23, 42, 0.14); color: inherit; }
+    html.dark .net-btn-ghost { border-color: rgba(255, 255, 255, 0.16); }
+    .net-btn-ghost:hover { border-color: var(--brand-yellow, #FFD644); }
+    .net-label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #64748b; margin-bottom: 0.3rem; }
+    .net-input { width: 100%; border-radius: 0.85rem; border: 1px solid rgba(148, 163, 184, 0.4); background: rgba(248, 250, 252, 0.9); padding: 0.6rem 0.75rem; font-size: 0.875rem; color: inherit; }
+    html.dark .net-input { background: rgba(2, 6, 23, 0.45); border-color: rgba(255, 255, 255, 0.12); color: #f8fafc; }
+    .net-checks { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    details.net-more > summary { list-style: none; cursor: pointer; }
+    details.net-more > summary::-webkit-details-marker { display: none; }
   </style>
   <%- include('partials/tailwind_css') %>
 </head>
@@ -220,6 +235,9 @@
       })();
     </script>
     <% } %>
+
+    <%# News & updates under the workspace signup link (owners/admins/managers). %>
+    <%- include('partials/network_news_updates') %>
 
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
       <div class="ref-stat">
