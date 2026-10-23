@@ -149,6 +149,20 @@ router.get('/', async (req, res, next) => {
     const paidPartnerCount = showFreePaidUi
       ? partners.filter((p) => p.hasSeat && !p.isAppFree).length
       : 0;
+
+    // Admin share link so businesses signup onto this workspace’s network.
+    let networkJoinUrl = '';
+    if (network && req.canManageWorkspace !== false) {
+      try {
+        const freeAppSignup = require('../services/freeAppSignup');
+        const { getNetworkJoinUrl } = require('../lib/publicBaseUrl');
+        const joinSlug = await freeAppSignup.getOrEnsureJoinSlug(network);
+        networkJoinUrl = getNetworkJoinUrl(joinSlug);
+      } catch (_) {
+        networkJoinUrl = '';
+      }
+    }
+
     res.render('referrals', {
       networkSetup: {
         trades: network ? tradesForNetwork(network).map((t) => ({ slug: t.slug, name: t.name })) : [],
@@ -171,6 +185,8 @@ router.get('/', async (req, res, next) => {
       nicheDescription: describeBusiness(ws),
       canManageNiches: req.canManageWorkspace !== false,
       openNiches: req.query.niches === '1',
+      networkJoinUrl,
+      canShareJoinUrl: req.canManageWorkspace !== false,
     });
   } catch (err) {
     next(err);
