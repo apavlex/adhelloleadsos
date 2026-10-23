@@ -38,6 +38,9 @@ const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
 const reviewAsk = require('../services/reviewAsk');
 const reviewReferralReward = require('../services/reviewReferralReward');
+const businessReviews = require('../services/businessReviews');
+const outscraper = require('../services/outscraperClient');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const memberActivity = require('../services/memberActivity');
 const memberGhlAlerts = require('../services/memberGhlAlerts');
@@ -57,7 +60,7 @@ const whiteLabel = require('../services/whiteLabel');
 const demoWorkspace = require('../services/demoWorkspace');
 const workspaceTeammatePush = require('../services/workspaceTeammatePush');
 const workspaceService = require('../services/workspaceService');
-const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
+const { getPublicBaseUrl, getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 const { ICONS } = require('../services/memberAppIcons');
 const voiceTranscription = require('../services/voiceTranscription');
 const memberVoiceCustomerParse = require('../services/memberVoiceCustomerParse');
@@ -213,6 +216,7 @@ const OK_MESSAGES = {
   crm_sync_upgrade: 'CRM sync is on the monthly plan. Upgrade to activate it.',
   referrals_upgrade: 'Referrals are on the monthly plan. Upgrade to start getting referrals for your business.',
   review_send_upgrade: 'Texting and emailing review requests needs a GHL CRM account on the monthly plan. Use Share or QR for free, or upgrade to send via GHL CRM.',
+  google_reviews_upgrade: 'Google review inbox (Outscraper sync + AI replies) is on the monthly plan.',
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
   closed: 'Lead marked closed.',
   push: 'Lead alerts are on for this phone.',
@@ -2841,10 +2845,41 @@ function reviewPageLocals(member, extras, brand) {
   };
 }
 
+async function googleReviewsLocals(ctx, member, req) {
+  const paid = businessReviews.isPaidMember(member);
+  const sid = businessReviews.memberStorageId(ctx.network.id, member.id);
+  const settings = businessReviews.getSettings(sid);
+  const grStore = paid ? businessReviews.getStore(sid) : businessReviews.getStore('');
+  const summary = businessReviews.inboxSummary(grStore);
+  let outscraperConfigured = false;
+  let queryHint = '';
+  try {
+    const lead = member.leadKey
+      ? await dbService.getLead(member.leadKey, ctx.network.ownerWorkspaceId).catch(() => null)
+      : null;
+    queryHint = businessReviews.resolveQueryFromMember(member, lead);
+    if (ctx.network.ownerWorkspaceId) {
+      const env = await workspaceIntegrations.getResolvedIntegrationEnv(ctx.network.ownerWorkspaceId);
+      outscraperConfigured = outscraper.isConfigured(env);
+    }
+  } catch (_) { /* ignore */ }
+  const q = (req && req.query) || {};
+  return {
+    googleReviewsPaid: paid,
+    googleReviewsLocked: !paid,
+    googleReviewsSettings: settings,
+    googleReviewsSummary: summary,
+    googleReviews: paid ? grStore.reviews : [],
+    googleReviewsOutscraper: outscraperConfigured,
+    googleReviewsQueryHint: queryHint,
+    googleReviewFocusId: String(q.googleReview || q.review || '').trim(),
+  };
+}
+
 async function renderReview(req, res, ctx, flash, status, formValues) {
   const member = await ensureReviewSetup(ctx);
   const rewardLocked = freeAppSignup.isAppFreeMember(member);
-  const [stats, feedback, messaging, customers, pendingRewardAsks] = await Promise.all([
+  const [stats, feedback, messaging, customers, pendingRewardAsks, googleReviews] = await Promise.all([
     store.getReviewStats(ctx.network.id, member.id),
     store.listFeedback(ctx.network.id, member.id),
     notify.messagingReadyForNetwork(ctx.network),
@@ -2856,6 +2891,7 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
         memberId: member.id,
         limit: 20,
       }),
+    googleReviewsLocals(ctx, member, req),
   ]);
   const totalStars = Object.values(stats.stars).reduce((a, b) => a + b, 0);
   const q = req.query || {};
@@ -2954,6 +2990,7 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
     flash: flash || flashFromQuery(req),
+    ...googleReviews,
   }, ctx.brand), status);
 }
 
@@ -2974,6 +3011,80 @@ async function renderReviewSettings(req, res, ctx, flash, status) {
 
 router.get('/m/:token/review', withMember((req, res, ctx) => renderReview(req, res, ctx)));
 router.get('/m/:token/review/settings', withMember((req, res, ctx) => renderReviewSettings(req, res, ctx)));
+
+router.post('/m/:token/review/google-reviews/settings', express.json(), withMemberApi(async (req, res, ctx) => {
+  if (!businessReviews.isPaidMember(ctx.member)) {
+    return res.status(402).json({
+      success: false,
+      error: OK_MESSAGES.google_reviews_upgrade || 'Monthly plan required.',
+      paidOnly: true,
+    });
+  }
+  const member = await ensureReviewSetup(ctx);
+  const sid = businessReviews.memberStorageId(ctx.network.id, member.id);
+  const body = req.body || {};
+  const settings = businessReviews.saveSettings(sid, {
+    query: body.query,
+    businessName: body.businessName != null ? body.businessName : member.companyName,
+    autoSync: body.autoSync === undefined ? undefined : !!body.autoSync,
+  });
+  return res.json({ success: true, settings });
+}));
+
+router.post('/m/:token/review/google-reviews/sync', express.json(), withMemberApi(async (req, res, ctx) => {
+  try {
+    const member = await ensureReviewSetup(ctx);
+    const body = req.body || {};
+    const result = await businessReviews.syncMember(ctx.network, member, {
+      query: body.query,
+      businessName: body.businessName,
+      autoSync: body.autoSync === undefined ? undefined : !!body.autoSync,
+      force: body.force === true || body.force === '1',
+      baseUrl: getReviewPublicBaseUrl() || getPublicBaseUrl(req) || undefined,
+    });
+    return res.json({
+      success: true,
+      skipped: !!result.skipped,
+      newCount: result.newCount || 0,
+      summary: businessReviews.inboxSummary(result.store),
+      reviews: result.store.reviews,
+      settings: result.settings,
+    });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      error: e.message || 'Sync failed',
+      code: e.code,
+      paidOnly: e.code === 'PAID_ONLY',
+    });
+  }
+}));
+
+router.post('/m/:token/review/google-reviews/:id/draft-reply', express.json(), withMemberApi(async (req, res, ctx) => {
+  try {
+    const member = await ensureReviewSetup(ctx);
+    const result = await businessReviews.draftMemberReply(ctx.network, member, req.params.id, {
+      businessName: (req.body && req.body.businessName) || member.companyName,
+    });
+    return res.json({ success: true, ...result });
+  } catch (e) {
+    return res.status(e.status || 500).json({
+      success: false,
+      error: e.message || 'AI draft failed',
+      code: e.code,
+      paidOnly: e.code === 'PAID_ONLY',
+    });
+  }
+}));
+
+router.post('/m/:token/review/google-reviews/mark-all-seen', express.json(), withMemberApi(async (req, res, ctx) => {
+  if (!businessReviews.isPaidMember(ctx.member)) {
+    return res.status(402).json({ success: false, error: 'Monthly plan required.', paidOnly: true });
+  }
+  const sid = businessReviews.memberStorageId(ctx.network.id, ctx.member.id);
+  const grStore = businessReviews.markAllSeen(sid);
+  return res.json({ success: true, summary: businessReviews.inboxSummary(grStore) });
+}));
 
 /**
  * Owner preview of the public request page — served under /m/:token so it stays

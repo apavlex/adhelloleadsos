@@ -148,4 +148,52 @@ describe('businessReviews', () => {
     assert.match(view, /Unlock your Google review inbox/);
     assert.match(sched, /businessReviews\.syncDueWorkspaces/);
   });
+
+  it('resolveQueryFromMember prefers Google place id / review link', () => {
+    assert.equal(
+      businessReviews.resolveQueryFromMember({
+        companyName: 'Acme',
+        reviewLinks: {
+          google: 'https://search.google.com/local/writereview?placeid=ChIJabc1234567',
+        },
+      }),
+      'ChIJabc1234567'
+    );
+    assert.match(
+      businessReviews.resolveQueryFromMember({
+        companyName: 'Acme Floors',
+        reviewLinks: { google: 'https://g.page/r/xyz/review' },
+      }),
+      /g\.page/
+    );
+    assert.equal(
+      businessReviews.resolveQueryFromMember(
+        { companyName: 'Acme Floors', reviewLinks: {} },
+        { city: 'Portland', state: 'OR' }
+      ),
+      'Acme Floors, Portland, OR'
+    );
+  });
+
+  it('memberStorageId scopes settings separately from workspace', () => {
+    const sid = businessReviews.memberStorageId('net1', 'mem1');
+    assert.equal(sid, 'member:net1:mem1');
+    businessReviews.saveSettings(sid, { query: 'ChIJmember', businessName: 'Member Co' });
+    assert.equal(businessReviews.getSettings(sid).query, 'ChIJmember');
+    assert.equal(businessReviews.getSettings(WID).query, '');
+    dbService.deleteKvSync(businessReviews.SETTINGS_PREFIX + sid);
+  });
+
+  it('member Review page embeds Google reviews inbox', () => {
+    const review = fs.readFileSync(path.join(__dirname, '../views/member_app/review.ejs'), 'utf8');
+    const partial = fs.readFileSync(path.join(__dirname, '../views/member_app/_google_reviews.ejs'), 'utf8');
+    const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
+    assert.match(review, /_google_reviews/);
+    assert.match(partial, /Generate with AI/);
+    assert.match(partial, /Copy reply/);
+    assert.match(partial, /See Google reviews/);
+    assert.match(route, /google-reviews\/sync/);
+    assert.match(route, /draftMemberReply|draft-reply/);
+    assert.match(route, /syncMember/);
+  });
 });

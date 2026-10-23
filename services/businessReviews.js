@@ -1,6 +1,10 @@
 /**
  * Paid Business Reviews inbox — pull Google reviews via Outscraper, notify on
  * new ones, and draft AI owner replies for copy/paste into Google.
+ *
+ * Storage ids:
+ *   - Agency OS workspace → bare workspaceId
+ *   - Reviews app member → member:{networkId}:{memberId}
  */
 const crypto = require('crypto');
 const dbService = require('./database');
@@ -8,6 +12,7 @@ const outscraper = require('./outscraperClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const notificationLog = require('./notificationLog');
 const trials = require('./trials');
+const freeAppSignup = require('./freeAppSignup');
 const { reviewDateFromRow } = require('./reviewFreshness');
 const { chatCompletion, parseLlmJson } = require('./llmClient');
 
@@ -20,12 +25,55 @@ const MIN_SYNC_GAP_MS = Math.max(
   parseInt(process.env.BUSINESS_REVIEWS_MIN_SYNC_MS || String(30 * 60 * 1000), 10) || 30 * 60 * 1000
 );
 
-function settingsKey(wid) {
-  return `${SETTINGS_PREFIX}${String(wid || '').trim()}`;
+function memberStorageId(networkId, memberId) {
+  const nid = String(networkId || '').trim();
+  const mid = String(memberId || '').trim();
+  if (!nid || !mid) return '';
+  return `member:${nid}:${mid}`;
 }
 
-function storeKey(wid) {
-  return `${STORE_PREFIX}${String(wid || '').trim()}`;
+function settingsKey(storageId) {
+  return `${SETTINGS_PREFIX}${String(storageId || '').trim()}`;
+}
+
+function storeKey(storageId) {
+  return `${STORE_PREFIX}${String(storageId || '').trim()}`;
+}
+
+/** Paid Reviews-app member (monthly plan — not free / flooring free tier). */
+function isPaidMember(member) {
+  return !!member && !freeAppSignup.isAppFreeMember(member);
+}
+
+/**
+ * Best Outscraper query from the member's Google review link / company.
+ * @param {object} member
+ * @param {object|null} [lead]
+ */
+function resolveQueryFromMember(member, lead) {
+  const google = String((member && member.reviewLinks && member.reviewLinks.google) || '').trim();
+  if (google) {
+    try {
+      const u = new URL(google);
+      const placeId =
+        u.searchParams.get('placeid') ||
+        u.searchParams.get('placeId') ||
+        u.searchParams.get('query_place_id') ||
+        '';
+      if (placeId && /^[A-Za-z0-9_-]{10,}$/.test(placeId)) return placeId;
+    } catch { /* ignore */ }
+    if (/^https?:\/\//i.test(google)) return google;
+  }
+  const pid = String((lead && (lead.placeId || lead.place_id)) || '').trim();
+  if (pid && /^[A-Za-z0-9_-]{10,}$/.test(pid)) return pid;
+  const maps = String((lead && (lead.url || lead.googlePlaces)) || '').trim();
+  if (maps) return maps;
+  const parts = [
+    member && member.companyName,
+    lead && lead.city,
+    lead && lead.state,
+  ].filter((p) => p && String(p).trim());
+  return parts.join(', ');
 }
 
 function readJson(key, fallback) {
@@ -427,19 +475,20 @@ function markAllSeen(workspaceId) {
 
 /**
  * AI draft owner reply for a Google review (copy/paste into Google).
+ * @param {string} storageId workspace id or memberStorageId(...)
  */
-async function draftReply(workspaceId, reviewId, opts = {}) {
-  const wid = String(workspaceId || '').trim();
-  const ws = opts.workspace || (await dbService.getWorkspace(wid));
-  if (!isPaidWorkspace(ws)) {
-    const err = new Error('AI review replies are available on paid plans.');
-    err.code = 'PAID_ONLY';
-    err.status = 402;
+async function draftReplyForStorage(storageId, reviewId, opts = {}) {
+  const sid = String(storageId || '').trim();
+  const meteringWs = opts.meteringWorkspace || opts.workspace || null;
+  if (!meteringWs) {
+    const err = new Error('Workspace required for AI replies.');
+    err.code = 'WORKSPACE_REQUIRED';
+    err.status = 500;
     throw err;
   }
 
-  const store = getStore(wid);
-  const settings = getSettings(wid);
+  const store = getStore(sid);
+  const settings = getSettings(sid);
   const review = store.reviews.find((r) => r.id === reviewId);
   if (!review) {
     const err = new Error('Review not found. Sync reviews first.');
@@ -449,10 +498,12 @@ async function draftReply(workspaceId, reviewId, opts = {}) {
   }
 
   const businessName =
-    clean(opts.businessName || settings.businessName || store.placeName || (ws && ws.name), 120) ||
-    'our team';
+    clean(
+      opts.businessName || settings.businessName || store.placeName || (meteringWs && meteringWs.name),
+      120
+    ) || 'our team';
 
-  const ai = await trials.runMetered(ws, () =>
+  const ai = await trials.runMetered(meteringWs, () =>
     chatCompletion({
       messages: [
         {
@@ -521,14 +572,236 @@ Return JSON only: {"reply":"the full reply text"}`,
       ? { ...r, replyDraft: reply, replyDraftAt: now, isNew: false }
       : r
   );
-  saveStore(wid, store);
+  saveStore(sid, store);
 
   return {
     reviewId,
     reply,
     replyDraftAt: now,
-    review: getReview(wid, reviewId),
+    review: getReview(sid, reviewId),
   };
+}
+
+async function draftReply(workspaceId, reviewId, opts = {}) {
+  const wid = String(workspaceId || '').trim();
+  const ws = opts.workspace || (await dbService.getWorkspace(wid));
+  if (!isPaidWorkspace(ws)) {
+    const err = new Error('AI review replies are available on paid plans.');
+    err.code = 'PAID_ONLY';
+    err.status = 402;
+    throw err;
+  }
+  return draftReplyForStorage(wid, reviewId, { ...opts, meteringWorkspace: ws });
+}
+
+async function notifyMemberNewReviews(network, member, newOnes, { baseUrl } = {}) {
+  if (!newOnes.length || !network || !member) return [];
+  const memberActivity = require('./memberActivity');
+  const push = require('./pushNotifications');
+  const notify = require('./networkNotify');
+  const root = String(baseUrl || process.env.BASE_URL || 'https://reviews.adhello.io')
+    .trim()
+    .replace(/\/$/, '');
+  const portal = notify.memberPortalLink(root, network, member);
+  const biz = clean(member.companyName, 80) || 'your business';
+  const entries = [];
+  const top = newOnes.slice(0, 5);
+  for (const r of top) {
+    const stars = r.rating != null ? `${r.rating}★` : 'New';
+    const who = r.author || 'a customer';
+    const snippet = r.text ? clean(r.text, 120) : 'No written comment';
+    const href = `${portal}/review?googleReview=${encodeURIComponent(r.id)}`;
+    const title = `${stars} Google review from ${who}`;
+    const body = `${biz}: ${snippet}`;
+    const entry = memberActivity.add(network.id, member.id, {
+      kind: 'google_review',
+      title,
+      body,
+      href,
+    });
+    if (entry) entries.push(entry);
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await push.sendMemberPush(
+        {
+          networkId: network.id,
+          memberId: member.id,
+          workspaceId: network.ownerWorkspaceId,
+        },
+        {
+          title,
+          body,
+          url: href,
+          tag: `google-review-${r.id}`.slice(0, 64),
+        }
+      );
+    } catch (err) {
+      console.warn('[businessReviews] member push failed:', err && err.message);
+    }
+  }
+  if (newOnes.length > top.length) {
+    memberActivity.add(network.id, member.id, {
+      kind: 'google_review',
+      title: `${newOnes.length - top.length} more new Google reviews`,
+      body: `Open Review to draft replies for ${biz}.`,
+      href: `${portal}/review`,
+    });
+  }
+  return entries;
+}
+
+/**
+ * Sync Google reviews for a Reviews-app member (uses network owner Outscraper keys).
+ */
+async function syncMember(network, member, opts = {}) {
+  if (!network || !member) throw new Error('Network and member required');
+  if (!isPaidMember(member)) {
+    const err = new Error('Google review inbox is on the monthly plan. Upgrade to unlock it.');
+    err.code = 'PAID_ONLY';
+    err.status = 402;
+    throw err;
+  }
+
+  const sid = memberStorageId(network.id, member.id);
+  const wid = String(network.ownerWorkspaceId || '').trim();
+  if (!wid) {
+    const err = new Error('This network is missing an owner workspace.');
+    err.code = 'NO_WORKSPACE';
+    err.status = 500;
+    throw err;
+  }
+
+  const ws = opts.workspace || (await dbService.getWorkspace(wid));
+  let lead = opts.lead || null;
+  if (!lead && member.leadKey) {
+    lead = await dbService.getLead(member.leadKey, wid).catch(() => null);
+  }
+
+  let settings = getSettings(sid);
+  const inferred = resolveQueryFromMember(member, lead);
+  const query = clean(opts.query != null ? opts.query : settings.query || inferred, 500);
+  if (!query) {
+    const err = new Error('Add your Google review link in Review settings, then sync.');
+    err.code = 'QUERY_REQUIRED';
+    err.status = 400;
+    throw err;
+  }
+
+  if (
+    opts.query != null ||
+    !settings.query ||
+    !settings.businessName ||
+    (opts.businessName != null && opts.businessName !== settings.businessName)
+  ) {
+    settings = saveSettings(sid, {
+      query,
+      businessName:
+        opts.businessName != null
+          ? opts.businessName
+          : settings.businessName || clean(member.companyName, 160),
+      autoSync:
+        opts.autoSync != null ? !!opts.autoSync : settings.autoSync !== false,
+    });
+  }
+
+  const store = getStore(sid);
+  if (!opts.force && store.lastSyncedAt) {
+    const last = Date.parse(store.lastSyncedAt) || 0;
+    if (last && Date.now() - last < MIN_SYNC_GAP_MS && store.reviews.length) {
+      return {
+        ok: true,
+        skipped: true,
+        reason: 'recently_synced',
+        settings,
+        store,
+        newCount: 0,
+      };
+    }
+  }
+
+  const integrationEnv =
+    opts.integrationEnv || (await workspaceIntegrations.getResolvedIntegrationEnv(wid));
+  if (!outscraper.isConfigured(integrationEnv)) {
+    const err = new Error(
+      'Your agency needs Outscraper connected (Workspace → Integrations) to sync Google reviews.'
+    );
+    err.code = 'OUTSCRAPER_NOT_CONFIGURED';
+    err.status = 400;
+    throw err;
+  }
+
+  let pack;
+  try {
+    pack = await trials.runMetered(ws || { id: wid }, () =>
+      outscraper.fetchGoogleMapsReviews({
+        query,
+        reviewsLimit: settings.reviewsLimit,
+        sort: 'newest',
+        integrationEnv,
+      })
+    );
+  } catch (e) {
+    saveStore(sid, {
+      ...store,
+      lastError: e.message || 'Outscraper sync failed',
+    });
+    throw e;
+  }
+
+  const markNew = store.knownIds.length > 0 || store.reviews.length > 0;
+  const { reviews, newOnes } = mergeReviews(store.reviews, pack.reviews || [], { markNew });
+  const placeName =
+    clean((pack.place && (pack.place.name || pack.place.title)) || settings.businessName, 200) ||
+    settings.businessName ||
+    clean(member.companyName, 200);
+  const nextStore = {
+    reviews,
+    placeRating: pack.placeRating != null ? pack.placeRating : store.placeRating,
+    placeReviewsCount:
+      pack.placeReviewsCount != null ? pack.placeReviewsCount : store.placeReviewsCount,
+    placeName,
+    lastSyncedAt: new Date().toISOString(),
+    lastError: null,
+    knownIds: reviews.map((r) => r.id),
+  };
+  saveStore(sid, nextStore);
+
+  if (!settings.businessName && placeName) {
+    settings = saveSettings(sid, { businessName: placeName });
+  }
+
+  const notifications =
+    opts.notify === false
+      ? []
+      : await notifyMemberNewReviews(network, member, newOnes, {
+          baseUrl: opts.baseUrl,
+        });
+
+  return {
+    ok: true,
+    skipped: false,
+    settings: getSettings(sid),
+    store: nextStore,
+    newCount: newOnes.length,
+    newOnes,
+    notifications,
+  };
+}
+
+async function draftMemberReply(network, member, reviewId, opts = {}) {
+  if (!isPaidMember(member)) {
+    const err = new Error('AI review replies are on the monthly plan. Upgrade to unlock them.');
+    err.code = 'PAID_ONLY';
+    err.status = 402;
+    throw err;
+  }
+  const sid = memberStorageId(network.id, member.id);
+  const wid = String(network.ownerWorkspaceId || '').trim();
+  const ws = opts.workspace || (await dbService.getWorkspace(wid));
+  return draftReplyForStorage(sid, reviewId, {
+    meteringWorkspace: ws || { id: wid },
+    businessName: opts.businessName || member.companyName,
+  });
 }
 
 /**
@@ -558,6 +831,65 @@ async function syncDueWorkspaces(opts = {}) {
       results.push({ workspaceId: wid, ok: false, error: e.message });
     }
   }
+
+  const memberResults = await syncDueMembers({ force: !!opts.force, baseUrl: opts.baseUrl });
+  return results.concat(memberResults);
+}
+
+/** Background sync for paid Reviews-app members with auto-sync on. */
+async function syncDueMembers(opts = {}) {
+  const store = require('./networkStore');
+  const results = [];
+  let networkIds = opts.networkIds;
+  if (!networkIds) {
+    const keys = await dbService.listStorageKeysWithPrefix('network:');
+    networkIds = keys
+      .map((k) => String(k || '').replace(/^network:/, ''))
+      .filter(Boolean);
+  }
+  for (const nid of networkIds) {
+    // eslint-disable-next-line no-await-in-loop
+    const network = await store.getNetwork(nid);
+    if (!network || !network.ownerWorkspaceId) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const members = await store.listMembers(nid);
+    for (const member of members) {
+      if (!member || member.status === 'paused') continue;
+      if (!isPaidMember(member)) continue;
+      const sid = memberStorageId(network.id, member.id);
+      const settings = getSettings(sid);
+      const inferred = resolveQueryFromMember(member, null);
+      if (!settings.autoSync) continue;
+      if (!settings.query && !inferred && !(member.reviewLinks && member.reviewLinks.google)) continue;
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const r = await syncMember(network, member, {
+          force: !!opts.force,
+          baseUrl: opts.baseUrl,
+        });
+        results.push({
+          networkId: network.id,
+          memberId: member.id,
+          ok: true,
+          skipped: !!r.skipped,
+          newCount: r.newCount || 0,
+        });
+      } catch (e) {
+        console.warn(
+          '[businessReviews] member sync %s/%s failed: %s',
+          network.id,
+          member.id,
+          e && e.message
+        );
+        results.push({
+          networkId: network.id,
+          memberId: member.id,
+          ok: false,
+          error: e.message,
+        });
+      }
+    }
+  }
   return results;
 }
 
@@ -583,14 +915,21 @@ module.exports = {
   SETTINGS_PREFIX,
   STORE_PREFIX,
   MIN_SYNC_GAP_MS,
+  memberStorageId,
   isPaidWorkspace,
+  isPaidMember,
+  resolveQueryFromMember,
   getSettings,
   saveSettings,
   getStore,
   getReview,
   syncWorkspace,
+  syncMember,
   syncDueWorkspaces,
+  syncDueMembers,
   draftReply,
+  draftMemberReply,
+  draftReplyForStorage,
   markReviewSeen,
   markAllSeen,
   normalizeStoredReview,
@@ -598,4 +937,5 @@ module.exports = {
   mergeReviews,
   inboxSummary,
   notifyNewReviews,
+  notifyMemberNewReviews,
 };
