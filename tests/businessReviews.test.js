@@ -226,13 +226,14 @@ describe('businessReviews', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const svc = fs.readFileSync(path.join(__dirname, '../services/businessReviews.js'), 'utf8');
     assert.match(review, /_google_reviews/);
-    // Synced inbox is above the QR card so biz reviews aren’t buried.
-    assert.ok(review.indexOf("_google_reviews") < review.indexOf('ma-qr'));
+    // QR / request-review stay primary; Google inbox is a fold below.
+    assert.ok(review.indexOf('ma-qr') < review.indexOf('_google_reviews'));
+    assert.match(review, /Show your QR/);
     assert.match(partial, /Generate with AI/);
     assert.match(partial, /Copy reply/);
     assert.match(partial, /See Google reviews/);
     assert.match(partial, /AdHello/);
-    assert.match(partial, /_grShowInbox/);
+    assert.match(partial, /ma-fold/);
     assert.match(partial, /maGrList/);
     assert.match(partial, /ma-gr-review/);
     assert.match(partial, /Google request-site link/);

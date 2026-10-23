@@ -6,8 +6,8 @@
 <body>
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Review', topSettings: { href: base + '/review/settings', label: 'Review settings' } }) %>
-    <h1 class="ma-page-title">Reviews</h1>
-    <p class="ma-page-sub">See Google reviews &amp; draft replies — or show your QR so customers can leave one.</p>
+    <h1 class="ma-page-title">Show your QR</h1>
+    <p class="ma-page-sub">Let the customer scan to leave a review — or text them a link below.</p>
 
     <%- include('_flash') %>
 
@@ -23,9 +23,6 @@
       rewardReturnTo: base + '/review',
     }) %>
     <% } %>
-
-    <%/* Google review inbox first when synced — was easy to miss collapsed under the QR. */%>
-    <%- include('_google_reviews') %>
 
     <section class="ma-card ma-qr" style="margin-top:4px" aria-label="Share and QR code">
       <% if (_needLinks) { %>
@@ -75,6 +72,8 @@
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/review/preview">Preview</a>
       </div>
     </section>
+
+    <%- include('_google_reviews') %>
 
     <% const _sendLocked = typeof reviewSendLocked !== 'undefined' && reviewSendLocked; %>
     <% /* Only open when ?ask=1 (customer deep-link). Default Review landing stays on QR. */ %>
