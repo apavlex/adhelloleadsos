@@ -37,6 +37,18 @@ const CRM_PATTERNS = [
   /\bteam\s?mates?\b|\bteam members?\b|\bmy team\b/i,
   /\bfind\s+\d+\s+\w+/i,
   /\b(find|search for|pull|get)\b.+\bin\s+[a-z .'-]+,?\s+[a-z]{2}\b/i,
+  /\bpool\s+jobs?\b|\bpost\b.+\b(craigslist|marketplace|pool)\b|\blist\b.+\bpool\b/i,
+  /\bops\s+agents?\b|\bprospect\s+sdr\b|\bnetwork\s+coach\b|\bdispatcher\b/i,
+  /\bappointments?\b|\bappointment\s+(package|pool|marketplace|slots?)\b/i,
+  /\bfield\s+work\b|\bcrew\b.+\b(jobs?|schedule|calendar)\b|\boverdue\s+jobs?\b/i,
+  /\b(send|text|sms|email)\b.+\b(lead|them|him|her)\b|\bsend_sms\b|\bsend_email\b/i,
+  /\b(import|csv|spreadsheet)\b|\bduplicate\s+leads?\b|\bmerge\s+leads?\b/i,
+  /\bschedule\s+(search|searches)\b|\bfolder\s+search\b|\bsearch\s+schedules?\b/i,
+  /\bcall\s+queue\b|\blog\s+(the\s+)?call\b|\bcadence\b/i,
+  /\bmarketing\s+studio\b|\bdirect\s+mail\b|\bpostcard\b|\bbrand\s+kit\b|\bmail\s+playbook/i,
+  /\bsocial\s+posts?\b|\binstagram\b|\btiktok\b|\blinkedin\s+post\b/i,
+  /\bfacebook\s+groups?\b|\bfb\s+groups?\b|\bfb\s+scripts?\b/i,
+  /\bsops?\b|\bstandard\s+operating\s+procedure/i,
 ];
 
 function isCrmIntent(message) {

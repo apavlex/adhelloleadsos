@@ -8,6 +8,51 @@ const store = require('./networkStore');
 const ex = require('./referralExchange');
 const notify = require('./networkNotify');
 
+/**
+ * Post a job/project into the trades pool (always unrouted for partners to claim).
+ * Use for Craigslist / Marketplace listings with a reply URL — does not auto-route
+ * to the seat holder even when one exists.
+ */
+async function postPoolJob({ network, input, by, baseUrl }) {
+  const built = ex.buildPoolListing({ ...input, fromMemberId: 'operator', by });
+  if (!built.ok) return built;
+  if (!network.trades.includes(built.referral.tradeSlug)) {
+    return { ok: false, error: 'That trade is not in this network.' };
+  }
+
+  const [zones, members] = await Promise.all([
+    store.listZones(network.id),
+    store.listMembers(network.id),
+  ]);
+  const zone = built.referral.zoneId
+    ? zones.find((z) => z.id === built.referral.zoneId) || null
+    : ex.resolveZone(zones, { city: built.referral.homeowner.city, zip: built.referral.homeowner.zip });
+
+  const stamp = new Date().toISOString();
+  const referral = await store.saveReferral(network.id, {
+    ...built.referral,
+    id: store.newId(),
+    zoneId: zone ? zone.id : built.referral.zoneId || '',
+    toMemberId: null,
+    status: 'unrouted',
+    unroutedReason: 'pool_listing',
+    poolListing: true,
+    updatedAt: stamp,
+  });
+
+  const poolNotified = await notify.notifyReferralPool({ network, referral, baseUrl })
+    .catch(() => 0);
+  return {
+    ok: true,
+    referral,
+    zone,
+    route: { toMemberId: null, status: 'unrouted', reason: 'pool_listing' },
+    notified: null,
+    poolNotified,
+    members,
+  };
+}
+
 async function sendReferral({ network, input, fromMemberId, by, baseUrl, toMemberId }) {
   const built = ex.buildReferral({ ...input, fromMemberId: fromMemberId || 'operator', by });
   if (!built.ok) return built;
@@ -200,6 +245,7 @@ module.exports = {
   removeMemberFromTrade,
   removeMember,
   sendReferral,
+  postPoolJob,
   actOnReferral,
   saveMemberWithSeats,
   reseatWaitingMembers,

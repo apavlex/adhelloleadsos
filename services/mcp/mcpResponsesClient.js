@@ -1,7 +1,7 @@
 /**
  * OpenAI Responses API + hosted remote MCP tool (CEO Chief of Staff CRM access).
  */
-const { CRM_MCP_TOOL_NAMES, isResponsesMcpReady } = require('./mcpConnection');
+const { isResponsesMcpReady } = require('./mcpConnection');
 const mcpLogger = require('./mcpLogger');
 
 const RESPONSES_URL = 'https://api.openai.com/v1/responses';
@@ -104,9 +104,11 @@ async function chiefOfStaffResponsesWithMcp({
     serverUrl,
     workspaceId,
     userEmail,
-    tools: CRM_MCP_TOOL_NAMES,
+    tools: 'all_from_server',
   });
 
+  // Omit allowed_tools so every tool the MCP server publishes is available
+  // (appointments, field work, network pool, ops agents, …) without a client-side allowlist lagging the server.
   const body = {
     model: resolvedModel,
     instructions: String(instructions || '').trim(),
@@ -116,11 +118,10 @@ async function chiefOfStaffResponsesWithMcp({
         type: 'mcp',
         server_label: 'adhello_ceo_crm',
         server_description:
-          'AdHello CEO Command Center CRM — lead folders, new lead searches, leads, bookmarks, scripts, opportunities, tasks.',
+          'AdHello CEO Command Center — full workspace platform: CRM, prospecting, referral network, trades pool, field work, appointments, Marketing Studio, Social Posts, Facebook Groups, SOPs, messaging, Ops agents.',
         server_url: serverUrl,
         authorization: bearerToken,
         require_approval: 'never',
-        allowed_tools: CRM_MCP_TOOL_NAMES,
       },
     ],
   };

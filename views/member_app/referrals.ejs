@@ -56,8 +56,9 @@
         </div>
         <% if (!_locked) { %>
         <p class="ma-card__meta" style="margin-top:8px">
-          <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= c.phone %></a><%= (c.email || c.address || c.city || c.zip) ? ' · ' : '' %><% } %>
+          <% if (c.phone) { %><a href="tel:<%= String(c.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= c.phone %></a><%= (c.email || c.address || c.city || c.zip || c.replyUrl) ? ' · ' : '' %><% } %>
           <%= [c.email, c.address, [c.city, c.zip].filter(Boolean).join(' ')].filter(Boolean).join(' · ') %>
+          <% if (c.replyUrl) { %><% if (c.phone || c.email || c.address || c.city || c.zip) { %> · <% } %><a href="<%= c.replyUrl %>" target="_blank" rel="noopener noreferrer" style="font-weight:700;color:var(--acc)">Open reply link</a><% } %>
         </p>
         <% if (c.note) { %><p class="ma-card__note"><%= c.note %></p><% } %>
         <div class="ma-actions">
@@ -65,6 +66,7 @@
             <input type="hidden" name="action" value="claim">
             <button type="submit" class="ma-btn ma-btn--sm">Claim this lead</button>
           </form>
+          <% if (c.replyUrl) { %><a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= c.replyUrl %>" target="_blank" rel="noopener noreferrer">Reply link</a><% } %>
         </div>
         <% } else { %>
         <p class="ma-card__meta" style="margin-top:8px">Contact details locked — upgrade to claim.</p>

@@ -20,6 +20,11 @@ const workspaceTools = require('./mcpWorkspaceOps');
 const prospectingTools = require('./mcpProspecting');
 const leadSourceTools = require('./mcpLeadSources');
 const agentOpsTools = require('./mcpAgentOps');
+const appointmentTools = require('./mcpAppointments');
+const fieldWorkTools = require('./mcpFieldWork');
+const marketingTools = require('./mcpMarketing');
+const socialTools = require('./mcpSocial');
+const sopTools = require('./mcpSops');
 const mcpOAuth = require('./mcpOAuth');
 const mcpLogger = require('./mcpLogger');
 
@@ -171,6 +176,12 @@ const READ_ONLY_TOOLS = new Set([
   ...workspaceTools.READ_ONLY_WORKSPACE_TOOLS,
   ...prospectingTools.READ_ONLY_PROSPECTING_TOOLS,
   ...leadSourceTools.READ_ONLY_LEAD_SOURCE_TOOLS,
+  ...agentOpsTools.READ_ONLY_AGENT_OPS_TOOLS,
+  ...appointmentTools.READ_ONLY_APPOINTMENT_TOOLS,
+  ...fieldWorkTools.READ_ONLY_FIELD_WORK_TOOLS,
+  ...marketingTools.READ_ONLY_MARKETING_TOOLS,
+  ...socialTools.READ_ONLY_SOCIAL_TOOLS,
+  ...sopTools.READ_ONLY_SOP_TOOLS,
 ]);
 
 // Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
@@ -184,6 +195,10 @@ const DESTRUCTIVE_TOOLS = new Set([
   ...workspaceTools.DESTRUCTIVE_WORKSPACE_TOOLS,
   ...prospectingTools.DESTRUCTIVE_PROSPECTING_TOOLS,
   ...leadSourceTools.DESTRUCTIVE_LEAD_SOURCE_TOOLS,
+  ...appointmentTools.DESTRUCTIVE_APPOINTMENT_TOOLS,
+  ...marketingTools.DESTRUCTIVE_MARKETING_TOOLS,
+  ...socialTools.DESTRUCTIVE_SOCIAL_TOOLS,
+  ...sopTools.DESTRUCTIVE_SOP_TOOLS,
 ]);
 
 // Reaches outside this app: paid lead searches, enrichment, GHL, texting businesses.
@@ -196,6 +211,7 @@ const OPEN_WORLD_TOOLS = new Set([
   ...workspaceTools.OPEN_WORLD_WORKSPACE_TOOLS,
   ...prospectingTools.OPEN_WORLD_PROSPECTING_TOOLS,
   ...leadSourceTools.OPEN_WORLD_LEAD_SOURCE_TOOLS,
+  ...appointmentTools.OPEN_WORLD_APPOINTMENT_TOOLS,
 ]);
 
 function toolAnnotations(name) {
@@ -224,7 +240,7 @@ function createCrmMcpServer(ctx) {
   const server = new McpServer(
     {
       name: 'adhello-ceo-crm',
-      version: '1.7.0',
+      version: '1.9.0',
     },
     multi
       ? {
@@ -668,6 +684,11 @@ function createCrmMcpServer(ctx) {
     ...prospectingTools.PROSPECTING_TOOLS,
     ...leadSourceTools.LEAD_SOURCE_TOOLS,
     ...agentOpsTools.AGENT_OPS_TOOLS,
+    ...appointmentTools.APPOINTMENT_TOOLS,
+    ...fieldWorkTools.FIELD_WORK_TOOLS,
+    ...marketingTools.MARKETING_TOOLS,
+    ...socialTools.SOCIAL_TOOLS,
+    ...sopTools.SOP_TOOLS,
   ]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
@@ -684,9 +705,9 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.7.0',
+    version: '1.9.0',
     description:
-      'AdHello CEO Command Center CRM — workspace overview, lead folders, lead searches (Google Maps, building permits, new business registrations, property / product listings, saved folder searches, recurring schedules), CSV import, duplicate merging, leads (create, assign, notes, history, delete), tags, bookmarks, scripts, opportunity pipelines and stages, prospecting stages, replies inbox, team activity, GHL sync and messaging, enrichment (contacts, Google reviews, social profiles, phone line type), prospecting (lead scoring, ICP fit, website audits, business research, decision-maker lookup, AI-personalized outreach, audit links, auto-outreach / cadence / sequence enrollment, call outcomes, call queue, text threads), team tasks, follow-ups, the referral network (members, referrals, applications, review stats), and Ops agents (list, inspect, run, and configure Prospect SDR, Opportunity SDR, Dispatcher, Network Coach, Ops bot).',
+      'AdHello CEO Command Center — full workspace platform for AI managers: CRM and prospecting, referral network and trades pool, team field work, appointment packages, Marketing Studio (direct-mail queue, playbooks, brand kit), Social Posts and Facebook Groups, SOPs, messaging, and Ops agents.',
     authentication: {
       type: 'oauth2',
       header: 'Authorization',
@@ -945,6 +966,11 @@ function getOpenAiToolManifest() {
         ...prospectingTools.openAiFunctionTools(),
         ...leadSourceTools.openAiFunctionTools(),
         ...agentOpsTools.openAiFunctionTools(),
+        ...appointmentTools.openAiFunctionTools(),
+        ...fieldWorkTools.openAiFunctionTools(),
+        ...marketingTools.openAiFunctionTools(),
+        ...socialTools.openAiFunctionTools(),
+        ...sopTools.openAiFunctionTools(),
       ].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,

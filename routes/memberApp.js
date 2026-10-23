@@ -493,7 +493,9 @@ function presentSent(ref, membersById, network) {
   return {
     id: ref.id,
     status: ref.status,
-    statusLabel: ref.status === 'unrouted' ? 'Being matched' : (ex.STATUS_LABELS[ref.status] || ref.status),
+    statusLabel: ref.status === 'unrouted'
+      ? (ref.poolListing || ref.unroutedReason === 'pool_listing' ? 'In pool' : 'Being matched')
+      : (ex.STATUS_LABELS[ref.status] || ref.status),
     trade: trades.tradeLabel(ref.tradeSlug, network),
     customer: ref.homeowner || {},
     to: ref.toMemberId ? ((membersById[ref.toMemberId] || {}).companyName || 'Member') : 'Being matched',

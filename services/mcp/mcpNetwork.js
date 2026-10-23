@@ -1,6 +1,7 @@
 /**
  * Referral network tools for MCP clients (ChatGPT, Claude, Gemini) and the in-app chat:
- * overview, members, referrals (send / update), applications, and review stats.
+ * overview, members, referrals (send / update), trades-pool jobs (post / list),
+ * applications, and review stats.
  */
 const { z } = require('zod/v3');
 const { zodToJsonSchema } = require('zod-to-json-schema');
@@ -101,16 +102,30 @@ function memberName(membersById, id) {
 
 function presentReferral(ref, membersById, zonesById) {
   const h = ref.homeowner || {};
+  const replyUrl = String(h.replyUrl || '').trim();
   return {
     id: ref.id,
     status: ref.status,
-    status_label: ex.STATUS_LABELS[ref.status] || ref.status,
+    status_label: ref.poolListing && ref.status === 'unrouted'
+      ? 'In pool'
+      : (ex.STATUS_LABELS[ref.status] || ref.status),
     trade: trades.tradeLabel(ref.tradeSlug),
     zone: ref.zoneId && zonesById[ref.zoneId] ? zonesById[ref.zoneId].name : '',
     from: memberName(membersById, ref.fromMemberId),
     to: memberName(membersById, ref.toMemberId),
-    homeowner: { name: h.name || '', phone: h.phone || '', email: h.email || '', address: h.address || '', city: h.city || '', zip: h.zip || '' },
+    homeowner: {
+      name: h.name || '',
+      phone: h.phone || '',
+      email: h.email || '',
+      address: h.address || '',
+      city: h.city || '',
+      zip: h.zip || '',
+      reply_url: replyUrl,
+    },
+    reply_url: replyUrl,
     note: h.note || '',
+    pool_listing: !!ref.poolListing,
+    listing_source: String(ref.listingSource || '').trim(),
     job_value: Number(ref.value) || 0,
     unrouted_reason: ref.status === 'unrouted' ? ex.UNROUTED_REASONS[ref.unroutedReason] || '' : '',
     next_actions: ex.allowedActions(ref).concat(['unrouted', 'declined', 'sent'].includes(ref.status) ? ['assign'] : [], ['note']),
@@ -254,6 +269,71 @@ async function sendReferral(ctx, input) {
     ? `Saved but not routed: ${referral.unrouted_reason || 'no seat holder for that trade and area.'} Use update_referral with action "assign" to pick a member.`
     : `Sent to ${referral.to}, who was ${notifiedText(result.notified)}.`;
   return { message, referral };
+}
+
+/**
+ * Post a Craigslist / Marketplace / public job into the trades pool.
+ * Eligible partners (matching trade + zone) see it under Leads → Pool and can claim it.
+ * Never auto-routes to the seat holder.
+ */
+async function postPoolJob(ctx, input) {
+  await requireManager(ctx);
+  const network = await requireNetwork(ctx);
+  const zones = await store.listZones(network.id);
+  const tradeSlug = resolveTrade(network, input.trade);
+  const zone = resolveZoneRef(zones, input.zone);
+  const result = await networkReferrals.postPoolJob({
+    network,
+    input: {
+      tradeSlug,
+      zoneId: zone ? zone.id : '',
+      title: input.title || input.project || input.homeowner_name,
+      name: input.title || input.project || input.homeowner_name,
+      phone: input.phone,
+      email: input.email,
+      address: input.address,
+      city: input.city,
+      zip: input.zip,
+      note: input.note || input.description,
+      replyUrl: input.reply_url,
+      listingSource: input.listing_source,
+      publicListing: input.public_listing === true,
+    },
+    by: actor(ctx),
+    baseUrl: baseUrl(ctx),
+  });
+  if (!result.ok) throw toolError(result.error, 'POOL_JOB_INVALID');
+  const members = result.members || await store.listMembers(network.id);
+  const referral = presentReferral(
+    result.referral,
+    Object.fromEntries(members.map((m) => [m.id, m])),
+    Object.fromEntries(zones.map((z) => [z.id, z])),
+  );
+  const notified = Number(result.poolNotified) || 0;
+  return {
+    message: notified
+      ? `Posted to the ${referral.trade} pool${referral.zone ? ` (${referral.zone})` : ''}. ${notified} eligible partner${notified === 1 ? '' : 's'} notified to claim it in the Reviews app.`
+      : `Posted to the ${referral.trade} pool${referral.zone ? ` (${referral.zone})` : ''}. Partners with that trade can claim it under Leads → Pool.`,
+    referral,
+    pool_notified: notified,
+  };
+}
+
+async function listPoolJobs(ctx, input) {
+  const network = await requireNetwork(ctx);
+  const { referrals, membersById, zonesById } = await loadAll(network);
+  const tradeSlug = input.trade ? resolveTrade(network, input.trade) : '';
+  const limit = Math.min(Math.max(parseInt(input.limit, 10) || 25, 1), 100);
+  const openOnly = input.open_only !== false;
+  const rows = referrals
+    .filter((ref) => ref.poolListing || ref.unroutedReason === 'pool_listing')
+    .filter((ref) => !openOnly || (ref.status === 'unrouted' && !ref.toMemberId))
+    .filter((ref) => !tradeSlug || ref.tradeSlug === tradeSlug)
+    .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+  return {
+    total: rows.length,
+    jobs: rows.slice(0, limit).map((ref) => presentReferral(ref, membersById, zonesById)),
+  };
 }
 
 async function updateReferral(ctx, input) {
@@ -485,8 +565,9 @@ const NETWORK_TOOLS = [
   {
     name: 'send_referral',
     description:
-      'Send a homeowner referral into the network. It routes to the member holding that trade in the zone matching the city/ZIP and texts them. ' +
-      'Only send when the homeowner agreed to be contacted (homeowner_consent=true). Needs a phone or email.',
+      'Send a homeowner referral to the partner who holds that trade seat (auto-routes + texts them). ' +
+      'Needs homeowner name, phone or email, and homeowner_consent=true. ' +
+      'For Craigslist / anonymous reply links or jobs several partners should compete for, use post_pool_job instead.',
     schema: z.object({
       trade: z.string().min(1).describe('Trade needed, e.g. "plumbing", "HVAC", "roofer".'),
       homeowner_name: z.string().min(1),
@@ -503,9 +584,47 @@ const NETWORK_TOOLS = [
     run: sendReferral,
   },
   {
+    name: 'post_pool_job',
+    description:
+      'Post a job/project into the trades pool for eligible partners to claim in the Reviews app (Leads → Pool). ' +
+      'Does NOT auto-route to the seat holder — multiple electricians (etc.) can see it and claim. ' +
+      'Use for Craigslist / Marketplace / Facebook posts that only have an anonymous reply link. ' +
+      'Needs trade + city/ZIP/zone + (reply_url or phone or email), and public_listing=true.',
+    schema: z.object({
+      trade: z.string().min(1).describe('Trade needed, e.g. "electrician", "plumbing", "HVAC".'),
+      title: z.string().min(1).describe('Short project title, e.g. "Panel upgrade — SE Portland".'),
+      reply_url: z.string().optional().describe('Anonymous reply / listing URL (Craigslist, Marketplace, etc.).'),
+      phone: z.string().optional(),
+      email: z.string().optional(),
+      city: z.string().optional().describe('City for zone matching when zone is omitted.'),
+      zip: z.string().optional(),
+      zone: z.string().optional().describe('Zone name or id; overrides city/ZIP matching.'),
+      note: z.string().optional().describe('Job details from the listing.'),
+      description: z.string().optional().describe('Alias for note.'),
+      listing_source: z.string().optional().describe('e.g. "Craigslist", "Facebook Marketplace".'),
+      address: z.string().optional(),
+      project: z.string().optional().describe('Alias for title.'),
+      homeowner_name: z.string().optional().describe('Alias for title when you have a name.'),
+      public_listing: z.boolean().describe('True when this is a public job post / you may share the reply link with partners.'),
+    }),
+    run: postPoolJob,
+  },
+  {
+    name: 'list_pool_jobs',
+    description:
+      'List jobs posted to the trades pool (from post_pool_job): open claims by default, or include claimed ones with open_only=false. Filter by trade.',
+    schema: z.object({
+      trade: z.string().optional().describe('Filter by trade, e.g. "electrician".'),
+      open_only: z.boolean().optional().describe('Default true: only unclaimed pool jobs. Set false to review claimed ones too.'),
+      limit: z.number().int().min(1).max(100).optional(),
+    }),
+    run: listPoolJobs,
+  },
+  {
     name: 'update_referral',
     description:
-      'Move a referral along: accept, decline, book, win (needs job_value), lose, assign (needs assign_to_member), or add a note.',
+      'Move a referral or pool job along: accept, decline, book, win (needs job_value), lose, assign (needs assign_to_member), or add a note. ' +
+      'Use assign to hand a pool job to a specific partner.',
     schema: z.object({
       referral_id: z.string().min(1),
       action: z.enum(['accept', 'decline', 'book', 'win', 'lose', 'assign', 'note']),
@@ -584,9 +703,21 @@ function openAiFunctionTools() {
 module.exports = {
   NETWORK_TOOLS,
   NETWORK_TOOL_NAMES,
-  READ_ONLY_NETWORK_TOOLS: ['get_network_overview', 'list_network_members', 'list_referrals', 'list_network_applications', 'get_review_stats'],
+  READ_ONLY_NETWORK_TOOLS: [
+    'get_network_overview',
+    'list_network_members',
+    'list_referrals',
+    'list_pool_jobs',
+    'list_network_applications',
+    'get_review_stats',
+  ],
   DESTRUCTIVE_NETWORK_TOOLS: ['reject_network_application'],
-  OPEN_WORLD_NETWORK_TOOLS: ['send_referral', 'update_referral', 'approve_network_application'],
+  OPEN_WORLD_NETWORK_TOOLS: [
+    'send_referral',
+    'post_pool_job',
+    'update_referral',
+    'approve_network_application',
+  ],
   executeNetworkTool,
   openAiFunctionTools,
   resolveTrade,

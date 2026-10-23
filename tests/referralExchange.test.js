@@ -200,3 +200,47 @@ test('partner card counters mirror operator sent/received from network referrals
     lastReceivedAt: '',
   });
 });
+
+test('buildPoolListing accepts Craigslist reply URLs without phone or email', () => {
+  const missing = ex.buildPoolListing({
+    tradeSlug: 'electrical',
+    title: 'Panel upgrade',
+    city: 'Portland',
+    replyUrl: 'https://portland.craigslist.org/reply/123',
+  }, NOW);
+  assert.equal(missing.ok, false);
+  assert.match(missing.error, /public_listing/i);
+
+  const ok = ex.buildPoolListing({
+    tradeSlug: 'electrical',
+    title: 'Panel upgrade — SE Portland',
+    city: 'Portland',
+    replyUrl: 'portland.craigslist.org/reply/abc',
+    listingSource: 'Craigslist',
+    note: '200A panel',
+    publicListing: true,
+  }, NOW);
+  assert.equal(ok.ok, true);
+  assert.equal(ok.referral.status, 'unrouted');
+  assert.equal(ok.referral.unroutedReason, 'pool_listing');
+  assert.equal(ok.referral.poolListing, true);
+  assert.equal(ok.referral.homeowner.replyUrl, 'https://portland.craigslist.org/reply/abc');
+  assert.match(ok.referral.homeowner.note, /Craigslist/);
+  assert.equal(ok.referral.homeowner.phone, '');
+});
+
+test('pool listings are claimable by matching trade partners', () => {
+  const listing = ex.buildPoolListing({
+    tradeSlug: 'electrical',
+    title: 'EV charger install',
+    city: 'Camas',
+    zoneId: 'z1',
+    replyUrl: 'https://example.com/r/1',
+    publicListing: true,
+  }, NOW).referral;
+  const electrician = { id: 'm-elec', status: 'active', trades: ['electrical'], zoneIds: ['z1'] };
+  const plumber = { id: 'm-plum', status: 'active', trades: ['plumbing'], zoneIds: ['z1'] };
+  assert.equal(ex.canClaimPoolReferral(listing, electrician), true);
+  assert.equal(ex.canClaimPoolReferral(listing, plumber), false);
+  assert.equal(ex.poolReferralsForMember([listing], electrician).length, 1);
+});
