@@ -168,6 +168,13 @@ describe('materialQuotes', () => {
       assert.match(html, /name="measure"/);
       assert.match(html, /name="notes"/);
       assert.match(html, /name="photos"/);
+      assert.match(html, /data-ma-photo-collect/);
+      assert.match(html, /data-ma-photo-capture/);
+      assert.match(html, /Add photo/);
+      assert.match(html, /Take photo/);
+      assert.match(html, /Choose from library/);
+      assert.match(html, /ma-card/);
+      assert.match(html, /ma-tabbar/);
       assert.match(html, /Request quote/);
 
       const sendRedirect = await fetch(`${base}/send`, { redirect: 'manual' });

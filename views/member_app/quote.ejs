@@ -12,72 +12,123 @@
     <%- include('_flash') %>
 
     <% const fv = formValues || {}; %>
-    <form method="post" action="<%= base %>/quote" class="ma-card" enctype="multipart/form-data" autocomplete="off" data-ma-loading="Sending quote…">
-      <div class="ma-field">
-        <label class="ma-label" for="mqName">Job site / customer</label>
-        <input id="mqName" name="name" class="ma-input" value="<%= fv.name || '' %>" required autocomplete="off" autocapitalize="words" placeholder="e.g. Smith residence">
-      </div>
-      <div class="ma-grid2">
+    <section class="ma-section">
+      <form method="post" action="<%= base %>/quote" class="ma-card" enctype="multipart/form-data" autocomplete="off" id="mqForm" data-ma-loading="Sending quote…">
         <div class="ma-field">
-          <label class="ma-label" for="mqPhone">Phone <span class="ma-optional">(optional)</span></label>
-          <input id="mqPhone" name="phone" type="tel" inputmode="tel" class="ma-input" value="<%= fv.phone || '' %>" autocomplete="off">
+          <label class="ma-label" for="mqName">Job site / customer</label>
+          <input id="mqName" name="name" class="ma-input" value="<%= fv.name || '' %>" required autocomplete="off" autocapitalize="words" placeholder="e.g. Smith residence">
         </div>
-        <div class="ma-field">
-          <label class="ma-label" for="mqZip">ZIP</label>
-          <input id="mqZip" name="zip" inputmode="numeric" maxlength="10" class="ma-input" value="<%= fv.zip || '' %>" autocomplete="off">
-        </div>
-      </div>
-      <div class="ma-field">
-        <label class="ma-label" for="mqAddress">Street address</label>
-        <input id="mqAddress" name="address" class="ma-input" value="<%= fv.address || '' %>" autocomplete="off">
-      </div>
-      <div class="ma-grid2">
-        <div class="ma-field">
-          <label class="ma-label" for="mqCity">City</label>
-          <input id="mqCity" name="city" class="ma-input" value="<%= fv.city || '' %>" autocomplete="off">
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="mqPhone">Phone <span class="ma-optional">(optional)</span></label>
+            <input id="mqPhone" name="phone" type="tel" inputmode="tel" class="ma-input" value="<%= fv.phone || '' %>" autocomplete="off">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="mqZip">ZIP</label>
+            <input id="mqZip" name="zip" inputmode="numeric" maxlength="10" class="ma-input" value="<%= fv.zip || '' %>" autocomplete="off">
+          </div>
         </div>
         <div class="ma-field">
-          <label class="ma-label" for="mqEmail">Email <span class="ma-optional">(optional)</span></label>
-          <input id="mqEmail" name="email" type="email" inputmode="email" class="ma-input" value="<%= fv.email || '' %>" autocomplete="off">
+          <label class="ma-label" for="mqAddress">Street address</label>
+          <input id="mqAddress" name="address" class="ma-input" value="<%= fv.address || '' %>" autocomplete="off">
         </div>
-      </div>
-
-      <div class="ma-field">
-        <div class="ma-label-row">
-          <label class="ma-label" for="mqMaterials">Materials needed</label>
-          <button type="button" class="ma-voice-btn" data-ma-voice-for="mqMaterials" aria-label="Dictate materials" title="Tap to speak" hidden></button>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="mqCity">City</label>
+            <input id="mqCity" name="city" class="ma-input" value="<%= fv.city || '' %>" autocomplete="off">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="mqEmail">Email <span class="ma-optional">(optional)</span></label>
+            <input id="mqEmail" name="email" type="email" inputmode="email" class="ma-input" value="<%= fv.email || '' %>" autocomplete="off">
+          </div>
         </div>
-        <textarea id="mqMaterials" name="materials" class="ma-textarea" required maxlength="2000" rows="3" placeholder="e.g. ¾&quot; oak hardwood, underlayment, stair nosing — color TBD"><%= fv.materials || '' %></textarea>
-      </div>
 
-      <div class="ma-field">
-        <div class="ma-label-row">
-          <label class="ma-label" for="mqMeasure">Measure</label>
-          <button type="button" class="ma-voice-btn" data-ma-voice-for="mqMeasure" aria-label="Dictate measure" title="Tap to speak" hidden></button>
+        <div class="ma-field">
+          <div class="ma-label-row">
+            <label class="ma-label" for="mqMaterials">Materials needed</label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="mqMaterials" aria-label="Dictate materials" title="Tap to speak" hidden></button>
+          </div>
+          <textarea id="mqMaterials" name="materials" class="ma-textarea" required maxlength="2000" rows="3" placeholder="e.g. ¾&quot; oak hardwood, underlayment, stair nosing — color TBD"><%= fv.materials || '' %></textarea>
         </div>
-        <textarea id="mqMeasure" name="measure" class="ma-textarea" required maxlength="2000" rows="3" placeholder="e.g. Living 18×14, hall 4×20 — ~340 sq ft net; stairs 13 risers"><%= fv.measure || '' %></textarea>
-      </div>
 
-      <div class="ma-field">
-        <div class="ma-label-row">
-          <label class="ma-label" for="mqNotes">Notes <span class="ma-optional">(optional)</span></label>
-          <button type="button" class="ma-voice-btn" data-ma-voice-for="mqNotes" aria-label="Dictate notes" title="Tap to speak" hidden></button>
+        <div class="ma-field">
+          <div class="ma-label-row">
+            <label class="ma-label" for="mqMeasure">Measure</label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="mqMeasure" aria-label="Dictate measure" title="Tap to speak" hidden></button>
+          </div>
+          <textarea id="mqMeasure" name="measure" class="ma-textarea" required maxlength="2000" rows="3" placeholder="e.g. Living 18×14, hall 4×20 — ~340 sq ft net; stairs 13 risers"><%= fv.measure || '' %></textarea>
         </div>
-        <textarea id="mqNotes" name="notes" class="ma-textarea" maxlength="2000" rows="3" placeholder="Access, timing, waste factor, glue-down vs float…"><%= fv.notes || '' %></textarea>
-      </div>
 
-      <div class="ma-field">
-        <label class="ma-label" for="mqPhotos">Photos <span class="ma-optional">(optional, up to 8)</span></label>
-        <input id="mqPhotos" name="photos" type="file" accept="image/*,.heic,.heif" multiple class="ma-input" style="padding:10px">
-        <p class="ma-hint" style="margin-top:8px">Room shots, transitions, stairs — helps us quote accurately.</p>
-      </div>
+        <div class="ma-field">
+          <div class="ma-label-row">
+            <label class="ma-label" for="mqNotes">Notes <span class="ma-optional">(optional)</span></label>
+            <button type="button" class="ma-voice-btn" data-ma-voice-for="mqNotes" aria-label="Dictate notes" title="Tap to speak" hidden></button>
+          </div>
+          <textarea id="mqNotes" name="notes" class="ma-textarea" maxlength="2000" rows="3" placeholder="Access, timing, waste factor, glue-down vs float…"><%= fv.notes || '' %></textarea>
+          <p class="ma-hint ma-voice-hint">Mic works while driving — tap, speak, tap again to stop.</p>
+        </div>
 
-      <label class="ma-check">
-        <input type="checkbox" name="confirm" value="on" required <%= fv.confirm ? 'checked' : '' %>>
-        <span>These details are ready for a material quote from my network owner (supplier).</span>
-      </label>
-      <button type="submit" class="ma-btn ma-btn--block" <%= member.status !== 'active' ? 'disabled' : '' %>><%- icons.send %> Request quote</button>
-    </form>
+        <div class="ma-field">
+          <div class="ma-section__head" style="margin:0 0 10px;padding:0">
+            <span class="ma-label" style="margin:0">Photos <span class="ma-optional">(optional)</span></span>
+            <span class="ma-count" data-mq-photo-count>0/8</span>
+          </div>
+          <p class="ma-hint" style="margin:0 0 12px">Room shots, transitions, stairs — helps us quote accurately.</p>
+          <div class="ma-photos" id="mqPhotoGrid" hidden data-mq-photo-grid></div>
+          <input id="mqPhotos" name="photos" type="file" accept="image/*,.heic,.heif" multiple tabindex="-1" aria-hidden="true" class="ma-photo-file">
+
+          <% /* Div (not nested <form>) so the quote form stays intact; capture JS treats .ma-photo-form as the sheet root. */ %>
+          <div
+            class="ma-photo-capture"
+            data-ma-photo-capture
+            data-ma-photo-collect="#mqPhotos"
+            data-ma-photo-preview="#mqPhotoGrid"
+            data-ma-photo-count="[data-mq-photo-count]"
+            data-ma-photo-max="8"
+          >
+            <button type="button" class="ma-btn ma-btn--soft ma-btn--block" data-ma-photo-open>
+              <%- icons.camera %> Add photo
+            </button>
+
+            <div class="ma-photo-modal" data-ma-photo-sheet hidden role="dialog" aria-modal="true" aria-labelledby="mqPhotoTitle">
+              <div class="ma-photo-sheet">
+                <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-photo-close>&times;</button>
+                <h2 id="mqPhotoTitle">Add photo</h2>
+                <p class="ma-photo-lead">Take a picture or pick one from your library for this material quote.</p>
+
+                <div id="mqPhotoForm" class="ma-photo-form">
+                  <input
+                    id="mqPhotoPick"
+                    class="ma-photo-file"
+                    type="file"
+                    name="photo"
+                    accept="image/*,.heic,.heif"
+                    tabindex="-1"
+                    aria-hidden="true"
+                  >
+
+                  <div class="ma-photo-actions">
+                    <button type="button" class="ma-btn ma-btn--block" data-ma-photo-pick="camera">
+                      <%- icons.camera %> Take photo
+                    </button>
+                    <button type="button" class="ma-btn ma-btn--soft ma-btn--block" data-ma-photo-pick="library">
+                      <%- icons.photo %> Choose from library
+                    </button>
+                    <button type="button" class="ma-btn ma-btn--ghost ma-btn--block" data-ma-photo-close>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <label class="ma-check">
+          <input type="checkbox" name="confirm" value="on" required <%= fv.confirm ? 'checked' : '' %>>
+          <span>These details are ready for a material quote from my network owner (supplier).</span>
+        </label>
+        <button type="submit" class="ma-btn ma-btn--block" <%= member.status !== 'active' ? 'disabled' : '' %>><%- icons.send %> Request quote</button>
+      </form>
+    </section>
   </main>
   <%- include('_tabbar') %>
 </body>
