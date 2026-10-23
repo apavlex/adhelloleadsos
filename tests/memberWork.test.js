@@ -475,6 +475,28 @@ test('shareCustomerWithTeammate copies contact and all projects', async () => {
   assert.equal(job1.ok, true);
   assert.equal(job2.ok, true);
 
+  // Tiny JPEG so share copies real site-visit blobs onto the teammate’s book.
+  const jpeg = Buffer.from(
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a'
+    + 'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIy'
+    + 'MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIA'
+    + 'AhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEB'
+    + 'AQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGfAP/E'
+    + 'ABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAQUCf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAI'
+    + 'AQMBAT8Bf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQIBAT8Bf//EABQQAQAAAAAAAAAAAAAAAA'
+    + 'AAAAD/2gAIAQEABj8Cf//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAT8hf//Z',
+    'base64',
+  );
+  const photoA = await work.addJobPhoto(NET, MEM_A, job1.job.id, {
+    contentType: 'image/jpeg',
+    buffer: jpeg,
+  }, { caption: 'Kitchen before' });
+  const photoB = await work.addJobPhoto(NET, MEM_A, job1.job.id, {
+    contentType: 'image/jpeg',
+    buffer: jpeg,
+  }, { caption: 'Living room' });
+  assert.equal(photoA.ok && photoB.ok, true);
+
   const shared = await work.shareCustomerWithTeammate(NET, MEM_A, MEM_B, cust.customer.id, {
     sharedByName: 'Pat',
   });
@@ -486,6 +508,15 @@ test('shareCustomerWithTeammate copies contact and all projects', async () => {
   assert.equal(shared.customer.name, 'Share Customer');
   assert.ok(shared.jobs.some((j) => j.title === 'Shared install'));
   assert.ok(shared.jobs.some((j) => j.title === 'Follow-up punch'));
+
+  const theirInstall = shared.jobs.find((j) => j.title === 'Shared install');
+  assert.ok(theirInstall);
+  assert.equal(theirInstall.photos.length, 2);
+  assert.ok(theirInstall.photos.some((p) => p.caption === 'Kitchen before'));
+  assert.ok(theirInstall.photos.some((p) => p.caption === 'Living room'));
+  const jobMedia = require('../services/memberJobMedia');
+  const blob = await jobMedia.getJobPhoto(NET, MEM_B, theirInstall.id, theirInstall.photos[0].id);
+  assert.ok(blob && blob.buffer && blob.buffer.length > 20);
 
   const sourceCust = await work.getCustomer(NET, MEM_A, cust.customer.id);
   assert.ok(sourceCust.sharedWith.some((r) => r.memberId === MEM_B && r.customerId === shared.customer.id));
@@ -502,8 +533,83 @@ test('shareCustomerWithTeammate copies contact and all projects', async () => {
   assert.equal(viaJob.existing, true);
   assert.equal(viaJob.jobsShared, 2);
   assert.equal(viaJob.job.sharedFromJobId, job1.job.id);
+  // Re-share stays idempotent — still two photos, not four.
+  assert.equal(viaJob.job.photos.length, 2);
 
   assert.equal((await work.shareCustomerWithTeammate(NET, MEM_A, MEM_A, cust.customer.id)).ok, false);
+});
+
+test('syncSharedCustomerPhotos backfills photos dropped on an older share', async () => {
+  const cust = await work.saveCustomer(NET, MEM_A, {
+    name: 'Zimmerman',
+    phone: '3605550666',
+    address: '105 SE 137th Pl',
+  });
+  assert.equal(cust.ok, true);
+  const job = await work.saveJob(NET, MEM_A, {
+    customerId: cust.customer.id,
+    title: 'Site visit',
+    status: 'estimate',
+  });
+  assert.equal(job.ok, true);
+  const jpeg = Buffer.from(
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0a'
+    + 'HBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIy'
+    + 'MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIA'
+    + 'AhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEB'
+    + 'AQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIQAxAAAAGfAP/E'
+    + 'ABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAQUCf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAI'
+    + 'AQMBAT8Bf//EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQIBAT8Bf//EABQQAQAAAAAAAAAAAAAAAA'
+    + 'AAAAD/2gAIAQEABj8Cf//EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAT8hf//Z',
+    'base64',
+  );
+  const photo = await work.addJobPhoto(NET, MEM_A, job.job.id, {
+    contentType: 'image/jpeg',
+    buffer: jpeg,
+  }, { caption: 'Entry' });
+  assert.equal(photo.ok, true);
+
+  // Simulate the old share bug: contact + job copy with photos stripped.
+  const created = await work.saveCustomer(NET, MEM_B, {
+    name: cust.customer.name,
+    phone: cust.customer.phone,
+    address: cust.customer.address,
+    notes: 'Shared by a teammate.',
+  }, { source: 'manual' });
+  assert.equal(created.ok, true);
+  const theirCustomer = await work.writeCustomer(NET, MEM_B, {
+    ...created.customer,
+    sharedFromMemberId: MEM_A,
+    sharedFromCustomerId: cust.customer.id,
+  });
+  const theirJobCreated = await work.saveJob(NET, MEM_B, {
+    customerId: theirCustomer.id,
+    title: 'Site visit',
+    status: 'estimate',
+    notes: 'Shared by a teammate.',
+  });
+  assert.equal(theirJobCreated.ok, true);
+  await work.writeJob(NET, MEM_B, {
+    ...theirJobCreated.job,
+    sharedFromMemberId: MEM_A,
+    sharedFromJobId: job.job.id,
+    photos: [],
+  });
+
+  const sync = await work.syncSharedCustomerPhotos(NET, MEM_B, theirCustomer);
+  assert.equal(sync.ok, true);
+  assert.equal(sync.synced, 1);
+  const theirJob = await work.getJob(NET, MEM_B, theirJobCreated.job.id);
+  assert.equal(theirJob.photos.length, 1);
+  assert.equal(theirJob.photos[0].caption, 'Entry');
+  const jobMedia = require('../services/memberJobMedia');
+  const blob = await jobMedia.getJobPhoto(NET, MEM_B, theirJob.id, theirJob.photos[0].id);
+  assert.ok(blob && blob.buffer && blob.buffer.length > 20);
+
+  // Second sync is a no-op.
+  const again = await work.syncSharedCustomerPhotos(NET, MEM_B, theirCustomer);
+  assert.equal(again.synced, 0);
+  assert.equal((await work.getJob(NET, MEM_B, theirJob.id)).photos.length, 1);
 });
 
 function startApp() {
