@@ -11,6 +11,7 @@ const dbService = require('../services/database');
 const push = require('../services/pushNotifications');
 const memberActivity = require('../services/memberActivity');
 const networkBroadcast = require('../services/networkBroadcast');
+const networkNews = require('../services/networkNews');
 const networkNotify = require('../services/networkNotify');
 
 const subscription = (n) => ({
@@ -60,7 +61,7 @@ test('member-scoped push subscriptions deliver phone alerts', async (t) => {
   assert.equal(push.matchingMemberSubscriptions({ networkId: 'net_1', memberId: 'mem_1' }).length, 0);
 });
 
-test('broadcastToMembers records inbox activity and sends app push', async (t) => {
+test('broadcastToMembers saves news feed, inbox activity, and app push', async (t) => {
   const store = require('../services/networkStore');
   const network = {
     id: 'net_bcast',
@@ -109,24 +110,36 @@ test('broadcastToMembers records inbox activity and sends app push', async (t) =
 
   const result = await networkBroadcast.broadcastToMembers({
     network,
+    title: 'Friday bonus',
     message: 'Friday referral bonus is live — open the app.',
+    link: 'https://example.com/bonus',
     channels: { app: true, sms: false },
     audience: 'free',
     baseUrl: 'https://reviews.adhello.io',
+    createdBy: 'admin@example.com',
   });
 
   assert.equal(result.ok, true);
   assert.equal(result.targeted, 1);
   assert.equal(result.appDelivered, 1);
   assert.equal(result.smsSent, 0);
+  assert.ok(result.post && result.post.id);
   assert.equal(sent.length, 1);
   assert.match(sent[0].body, /Friday referral bonus/);
+  assert.match(sent[0].url, /\/news/);
+
+  const feed = networkNews.list(network.id);
+  assert.equal(feed.length, 1);
+  assert.equal(feed[0].title, 'Friday bonus');
+  assert.equal(feed[0].link, 'https://example.com/bonus');
 
   const inbox = memberActivity.listInbox(network.id, 'm_free');
-  assert.ok(inbox.some((e) => e.kind === 'broadcast' && /Friday referral bonus/.test(e.body)));
+  assert.ok(inbox.some((e) => e.kind === 'news' && /Friday referral bonus/.test(e.body)));
+  assert.ok(inbox.some((e) => /\/news/.test(e.href || '')));
   assert.equal(memberActivity.listInbox(network.id, 'm_partner').length, 0);
 
   dbService.deleteKvSync(`memberActivity:${network.id}:m_free`);
+  dbService.deleteKvSync(`networkNews:${network.id}`);
 });
 
 test('broadcast requires a channel and a message', async () => {
@@ -146,12 +159,23 @@ test('broadcast requires a channel and a message', async () => {
   assert.match(noChannel.error, /Notify by app|SMS/i);
 });
 
-test('Network members view exposes Message members form', () => {
+test('Network members view and Reviews bell expose News & updates', () => {
   const view = fs.readFileSync(path.join(__dirname, '../views/network.ejs'), 'utf8');
-  assert.match(view, /Message members/);
+  assert.match(view, /News &amp; updates/);
   assert.match(view, /\/network\/members\/broadcast/);
+  assert.match(view, /name="title"/);
   assert.match(view, /channelApp/);
   assert.match(view, /channelSms/);
   assert.match(view, /Notify by app/);
   assert.match(view, /Send SMS/);
+
+  const top = fs.readFileSync(path.join(__dirname, '../views/member_app/_top.ejs'), 'utf8');
+  assert.match(top, /data-ma-bell-history/);
+  assert.match(top, /data-ma-bell-news/);
+  assert.match(top, /\/news/);
+  assert.match(top, /News &amp; updates/);
+
+  const newsView = fs.readFileSync(path.join(__dirname, '../views/member_app/news.ejs'), 'utf8');
+  assert.match(newsView, /News &amp; updates/);
+  assert.match(newsView, /ma-news-card/);
 });

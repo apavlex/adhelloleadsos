@@ -38,6 +38,7 @@
           : kind === 'missed_call' ? 'Missed call'
           : kind === 'voicemail' ? 'Voicemail'
           : kind === 'sms' ? 'Text'
+          : kind === 'news' || kind === 'broadcast' ? 'News'
           : 'Lead';
       %>
       <a class="ma-row ma-notif-history__row" href="<%= href %>" role="listitem">

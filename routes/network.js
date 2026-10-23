@@ -296,6 +296,16 @@ router.get('/', async (req, res, next) => {
       }
     }
 
+    let networkNewsPosts = [];
+    if (canManage(req) && tab === 'members') {
+      try {
+        const networkNews = require('../services/networkNews');
+        networkNewsPosts = networkNews.list(network.id).slice(0, 12);
+      } catch (_) {
+        networkNewsPosts = [];
+      }
+    }
+
     res.render('network', {
       title: tab === 'field-work' || tab === 'calendar' ? 'Leads Network' : 'Referral Network',
       activePage: 'network',
@@ -332,6 +342,7 @@ router.get('/', async (req, res, next) => {
       canManage: canManage(req),
       networkJoinSlug,
       networkJoinUrl,
+      networkNewsPosts,
       ghlSubaccounts: networkMembers.ghlSubaccountsAllowedFor(req.workspace),
       notice: String(req.query.notice || '').trim(),
       editZoneId: String(req.query.zone || '').trim(),
@@ -944,35 +955,60 @@ router.post('/members/:id/send-portal-link', async (req, res) => {
   }
 });
 
-/** Custom message to network members — app push (phone popup) and/or SMS. */
+/** News & updates for network members — feed + optional app push / SMS. */
 router.post('/members/broadcast', async (req, res) => {
   if (!canManage(req)) {
-    return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners, admins, and managers can message members.', status: 403 });
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners, admins, and managers can post news & updates.', status: 403 });
   }
   try {
     const network = await loadNetwork(req);
     const channels = networkBroadcast.parseChannels(req.body || {});
     const result = await networkBroadcast.broadcastToMembers({
       network,
+      title: req.body && (req.body.title || req.body.subject),
       message: req.body && req.body.message,
+      link: req.body && (req.body.link || req.body.url),
+      linkLabel: req.body && req.body.linkLabel,
       channels,
       audience: networkBroadcast.parseAudience(req.body && req.body.audience),
       baseUrl: notify.baseUrlFromReq(req),
+      createdBy: userEmail(req),
     });
     return reply(req, res, {
       ok: !!result.ok,
       tab: 'members',
-      notice: result.ok ? result.notice : (result.error || 'Could not send that message.'),
+      notice: result.ok ? result.notice : (result.error || 'Could not post that update.'),
       data: result.ok ? {
         targeted: result.targeted,
         appDelivered: result.appDelivered,
         smsSent: result.smsSent,
+        postId: result.post && result.post.id,
       } : undefined,
       status: result.ok ? 200 : 400,
     });
   } catch (err) {
     console.error('[network] members broadcast failed:', err.message);
-    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not send that message.', status: 500 });
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not post that update.', status: 500 });
+  }
+});
+
+router.post('/members/news/:postId/remove', async (req, res) => {
+  if (!canManage(req)) {
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners, admins, and managers can remove news.', status: 403 });
+  }
+  try {
+    const network = await loadNetwork(req);
+    const networkNews = require('../services/networkNews');
+    const { removed } = networkNews.remove(network.id, req.params.postId);
+    return reply(req, res, {
+      ok: removed > 0,
+      tab: 'members',
+      notice: removed ? 'Removed that news post.' : 'News post not found.',
+      status: removed ? 200 : 404,
+    });
+  } catch (err) {
+    console.error('[network] news remove failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not remove that post.', status: 500 });
   }
 });
 

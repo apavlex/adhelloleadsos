@@ -480,6 +480,18 @@ html[data-ma-theme="dark"] .ma-bell__foot { background: #1c1c1e; }
   font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--acc); text-decoration: none;
 }
+.ma-news-list { display: flex; flex-direction: column; gap: 12px; }
+.ma-news-card { margin: 0; }
+.ma-news-card.is-highlight { box-shadow: 0 0 0 2px var(--acc); }
+.ma-news-card__when {
+  margin: 0 0 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
+}
+.ma-news-card__title { margin: 0; font-size: 17px; font-weight: 800; line-height: 1.25; }
+.ma-news-card__body {
+  margin: 8px 0 0; font-size: 14px; line-height: 1.45; color: var(--ink);
+  white-space: pre-wrap;
+}
 .ma-notif-history__row .ma-row__body small {
   display: block; margin-top: 4px;
   font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;

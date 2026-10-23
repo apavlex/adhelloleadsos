@@ -3204,6 +3204,19 @@ router.get('/m/:token/notifications', withMember(async (req, res, ctx) => {
   });
 }));
 
+/** Network news & updates feed (from workspace admins/managers). */
+router.get('/m/:token/news', withMember(async (req, res, ctx) => {
+  const networkNews = require('../services/networkNews');
+  const posts = networkNews.list(ctx.network.id).slice(0, 60);
+  const highlightId = String((req.query && req.query.id) || '').trim();
+  return render(res, 'news', ctx, {
+    topTitle: 'News & updates',
+    topBack: { href: ctx.base, label: 'Home' },
+    posts,
+    highlightId,
+  });
+}));
+
 router.post('/m/:token/activity/read', express.json(), withMember(async (req, res, ctx) => {
   noStore(res);
   const ids = req.body && req.body.ids;

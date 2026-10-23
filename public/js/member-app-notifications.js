@@ -65,6 +65,7 @@
     if (kind === 'missed_call') return 'Missed call';
     if (kind === 'voicemail') return 'Voicemail';
     if (kind === 'sms') return 'Text';
+    if (kind === 'news' || kind === 'broadcast') return 'News';
     return 'Lead';
   }
 

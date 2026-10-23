@@ -1,6 +1,6 @@
 /**
- * Workspace → network members broadcast: custom message via app push and/or SMS.
- * App path = member inbox activity + Web Push phone popup when they enabled alerts.
+ * Workspace → network members: News & updates (persistent feed) plus optional
+ * app push / SMS notify. App path = member inbox + Web Push phone popup.
  */
 
 const store = require('./networkStore');
@@ -8,9 +8,10 @@ const notify = require('./networkNotify');
 const memberActivity = require('./memberActivity');
 const push = require('./pushNotifications');
 const memberAppointmentLink = require('./memberAppointmentLink');
+const networkNews = require('./networkNews');
 const { brandView } = require('./networkBrand');
 
-const MAX_MESSAGE = 480;
+const MAX_MESSAGE = networkNews.MAX_BODY;
 const AUDIENCES = new Set(['all', 'free', 'partner', 'active']);
 
 function cleanMessage(raw) {
@@ -63,16 +64,22 @@ async function packageForMember(network, member) {
 }
 
 /**
- * Send a custom message to matching network members.
- * @returns {{ ok, targeted, appDelivered, smsSent, skipped, notice, error? }}
+ * Publish a News & updates post and optionally notify members (app and/or SMS).
+ * Always saves to the network feed members can open from Notifications.
+ * @returns {{ ok, post?, targeted, appDelivered, smsSent, skipped, notice, error? }}
  */
 async function broadcastToMembers({
   network,
   message,
+  title: titleIn,
+  link,
+  linkLabel,
   channels = { app: true, sms: false },
   audience = 'all',
   baseUrl,
   subject,
+  createdBy,
+  saveToFeed = true,
 } = {}) {
   if (!network || !network.id) return { ok: false, error: 'Network not found.', targeted: 0 };
   const text = cleanMessage(message);
@@ -83,8 +90,9 @@ async function broadcastToMembers({
     return { ok: false, error: 'Choose Notify by app and/or Send SMS.', targeted: 0 };
   }
 
+  const aud = parseAudience(audience);
   const all = await store.listMembers(network.id);
-  const targets = all.filter((m) => memberMatchesAudience(m, parseAudience(audience)));
+  const targets = all.filter((m) => memberMatchesAudience(m, aud));
   if (!targets.length) {
     return {
       ok: false,
@@ -96,24 +104,42 @@ async function broadcastToMembers({
   }
 
   const brand = brandView(network);
-  const title = String(subject || `Message from ${brand.appName || network.name || 'your network'}`).slice(0, 120);
+  const title = String(
+    titleIn || subject || `Update from ${brand.appName || network.name || 'your network'}`,
+  ).trim().slice(0, networkNews.MAX_TITLE) || `Update from ${brand.appName || 'your network'}`;
   const rootBase = String(baseUrl || notify.getReviewPublicBaseUrl() || '').replace(/\/$/, '');
+  const safeLink = networkNews.safeLink(link);
+
+  let post = null;
+  if (saveToFeed) {
+    post = networkNews.add(network.id, {
+      title,
+      body: text,
+      link: safeLink,
+      linkLabel,
+      audience: aud,
+      createdBy,
+      channels: { app: wantApp, sms: wantSms },
+    });
+  }
 
   let appDelivered = 0;
   let smsSent = 0;
   let skipped = 0;
 
   await Promise.all(targets.map(async (member) => {
-    const appLink = notify.memberPortalLink(rootBase, network, member);
+    const appHome = notify.memberPortalLink(rootBase, network, member);
+    const newsPath = `${appHome}/news${post ? `?id=${encodeURIComponent(post.id)}` : ''}`;
+    const openUrl = safeLink || newsPath;
     let memberAppPushes = 0;
     let memberSmsOk = false;
 
     if (wantApp) {
       memberActivity.add(network.id, member.id, {
-        kind: 'broadcast',
+        kind: 'news',
         title,
         body: text,
-        href: appLink,
+        href: newsPath,
       });
       const pkg = await packageForMember(network, member);
       try {
@@ -127,8 +153,8 @@ async function broadcastToMembers({
           {
             title,
             body: text,
-            url: appLink,
-            tag: `member-broadcast-${network.id}-${Date.now()}`,
+            url: newsPath,
+            tag: `member-news-${(post && post.id) || network.id}-${Date.now()}`,
           },
         );
         memberAppPushes = (result && result.sent) || 0;
@@ -140,10 +166,11 @@ async function broadcastToMembers({
 
     if (wantSms) {
       try {
+        const smsBody = `${title}: ${text}${openUrl ? `\n${openUrl}` : ''}`.slice(0, 600);
         const result = await notify.messageMember(network, member, {
-          sms: `${title}: ${text}`.slice(0, 600),
+          sms: smsBody,
           subject: title,
-          email: `${text}\n\nOpen your app:\n${appLink}`,
+          email: `${text}\n\n${openUrl ? `Open: ${openUrl}\n\n` : ''}News & updates in your app:\n${newsPath}`,
         });
         if (result && result.ok) {
           memberSmsOk = true;
@@ -160,15 +187,14 @@ async function broadcastToMembers({
   }));
 
   const bits = [];
-  bits.push(`Messaged ${targets.length} member${targets.length === 1 ? '' : 's'}`);
+  bits.push(`Posted news to ${targets.length} member${targets.length === 1 ? '' : 's'}`);
   if (wantApp) bits.push(`${appDelivered} phone alert${appDelivered === 1 ? '' : 's'}`);
   if (wantSms) bits.push(`${smsSent} text${smsSent === 1 ? '' : 's'}`);
-  if (wantApp && appDelivered < targets.length) {
-    bits.push('members without app alerts still get the message in their Notifications inbox');
-  }
+  if (post) bits.push('saved under News & updates in the app');
 
   return {
     ok: true,
+    post,
     targeted: targets.length,
     appDelivered,
     smsSent,
