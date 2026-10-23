@@ -1,6 +1,6 @@
 /**
- * Signup / first-open push nudge — modal next to History install sheet,
- * Home banner, and post-signup copy that stresses phone alerts.
+ * Signup / first-open push nudge — modal + bell notifications panel
+ * (no Home page banner), and post-signup copy that stresses phone alerts.
  */
 const fs = require('fs');
 const path = require('path');
@@ -18,11 +18,14 @@ test('Reviews tabbar includes Turn on phone alerts nudge modal', () => {
   assert.match(tabbar, /member-app-push-nudge\.js/);
 });
 
-test('Home shows persistent Turn on alerts banner hook', () => {
+test('Home does not show a Turn on alerts banner (popup + bell only)', () => {
   const home = fs.readFileSync(path.join(root, 'views/member_app/home.ejs'), 'utf8');
-  assert.match(home, /id="maPushNudgeBanner"/);
-  assert.match(home, /data-ma-push-nudge-open/);
-  assert.match(home, /Turn on phone alerts/);
+  assert.doesNotMatch(home, /maPushNudgeBanner/);
+  assert.doesNotMatch(home, /ma-push-nudge-banner/);
+  assert.doesNotMatch(home, /Turn on phone alerts/);
+  const top = fs.readFileSync(path.join(root, 'views/member_app/_top.ejs'), 'utf8');
+  assert.match(top, /data-ma-bell-push-enable/);
+  assert.match(top, /Turn on phone alerts/);
 });
 
 test('push nudge script chains after install sheet and registers /m/sw.js', () => {
@@ -31,6 +34,8 @@ test('push nudge script chains after install sheet and registers /m/sw.js', () =
   assert.match(js, /register\('\/m\/sw\.js'/);
   assert.match(js, /\/push\/subscribe/);
   assert.match(js, /ma-push-nudge-snooze/);
+  assert.doesNotMatch(js, /maPushNudgeBanner/);
+  assert.doesNotMatch(js, /showBanner/);
   const appJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
   assert.match(appJs, /ma-install-closed/);
 });

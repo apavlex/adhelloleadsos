@@ -2100,39 +2100,8 @@ html[data-ma-theme="dark"] .ma-tabbar {
 .ma-install-sheet { position: relative; }
 html[data-ma-theme="dark"] .ma-install-modal { background: rgba(0, 0, 0, 0.65); }
 
-/* Post-signup / first-open push alerts nudge */
+/* Post-signup / first-open push alerts nudge (modal only — no Home banner) */
 .ma-push-nudge-sheet h2 { font-size: 1.5rem; }
-.ma-push-nudge-banner {
-  margin: 0 0 14px;
-  border-radius: 20px;
-  padding: 16px 16px 14px;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--acc) 22%, var(--card)), var(--card));
-  border: 2px solid var(--acc);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
-}
-.ma-push-nudge-banner[hidden] { display: none !important; }
-.ma-push-nudge-banner__kicker {
-  margin: 0 0 4px;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--acc);
-}
-.ma-push-nudge-banner__title {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-}
-.ma-push-nudge-banner__lead {
-  margin: 6px 0 12px;
-  font-size: 14px;
-  line-height: 1.4;
-  color: var(--muted);
-}
-.ma-push-nudge-banner .ma-btn { width: 100%; justify-content: center; }
 
 /* Review tab */
 .ma-qr { display: flex; flex-direction: column; align-items: center; text-align: center; }

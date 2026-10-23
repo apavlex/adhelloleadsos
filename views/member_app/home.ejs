@@ -31,15 +31,6 @@
 
     <%- include('_flash') %>
 
-    <section class="ma-push-nudge-banner" id="maPushNudgeBanner" hidden>
-      <div class="ma-push-nudge-banner__inner">
-        <p class="ma-push-nudge-banner__kicker">Leads &amp; updates</p>
-        <h2 class="ma-push-nudge-banner__title">Turn on phone alerts</h2>
-        <p class="ma-push-nudge-banner__lead">Get pop-ups for new leads, referrals, and News &amp; updates — even when the app is closed.</p>
-        <button type="button" class="ma-btn" data-ma-push-nudge-open>Turn on alerts</button>
-      </div>
-    </section>
-
     <section class="ma-hero<%= _appt ? ' ma-hero--dash' : '' %>" aria-label="<%= brand.appName %>">
       <% if (brand.heroUrl) { %><img class="ma-hero__img" src="<%= brand.heroUrl %>" alt=""><% } %>
       <% if (!(typeof preview !== 'undefined' && preview)) { %>

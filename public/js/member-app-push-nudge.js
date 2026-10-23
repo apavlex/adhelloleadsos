@@ -7,7 +7,6 @@
   if (!modal) return;
 
   var base = modal.getAttribute('data-ma-push-base') || '';
-  var banner = document.getElementById('maPushNudgeBanner');
   var enableBtn = modal.querySelector('[data-ma-push-nudge-enable]');
   var statusEl = modal.querySelector('[data-ma-push-nudge-status]');
   var stepsEl = modal.querySelector('[data-ma-push-nudge-steps]');
@@ -108,11 +107,6 @@
     return !!(install && !install.hidden);
   }
 
-  function showBanner(on) {
-    if (!banner) return;
-    banner.hidden = !on;
-  }
-
   function closeModal(persist) {
     modal.hidden = true;
     if (!installModalOpen()) document.documentElement.style.overflow = '';
@@ -193,7 +187,6 @@
         clearSnooze();
         enableBtn.textContent = 'Alerts are on';
         setStatus('You’re set — leads, referrals, and News & updates will pop up on this phone.', true);
-        showBanner(false);
         post('/push/test', {}).catch(function () {});
         setTimeout(function () { closeModal(false); }, 1400);
       })
@@ -206,19 +199,9 @@
   }
 
   function maybePrompt() {
-    if (!supported && !(isIos && !standalone)) {
-      showBanner(false);
-      return;
-    }
+    if (!supported && !(isIos && !standalone)) return;
     currentSubscription().then(function (sub) {
-      if (sub) {
-        showBanner(false);
-        return;
-      }
-      // Always show a Home banner until alerts are on.
-      if (isHomeRoot) showBanner(true);
-      else showBanner(false);
-
+      if (sub) return;
       if (snoozed()) return;
       if (typeof Notification !== 'undefined' && Notification.permission === 'denied' && !isHomeRoot) return;
 
@@ -232,7 +215,8 @@
         // Wait for install sheet to close, then jump to alerts.
         return;
       }
-      // Home: immediate. Elsewhere: short delay so it still feels default.
+      // Home: immediate popup. Elsewhere: short delay. No Home page banner —
+      // alerts stay in this modal + the bell notifications panel.
       if (isHomeRoot) show();
       else setTimeout(show, 900);
     });
@@ -245,16 +229,6 @@
   modal.addEventListener('click', function (e) {
     if (e.target === modal) closeModal(true);
   });
-
-  if (banner) {
-    var bannerBtn = banner.querySelector('[data-ma-push-nudge-open]');
-    if (bannerBtn) {
-      bannerBtn.addEventListener('click', function () {
-        clearSnooze();
-        openModal();
-      });
-    }
-  }
 
   window.addEventListener('ma-install-closed', function () {
     currentSubscription().then(function (sub) {
