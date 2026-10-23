@@ -49,3 +49,10 @@ test('Reviews unregisters the Agency OS root worker so task reminders stop landi
   assert.match(memberPush, /dropWorkspaceWorker/);
   assert.match(memberPush, /pathname === '\/sw\.js'/);
 });
+
+test('Leads Phone alerts card hides when push is already on', () => {
+  const memberPush = fs.readFileSync(path.join(root, 'public/js/member-app-push.js'), 'utf8');
+  assert.match(memberPush, /state === 'on' \|\| state === 'unsupported'/);
+  assert.match(memberPush, /root\.hidden = true/);
+  assert.match(memberPush, /manage from the bell panel/i);
+});
