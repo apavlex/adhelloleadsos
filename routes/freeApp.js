@@ -65,8 +65,8 @@ async function render(req, res, {
   else if (flooring) pagePath = '/app/flooring';
   const ogOffer = flooring ? freeAppSignup.OFFER_FLOORING : '';
   const ogTitle = flooring
-    ? 'AdHello Reviews app — reviews, referrals &amp; material quotes'
-    : 'AdHello Reviews app — reviews &amp; referrals';
+    ? 'Get more reviews &amp; referrals app — plus material quotes'
+    : 'Get more reviews &amp; referrals app';
   const ogDescription = flooring
     ? 'Collect Google reviews, share referrals, and request material quotes on your phone.'
     : 'Collect Google reviews and grow through referrals on your phone. 30-day free trial — no credit card.';

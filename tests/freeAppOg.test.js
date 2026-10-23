@@ -9,12 +9,14 @@ describe('freeAppOg', () => {
     freeAppOg._resetCacheForTests();
   });
 
-  it('copyForOffer emphasizes reviews app and referrals', () => {
+  it('copyForOffer uses sales-style Get more reviews & referrals naming', () => {
     const def = freeAppOg.copyForOffer('');
-    assert.match(def.title, /Reviews/i);
+    assert.match(def.title, /Get more reviews/i);
+    assert.match(def.titleLine2, /& referrals app/i);
+    assert.match(def.badge, /GET MORE/i);
     assert.match(def.subtitle, /referrals/i);
-    assert.match(def.kicker, /Reviews app/i);
     const flooring = freeAppOg.copyForOffer('flooring');
+    assert.match(flooring.titleLine2, /& referrals app/i);
     assert.match(flooring.subtitle, /referrals|quotes/i);
   });
 
@@ -52,7 +54,8 @@ describe('freeAppOg', () => {
     assert.match(view, /og:image/);
     assert.match(view, /ogImageUrl/);
     assert.match(view, /twitter:card/);
-    assert.match(view, /Reviews app/);
+    assert.match(view, /Get more reviews/);
+    assert.doesNotMatch(view, /AdHello Reviews app/);
     assert.doesNotMatch(view, /pay-per-performance leads &amp; referrals/);
     assert.match(route, /\/app\/og\.jpg/);
     assert.match(route, /\/app\/flooring\/og\.jpg/);
