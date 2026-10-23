@@ -2851,12 +2851,9 @@ async function googleReviewsLocals(ctx, member, req) {
   const grStore = paid ? businessReviews.getStore(sid) : businessReviews.getStore('');
   const summary = businessReviews.inboxSummary(grStore);
   let outscraperConfigured = false;
-  let queryHint = '';
+  const googleRequestLink = String((member.reviewLinks && member.reviewLinks.google) || '').trim();
+  const queryFromSites = businessReviews.resolveQueryFromMember(member);
   try {
-    const lead = member.leadKey
-      ? await dbService.getLead(member.leadKey, ctx.network.ownerWorkspaceId).catch(() => null)
-      : null;
-    queryHint = businessReviews.resolveQueryFromMember(member, lead);
     const env = await businessReviews.resolveReviewsOutscraperEnv();
     outscraperConfigured = outscraper.isConfigured(env);
   } catch (_) { /* ignore */ }
@@ -2868,7 +2865,8 @@ async function googleReviewsLocals(ctx, member, req) {
     googleReviewsSummary: summary,
     googleReviews: paid ? grStore.reviews : [],
     googleReviewsOutscraper: outscraperConfigured,
-    googleReviewsQueryHint: queryHint,
+    googleReviewsQueryHint: queryFromSites,
+    googleReviewsRequestLink: googleRequestLink,
     googleReviewFocusId: String(q.googleReview || q.review || '').trim(),
   };
 }
@@ -3020,8 +3018,16 @@ router.post('/m/:token/review/google-reviews/settings', express.json(), withMemb
   const member = await ensureReviewSetup(ctx);
   const sid = businessReviews.memberStorageId(ctx.network.id, member.id);
   const body = req.body || {};
+  const query = businessReviews.resolveQueryFromMember(member);
+  if (!query) {
+    return res.status(400).json({
+      success: false,
+      error: 'Add your Google review link under Review → Settings (request sites) first.',
+      code: 'QUERY_REQUIRED',
+    });
+  }
   const settings = businessReviews.saveSettings(sid, {
-    query: body.query,
+    query,
     businessName: body.businessName != null ? body.businessName : member.companyName,
     autoSync: body.autoSync === undefined ? undefined : !!body.autoSync,
   });
@@ -3033,10 +3039,10 @@ router.post('/m/:token/review/google-reviews/sync', express.json(), withMemberAp
     const member = await ensureReviewSetup(ctx);
     const body = req.body || {};
     const result = await businessReviews.syncMember(ctx.network, member, {
-      query: body.query,
-      businessName: body.businessName,
+      // Query always comes from the Google request-site link — ignore client overrides.
+      businessName: member.companyName,
       autoSync: body.autoSync === undefined ? undefined : !!body.autoSync,
-      force: body.force === true || body.force === '1',
+      force: true,
       baseUrl: getReviewPublicBaseUrl() || getPublicBaseUrl(req) || undefined,
     });
     return res.json({

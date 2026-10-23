@@ -149,7 +149,7 @@ describe('businessReviews', () => {
     assert.match(sched, /businessReviews\.syncDueWorkspaces/);
   });
 
-  it('resolveQueryFromMember prefers Google place id / review link', () => {
+  it('resolveQueryFromMember uses only the Google request-site link', () => {
     assert.equal(
       businessReviews.resolveQueryFromMember({
         companyName: 'Acme',
@@ -166,12 +166,26 @@ describe('businessReviews', () => {
       }),
       /g\.page/
     );
+    // Never fall back to CRM lead / company name — that pulls the wrong listing.
     assert.equal(
       businessReviews.resolveQueryFromMember(
         { companyName: 'Acme Floors', reviewLinks: {} },
-        { city: 'Portland', state: 'OR' }
+        { city: 'Portland', state: 'OR', placeId: 'ChIJwrongplace99' }
       ),
-      'Acme Floors, Portland, OR'
+      ''
+    );
+  });
+
+  it('sanitizeReviewText strips HTML tags and turns br into newlines', () => {
+    const raw = '★★★★★<br><br>Great job<br>Would hire again';
+    const out = businessReviews.sanitizeReviewText(raw);
+    assert.doesNotMatch(out, /<br/i);
+    assert.doesNotMatch(out, /</);
+    assert.match(out, /Great job/);
+    assert.match(out, /\n/);
+    assert.equal(
+      businessReviews.sanitizeReviewText('<p>Hello &amp; thanks</p>'),
+      'Hello & thanks'
     );
   });
 
@@ -212,14 +226,24 @@ describe('businessReviews', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const svc = fs.readFileSync(path.join(__dirname, '../services/businessReviews.js'), 'utf8');
     assert.match(review, /_google_reviews/);
+    // Synced inbox is above the QR card so biz reviews aren’t buried.
+    assert.ok(review.indexOf("_google_reviews") < review.indexOf('ma-qr'));
     assert.match(partial, /Generate with AI/);
     assert.match(partial, /Copy reply/);
     assert.match(partial, /See Google reviews/);
     assert.match(partial, /AdHello/);
+    assert.match(partial, /_grShowInbox/);
+    assert.match(partial, /maGrList/);
+    assert.match(partial, /ma-gr-review/);
+    assert.match(partial, /Google request-site link/);
+    assert.match(partial, /request sites/);
+    assert.doesNotMatch(partial, /id="maGrQuery"/);
     assert.match(route, /google-reviews\/sync/);
+    assert.match(route, /resolveQueryFromMember\(member\)/);
     assert.match(route, /resolveReviewsOutscraperEnv/);
     assert.match(svc, /resolveAgencyProviderEnv/);
     assert.match(svc, /resolveReviewsOutscraperEnv/);
+    assert.match(svc, /sanitizeReviewText/);
     assert.doesNotMatch(svc, /getResolvedIntegrationEnv\(/);
   });
 });
