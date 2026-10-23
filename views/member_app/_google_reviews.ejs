@@ -13,16 +13,21 @@
   const _grRequestLink = typeof googleReviewsRequestLink !== 'undefined'
     ? String(googleReviewsRequestLink || '')
     : '';
+  const _yelpRequestLink = typeof yelpReviewsRequestLink !== 'undefined'
+    ? String(yelpReviewsRequestLink || '')
+    : '';
   const _grHasGoogleSite = !!_grRequestLink;
+  const _grHasYelpSite = !!_yelpRequestLink;
+  const _grHasAnySite = _grHasGoogleSite || _grHasYelpSite;
   // Keep QR landing primary: only auto-open for upgrade gate, focus deep-link, or new reviews.
   const _grOpen = _grFocus || _grLocked || (_grPaid && _grSummary.newCount > 0);
 %>
 <details class="ma-fold" id="maGoogleReviews" <%= _grOpen ? 'open' : '' %>>
   <summary>
-    Google reviews
+    Google &amp; Yelp reviews
     <span class="ma-fold__hint">
       <% if (_grLocked) { %>monthly plan
-      <% } else if (!_grHasGoogleSite) { %>add Google link
+      <% } else if (!_grHasAnySite) { %>add Google or Yelp link
       <% } else if (_grSummary.newCount) { %><%= _grSummary.newCount %> new
       <% } else if (_grSummary.total) { %><%= _grSummary.total %> synced
       <% } else { %>Outscraper inbox<% } %>
@@ -31,14 +36,14 @@
   <div class="ma-fold__body">
     <% if (_grLocked) { %>
     <%- include('_upgrade_gate', {
-      upgradeTitle: 'See Google reviews & reply with AI',
-      upgradeBody: 'On the monthly plan we pull your Google reviews with Outscraper, notify you when a new one lands, and draft a reply you can copy into Google.',
+      upgradeTitle: 'See Google & Yelp reviews & reply with AI',
+      upgradeBody: 'On the monthly plan we pull your Google and Yelp reviews with Outscraper, notify you when a new one lands, and draft a reply you can copy into Google or Yelp.',
       upgradeHref: base + '/join',
       upgradeIcon: 'review',
     }) %>
     <% } else { %>
     <div class="ma-card ma-card--flush" style="margin-bottom:10px">
-      <p class="ma-hint" style="margin-top:0">We sync only from your <strong>Google</strong> link under Review → Settings (request sites). New reviews ping your bell — then draft an AI reply and copy it into Google.</p>
+      <p class="ma-hint" style="margin-top:0">We sync from your <strong>Google</strong> and <strong>Yelp</strong> links under Review → Settings (request sites). New reviews ping your bell — then draft an AI reply and copy it back to that site.</p>
       <% if (_grSummary.placeName) { %>
       <p class="ma-gr-place">For <strong><%= _grSummary.placeName %></strong></p>
       <% } %>
@@ -60,18 +65,30 @@
           <label class="ma-label">Google request-site link</label>
           <% if (_grHasGoogleSite) { %>
           <p class="ma-gr-link"><%= _grRequestLink %></p>
-          <p class="ma-hint">Change it in <a href="<%= base %>/review/settings">Review settings</a> if the wrong business shows up.</p>
           <% } else { %>
-          <p class="ma-flash ma-flash--err" style="margin:0 0 8px">Add your Google review link in <a href="<%= base %>/review/settings">Review settings</a> (request sites) first.</p>
+          <p class="ma-hint">Not set — add it in <a href="<%= base %>/review/settings">Review settings</a>.</p>
           <% } %>
         </div>
+        <div class="ma-field">
+          <label class="ma-label">Yelp request-site link</label>
+          <% if (_grHasYelpSite) { %>
+          <p class="ma-gr-link"><%= _yelpRequestLink %></p>
+          <% } else { %>
+          <p class="ma-hint">Not set — add it in <a href="<%= base %>/review/settings">Review settings</a>.</p>
+          <% } %>
+        </div>
+        <% if (!_grHasAnySite) { %>
+        <p class="ma-flash ma-flash--err" style="margin:0 0 8px">Add a Google and/or Yelp review link in <a href="<%= base %>/review/settings">Review settings</a> (request sites) first.</p>
+        <% } else { %>
+        <p class="ma-hint">Change links in <a href="<%= base %>/review/settings">Review settings</a> if the wrong business shows up.</p>
+        <% } %>
         <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
           <input type="checkbox" name="autoSync" value="1" <%= _grSettings.autoSync !== false ? 'checked' : '' %> style="margin-top:3px">
           <span>Auto-sync &amp; notify me on new reviews</span>
         </label>
         <div class="ma-actions" style="margin:0">
           <button type="button" class="ma-btn ma-btn--soft" id="maGrSave">Save</button>
-          <button type="button" class="ma-btn" id="maGrSync" <%= _grOut && _grHasGoogleSite ? '' : 'disabled' %>>Sync now</button>
+          <button type="button" class="ma-btn" id="maGrSync" <%= _grOut && _grHasAnySite ? '' : 'disabled' %>>Sync now</button>
         </div>
         <p class="ma-hint" id="maGrStatus" role="status" style="margin:8px 0 0;min-height:1.2em">
           <% if (_grSummary.lastSyncedAt) { %>Last sync · <%= _grSummary.lastSyncedAt.slice(0, 16).replace('T', ' ') %> UTC<% } %>
@@ -81,18 +98,22 @@
 
     <% if (!_grReviews.length) { %>
     <div class="ma-card ma-card--flush ma-empty">
-      <p>No Google reviews synced yet. Confirm your Google request-site link, then tap <strong>Sync now</strong>.</p>
+      <p>No reviews synced yet. Confirm your Google and/or Yelp request-site links, then tap <strong>Sync now</strong>.</p>
     </div>
     <% } else { %>
     <div id="maGrList">
       <% _grReviews.forEach(function (r) {
         var _focus = _grFocus && _grFocus === r.id;
+        var _src = String(r.source || 'google').toLowerCase() === 'yelp' ? 'yelp' : 'google';
+        var _srcLabel = _src === 'yelp' ? 'Yelp' : 'Google';
+        var _pasteWhere = _src === 'yelp' ? 'Yelp' : 'Google';
       %>
       <div class="ma-card ma-card--flush ma-gr-card" style="margin-bottom:8px<%= r.isNew ? ';border-color:rgba(16,185,129,.45)' : '' %><%= _focus ? ';box-shadow:0 0 0 2px var(--acc)' : '' %>" data-gr-id="<%= r.id %>" id="gr-<%= r.id %>">
         <div class="ma-card__row">
           <div style="min-width:0">
             <p class="ma-card__title ma-gr-author">
-              <%= r.rating != null ? r.rating + '★' : 'Review' %> · <%= r.author || 'Google reviewer' %>
+              <span class="ma-gr-source ma-gr-source--<%= _src %>"><%= _srcLabel %></span>
+              <%= r.rating != null ? r.rating + '★' : 'Review' %> · <%= r.author || (_srcLabel + ' reviewer') %>
               <% if (r.isNew) { %> <span class="ma-fold__hint" style="color:#059669;font-weight:800">NEW</span><% } %>
             </p>
             <% if (r.reviewedAt) { %><p class="ma-card__meta"><%= String(r.reviewedAt).slice(0, 10) %></p><% } %>
@@ -108,10 +129,10 @@
         <% } %>
         <div style="margin-top:10px" data-gr-reply>
           <label class="ma-label" for="gr-draft-<%= r.id %>">AI reply draft</label>
-          <textarea id="gr-draft-<%= r.id %>" class="ma-textarea ma-gr-draft" rows="3" data-gr-draft maxlength="3500" placeholder="Generate a reply, tweak it, then copy into Google."><%= r.replyDraft || '' %></textarea>
+          <textarea id="gr-draft-<%= r.id %>" class="ma-textarea ma-gr-draft" rows="3" data-gr-draft maxlength="3500" placeholder="Generate a reply, tweak it, then copy into <%= _pasteWhere %>."><%= r.replyDraft || '' %></textarea>
           <div class="ma-actions" style="margin:8px 0 0">
             <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-gr-generate="<%= r.id %>">Generate with AI</button>
-            <button type="button" class="ma-btn ma-btn--sm" data-gr-copy="<%= r.id %>" <%= r.replyDraft ? '' : 'disabled' %>><%- icons.copy %> Copy reply</button>
+            <button type="button" class="ma-btn ma-btn--sm" data-gr-copy="<%= r.id %>" data-gr-platform="<%= _pasteWhere %>" <%= r.replyDraft ? '' : 'disabled' %>><%- icons.copy %> Copy reply</button>
           </div>
           <p class="ma-hint" data-gr-msg style="margin:6px 0 0;min-height:1.1em"></p>
         </div>
@@ -162,7 +183,7 @@
       var syncBtn = document.getElementById('maGrSync');
       if (syncBtn) syncBtn.addEventListener('click', async function () {
         syncBtn.disabled = true;
-        setStatus('Syncing from your Google request-site link…');
+        setStatus('Syncing Google & Yelp from your request-site links…');
         try {
           var data = await post('/review/google-reviews/sync', payload());
           setStatus(data.newCount ? (data.newCount + ' new review' + (data.newCount === 1 ? '' : 's')) : (data.skipped ? 'Already up to date' : 'Synced'));
@@ -213,7 +234,8 @@
           try {
             if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
             else { ta.focus(); ta.select(); document.execCommand('copy'); }
-            if (msg) msg.textContent = 'Copied — paste into your Google Business reply.';
+            var platform = btn.getAttribute('data-gr-platform') || 'Google';
+            if (msg) msg.textContent = 'Copied — paste into your ' + platform + ' reply.';
             btn.textContent = 'Copied!';
             setTimeout(function () { btn.innerHTML = btn.getAttribute('data-label') || 'Copy reply'; }, 1600);
           } catch (e) {

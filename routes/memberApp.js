@@ -2852,7 +2852,9 @@ async function googleReviewsLocals(ctx, member, req) {
   const summary = businessReviews.inboxSummary(grStore);
   let outscraperConfigured = false;
   const googleRequestLink = String((member.reviewLinks && member.reviewLinks.google) || '').trim();
+  const yelpRequestLink = String((member.reviewLinks && member.reviewLinks.yelp) || '').trim();
   const queryFromSites = businessReviews.resolveQueryFromMember(member);
+  const yelpQueryFromSites = businessReviews.resolveYelpQueryFromMember(member);
   try {
     const env = await businessReviews.resolveReviewsOutscraperEnv();
     outscraperConfigured = outscraper.isConfigured(env);
@@ -2867,6 +2869,8 @@ async function googleReviewsLocals(ctx, member, req) {
     googleReviewsOutscraper: outscraperConfigured,
     googleReviewsQueryHint: queryFromSites,
     googleReviewsRequestLink: googleRequestLink,
+    yelpReviewsRequestLink: yelpRequestLink,
+    yelpReviewsQueryHint: yelpQueryFromSites,
     googleReviewFocusId: String(q.googleReview || q.review || '').trim(),
   };
 }
@@ -3019,15 +3023,17 @@ router.post('/m/:token/review/google-reviews/settings', express.json(), withMemb
   const sid = businessReviews.memberStorageId(ctx.network.id, member.id);
   const body = req.body || {};
   const query = businessReviews.resolveQueryFromMember(member);
-  if (!query) {
+  const yelpQuery = businessReviews.resolveYelpQueryFromMember(member);
+  if (!query && !yelpQuery) {
     return res.status(400).json({
       success: false,
-      error: 'Add your Google review link under Review → Settings (request sites) first.',
+      error: 'Add your Google and/or Yelp review link under Review → Settings (request sites) first.',
       code: 'QUERY_REQUIRED',
     });
   }
   const settings = businessReviews.saveSettings(sid, {
     query,
+    yelpQuery,
     businessName: body.businessName != null ? body.businessName : member.companyName,
     autoSync: body.autoSync === undefined ? undefined : !!body.autoSync,
   });

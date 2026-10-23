@@ -60,7 +60,8 @@ describe('businessReviews', () => {
     };
     const a = businessReviews.normalizeStoredReview(raw);
     const b = businessReviews.normalizeStoredReview(raw);
-    assert.equal(a.id, 'id:rev_abc');
+    assert.equal(a.id, 'google:id:rev_abc');
+    assert.equal(a.source, 'google');
     assert.equal(a.id, b.id);
     assert.equal(a.rating, 5);
     assert.equal(a.author, 'Sam P.');
@@ -89,8 +90,8 @@ describe('businessReviews', () => {
       { markNew: true }
     );
     assert.equal(second.newOnes.length, 1);
-    assert.equal(second.newOnes[0].id, 'id:r3');
-    assert.equal(second.reviews.find((r) => r.id === 'id:r3').isNew, true);
+    assert.equal(second.newOnes[0].id, 'google:id:r3');
+    assert.equal(second.reviews.find((r) => r.id === 'google:id:r3').isNew, true);
 
     const notes = businessReviews.notifyNewReviews(WID, second.newOnes, 'Acme Floors');
     assert.ok(notes.length >= 1);
@@ -176,6 +177,51 @@ describe('businessReviews', () => {
     );
   });
 
+  it('resolveYelpQueryFromMember uses only the Yelp request-site link', () => {
+    assert.match(
+      businessReviews.resolveYelpQueryFromMember({
+        reviewLinks: { yelp: 'https://www.yelp.com/biz/acme-floors-portland' },
+      }),
+      /yelp\.com\/biz\/acme-floors-portland/
+    );
+    assert.equal(
+      businessReviews.resolveYelpQueryFromMember({
+        companyName: 'Acme',
+        reviewLinks: { google: 'https://g.page/r/xyz/review' },
+      }),
+      ''
+    );
+    assert.equal(
+      businessReviews.resolveYelpQueryFromMember({
+        reviewLinks: { yelp: 'acme-floors-portland' },
+      }),
+      'acme-floors-portland'
+    );
+  });
+
+  it('normalizes Yelp reviews with source and strips HTML', () => {
+    const row = businessReviews.normalizeStoredReview({
+      source: 'yelp',
+      review_id: 'yelpRev1',
+      review_rating: 5,
+      author_name: 'Pat',
+      review_text: 'Great floors<br><br>Would hire again',
+      owner_replies: [{ text: 'Thanks Pat!' }],
+    });
+    assert.equal(row.source, 'yelp');
+    assert.match(row.id, /^yelp:id:yelpRev1/);
+    assert.doesNotMatch(row.text, /<br/i);
+    assert.match(row.text, /Great floors/);
+    assert.equal(row.ownerResponse, 'Thanks Pat!');
+    const google = businessReviews.normalizeStoredReview({
+      source: 'google',
+      review_id: 'yelpRev1',
+      review_rating: 4,
+      review_text: 'Different platform same id',
+    });
+    assert.notEqual(row.id, google.id);
+  });
+
   it('sanitizeReviewText strips HTML tags and turns br into newlines', () => {
     const raw = '★★★★★<br><br>Great job<br>Would hire again';
     const out = businessReviews.sanitizeReviewText(raw);
@@ -231,20 +277,26 @@ describe('businessReviews', () => {
     assert.match(review, /Show your QR/);
     assert.match(partial, /Generate with AI/);
     assert.match(partial, /Copy reply/);
-    assert.match(partial, /See Google reviews/);
+    assert.match(partial, /See Google &amp; Yelp reviews|See Google & Yelp reviews|Google &amp; Yelp reviews/);
     assert.match(partial, /AdHello/);
     assert.match(partial, /ma-fold/);
     assert.match(partial, /maGrList/);
     assert.match(partial, /ma-gr-review/);
     assert.match(partial, /Google request-site link/);
+    assert.match(partial, /Yelp request-site link/);
     assert.match(partial, /request sites/);
     assert.doesNotMatch(partial, /id="maGrQuery"/);
     assert.match(route, /google-reviews\/sync/);
     assert.match(route, /resolveQueryFromMember\(member\)/);
+    assert.match(route, /resolveYelpQueryFromMember\(member\)/);
     assert.match(route, /resolveReviewsOutscraperEnv/);
     assert.match(svc, /resolveAgencyProviderEnv/);
     assert.match(svc, /resolveReviewsOutscraperEnv/);
     assert.match(svc, /sanitizeReviewText/);
+    assert.match(svc, /fetchYelpReviews/);
     assert.doesNotMatch(svc, /getResolvedIntegrationEnv\(/);
+    const client = fs.readFileSync(path.join(__dirname, '../services/outscraperClient.js'), 'utf8');
+    assert.match(client, /fetchYelpReviews/);
+    assert.match(client, /yelp-reviews/);
   });
 });
