@@ -236,6 +236,42 @@ async function sharedSource(workspaceId) {
   return src && src.workspaceId !== workspaceId ? src.fields : null;
 }
 
+/**
+ * AdHello admin agency workspace keys (slug `adhello-agency` or
+ * SHARED_INTEGRATIONS_WORKSPACE_ID), always — even when the caller is that workspace.
+ * Used when a feature must bill/run on the platform Outscraper (etc.) key.
+ * @returns {Promise<{ workspaceId: string, fields: Record<string, string> }|null>}
+ */
+async function getAgencySharedSource() {
+  return loadSharedSource();
+}
+
+/**
+ * Resolve selected integration fields from the AdHello agency workspace, then process.env.
+ * Does not blend in the caller's workspace keys — platform-owned providers only.
+ * @param {string[]} fieldNames INTEGRATION_FIELDS keys, e.g. ['outscraperApiKey','outscraperApiBase']
+ * @returns {Promise<Record<string, string>>} env-style map (OUTSCRAPER_API_KEY, …)
+ */
+async function resolveAgencyProviderEnv(fieldNames) {
+  const names = Array.isArray(fieldNames) ? fieldNames : [];
+  const src = await loadSharedSource();
+  const fields = (src && src.fields) || {};
+  const out = {};
+  for (const field of names) {
+    const envName = FIELD_TO_ENV[field];
+    if (!envName) continue;
+    const fromAgency = fields[field];
+    if (typeof fromAgency === 'string' && fromAgency.trim()) {
+      out[envName] = fromAgency.trim();
+      continue;
+    }
+    const fromProcess = process.env[envName];
+    out[envName] = typeof fromProcess === 'string' ? fromProcess.trim() : '';
+  }
+  if (src && src.workspaceId) out.AGENCY_SHARED_WORKSPACE_ID = src.workspaceId;
+  return out;
+}
+
 function withSharedKeys(own, shared) {
   if (!shared) return own;
   const out = { ...own };
@@ -432,8 +468,11 @@ module.exports = {
   FIELD_TO_ENV,
   decryptedFromWorkspace,
   getResolvedIntegrationEnv,
+  getAgencySharedSource,
+  resolveAgencyProviderEnv,
   sharedProvidersFor,
   SHARED_GROUPS,
+  SHARED_SOURCE_SLUG,
   mergeIntegrationUpdates,
   applyClears,
   saveWorkspaceIntegrations,

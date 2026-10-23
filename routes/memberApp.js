@@ -40,7 +40,6 @@ const reviewAsk = require('../services/reviewAsk');
 const reviewReferralReward = require('../services/reviewReferralReward');
 const businessReviews = require('../services/businessReviews');
 const outscraper = require('../services/outscraperClient');
-const workspaceIntegrations = require('../services/workspaceIntegrations');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const memberActivity = require('../services/memberActivity');
 const memberGhlAlerts = require('../services/memberGhlAlerts');
@@ -2858,10 +2857,8 @@ async function googleReviewsLocals(ctx, member, req) {
       ? await dbService.getLead(member.leadKey, ctx.network.ownerWorkspaceId).catch(() => null)
       : null;
     queryHint = businessReviews.resolveQueryFromMember(member, lead);
-    if (ctx.network.ownerWorkspaceId) {
-      const env = await workspaceIntegrations.getResolvedIntegrationEnv(ctx.network.ownerWorkspaceId);
-      outscraperConfigured = outscraper.isConfigured(env);
-    }
+    const env = await businessReviews.resolveReviewsOutscraperEnv();
+    outscraperConfigured = outscraper.isConfigured(env);
   } catch (_) { /* ignore */ }
   const q = (req && req.query) || {};
   return {

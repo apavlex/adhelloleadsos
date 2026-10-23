@@ -6,7 +6,6 @@ const router = express.Router();
 const dbService = require('../services/database');
 const trials = require('../services/trials');
 const outscraper = require('../services/outscraperClient');
-const workspaceIntegrations = require('../services/workspaceIntegrations');
 const businessReviews = require('../services/businessReviews');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
@@ -16,7 +15,7 @@ async function pageLocals(req) {
   const settings = businessReviews.getSettings(req.workspaceId);
   const store = businessReviews.getStore(req.workspaceId);
   const summary = businessReviews.inboxSummary(store);
-  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+  const integrationEnv = await businessReviews.resolveReviewsOutscraperEnv();
   const contact = trials.contactInfo();
   const focusId = String(req.query.review || '').trim();
   return {

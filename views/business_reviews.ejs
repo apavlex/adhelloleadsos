@@ -23,7 +23,6 @@
       <% if (_paid) { %>
       <div class="flex flex-wrap gap-2 shrink-0">
         <button type="button" id="brSyncBtn" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest"<%= !_settings.query || !_outConfigured ? ' disabled' : '' %>>Sync reviews</button>
-        <a href="/workspace/integrations#integration-outscraper" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Outscraper</a>
       </div>
       <% } %>
     </header>
@@ -70,14 +69,17 @@
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div>
           <h2 id="brSettingsTitle" class="font-display font-bold text-lg text-brand-dark dark:text-white">Google listing</h2>
-          <p class="text-xs text-brand-muted mt-1">Place ID, Maps URL, or exact business name + city. Auto-sync checks for new reviews in the background.</p>
+          <p class="text-xs text-brand-muted mt-1">Place ID, Maps URL, or exact business name + city. Syncs through AdHello’s agency Outscraper key.</p>
         </div>
         <% if (!_outConfigured) { %>
-        <a href="/workspace/integrations#integration-outscraper" class="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300 underline">Connect Outscraper first</a>
+        <p class="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">Agency Outscraper offline</p>
         <% } else if (_summary.lastSyncedAt) { %>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Last sync · <%= wsDateTime(_summary.lastSyncedAt, { dateStyle: 'medium', timeStyle: 'short' }) %></p>
         <% } %>
       </div>
+      <% if (!_outConfigured) { %>
+      <p class="mb-4 text-xs text-amber-800 dark:text-amber-200 bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2">AdHello agency Outscraper isn’t configured yet (adhello-agency workspace key or <code class="text-[10px]">OUTSCRAPER_API_KEY</code>).</p>
+      <% } %>
       <% if (_summary.lastError) { %>
       <p class="mb-4 text-xs text-rose-700 dark:text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2"><%= _summary.lastError %></p>
       <% } %>

@@ -184,16 +184,42 @@ describe('businessReviews', () => {
     dbService.deleteKvSync(businessReviews.SETTINGS_PREFIX + sid);
   });
 
+  it('resolveReviewsOutscraperEnv prefers agency provider helper (not workspace env)', async () => {
+    const wi = require('../services/workspaceIntegrations');
+    const prev = wi.resolveAgencyProviderEnv;
+    let calledWith = null;
+    wi.resolveAgencyProviderEnv = async (fields) => {
+      calledWith = fields;
+      return {
+        OUTSCRAPER_API_KEY: 'agency-outscraper-test-key',
+        OUTSCRAPER_API_BASE: 'https://api.app.outscraper.com',
+        AGENCY_SHARED_WORKSPACE_ID: 'ws_agency_test',
+      };
+    };
+    try {
+      const env = await businessReviews.resolveReviewsOutscraperEnv();
+      assert.deepEqual(calledWith, ['outscraperApiKey', 'outscraperApiBase']);
+      assert.equal(env.OUTSCRAPER_API_KEY, 'agency-outscraper-test-key');
+      assert.equal(env.AGENCY_SHARED_WORKSPACE_ID, 'ws_agency_test');
+    } finally {
+      wi.resolveAgencyProviderEnv = prev;
+    }
+  });
+
   it('member Review page embeds Google reviews inbox', () => {
     const review = fs.readFileSync(path.join(__dirname, '../views/member_app/review.ejs'), 'utf8');
     const partial = fs.readFileSync(path.join(__dirname, '../views/member_app/_google_reviews.ejs'), 'utf8');
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
+    const svc = fs.readFileSync(path.join(__dirname, '../services/businessReviews.js'), 'utf8');
     assert.match(review, /_google_reviews/);
     assert.match(partial, /Generate with AI/);
     assert.match(partial, /Copy reply/);
     assert.match(partial, /See Google reviews/);
+    assert.match(partial, /AdHello/);
     assert.match(route, /google-reviews\/sync/);
-    assert.match(route, /draftMemberReply|draft-reply/);
-    assert.match(route, /syncMember/);
+    assert.match(route, /resolveReviewsOutscraperEnv/);
+    assert.match(svc, /resolveAgencyProviderEnv/);
+    assert.match(svc, /resolveReviewsOutscraperEnv/);
+    assert.doesNotMatch(svc, /getResolvedIntegrationEnv\(/);
   });
 });

@@ -33,7 +33,7 @@
     }) %>
     <% } else { %>
     <div class="ma-card ma-card--flush" style="margin-bottom:10px">
-      <p class="ma-hint" style="margin-top:0">We watch your Google listing. New reviews ping your bell — then generate an AI reply and copy it into Google.</p>
+      <p class="ma-hint" style="margin-top:0">We watch your Google listing with AdHello’s Outscraper. New reviews ping your bell — then generate an AI reply and copy it into Google.</p>
       <% if (_grSummary.placeRating != null || _grSummary.total) { %>
       <div class="ma-kpis" style="margin-bottom:10px">
         <div class="ma-kpi"><strong><%= _grSummary.total %></strong><span>In inbox</span></div>
@@ -42,7 +42,7 @@
       </div>
       <% } %>
       <% if (!_grOut) { %>
-      <p class="ma-flash ma-flash--err" style="margin:0 0 10px">Your agency still needs Outscraper connected before sync works.</p>
+      <p class="ma-flash ma-flash--err" style="margin:0 0 10px">AdHello Outscraper isn’t ready yet. Try again shortly or contact support.</p>
       <% } %>
       <% if (_grSummary.lastError) { %>
       <p class="ma-flash ma-flash--err" style="margin:0 0 10px"><%= _grSummary.lastError %></p>

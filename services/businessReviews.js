@@ -32,6 +32,17 @@ function memberStorageId(networkId, memberId) {
   return `member:${nid}:${mid}`;
 }
 
+/**
+ * Always use AdHello admin agency Outscraper (shared `adhello-agency` keys /
+ * SHARED_INTEGRATIONS_WORKSPACE_ID), then process.env — never a client workspace key.
+ */
+async function resolveReviewsOutscraperEnv() {
+  return workspaceIntegrations.resolveAgencyProviderEnv([
+    'outscraperApiKey',
+    'outscraperApiBase',
+  ]);
+}
+
 function settingsKey(storageId) {
   return `${SETTINGS_PREFIX}${String(storageId || '').trim()}`;
 }
@@ -375,10 +386,11 @@ async function syncWorkspace(workspaceId, opts = {}) {
     }
   }
 
-  const integrationEnv =
-    opts.integrationEnv || (await workspaceIntegrations.getResolvedIntegrationEnv(wid));
+  const integrationEnv = opts.integrationEnv || (await resolveReviewsOutscraperEnv());
   if (!outscraper.isConfigured(integrationEnv)) {
-    const err = new Error('Connect Outscraper under Workspace → Integrations to sync Google reviews.');
+    const err = new Error(
+      'AdHello agency Outscraper is not configured (set the key on the adhello-agency workspace or OUTSCRAPER_API_KEY).'
+    );
     err.code = 'OUTSCRAPER_NOT_CONFIGURED';
     err.status = 400;
     throw err;
@@ -719,11 +731,10 @@ async function syncMember(network, member, opts = {}) {
     }
   }
 
-  const integrationEnv =
-    opts.integrationEnv || (await workspaceIntegrations.getResolvedIntegrationEnv(wid));
+  const integrationEnv = opts.integrationEnv || (await resolveReviewsOutscraperEnv());
   if (!outscraper.isConfigured(integrationEnv)) {
     const err = new Error(
-      'Your agency needs Outscraper connected (Workspace → Integrations) to sync Google reviews.'
+      'AdHello agency Outscraper is not configured yet. Try again shortly or contact support.'
     );
     err.code = 'OUTSCRAPER_NOT_CONFIGURED';
     err.status = 400;
@@ -938,4 +949,5 @@ module.exports = {
   inboxSummary,
   notifyNewReviews,
   notifyMemberNewReviews,
+  resolveReviewsOutscraperEnv,
 };
