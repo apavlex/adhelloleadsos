@@ -2,11 +2,8 @@
  * Open Graph / iMessage link-preview image for the Reviews app signup pages
  * (/app, /app/flooring, /join/:slug).
  *
- * Uses the stock “Your business” van hero with a reviews + referrals overlay so
- * shared links show a real photo, not a yellow text card.
- *
- * Fonts are vendored under assets/fonts and embedded as base64 — production
- * Docker (node:20-slim) has no Helvetica/Arial, which made overlay text tofu.
+ * Uses a clean crop of the stock service-van hero (no “Your business image.”
+ * placeholder, no text overlay). Link title/description come from page meta.
  */
 const fs = require('fs');
 const path = require('path');
@@ -17,32 +14,21 @@ const FONT_REGULAR_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Liberat
 const OG_WIDTH = 1200;
 const OG_HEIGHT = 630;
 /** Bump when the art changes so Apple/iMessage refetch the unfurl. */
-const OG_VERSION = 'reviews-referrals-v3';
+const OG_VERSION = 'reviews-referrals-v4';
+
+/**
+ * Source crop of member-hero-your-business.jpg that keeps the cab / ladders
+ * and excludes the yellow “Your business image.” decal on the side panel.
+ * Coordinates are relative to the 1400×900 stock file.
+ */
+const CLEAN_HERO_EXTRACT = { left: 0, top: 80, width: 700, height: 700 };
 
 const cache = new Map();
-let fontFaceCss = null;
 
-function escapeXml(value) {
-  return String(value || '').replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]
-  ));
-}
-
-function loadFontFaceCss() {
-  if (fontFaceCss != null) return fontFaceCss;
-  const parts = [];
-  if (fs.existsSync(FONT_BOLD_PATH)) {
-    const b64 = fs.readFileSync(FONT_BOLD_PATH).toString('base64');
-    parts.push(`@font-face{font-family:'OgSans';font-weight:700;font-style:normal;src:url('data:font/ttf;base64,${b64}') format('truetype');}`);
-  }
-  if (fs.existsSync(FONT_REGULAR_PATH)) {
-    const b64 = fs.readFileSync(FONT_REGULAR_PATH).toString('base64');
-    parts.push(`@font-face{font-family:'OgSans';font-weight:400;font-style:normal;src:url('data:font/ttf;base64,${b64}') format('truetype');}`);
-  }
-  fontFaceCss = parts.join('');
-  return fontFaceCss;
-}
-
+/**
+ * Sales-style naming for signup meta / tests (not drawn on the image).
+ * @param {string} [offer]
+ */
 function copyForOffer(offer) {
   const flooring = String(offer || '').toLowerCase() === 'flooring';
   if (flooring) {
@@ -57,7 +43,6 @@ function copyForOffer(offer) {
     badge: 'GET MORE',
     title: 'Get more reviews',
     titleLine2: '& referrals app',
-    // ASCII hyphen — avoids missing-glyph tofu if a font subset lacks em dash.
     subtitle: 'Collect Google reviews. Grow through referrals - on your phone.',
   };
 }
@@ -72,16 +57,16 @@ async function renderFreeAppOgImage(opts = {}) {
   if (cache.has(cacheKey)) return cache.get(cacheKey);
 
   const sharp = require('sharp');
-  const { badge, title, titleLine2, subtitle } = copyForOffer(offer);
-  let base;
+  let buffer;
   if (fs.existsSync(STOCK_HERO_PATH)) {
-    base = await sharp(fs.readFileSync(STOCK_HERO_PATH))
+    buffer = await sharp(fs.readFileSync(STOCK_HERO_PATH))
       .rotate()
-      .resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'center' })
-      .jpeg({ quality: 82, progressive: false, mozjpeg: false })
+      .extract(CLEAN_HERO_EXTRACT)
+      .resize(OG_WIDTH, OG_HEIGHT, { fit: 'cover', position: 'centre' })
+      .jpeg({ quality: 84, progressive: false, mozjpeg: false })
       .toBuffer();
   } else {
-    base = await sharp({
+    buffer = await sharp({
       create: {
         width: OG_WIDTH,
         height: OG_HEIGHT,
@@ -89,39 +74,9 @@ async function renderFreeAppOgImage(opts = {}) {
         background: { r: 15, g: 23, b: 42 },
       },
     })
-      .jpeg({ quality: 82, progressive: false, mozjpeg: false })
+      .jpeg({ quality: 84, progressive: false, mozjpeg: false })
       .toBuffer();
   }
-
-  const faces = loadFontFaceCss();
-  const fontStack = faces ? "'OgSans', 'DejaVu Sans', 'Liberation Sans', sans-serif" : "'DejaVu Sans', 'Liberation Sans', sans-serif";
-
-  const overlay = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${OG_WIDTH}" height="${OG_HEIGHT}" viewBox="0 0 ${OG_WIDTH} ${OG_HEIGHT}">
-  <defs>
-    <linearGradient id="scrim" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="rgba(15,23,42,0.25)"/>
-      <stop offset="45%" stop-color="rgba(15,23,42,0.55)"/>
-      <stop offset="100%" stop-color="rgba(15,23,42,0.88)"/>
-    </linearGradient>
-    <style type="text/css"><![CDATA[
-      ${faces}
-      .og-text { font-family: ${fontStack}; }
-    ]]></style>
-  </defs>
-  <rect width="100%" height="100%" fill="url(#scrim)"/>
-  <rect x="64" y="72" width="180" height="44" rx="22" fill="#facc15"/>
-  <text class="og-text" x="154" y="101" text-anchor="middle" font-size="20" font-weight="700" fill="#1f242e">${escapeXml(badge)}</text>
-  <text class="og-text" x="64" y="250" font-size="64" font-weight="700" fill="#ffffff">${escapeXml(title)}</text>
-  <text class="og-text" x="64" y="330" font-size="64" font-weight="700" fill="#ffffff">${escapeXml(titleLine2)}</text>
-  <text class="og-text" x="64" y="410" font-size="28" font-weight="400" fill="rgba(255,255,255,0.9)">${escapeXml(subtitle)}</text>
-  <text class="og-text" x="64" y="560" font-size="26" font-weight="700" fill="#facc15">reviews.adhello.io</text>
-</svg>`;
-
-  const buffer = await sharp(base)
-    .composite([{ input: Buffer.from(overlay), top: 0, left: 0 }])
-    .jpeg({ quality: 84, progressive: false, mozjpeg: false })
-    .toBuffer();
 
   const pack = { contentType: 'image/jpeg', buffer, version: OG_VERSION };
   cache.set(cacheKey, pack);
@@ -144,12 +99,13 @@ module.exports = {
   OG_VERSION,
   FONT_BOLD_PATH,
   FONT_REGULAR_PATH,
+  CLEAN_HERO_EXTRACT,
+  STOCK_HERO_PATH,
   renderFreeAppOgImage,
   ogImagePath,
   ogImageAbsoluteUrl,
   copyForOffer,
   _resetCacheForTests() {
     cache.clear();
-    fontFaceCss = null;
   },
 };
