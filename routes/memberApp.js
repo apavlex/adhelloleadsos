@@ -1833,6 +1833,10 @@ async function customerPageData(req, ctx, id, { refreshTags = false, loadGhlActi
       .catch(() => null);
     if (pulled && pulled.ok && pulled.customer) customer = pulled.customer;
   }
+  // Shared contacts used to drop site-visit photos — pull them from the sharer once.
+  if (customer.sharedFromMemberId && customer.sharedFromCustomerId) {
+    await work.syncSharedCustomerPhotos(ctx.network.id, ctx.member.id, customer).catch(() => null);
+  }
   const today = work.todayIn(memberTimeZone(req));
   const { jobs, customersById } = await loadWork(ctx);
   const mine = jobs
@@ -2278,8 +2282,20 @@ router.post('/m/:token/customers/jobs/new', form, withMember(async (req, res, ct
 }));
 
 router.get('/m/:token/customers/jobs/:id', withMember(async (req, res, ctx) => {
-  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  let job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
   if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
+  if (job.sharedFromMemberId && job.sharedFromJobId) {
+    const sourceJob = await work.getJob(ctx.network.id, job.sharedFromMemberId, job.sharedFromJobId);
+    if (sourceJob) {
+      job = await work.copyJobPhotosToShared(
+        ctx.network.id,
+        job.sharedFromMemberId,
+        sourceJob,
+        ctx.member.id,
+        job,
+      );
+    }
+  }
   return renderJobPage(req, res, ctx, { job, flash: flashFromQuery(req) });
 }));
 

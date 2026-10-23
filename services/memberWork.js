@@ -693,6 +693,66 @@ async function ensureOpenJobForPhotos(networkId, memberId, customerId, { timeZon
   return { ok: true, job: saved.job, created: true };
 }
 
+/**
+ * Copy site-visit photo blobs + captions from a source job onto a shared copy.
+ * Idempotent: keeps existing recipient photo ids; uses the source photo id so
+ * re-shares do not duplicate. Missing source blobs are skipped.
+ */
+async function copyJobPhotosToShared(networkId, fromMemberId, sourceJob, toMemberId, theirJob) {
+  if (!sourceJob || !theirJob) return theirJob;
+  const sourcePhotos = normalizePhotos(sourceJob.photos);
+  if (!sourcePhotos.length) return theirJob;
+
+  const have = new Set((theirJob.photos || []).map((p) => String(p.id)));
+  const next = [...(theirJob.photos || [])];
+  let added = 0;
+
+  for (const p of sourcePhotos) {
+    if (have.has(p.id)) continue;
+    if (next.length >= MAX_JOB_PHOTOS) break;
+    const blob = await jobMedia.getJobPhoto(networkId, fromMemberId, sourceJob.id, p.id).catch(() => null);
+    if (!blob || !blob.buffer) continue;
+    await jobMedia.saveJobPhoto(networkId, toMemberId, theirJob.id, p.id, {
+      contentType: blob.contentType,
+      buffer: blob.buffer,
+    });
+    next.push({
+      id: p.id,
+      caption: p.caption || '',
+      createdAt: p.createdAt || new Date().toISOString(),
+    });
+    have.add(p.id);
+    added += 1;
+  }
+
+  if (!added) return theirJob;
+  return writeJob(networkId, toMemberId, { ...theirJob, photos: normalizePhotos(next) });
+}
+
+/**
+ * For a shared contact copy, pull any missing job photos from the sharer.
+ * Safe to call on page load — no-ops when already in sync.
+ */
+async function syncSharedCustomerPhotos(networkId, memberId, customer) {
+  if (!customer || !customer.sharedFromMemberId || !customer.sharedFromCustomerId) {
+    return { ok: true, synced: 0 };
+  }
+  const fromId = String(customer.sharedFromMemberId);
+  const theirJobs = (await listJobs(networkId, memberId))
+    .filter((j) => j.customerId === customer.id && j.sharedFromJobId);
+  if (!theirJobs.length) return { ok: true, synced: 0 };
+
+  let synced = 0;
+  for (const theirJob of theirJobs) {
+    const sourceJob = await getJob(networkId, fromId, theirJob.sharedFromJobId);
+    if (!sourceJob) continue;
+    const before = (theirJob.photos || []).length;
+    const updated = await copyJobPhotosToShared(networkId, fromId, sourceJob, memberId, theirJob);
+    if ((updated.photos || []).length > before) synced += 1;
+  }
+  return { ok: true, synced };
+}
+
 /** Attach a prepared photo to a job (updates the job record + KV blob). */
 async function addJobPhoto(networkId, memberId, jobId, prepared, { caption } = {}) {
   const job = await getJob(networkId, memberId, jobId);
@@ -927,6 +987,9 @@ async function shareCustomerWithTeammate(networkId, fromMemberId, toMemberId, cu
       });
       jobsCreated += 1;
     }
+
+    // Include site-visit photos on the shared copy (create + re-share sync).
+    theirJob = await copyJobPhotosToShared(networkId, fromId, sourceJob, toId, theirJob);
 
     const now = new Date().toISOString();
     const sharedWith = normalizeSharedWith([
@@ -1218,6 +1281,8 @@ module.exports = {
   saveJob,
   writeJob,
   ensureOpenJobForPhotos,
+  copyJobPhotosToShared,
+  syncSharedCustomerPhotos,
   addJobPhoto,
   removeJobPhoto,
   updateJobPhotoCaption,
