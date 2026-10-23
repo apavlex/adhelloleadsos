@@ -12,7 +12,7 @@ const networkNews = require('./networkNews');
 const { brandView } = require('./networkBrand');
 
 const MAX_MESSAGE = networkNews.MAX_BODY;
-const AUDIENCES = new Set(['all', 'free', 'partner', 'active']);
+const AUDIENCES = new Set(['all', 'free', 'partner', 'active', 'member']);
 
 function cleanMessage(raw) {
   return String(raw || '')
@@ -38,18 +38,41 @@ function parseChannels(body = {}) {
   return { app: !!appOn, sms: !!smsOn };
 }
 
-function parseAudience(raw) {
-  const a = String(raw || 'all').trim().toLowerCase();
-  return AUDIENCES.has(a) ? a : 'all';
+/** @returns {{ audience: string, memberId: string }} */
+function parseAudience(raw, body = {}) {
+  const a = String(raw || 'all').trim();
+  const lower = a.toLowerCase();
+  let memberId = String(
+    (body && (body.memberId || body.targetMemberId || body.businessId)) || '',
+  ).trim();
+  // Support audience=member:<id> (and legacy member:id in the select value).
+  const prefixed = lower.match(/^member[:|](.+)$/);
+  if (prefixed) {
+    memberId = String(prefixed[1] || '').trim() || memberId;
+    return { audience: 'member', memberId };
+  }
+  if (AUDIENCES.has(lower)) {
+    if (lower !== 'member') memberId = '';
+    return { audience: lower, memberId: lower === 'member' ? memberId : '' };
+  }
+  return { audience: 'all', memberId: '' };
 }
 
-function memberMatchesAudience(member, audience) {
+function memberMatchesAudience(member, audience, memberId = '') {
   if (!member || member.workspaceStaff) return false;
   if (member.status !== 'active') return false;
+  const aud = typeof audience === 'object' && audience
+    ? audience
+    : parseAudience(audience, { memberId });
+  const kind = typeof aud === 'object' ? aud.audience : String(aud || 'all');
+  const onlyId = typeof aud === 'object' ? aud.memberId : String(memberId || '').trim();
+  if (kind === 'member') {
+    return !!onlyId && member.id === onlyId;
+  }
   const plan = String(member.plan || '');
   const free = plan === 'app_free' || plan === 'app_flooring';
-  if (audience === 'free') return free;
-  if (audience === 'partner') return !free;
+  if (kind === 'free') return free;
+  if (kind === 'partner') return !free;
   // 'all' and 'active' — active non-staff (already filtered)
   return true;
 }
@@ -77,6 +100,7 @@ async function broadcastToMembers({
   linkLabel,
   channels = { app: true, sms: false },
   audience = 'all',
+  memberId = '',
   baseUrl,
   subject,
   createdBy,
@@ -91,13 +115,20 @@ async function broadcastToMembers({
     return { ok: false, error: 'Choose Notify by app and/or Send SMS.', targeted: 0 };
   }
 
-  const aud = parseAudience(audience);
+  const aud = typeof audience === 'object' && audience
+    ? parseAudience(audience.audience || audience.kind || 'all', audience)
+    : parseAudience(audience, { memberId });
+  if (aud.audience === 'member' && !aud.memberId) {
+    return { ok: false, error: 'Pick a business to notify.', targeted: 0 };
+  }
   const all = await store.listMembers(network.id);
   const targets = all.filter((m) => memberMatchesAudience(m, aud));
   if (!targets.length) {
     return {
       ok: false,
-      error: 'No matching members to message.',
+      error: aud.audience === 'member'
+        ? 'That business is not an active member.'
+        : 'No matching members to message.',
       targeted: 0,
       appDelivered: 0,
       smsSent: 0,
@@ -110,6 +141,9 @@ async function broadcastToMembers({
   ).trim().slice(0, networkNews.MAX_TITLE) || `Update from ${brand.appName || 'your network'}`;
   const rootBase = String(baseUrl || notify.getReviewPublicBaseUrl() || '').replace(/\/$/, '');
   const safeLink = networkNews.safeLink(link);
+  const audienceLabel = aud.audience === 'member' && aud.memberId
+    ? `member:${aud.memberId}`
+    : aud.audience;
 
   let post = null;
   if (saveToFeed) {
@@ -118,7 +152,7 @@ async function broadcastToMembers({
       body: text,
       link: safeLink,
       linkLabel,
-      audience: aud,
+      audience: audienceLabel,
       createdBy,
       channels: { app: wantApp, sms: wantSms },
     });
