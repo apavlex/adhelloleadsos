@@ -297,7 +297,8 @@ router.get('/', async (req, res, next) => {
     }
 
     let networkNewsPosts = [];
-    if (canManage(req) && tab === 'members') {
+    // Shown above Active Numbers on Referral Leads (all tabs), not only Members.
+    if (canManage(req) && tab !== 'field-work' && tab !== 'calendar') {
       try {
         const networkNews = require('../services/networkNews');
         networkNewsPosts = networkNews.list(network.id).slice(0, 12);

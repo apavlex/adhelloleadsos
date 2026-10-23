@@ -161,13 +161,28 @@ test('broadcast requires a channel and a message', async () => {
 
 test('Network members view and Reviews bell expose News & updates', () => {
   const view = fs.readFileSync(path.join(__dirname, '../views/network.ejs'), 'utf8');
-  assert.match(view, /News &amp; updates/);
-  assert.match(view, /\/network\/members\/broadcast/);
-  assert.match(view, /name="title"/);
-  assert.match(view, /channelApp/);
-  assert.match(view, /channelSms/);
-  assert.match(view, /Notify by app/);
-  assert.match(view, /Send SMS/);
+  const partial = fs.readFileSync(path.join(__dirname, '../views/partials/network_news_updates.ejs'), 'utf8');
+  assert.match(partial, /News &amp; updates/);
+  assert.match(partial, /\/network\/members\/broadcast/);
+  assert.match(partial, /name="title"/);
+  assert.match(partial, /channelApp/);
+  assert.match(partial, /channelSms/);
+  assert.match(partial, /Notify by app/);
+  assert.match(partial, /Send SMS/);
+  assert.equal((partial.match(/id="net-message-members"/g) || []).length, 1);
+
+  // Default Referral Leads view: News & updates sits above Active Numbers.
+  const newsDefaultAt = view.indexOf("include('partials/network_news_updates')");
+  const activeAt = view.indexOf('fw-active--network');
+  assert.ok(newsDefaultAt > -1 && activeAt > newsDefaultAt, 'News & updates should render above Active Numbers');
+
+  // Members tab: same block sits under the partner signup link.
+  const joinAt = view.indexOf('id="net-join-link"');
+  const newsMembersAt = view.indexOf("include('partials/network_news_updates')", joinAt);
+  const addMemberAt = view.indexOf('id="net-add-member"');
+  assert.ok(joinAt > -1 && newsMembersAt > joinAt, 'News & updates should sit under the signup link on Members');
+  assert.ok(addMemberAt > newsMembersAt, 'News & updates should sit above Add a member on Members');
+  assert.equal((view.match(/partials\/network_news_updates/g) || []).length, 2);
 
   const top = fs.readFileSync(path.join(__dirname, '../views/member_app/_top.ejs'), 'utf8');
   assert.match(top, /data-ma-bell-history/);
@@ -178,4 +193,10 @@ test('Network members view and Reviews bell expose News & updates', () => {
   const newsView = fs.readFileSync(path.join(__dirname, '../views/member_app/news.ejs'), 'utf8');
   assert.match(newsView, /News &amp; updates/);
   assert.match(newsView, /ma-news-card/);
+});
+
+test('Referral Leads loads news posts for the default view, not only Members', () => {
+  const route = fs.readFileSync(path.join(__dirname, '../routes/network.js'), 'utf8');
+  assert.match(route, /tab !== 'field-work' && tab !== 'calendar'/);
+  assert.match(route, /networkNews\.list/);
 });

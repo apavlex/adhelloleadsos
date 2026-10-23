@@ -151,15 +151,37 @@ router.get('/', async (req, res, next) => {
       : 0;
 
     // Admin share link so businesses signup onto this workspace’s network.
+    const freeAppSignup = require('../services/freeAppSignup');
     let networkJoinUrl = '';
     if (network && req.canManageWorkspace !== false) {
       try {
-        const freeAppSignup = require('../services/freeAppSignup');
         const { getNetworkJoinUrl } = require('../lib/publicBaseUrl');
         const joinSlug = await freeAppSignup.getOrEnsureJoinSlug(network);
         networkJoinUrl = getNetworkJoinUrl(joinSlug);
       } catch (_) {
         networkJoinUrl = '';
+      }
+    }
+
+    // News & updates under signup link — same audience counts as Referral Leads Members.
+    const activeMembers = (members || []).filter((m) => String(m.status || '') === 'active');
+    const freeMembers = activeMembers.filter((m) => freeAppSignup.isAppFreeMember(m)).length;
+    const networkMemberTotals = {
+      members: activeMembers.length,
+      freeMembers,
+      partnerMembers: Math.max(0, activeMembers.length - freeMembers),
+    };
+    let networkNewsPosts = [];
+    const canPostNews =
+      req.canManageWorkspace === true
+      || req.canAssignWork === true
+      || ['owner', 'admin', 'manager'].includes(String(req.workspaceRole || ''));
+    if (canPostNews && network && networkMemberTotals.members) {
+      try {
+        const networkNews = require('../services/networkNews');
+        networkNewsPosts = networkNews.list(network.id).slice(0, 12);
+      } catch (_) {
+        networkNewsPosts = [];
       }
     }
 
@@ -187,6 +209,9 @@ router.get('/', async (req, res, next) => {
       openNiches: req.query.niches === '1',
       networkJoinUrl,
       canShareJoinUrl: req.canManageWorkspace !== false,
+      canManage: canPostNews,
+      networkMemberTotals,
+      networkNewsPosts,
     });
   } catch (err) {
     next(err);
