@@ -194,12 +194,13 @@
     </header>
 
     <% if (typeof canShareJoinUrl !== 'undefined' && canShareJoinUrl && typeof networkJoinUrl !== 'undefined' && networkJoinUrl) { %>
-    <section class="ref-card mb-4" id="ref-join-link" aria-label="Workspace network signup link">
+    <% const _joinFlooring = typeof networkJoinIsFlooring !== 'undefined' && networkJoinIsFlooring; %>
+    <section class="ref-card mb-4" id="ref-join-link" aria-label="<%= _joinFlooring ? 'Flooring partner signup link' : 'Workspace network signup link' %>">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0 flex-1">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Workspace signup link</p>
-          <p class="font-display font-bold text-brand-dark dark:text-white">Share so businesses join your network</p>
-          <p class="mt-1 text-[13px] text-brand-muted leading-relaxed">Text or email this link. Signups land in your workspace network as App trial members.</p>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= _joinFlooring ? 'Flooring partner signup link' : 'Workspace signup link' %></p>
+          <p class="font-display font-bold text-brand-dark dark:text-white"><%= _joinFlooring ? 'Share so flooring partners join your network' : 'Share so businesses join your network' %></p>
+          <p class="mt-1 text-[13px] text-brand-muted leading-relaxed"><% if (_joinFlooring) { %>Text or email this link. Signups land in <strong>this</strong> workspace network with the Reviews app and <strong>Quote</strong> (material quote sending) — not the public AdHello pool.<% } else { %>Text or email this link. Signups land in your workspace network as App trial members.<% } %></p>
           <p class="mt-3 break-all font-mono text-[13px] font-semibold text-brand-dark dark:text-white" id="refJoinUrlText"><%= networkJoinUrl %></p>
         </div>
         <div class="flex flex-wrap gap-2 shrink-0">
