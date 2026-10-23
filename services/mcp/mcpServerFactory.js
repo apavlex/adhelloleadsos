@@ -22,6 +22,9 @@ const leadSourceTools = require('./mcpLeadSources');
 const agentOpsTools = require('./mcpAgentOps');
 const appointmentTools = require('./mcpAppointments');
 const fieldWorkTools = require('./mcpFieldWork');
+const marketingTools = require('./mcpMarketing');
+const socialTools = require('./mcpSocial');
+const sopTools = require('./mcpSops');
 const mcpOAuth = require('./mcpOAuth');
 const mcpLogger = require('./mcpLogger');
 
@@ -176,6 +179,9 @@ const READ_ONLY_TOOLS = new Set([
   ...agentOpsTools.READ_ONLY_AGENT_OPS_TOOLS,
   ...appointmentTools.READ_ONLY_APPOINTMENT_TOOLS,
   ...fieldWorkTools.READ_ONLY_FIELD_WORK_TOOLS,
+  ...marketingTools.READ_ONLY_MARKETING_TOOLS,
+  ...socialTools.READ_ONLY_SOCIAL_TOOLS,
+  ...sopTools.READ_ONLY_SOP_TOOLS,
 ]);
 
 // Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
@@ -190,6 +196,9 @@ const DESTRUCTIVE_TOOLS = new Set([
   ...prospectingTools.DESTRUCTIVE_PROSPECTING_TOOLS,
   ...leadSourceTools.DESTRUCTIVE_LEAD_SOURCE_TOOLS,
   ...appointmentTools.DESTRUCTIVE_APPOINTMENT_TOOLS,
+  ...marketingTools.DESTRUCTIVE_MARKETING_TOOLS,
+  ...socialTools.DESTRUCTIVE_SOCIAL_TOOLS,
+  ...sopTools.DESTRUCTIVE_SOP_TOOLS,
 ]);
 
 // Reaches outside this app: paid lead searches, enrichment, GHL, texting businesses.
@@ -231,7 +240,7 @@ function createCrmMcpServer(ctx) {
   const server = new McpServer(
     {
       name: 'adhello-ceo-crm',
-      version: '1.8.0',
+      version: '1.9.0',
     },
     multi
       ? {
@@ -677,6 +686,9 @@ function createCrmMcpServer(ctx) {
     ...agentOpsTools.AGENT_OPS_TOOLS,
     ...appointmentTools.APPOINTMENT_TOOLS,
     ...fieldWorkTools.FIELD_WORK_TOOLS,
+    ...marketingTools.MARKETING_TOOLS,
+    ...socialTools.SOCIAL_TOOLS,
+    ...sopTools.SOP_TOOLS,
   ]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
@@ -693,9 +705,9 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.8.0',
+    version: '1.9.0',
     description:
-      'AdHello CEO Command Center — full workspace platform for AI managers: lead folders and searches (Google Maps, permits, business formations, listings, saved searches, schedules), CSV import, duplicate merge, leads (create, assign, notes, history, delete), tags, bookmarks, scripts, opportunity pipelines and stages, prospecting stages, replies inbox, team activity, GHL sync and messaging, enrichment, prospecting (scoring, ICP fit, website audits, research, decision makers, personalized outreach, audit links, auto-outreach / cadence / sequences, call outcomes, call queue, SMS threads), team tasks, follow-ups, referral network (members, referrals, trades pool jobs via post_pool_job / list_pool_jobs, applications, review stats), team field work (overview, job list, job detail), appointment packages and marketplace (list/create packages, deliver leads, buy slots), and Ops agents (Prospect SDR, Opportunity SDR, Dispatcher, Network Coach, Ops bot).',
+      'AdHello CEO Command Center — full workspace platform for AI managers: CRM and prospecting, referral network and trades pool, team field work, appointment packages, Marketing Studio (direct-mail queue, playbooks, brand kit), Social Posts and Facebook Groups, SOPs, messaging, and Ops agents.',
     authentication: {
       type: 'oauth2',
       header: 'Authorization',
@@ -956,6 +968,9 @@ function getOpenAiToolManifest() {
         ...agentOpsTools.openAiFunctionTools(),
         ...appointmentTools.openAiFunctionTools(),
         ...fieldWorkTools.openAiFunctionTools(),
+        ...marketingTools.openAiFunctionTools(),
+        ...socialTools.openAiFunctionTools(),
+        ...sopTools.openAiFunctionTools(),
       ].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,

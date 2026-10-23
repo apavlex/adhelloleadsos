@@ -118,7 +118,7 @@ async function chiefOfStaffResponsesWithMcp({
         type: 'mcp',
         server_label: 'adhello_ceo_crm',
         server_description:
-          'AdHello CEO Command Center — full workspace platform: CRM, prospecting, referral network, trades pool, field work, appointments, messaging, Ops agents.',
+          'AdHello CEO Command Center — full workspace platform: CRM, prospecting, referral network, trades pool, field work, appointments, Marketing Studio, Social Posts, Facebook Groups, SOPs, messaging, Ops agents.',
         server_url: serverUrl,
         authorization: bearerToken,
         require_approval: 'never',

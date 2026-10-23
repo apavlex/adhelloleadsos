@@ -40,6 +40,10 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Pending network applications" → list_network_applications; approve/reject → approve_network_application / reject_network_application; "review page stats" → get_review_stats; "add Interior design as a trade" → manage_network_trades
 - "How's field work / overdue jobs / today's schedule" → get_field_work_overview then list_field_work_jobs; one job → get_field_work_job
 - "Appointment packages / who needs leads / buy slots" → list_appointment_packages / list_appointment_marketplace; create package → create_appointment_package; deliver a lead → deliver_appointment_lead; buy marketplace slots → buy_appointment_slots
+- "Marketing Studio / direct mail queue / playbooks / brand kit" → get_marketing_studio_status; list_direct_mail_playbooks / suggest_direct_mail_playbook; list_direct_mail_queue / queue_leads_for_direct_mail / remove_leads_from_direct_mail_queue; update_marketing_brand_kit. Physical Lob send + AI image gen stay in /direct-mail UI.
+- "Social posts / Instagram ideas / save a draft" → generate_social_post_ideas / list_social_posts / save_social_post / delete_social_post
+- "Facebook groups / FB scripts" → list_fb_groups / add_fb_group / update_fb_group / list_fb_group_scripts (copy-paste only — no API publish)
+- "SOPs / standard operating procedures" → list_sops / get_sop / save_sop / delete_sop {confirm:true}
 - "Text / email this lead" → get_messaging_status then send_sms / send_email (after the user approves the copy); per-lead script → get_lead_script / save_lead_script
 
 LEAD-GEN FLOW (worked examples):

@@ -45,6 +45,10 @@ const CRM_PATTERNS = [
   /\b(import|csv|spreadsheet)\b|\bduplicate\s+leads?\b|\bmerge\s+leads?\b/i,
   /\bschedule\s+(search|searches)\b|\bfolder\s+search\b|\bsearch\s+schedules?\b/i,
   /\bcall\s+queue\b|\blog\s+(the\s+)?call\b|\bcadence\b/i,
+  /\bmarketing\s+studio\b|\bdirect\s+mail\b|\bpostcard\b|\bbrand\s+kit\b|\bmail\s+playbook/i,
+  /\bsocial\s+posts?\b|\binstagram\b|\btiktok\b|\blinkedin\s+post\b/i,
+  /\bfacebook\s+groups?\b|\bfb\s+groups?\b|\bfb\s+scripts?\b/i,
+  /\bsops?\b|\bstandard\s+operating\s+procedure/i,
 ];
 
 function isCrmIntent(message) {
