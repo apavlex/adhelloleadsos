@@ -22,6 +22,16 @@ describe('freeAppOg', () => {
     assert.match(freeAppOg.ogImagePath(''), /\/app\/og\.jpg\?v=/);
     assert.match(freeAppOg.ogImagePath('flooring'), /\/app\/flooring\/og\.jpg\?v=/);
     assert.match(freeAppOg.ogImageAbsoluteUrl('https://reviews.adhello.io', ''), /reviews\.adhello\.io\/app\/og\.jpg/);
+    assert.match(freeAppOg.OG_VERSION, /v2|reviews-referrals/);
+  });
+
+  it('vendors Liberation Sans so Docker can draw overlay text', () => {
+    assert.ok(fs.existsSync(freeAppOg.FONT_BOLD_PATH), 'bold font missing');
+    assert.ok(fs.existsSync(freeAppOg.FONT_REGULAR_PATH), 'regular font missing');
+    const svc = fs.readFileSync(path.join(__dirname, '../services/freeAppOg.js'), 'utf8');
+    assert.match(svc, /base64/);
+    assert.match(svc, /OgSans/);
+    assert.doesNotMatch(svc, /Helvetica,\s*Arial/);
   });
 
   it('renderFreeAppOgImage returns a JPEG around 1200×630', async () => {
