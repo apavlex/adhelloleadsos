@@ -840,11 +840,19 @@
     var items = [];
     var index = 0;
     var touchX = null;
+    var touchY = null;
 
     function decodeAttr(raw) {
       var el = document.createElement('textarea');
       el.innerHTML = String(raw == null ? '' : raw);
       return el.value.replace(/\u00a0/g, ' ');
+    }
+
+    function onLrTouchMove(e) {
+      if (root.hidden) return;
+      var t = e.target;
+      if (t && t.closest && t.closest('.ma-lr__film')) return;
+      if (e.cancelable) e.preventDefault();
     }
 
     function collectFrom(anchor) {
@@ -911,18 +919,24 @@
       }
       if (start < 0) start = 0;
       if (root.parentNode !== document.body) document.body.appendChild(root);
+      root.style.transform = '';
       root.hidden = false;
       document.documentElement.style.overflow = 'hidden';
+      document.documentElement.classList.add('ma-lr-open');
       document.body.classList.add('ma-lr-open');
       document.body.classList.add('ma-photo-open');
+      document.addEventListener('touchmove', onLrTouchMove, { passive: false, capture: true });
       show(start);
     }
 
     function closeViewer() {
       root.hidden = true;
       document.documentElement.style.overflow = '';
+      document.documentElement.classList.remove('ma-lr-open');
       document.body.classList.remove('ma-lr-open');
       document.body.classList.remove('ma-photo-open');
+      document.removeEventListener('touchmove', onLrTouchMove, { capture: true });
+      root.style.transform = '';
       items = [];
     }
 
@@ -960,14 +974,27 @@
       stage.addEventListener('touchstart', function (e) {
         var t = e.changedTouches && e.changedTouches[0];
         touchX = t ? t.clientX : null;
+        touchY = t ? t.clientY : null;
+        root.style.transform = '';
       }, { passive: true });
+      stage.addEventListener('touchmove', function (e) {
+        if (touchX == null || touchY == null) return;
+        var t = e.changedTouches && e.changedTouches[0];
+        if (!t) return;
+        var dy = t.clientY - touchY;
+        var dx = t.clientX - touchX;
+        if (Math.abs(dy) > Math.abs(dx) && e.cancelable) e.preventDefault();
+      }, { passive: false });
       stage.addEventListener('touchend', function (e) {
         if (touchX == null) return;
         var t = e.changedTouches && e.changedTouches[0];
         if (!t) return;
         var dx = t.clientX - touchX;
+        var dy = touchY == null ? 0 : (t.clientY - touchY);
         touchX = null;
-        if (Math.abs(dx) < 48) return;
+        touchY = null;
+        root.style.transform = '';
+        if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return;
         if (dx > 0) show(index - 1);
         else show(index + 1);
       }, { passive: true });
