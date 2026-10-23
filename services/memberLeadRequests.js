@@ -152,7 +152,7 @@ async function requestMoreLeads(ctx, { quantity, note } = {}) {
       note: noteText,
     });
     if (!ping.ok) {
-      return { ok: false, code: 'failed', error: ping.error || 'Could not ping your agency.' };
+      return { ok: false, code: 'failed', error: ping.error || 'Could not ping your network.' };
     }
   }
 
