@@ -1,5 +1,5 @@
 /**
- * Referral Network opens on Referrals (not Seats).
+ * Referral Leads opens on Referrals (not Seats).
  */
 const fs = require('fs');
 const path = require('path');
@@ -14,7 +14,6 @@ test('network GET defaults to referrals tab', () => {
   assert.doesNotMatch(route, /\? String\(req\.query\.tab\) : 'seats'/);
 });
 
-test('sidebar Referral Network link opens referrals tab', () => {
-  assert.match(nav, /href="\/network\?tab=referrals"/);
-  assert.match(nav, /<span>Referral Network<\/span>/);
+test('sidebar Referral Leads link opens referrals tab', () => {
+  assert.match(nav, /href="\/network\?tab=referrals"[\s\S]*?<span>Referral Leads<\/span>/);
 });

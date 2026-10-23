@@ -280,7 +280,7 @@ router.get('/', async (req, res, next) => {
     const totals = ex.networkTotals(referrals);
     const openSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => !s.holders.length).length, 0);
     const heldSeats = seatRows.reduce((n, row) => n + row.seats.filter((s) => s.holders.length).length, 0);
-    // Leads sent = referrals routed to a member (same idea as Referral Leads partner "sent").
+    // Leads sent = referrals routed to a member (same idea as Referral Network partner "sent").
     const leadsSent = referrals.filter((r) => String(r && r.toMemberId || '').trim()).length;
 
     let networkJoinSlug = '';
@@ -307,7 +307,7 @@ router.get('/', async (req, res, next) => {
     }
 
     res.render('network', {
-      title: tab === 'field-work' || tab === 'calendar' ? 'Leads Network' : 'Referral Network',
+      title: tab === 'field-work' || tab === 'calendar' ? 'Leads Network' : 'Referral Leads',
       activePage: 'network',
       navPrimary: 'network',
       tab,

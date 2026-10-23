@@ -1,7 +1,7 @@
 /**
  * Separate Active Numbers — do not combine lead count with lead deals value as one idea,
  * and do not reuse referral wording on Leads:
- * - Referral Network = open referrals + referral deals value only
+ * - Referral Leads = open referrals + referral deals value only
  * - Leads Network = open leads + lead deals value + teammate cards
  */
 const fs = require('fs');
@@ -26,7 +26,7 @@ test('team field work and calendar are leads tabs only', () => {
   assert.doesNotMatch(leadsBlock, /id: 'members'/);
 });
 
-test('referrals and members live on referral network tabs', () => {
+test('referrals and members live on referral leads tabs', () => {
   const refStart = html.indexOf('const referralTabs = [');
   const refBlock = html.slice(refStart, html.indexOf('];', refStart) + 2);
   assert.match(refBlock, /id: 'referrals'/);
@@ -42,7 +42,7 @@ test('leads network CTA says Send lead; referral keeps Send referral', () => {
   assert.match(html, /onLeadsNetwork \? 'data-open-send-lead' : 'data-open-send-referral'/);
 });
 
-test('referral network shows open, deals, leads sent, and partners cards', () => {
+test('referral leads shows open, deals, leads sent, and partners cards', () => {
   assert.match(html, /!onLeadsNetwork && !onSettingsTab && canManage/);
   const netStart = html.indexOf('fw-active--network');
   const netEnd = html.indexOf('</section>', netStart);

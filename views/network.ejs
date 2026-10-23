@@ -358,7 +358,7 @@
     ];
     const settingsTabIds = settingsTabs.map(function (t) { return t.id; });
     const onSettingsTab = settingsTabIds.indexOf(tab) >= 0;
-    /* Leads Network = teammates (field work / calendar). Referral Network = seats / referrals / members / apps. */
+    /* Leads Network = teammates (field work / calendar). Referral Leads = seats / referrals / members / apps. */
     const leadsNetworkTabIds = { 'field-work': 1, calendar: 1 };
     const onLeadsNetwork = !!leadsNetworkTabIds[tab];
     const _wlTitle = typeof whiteLabel !== 'undefined' && whiteLabel ? whiteLabel : null;
@@ -398,7 +398,7 @@
           <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Leads Network</h1>
           <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400">Teammate field work across <%= network.name %> — jobs, photos, and the team calendar.</p>
           <% } else { %>
-          <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral network</p>
+          <p class="text-[11px] font-black uppercase tracking-[0.22em] text-brand-muted mb-2">Referral leads</p>
           <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight"><%= network.name %></h1>
           <p class="mt-2 max-w-2xl text-sm leading-relaxed text-brand-muted dark:text-slate-400"><% if (tab === 'referrals') { %>Routed leads through <%= network.name %> — accept and report outcomes from a text link, no login needed.<% } else if (tab === 'members') { %>Members in <%= network.name %> — seats, plans, and Reviews-app access.<% } else if (network.seatLimit === 1) { %>One company per trade in each zone. Referrals go to the seat holder<% } else { %><%= network.seatLimit ? 'Up to ' + network.seatLimit : 'Any number of' %> companies per trade in each zone. Referrals rotate between them<% } %><% if (tab !== 'referrals' && tab !== 'members') { %>, who accept and report the outcome from a text link — no login needed.<% } %></p>
           <% } %>
