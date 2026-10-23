@@ -539,6 +539,50 @@ test('shareCustomerWithTeammate copies contact and all projects', async () => {
   assert.equal((await work.shareCustomerWithTeammate(NET, MEM_A, MEM_A, cust.customer.id)).ok, false);
 });
 
+test('shareCustomerWithTeammate reuses teammate’s existing same-title job (no Lead+Estimate twin)', async () => {
+  const source = await work.saveCustomer(NET, MEM_A, {
+    name: 'Zimmerman',
+    phone: '3605550777',
+    address: '105 SE 137th Pl',
+  });
+  assert.equal(source.ok, true);
+  const sourceJob = await work.saveJob(NET, MEM_A, {
+    customerId: source.customer.id,
+    title: 'Site visit',
+    status: 'estimate',
+  });
+  assert.equal(sourceJob.ok, true);
+
+  // Teammate already has the same contact + a Lead for Site visit.
+  const theirs = await work.saveCustomer(NET, MEM_B, {
+    name: 'Zimmerman',
+    phone: '3605550777',
+    address: '105 SE 137th Pl',
+  });
+  assert.equal(theirs.ok, true);
+  const theirLead = await work.saveJob(NET, MEM_B, {
+    customerId: theirs.customer.id,
+    title: 'Site visit',
+    status: 'lead',
+  });
+  assert.equal(theirLead.ok, true);
+
+  const shared = await work.shareCustomerWithTeammate(NET, MEM_A, MEM_B, source.customer.id, {
+    sharedByName: 'Greg Arakelyan',
+  });
+  assert.equal(shared.ok, true);
+  assert.equal(shared.jobsCreated, 0);
+  assert.equal(shared.jobs.length, 1);
+  assert.equal(shared.jobs[0].id, theirLead.job.id);
+  assert.equal(shared.jobs[0].status, 'lead');
+  assert.equal(shared.jobs[0].sharedFromJobId, sourceJob.job.id);
+  assert.match(shared.jobs[0].notes || '', /Shared by Greg Arakelyan/);
+
+  const theirJobs = await work.listJobs(NET, MEM_B);
+  const zimmermanJobs = theirJobs.filter((j) => j.customerId === theirs.customer.id);
+  assert.equal(zimmermanJobs.length, 1, 'must not create a second Site visit card');
+});
+
 test('syncSharedCustomerPhotos backfills photos dropped on an older share', async () => {
   const cust = await work.saveCustomer(NET, MEM_A, {
     name: 'Zimmerman',

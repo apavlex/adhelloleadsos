@@ -961,8 +961,18 @@ async function shareCustomerWithTeammate(networkId, fromMemberId, toMemberId, cu
   let jobsCreated = 0;
 
   for (const sourceJob of sourceJobs) {
+    const sourceTitle = String(sourceJob.title || '').trim().toLowerCase();
+    // Prefer an existing share link; otherwise reuse their open job for the
+    // same customer + title so Team field work doesn't show Lead + Estimate twins.
     let theirJob = theirJobs.find(
       (j) => j.sharedFromMemberId === fromId && j.sharedFromJobId === sourceJob.id,
+    ) || theirJobs.find(
+      (j) => j.customerId === theirCustomer.id
+        && String(j.title || '').trim().toLowerCase() === sourceTitle
+        && !CLOSED.has(j.status),
+    ) || theirJobs.find(
+      (j) => j.customerId === theirCustomer.id
+        && String(j.title || '').trim().toLowerCase() === sourceTitle,
     );
     if (!theirJob) {
       const notes = [shareNote, sourceJob.notes].filter(Boolean).join('\n\n').slice(0, 2000);
@@ -986,10 +996,27 @@ async function shareCustomerWithTeammate(networkId, fromMemberId, toMemberId, cu
         photos: [],
       });
       jobsCreated += 1;
+    } else if (
+      theirJob.sharedFromMemberId !== fromId
+      || theirJob.sharedFromJobId !== sourceJob.id
+    ) {
+      // Adopt their existing project instead of cloning a second card.
+      const notes = theirJob.notes && theirJob.notes.includes(shareNote)
+        ? theirJob.notes
+        : [shareNote, theirJob.notes].filter(Boolean).join('\n\n').slice(0, 2000);
+      theirJob = await writeJob(networkId, toId, {
+        ...theirJob,
+        sharedFromMemberId: fromId,
+        sharedFromJobId: sourceJob.id,
+        notes,
+      });
     }
 
     // Include site-visit photos on the shared copy (create + re-share sync).
     theirJob = await copyJobPhotosToShared(networkId, fromId, sourceJob, toId, theirJob);
+    const existingIdx = theirJobs.findIndex((j) => j.id === theirJob.id);
+    if (existingIdx >= 0) theirJobs[existingIdx] = theirJob;
+    else theirJobs.push(theirJob);
 
     const now = new Date().toISOString();
     const sharedWith = normalizeSharedWith([

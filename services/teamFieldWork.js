@@ -81,6 +81,47 @@ function compareFieldRows(a, b) {
   return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
 }
 
+/** Pipeline rank — higher means further along (prefer Estimate over Lead twin). */
+function statusRank(status) {
+  const i = work.PIPELINE.indexOf(String(status || ''));
+  return i >= 0 ? i : -1;
+}
+
+/**
+ * Collapse Lead + Estimate (etc.) twins for the same teammate + customer + title.
+ * Keeps the further-along job; ties break on more photos, then newer update.
+ */
+function dedupeFieldRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const best = new Map();
+  for (const row of list) {
+    const key = [
+      String(row.memberId || ''),
+      String(row.customerId || row.customerName || '').trim().toLowerCase(),
+      String(row.title || '').trim().toLowerCase(),
+    ].join('\0');
+    const prev = best.get(key);
+    if (!prev) {
+      best.set(key, row);
+      continue;
+    }
+    const rankDiff = statusRank(row.status) - statusRank(prev.status);
+    if (rankDiff > 0) {
+      best.set(key, row);
+      continue;
+    }
+    if (rankDiff < 0) continue;
+    const photoDiff = (Number(row.photoCount) || 0) - (Number(prev.photoCount) || 0);
+    if (photoDiff > 0) {
+      best.set(key, row);
+      continue;
+    }
+    if (photoDiff < 0) continue;
+    if (String(row.updatedAt || '') > String(prev.updatedAt || '')) best.set(key, row);
+  }
+  return Array.from(best.values());
+}
+
 function cleanDay(value, fallback) {
   const d = work.cleanDate(value);
   return d || fallback || work.todayIn();
@@ -331,7 +372,8 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
     }
   }
 
-  rows.sort(compareFieldRows);
+  const deduped = dedupeFieldRows(rows);
+  deduped.sort(compareFieldRows);
 
   return {
     today,
@@ -340,10 +382,10 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
     dayHeading: dayLabel(selectedDay, today) || selectedDay,
     month,
     calendar,
-    rows,
+    rows: deduped,
     totals: {
       ...totals,
-      showing: rows.length,
+      showing: deduped.length,
     },
     sources: buildActiveNumbers(totals),
   };
@@ -470,4 +512,6 @@ module.exports = {
   buildActiveNumbers,
   computeTotals,
   valueLabel,
+  dedupeFieldRows,
+  statusRank,
 };

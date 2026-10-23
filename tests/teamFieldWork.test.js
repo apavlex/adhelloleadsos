@@ -79,6 +79,39 @@ describe('teamFieldWork helpers', () => {
     assert.equal(teamFieldWork.valueLabel(4800), '$4,800');
     assert.equal(teamFieldWork.valueLabel('1250.4'), '$1,250');
   });
+
+  it('collapses Lead + Estimate twins for the same teammate project', () => {
+    const rows = teamFieldWork.dedupeFieldRows([
+      {
+        memberId: 'tpr',
+        customerId: 'c1',
+        title: 'Site visit',
+        status: 'lead',
+        photoCount: 2,
+        updatedAt: '2026-10-20T00:00:00.000Z',
+      },
+      {
+        memberId: 'tpr',
+        customerId: 'c1',
+        title: 'Site visit',
+        status: 'estimate',
+        photoCount: 1,
+        updatedAt: '2026-10-21T00:00:00.000Z',
+      },
+      {
+        memberId: 'other',
+        customerId: 'c1',
+        title: 'Site visit',
+        status: 'lead',
+        photoCount: 0,
+        updatedAt: '2026-10-19T00:00:00.000Z',
+      },
+    ]);
+    assert.equal(rows.length, 2);
+    const tpr = rows.find((r) => r.memberId === 'tpr');
+    assert.equal(tpr.status, 'estimate');
+    assert.ok(rows.some((r) => r.memberId === 'other'));
+  });
 });
 
 describe('teamFieldWork.listTeamFieldWork', () => {
