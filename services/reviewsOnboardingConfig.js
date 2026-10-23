@@ -10,12 +10,14 @@ const SIGN_OFF = '\n\n— The AdHello Reviews team';
 const DEFAULT_STEPS = [
   {
     id: 'r1',
-    title: 'Request your first review',
-    subject: 'Day 1: Get your first Google review',
+    title: 'Finish your Reviews setup',
+    subject: 'Day 1: Finish setting up your Reviews app',
     body:
-      'Hi {{first_name}},\n\nWelcome to the Reviews app! Today’s win: ask one happy customer for a Google review.\n\n' +
-      'Open your review page and share the link (or QR) with a customer who just finished a job:\n{{review_link}}\n\n' +
-      'App home: {{app_link}}' +
+      'Hi {{first_name}},\n\nWelcome to the Reviews app! On Home you’ll see a short setup checklist:\n\n' +
+      '1) Fill out your profile\n2) Add Google/Yelp review links\n3) Upload a banner photo\n' +
+      '4) Turn on phone alerts\n5) Add the app to your Home Screen\n\n' +
+      'Open the app and knock those out: {{app_link}}\n\n' +
+      'Your review page: {{review_link}}' +
       SIGN_OFF,
   },
   {
@@ -25,6 +27,7 @@ const DEFAULT_STEPS = [
     body:
       'Hi {{first_name}},\n\nToday: pin the Reviews app to your phone Home Screen so it’s one tap away on every job.\n\n' +
       'On iPhone: open {{app_link}} → Share → Add to Home Screen.\n\n' +
+      'Still finishing setup? The checklist on Home walks you through profile, review links, banner, and alerts.\n\n' +
       'Your review page stays here: {{review_link}}' +
       SIGN_OFF,
   },

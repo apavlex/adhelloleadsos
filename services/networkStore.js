@@ -238,6 +238,19 @@ function normalizeMember(raw) {
      * phone alerts. Off by default; owners and workspace staff only.
      */
     ghlAlertsEnabled: m.ghlAlertsEnabled === true,
+    /**
+     * Reviews-app Home setup checklist (profile, review links, banner, alerts,
+     * Home Screen). See services/memberAppOnboarding.js.
+     */
+    setupChecklist: (() => {
+      const raw = m.setupChecklist && typeof m.setupChecklist === 'object' ? m.setupChecklist : {};
+      const markedIn = raw.marked && typeof raw.marked === 'object' ? raw.marked : {};
+      const marked = {};
+      ['profile', 'review_links', 'banner', 'notifications', 'home_screen'].forEach((id) => {
+        if (markedIn[id]) marked[id] = cleanText(markedIn[id], 40);
+      });
+      return { dismissedAt: cleanText(raw.dismissedAt, 40), marked };
+    })(),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
   };

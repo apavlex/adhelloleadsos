@@ -31,7 +31,9 @@
 
     <%- include('_flash') %>
 
-    <section class="ma-hero<%= _appt ? ' ma-hero--dash' : '' %>" aria-label="<%= brand.appName %>">
+    <%- include('_onboarding') %>
+
+    <section class="ma-hero<%= _appt ? ' ma-hero--dash' : '' %>" id="ma-onboarding-banner" aria-label="<%= brand.appName %>">
       <% if (brand.heroUrl) { %><img class="ma-hero__img" src="<%= brand.heroUrl %>" alt=""><% } %>
       <% if (!(typeof preview !== 'undefined' && preview)) { %>
       <form class="ma-hero__upload" method="post" action="<%= base %>/brand/hero" enctype="multipart/form-data" autocomplete="off">

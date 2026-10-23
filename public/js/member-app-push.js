@@ -138,6 +138,9 @@
       .then(function (data) {
         if (!data.success) throw new Error(data.error || 'Subscribe failed');
         render('on');
+        try {
+          window.dispatchEvent(new CustomEvent('ma-push-enabled'));
+        } catch (_) { /* ignore */ }
         return post('/push/test', {});
       })
       .catch(function (err) {
