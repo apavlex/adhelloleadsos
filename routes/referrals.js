@@ -155,7 +155,7 @@ router.get('/', async (req, res, next) => {
         zones: zones.map((z) => ({ id: z.id, name: z.name })),
         memberLeadKeys: members.map((m) => m.leadKey).filter(Boolean),
       },
-      title: 'Referral Leads',
+      title: 'Referral Network',
       activePage: 'referrals',
       query: q,
       focus,

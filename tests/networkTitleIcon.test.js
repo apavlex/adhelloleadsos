@@ -1,5 +1,5 @@
 /**
- * Brand icon sits to the left of Leads Network and Referral Network titles.
+ * Brand icon sits to the left of Leads Network and Referral Leads titles.
  */
 const fs = require('fs');
 const path = require('path');
@@ -21,6 +21,6 @@ test('title icon appears once for both leads and referral headers', () => {
   assert.match(header, /net-title-icon/);
   assert.match(header, /onLeadsNetwork/);
   assert.match(header, /Leads Network/);
-  assert.match(header, /Referral network/);
+  assert.match(header, /Referral leads/);
   assert.equal((header.match(/net-title-icon/g) || []).length, 1);
 });

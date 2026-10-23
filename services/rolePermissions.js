@@ -33,7 +33,7 @@ const PAGES = [
   { id: 'activity', label: 'Activity', group: 'Sales', paths: ['/activity', '/team-history', '/messages'] },
   { id: 'scripts', label: 'Scripts', group: 'Sales', paths: ['/scripts', '/sales/personas'] },
   { id: 'network', label: 'Network', group: 'Leads & Referrals', paths: ['/network'] },
-  { id: 'referrals', label: 'Referral Partners', group: 'Leads & Referrals', paths: ['/referrals'] },
+  { id: 'referrals', label: 'Referral Network', group: 'Leads & Referrals', paths: ['/referrals'] },
   { id: 'appointments', label: 'Appointments', group: 'Leads & Referrals', paths: ['/appointments'] },
   { id: 'direct-mail', label: 'Marketing Studio', group: 'Marketing', paths: ['/direct-mail'] },
   { id: 'social-posts', label: 'Social Posts', group: 'Marketing', paths: ['/social-posts'] },

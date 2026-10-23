@@ -71,7 +71,7 @@ async function sendLeadToTeammates(opts) {
   if (!teammates.length) {
     return {
       ok: false,
-      error: 'No active teammates yet. Add members on Referral Network first.',
+      error: 'No active teammates yet. Add members on Referral Leads first.',
       delivered: [],
       skipped: [],
       count: 0,

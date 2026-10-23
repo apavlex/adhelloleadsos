@@ -1,8 +1,8 @@
 /**
  * Naming split:
  * - Leads Network = teammate field work / calendar
- * - Referral Network = seats / referrals / members / branding / setup
- * - Referral Leads = partner send/receive page
+ * - Referral Leads = seats / referrals / members / branding / setup
+ * - Referral Network = partner send/receive page (niches + partners)
  */
 const fs = require('fs');
 const path = require('path');
@@ -43,14 +43,16 @@ test('Leads Network page title covers teammate tabs', () => {
   assert.match(nav, /href="\/network\?tab=field-work"/);
 });
 
-test('Referral Network title used outside leads/teammate tabs', () => {
-  assert.match(networkRoute, /'Referral Network'/);
-  assert.match(networkView, /Referral network/);
+test('Referral Leads title used on network referrals / seats / members', () => {
+  assert.match(networkRoute, /'Referral Leads'/);
+  assert.match(networkView, /Referral leads/);
+  assert.match(nav, /href="\/network\?tab=referrals"[\s\S]*?<span>Referral Leads<\/span>/);
 });
 
-test('Referral Leads page uses the new name', () => {
-  assert.match(referralsRoute, /title: 'Referral Leads'/);
-  assert.match(referralsView, />Referral Leads</);
+test('Referral Network page is the partners / niches board', () => {
+  assert.match(referralsRoute, /title: 'Referral Network'/);
+  assert.match(referralsView, />Referral Network</);
+  assert.match(nav, /href="\/referrals"[\s\S]*?<span>Referral Network<\/span>/);
 });
 
 test('app branding and setup remain behind the settings gear', () => {
