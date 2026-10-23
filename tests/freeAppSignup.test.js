@@ -268,7 +268,8 @@ describe('freeAppSignup', () => {
       const get = await fetch(`${base}/app`);
       assert.equal(get.status, 200);
       const html = await get.text();
-      assert.match(html, /Start your 30-day trial/);
+      assert.match(html, /Grow reviews &amp; referrals for your business!/);
+      assert.match(html, /30-day free trial/);
       assert.match(html, /action="\/app"/);
       assert.match(html, /Text me my trial link/);
       assert.match(html, /id="fa-form"/);
