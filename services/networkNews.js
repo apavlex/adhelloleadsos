@@ -67,7 +67,7 @@ function add(networkId, item = {}) {
     body,
     link: safeLink(item.link || item.url),
     linkLabel: clean(item.linkLabel, 60),
-    audience: clean(item.audience || 'all', 20) || 'all',
+    audience: clean(item.audience || 'all', 80) || 'all',
     createdBy: clean(item.createdBy, 200),
     channels: {
       app: !!(item.channels && item.channels.app),

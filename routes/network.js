@@ -334,6 +334,14 @@ router.get('/', async (req, res, next) => {
       memberPlanFilter,
       reviewPlatforms: reviewPage.PLATFORMS,
       activeMembers: members.filter((m) => m.status === 'active'),
+      newsAudienceMembers: members
+        .filter((m) => m.status === 'active' && !m.workspaceStaff)
+        .map((m) => ({
+          id: m.id,
+          companyName: m.companyName || '',
+          contactName: m.contactName || '',
+        }))
+        .sort((a, b) => String(a.companyName).localeCompare(String(b.companyName))),
       referrals: referralRows,
       statusFilter,
       statuses: ex.STATUSES.map((s) => ({ id: s, label: ex.STATUS_LABELS[s], count: referrals.filter((r) => r.status === s).length })),
@@ -973,6 +981,10 @@ router.post('/members/broadcast', async (req, res) => {
   try {
     const network = await loadNetwork(req);
     const channels = networkBroadcast.parseChannels(req.body || {});
+    const audience = networkBroadcast.parseAudience(
+      req.body && req.body.audience,
+      req.body || {},
+    );
     const result = await networkBroadcast.broadcastToMembers({
       network,
       title: req.body && (req.body.title || req.body.subject),
@@ -980,7 +992,7 @@ router.post('/members/broadcast', async (req, res) => {
       link: req.body && (req.body.link || req.body.url),
       linkLabel: req.body && req.body.linkLabel,
       channels,
-      audience: networkBroadcast.parseAudience(req.body && req.body.audience),
+      audience,
       baseUrl: notify.baseUrlFromReq(req),
       createdBy: userEmail(req),
     });

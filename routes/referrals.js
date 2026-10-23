@@ -171,6 +171,14 @@ router.get('/', async (req, res, next) => {
       freeMembers,
       partnerMembers: Math.max(0, activeMembers.length - freeMembers),
     };
+    const newsAudienceMembers = activeMembers
+      .filter((m) => !m.workspaceStaff)
+      .map((m) => ({
+        id: m.id,
+        companyName: m.companyName || '',
+        contactName: m.contactName || '',
+      }))
+      .sort((a, b) => String(a.companyName).localeCompare(String(b.companyName)));
     let networkNewsPosts = [];
     const canPostNews =
       req.canManageWorkspace === true
@@ -211,6 +219,7 @@ router.get('/', async (req, res, next) => {
       canShareJoinUrl: req.canManageWorkspace !== false,
       canManage: canPostNews,
       networkMemberTotals,
+      newsAudienceMembers,
       networkNewsPosts,
     });
   } catch (err) {

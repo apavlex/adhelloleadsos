@@ -23,12 +23,28 @@ test('parseChannels and audience helpers', () => {
   assert.deepEqual(networkBroadcast.parseChannels({ channelApp: '1' }), { app: true, sms: false });
   assert.deepEqual(networkBroadcast.parseChannels({ channelSms: 'on' }), { app: false, sms: true });
   assert.deepEqual(networkBroadcast.parseChannels({ channels: { app: true, sms: true } }), { app: true, sms: true });
-  assert.equal(networkBroadcast.parseAudience('free'), 'free');
-  assert.equal(networkBroadcast.parseAudience('nope'), 'all');
+  assert.deepEqual(networkBroadcast.parseAudience('free'), { audience: 'free', memberId: '' });
+  assert.deepEqual(networkBroadcast.parseAudience('nope'), { audience: 'all', memberId: '' });
+  assert.deepEqual(
+    networkBroadcast.parseAudience('member', { memberId: 'm_partner' }),
+    { audience: 'member', memberId: 'm_partner' },
+  );
+  assert.deepEqual(
+    networkBroadcast.parseAudience('member:m_partner'),
+    { audience: 'member', memberId: 'm_partner' },
+  );
   assert.equal(networkBroadcast.memberMatchesAudience({ status: 'active', plan: 'app_free' }, 'free'), true);
   assert.equal(networkBroadcast.memberMatchesAudience({ status: 'active', plan: 'app_free' }, 'partner'), false);
   assert.equal(networkBroadcast.memberMatchesAudience({ status: 'paused', plan: '' }, 'all'), false);
   assert.equal(networkBroadcast.memberMatchesAudience({ status: 'active', workspaceStaff: true }, 'all'), false);
+  assert.equal(
+    networkBroadcast.memberMatchesAudience({ id: 'm_partner', status: 'active', plan: '' }, 'member', 'm_partner'),
+    true,
+  );
+  assert.equal(
+    networkBroadcast.memberMatchesAudience({ id: 'm_other', status: 'active', plan: '' }, { audience: 'member', memberId: 'm_partner' }),
+    false,
+  );
 });
 
 test('member-scoped push subscriptions deliver phone alerts', async (t) => {
@@ -159,6 +175,76 @@ test('broadcast requires a channel and a message', async () => {
   assert.match(noChannel.error, /Notify by app|SMS/i);
 });
 
+test('broadcastToMembers can target a single business', async (t) => {
+  const store = require('../services/networkStore');
+  const network = {
+    id: 'net_one_biz',
+    name: 'One Biz Network',
+    ownerWorkspaceId: 'ws_one_biz',
+  };
+  const members = [
+    {
+      id: 'm_free',
+      companyName: 'Free Co',
+      phone: '+15551234567',
+      status: 'active',
+      plan: 'app_free',
+    },
+    {
+      id: 'm_partner',
+      companyName: 'Partner Co',
+      phone: '+15557654321',
+      status: 'active',
+      plan: '',
+    },
+  ];
+
+  t.mock.method(store, 'listMembers', async () => members);
+  t.mock.method(networkNotify, 'memberPortalLink', () => '/m/test-token');
+  t.mock.method(networkNotify, 'messageMember', async () => ({ ok: true, channel: 'sms' }));
+
+  push.saveMemberSubscription({
+    subscription: subscription(77),
+    networkId: network.id,
+    memberId: 'm_partner',
+  });
+
+  const sent = [];
+  t.mock.method(webpush, 'sendNotification', async (sub, body) => {
+    sent.push(JSON.parse(body));
+  });
+
+  const missing = await networkBroadcast.broadcastToMembers({
+    network,
+    title: 'Just you',
+    message: 'Hello Partner Co',
+    channels: { app: true, sms: false },
+    audience: 'member',
+  });
+  assert.equal(missing.ok, false);
+  assert.match(missing.error, /Pick a business/i);
+
+  const result = await networkBroadcast.broadcastToMembers({
+    network,
+    title: 'Just you',
+    message: 'Hello Partner Co',
+    channels: { app: true, sms: true },
+    audience: { audience: 'member', memberId: 'm_partner' },
+    baseUrl: 'https://reviews.adhello.io',
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.targeted, 1);
+  assert.equal(result.appDelivered, 1);
+  assert.equal(result.smsSent, 1);
+  assert.equal(result.post.audience, 'member:m_partner');
+  assert.equal(sent.length, 1);
+  assert.equal(memberActivity.listInbox(network.id, 'm_partner').length, 1);
+  assert.equal(memberActivity.listInbox(network.id, 'm_free').length, 0);
+
+  dbService.deleteKvSync(`memberActivity:${network.id}:m_partner`);
+  dbService.deleteKvSync(`networkNews:${network.id}`);
+});
+
 test('Network members view and Reviews bell expose News & updates', () => {
   const view = fs.readFileSync(path.join(__dirname, '../views/network.ejs'), 'utf8');
   const partial = fs.readFileSync(path.join(__dirname, '../views/partials/network_news_updates.ejs'), 'utf8');
@@ -169,6 +255,16 @@ test('Network members view and Reviews bell expose News & updates', () => {
   assert.match(partial, /channelSms/);
   assert.match(partial, /Notify by app/);
   assert.match(partial, /Send SMS/);
+  assert.match(partial, /value="member"/);
+  assert.match(partial, /name="memberId"/);
+  assert.match(partial, /netBroadcastMemberWrap/);
+  // Notify toggles sit with Post update (send action), after audience / business pickers.
+  const notifyViaAt = partial.lastIndexOf('Notify via');
+  const channelAppAt = partial.indexOf('name="channelApp"');
+  const postBtnAt = partial.indexOf('>Post update<');
+  const audienceAt = partial.indexOf('id="netBroadcastAudience"');
+  assert.ok(audienceAt > -1 && notifyViaAt > audienceAt, 'Notify via should sit after audience');
+  assert.ok(channelAppAt > notifyViaAt && postBtnAt > channelAppAt, 'Post update should sit with notify toggles');
   assert.equal((partial.match(/id="net-message-members"/g) || []).length, 1);
 
   // Default Referral Leads view: News & updates sits above Active Numbers.
