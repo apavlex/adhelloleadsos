@@ -268,7 +268,21 @@ const UNROUTED_REASONS = {
   open_seat: 'Nobody holds that trade seat in this zone yet.',
   sender_holds_seat: 'The sender is the only partner for that trade here.',
   member_paused: 'Every partner for that trade here is paused.',
+  pool_listing: 'Posted to the trades pool for eligible partners to claim.',
 };
+
+function cleanUrl(value, max = 500) {
+  const raw = String(value == null ? '' : value).trim().slice(0, max);
+  if (!raw) return '';
+  try {
+    const withProto = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const u = new URL(withProto);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
+    return u.toString();
+  } catch {
+    return '';
+  }
+}
 
 // ── Referral record ──────────────────────────────────────────────────────────
 
@@ -289,6 +303,7 @@ function buildReferral(input, now) {
     city: cleanText(body.city, 80),
     zip: normalizeZip(body.zip),
     note: cleanText(body.note, 1000),
+    replyUrl: '',
     consentAt: '',
   };
   if (!homeowner.name) return { ok: false, error: 'Add the homeowner name.' };
@@ -309,6 +324,88 @@ function buildReferral(input, now) {
       status: 'unrouted',
       value: 0,
       events: [{ type: 'created', at: stamp, by, text: '' }],
+      createdAt: stamp,
+      updatedAt: stamp,
+    },
+  };
+}
+
+/**
+ * Public / scraped job for the trades pool (Craigslist, Marketplace, etc.).
+ * Stays unrouted on purpose so eligible partners can claim it — does not
+ * auto-route to the seat holder. Contact may be a reply URL instead of phone.
+ */
+function buildPoolListing(input, now) {
+  const body = input && typeof input === 'object' ? input : {};
+  const stamp = now || new Date().toISOString();
+  const tradeSlug = String(body.tradeSlug || '').trim();
+  if (!tradeSlug) return { ok: false, error: 'Pick a trade.' };
+
+  const replyUrl = cleanUrl(body.replyUrl || body.reply_url || body.url, 500);
+  const title = cleanText(body.title || body.name || body.project, 120);
+  const source = cleanText(body.listingSource || body.listing_source || body.source, 40);
+  const city = cleanText(body.city, 80);
+  const zip = normalizeZip(body.zip);
+  const noteParts = [
+    cleanText(body.note || body.description, 800),
+    source ? `Source: ${source}` : '',
+    replyUrl ? `Reply: ${replyUrl}` : '',
+  ].filter(Boolean);
+
+  const homeowner = {
+    name: title || (source ? `${source} job` : 'Pool job'),
+    phone: cleanText(body.phone, 40),
+    email: cleanText(body.email, 200),
+    address: cleanText(body.address, 200),
+    city,
+    zip,
+    note: noteParts.join('\n').slice(0, 1000),
+    replyUrl,
+    consentAt: '',
+  };
+
+  if (!homeowner.name) return { ok: false, error: 'Add a project title or homeowner name.' };
+  if (!homeowner.replyUrl && !homeowner.phone && !homeowner.email) {
+    return { ok: false, error: 'Add a reply link, phone, or email so partners can respond.' };
+  }
+  if (!city && !zip && !String(body.zoneId || '').trim()) {
+    return { ok: false, error: 'Add a city, ZIP, or zone so partners know the area.' };
+  }
+
+  const publicListing = body.publicListing === true
+    || body.public_listing === true
+    || body.consent === true
+    || body.consent === 'on'
+    || body.consent === '1'
+    || body.consent === 'true';
+  if (!publicListing) {
+    return {
+      ok: false,
+      error: 'Confirm this is a public job listing (or you have consent to share it) with public_listing=true.',
+    };
+  }
+  homeowner.consentAt = stamp;
+  const by = cleanText(body.by, 160) || 'operator';
+  return {
+    ok: true,
+    referral: {
+      id: body.id || '',
+      zoneId: String(body.zoneId || '').trim(),
+      tradeSlug,
+      fromMemberId: String(body.fromMemberId || '').trim() || 'operator',
+      toMemberId: null,
+      homeowner,
+      status: 'unrouted',
+      unroutedReason: 'pool_listing',
+      poolListing: true,
+      listingSource: source,
+      value: 0,
+      events: [{
+        type: 'created',
+        at: stamp,
+        by,
+        text: source ? `Posted to trades pool (${source})` : 'Posted to trades pool',
+      }],
       createdAt: stamp,
       updatedAt: stamp,
     },
@@ -513,6 +610,8 @@ module.exports = {
   seatsForMember,
   routeReferral,
   buildReferral,
+  buildPoolListing,
+  cleanUrl,
   applyRouting,
   allowedActions,
   canClaimPoolReferral,

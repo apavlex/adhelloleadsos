@@ -155,9 +155,14 @@ test('MCP tools publish real input schemas and annotations, and accept arguments
   const byName = Object.fromEntries(tools.map((t) => [t.name, t]));
   assert.ok(byName.list_leads.inputSchema.properties.folder_name);
   assert.ok(byName.send_referral.inputSchema.properties.homeowner_consent);
+  assert.ok(byName.post_pool_job.inputSchema.properties.reply_url);
+  assert.ok(byName.post_pool_job.inputSchema.properties.public_listing);
+  assert.ok(byName.list_pool_jobs);
   assert.equal(byName.list_folders.annotations.readOnlyHint, true);
+  assert.equal(byName.list_pool_jobs.annotations.readOnlyHint, true);
   assert.equal(byName.sync_leads_to_ghl.annotations.destructiveHint, true);
   assert.equal(byName.send_referral.annotations.openWorldHint, true);
+  assert.equal(byName.post_pool_job.annotations.openWorldHint, true);
   const result = await client.callTool({ name: 'get_network_overview', arguments: {} });
   const payload = JSON.parse(result.content[0].text);
   assert.equal(payload.success, true);
@@ -199,6 +204,71 @@ test('network tools route referrals, move them along, and guard approvals', asyn
   assert.equal(pending.applications[0].suggested_zone, 'Camas');
   const rejected = await executeCrmTool(ctx, 'reject_network_application', { application_id: app.id });
   assert.equal(rejected.success, true);
+});
+
+test('post_pool_job puts Craigslist-style jobs in the trades pool without seat routing', async () => {
+  const { wid, network } = await setupWorkspace();
+  const ctx = { workspaceId: wid, userEmail: OWNER, baseUrl: 'https://leads.example' };
+
+  // Even with a plumbing seat holder, pool posts stay unrouted for claim.
+  const posted = await executeCrmTool(ctx, 'post_pool_job', {
+    trade: 'plumber',
+    title: 'Water heater — Camas Craigslist',
+    city: 'Camas',
+    reply_url: 'https://portland.craigslist.org/reply/xyz',
+    listing_source: 'Craigslist',
+    note: 'Anonymous reply link only',
+    public_listing: true,
+  });
+  assert.equal(posted.success, true, posted.error);
+  assert.equal(posted.referral.status, 'unrouted');
+  assert.equal(posted.referral.pool_listing, true);
+  assert.equal(posted.referral.to, '');
+  assert.equal(posted.referral.reply_url, 'https://portland.craigslist.org/reply/xyz');
+  assert.match(posted.message, /pool/i);
+
+  const pool = await executeCrmTool(ctx, 'list_pool_jobs', { trade: 'plumbing' });
+  assert.equal(pool.success, true, pool.error);
+  assert.equal(pool.total, 1);
+  assert.equal(pool.jobs[0].id, posted.referral.id);
+
+  const viewerDenied = await executeCrmTool(
+    { ...ctx, userEmail: VIEWER },
+    'post_pool_job',
+    {
+      trade: 'hvac',
+      title: 'AC tune-up',
+      city: 'Camas',
+      reply_url: 'https://example.com/r/1',
+      public_listing: true,
+    },
+  );
+  assert.equal(viewerDenied.code, 'FORBIDDEN');
+
+  const noFlag = await executeCrmTool(ctx, 'post_pool_job', {
+    trade: 'hvac',
+    title: 'Furnace',
+    city: 'Camas',
+    reply_url: 'https://example.com/r/2',
+    public_listing: false,
+  });
+  assert.equal(noFlag.success, false);
+
+  // Assign from pool to the seat holder when you want a specific partner.
+  const assigned = await executeCrmTool(ctx, 'update_referral', {
+    referral_id: posted.referral.id,
+    action: 'assign',
+    assign_to_member: 'Patrick Plumbing',
+  });
+  assert.equal(assigned.success, true, assigned.error);
+  assert.equal(assigned.referral.status, 'sent');
+  assert.equal(assigned.referral.to, 'Patrick Plumbing');
+
+  const openAfter = await executeCrmTool(ctx, 'list_pool_jobs', { open_only: true });
+  assert.equal(openAfter.total, 0);
+  const allPool = await executeCrmTool(ctx, 'list_pool_jobs', { open_only: false });
+  assert.equal(allPool.total, 1);
+  assert.ok(network.id);
 });
 
 test('manage_network_trades lists, adds built-in and custom trades, and hides them', async () => {
