@@ -1,12 +1,15 @@
 /**
  * Partner cards keep Sent/Received count metrics only — Connected/Intro are pills.
+ * Admin share link for workspace network signup sits above the summary cards.
  */
 const fs = require('fs');
 const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const html = fs.readFileSync(path.join(__dirname, '../views/referrals.ejs'), 'utf8');
+const root = path.join(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'views/referrals.ejs'), 'utf8');
+const route = fs.readFileSync(path.join(root, 'routes/referrals.js'), 'utf8');
 
 test('referrals partner metrics only include sent and received count cards', () => {
   const start = html.indexOf('<div class="ref-metrics">');
@@ -36,4 +39,17 @@ test('top summary drops Free and Paid cards', () => {
   assert.doesNotMatch(block, />Paid</);
   assert.doesNotMatch(block, /data-ref-total="free"/);
   assert.doesNotMatch(block, /data-ref-total="paid"/);
+});
+
+test('admin workspace signup link renders above the summary cards', () => {
+  assert.match(route, /getOrEnsureJoinSlug/);
+  assert.match(route, /getNetworkJoinUrl/);
+  assert.match(route, /networkJoinUrl/);
+  assert.match(html, /id="ref-join-link"/);
+  assert.match(html, /Workspace signup link/);
+  assert.match(html, /refJoinCopyBtn/);
+  assert.match(html, /networkJoinUrl/);
+  const joinAt = html.indexOf('id="ref-join-link"');
+  const cardsAt = html.indexOf('grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6');
+  assert.ok(joinAt > -1 && cardsAt > joinAt, 'signup link should sit above the metric cards');
 });
