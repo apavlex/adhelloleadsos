@@ -1,16 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('_head', { pageTitle: 'Customers' }) %>
+  <%- include('_head', { pageTitle: view === 'pending' ? 'Projects' : 'Customers' }) %>
 </head>
 <body>
   <main class="ma-shell">
-    <%- include('_top', { topTitle: 'Customers' }) %>
+    <%- include('_top', { topTitle: view === 'pending' ? 'Projects' : 'Customers' }) %>
     <div class="ma-titlebar">
-      <h1 class="ma-page-title">Customers</h1>
+      <h1 class="ma-page-title"><%= view === 'pending' ? 'Projects' : 'Customers' %></h1>
       <a class="ma-iconbtn ma-iconbtn--fill" href="<%= base %>/customers/<%= view === 'calendar' ? 'jobs/new?date=' + selected : (view === 'pending' ? 'jobs/new' : 'new') %>" aria-label="<%= view === 'list' ? 'Add a customer' : 'Add a job' %>"><%- icons.plus %></a>
     </div>
-    <p class="ma-page-sub"><%= view === 'list' ? 'Contacts by latest touch — texts, calls, and updates first.' : 'Your customers, jobs and schedule in one place.' %></p>
+    <p class="ma-page-sub"><%= view === 'list' ? 'Contacts by latest touch — texts, calls, and updates first.' : (view === 'pending' ? 'Open projects to review and move forward.' : 'Your customers, jobs and schedule in one place.') %></p>
 
     <%- include('_flash') %>
 
@@ -71,7 +71,7 @@
     <nav class="ma-seg ma-seg--3" aria-label="Customer views">
       <a href="<%= hrefFor({}) %>" class="<%= view === 'list' ? 'is-on' : '' %>" <%= view === 'list' ? 'aria-current=page' : '' %>><%- icons.list %><span>List</span></a>
       <a href="<%= hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>><%- icons.calendar %><span>Calendar</span></a>
-      <a href="<%= hrefFor({ view: 'pending' }) %>" class="<%= view === 'pending' ? 'is-on' : '' %>" <%= view === 'pending' ? 'aria-current=page' : '' %>><%- icons.pending %><span>Pending</span></a>
+      <a href="<%= hrefFor({ view: 'pending' }) %>" class="<%= view === 'pending' ? 'is-on' : '' %>" <%= view === 'pending' ? 'aria-current=page' : '' %>><%- icons.pending %><span>Projects</span></a>
     </nav>
 
     <% if (view === 'list') { %>
