@@ -10,10 +10,101 @@
   const _grReviews = Array.isArray(typeof googleReviews !== 'undefined' ? googleReviews : null) ? googleReviews : [];
   const _grOut = typeof googleReviewsOutscraper !== 'undefined' && googleReviewsOutscraper;
   const _grFocus = typeof googleReviewFocusId !== 'undefined' ? String(googleReviewFocusId || '') : '';
-  const _grOpen = _grFocus || _grLocked || (_grPaid && (_grSummary.newCount > 0 || !_grReviews.length));
   const _grQueryHint = typeof googleReviewsQueryHint !== 'undefined' ? googleReviewsQueryHint : '';
+  // Paid inbox with reviews is always visible — not buried in a collapsed fold.
+  const _grShowInbox = _grPaid && _grReviews.length > 0;
+  const _grFoldOpen = _grFocus || _grLocked || (_grPaid && !_grReviews.length);
 %>
-<details class="ma-fold" id="maGoogleReviews" <%= _grOpen ? 'open' : '' %>>
+<% if (_grShowInbox) { %>
+<section class="ma-section" id="maGoogleReviews" aria-label="Google reviews" style="margin-top:18px">
+  <div class="ma-section__head">
+    <h2 style="font-size:17px">Google reviews</h2>
+    <span class="ma-fold__hint">
+      <% if (_grSummary.newCount) { %><%= _grSummary.newCount %> new
+      <% } else { %><%= _grSummary.total %> synced<% } %>
+    </span>
+  </div>
+  <p class="ma-hint" style="margin-top:0">New Google reviews ping your bell. Draft an AI reply and copy it into Google.</p>
+  <% if (_grSummary.placeRating != null || _grSummary.total) { %>
+  <div class="ma-kpis" style="margin-bottom:10px">
+    <div class="ma-kpi"><strong><%= _grSummary.total %></strong><span>In inbox</span></div>
+    <div class="ma-kpi"><strong><%= _grSummary.newCount %></strong><span>New</span></div>
+    <div class="ma-kpi"><strong><% if (_grSummary.placeRating != null) { %><%= Number(_grSummary.placeRating).toFixed(1) %>★<% } else { %>—<% } %></strong><span>Rating</span></div>
+  </div>
+  <% } %>
+  <% if (_grSummary.lastError) { %>
+  <p class="ma-flash ma-flash--err" style="margin:0 0 10px"><%= _grSummary.lastError %></p>
+  <% } %>
+
+  <div id="maGrList">
+    <% _grReviews.forEach(function (r) {
+      var _focus = _grFocus && _grFocus === r.id;
+    %>
+    <div class="ma-card ma-card--flush" style="margin-bottom:8px<%= r.isNew ? ';border-color:rgba(16,185,129,.45)' : '' %><%= _focus ? ';box-shadow:0 0 0 2px var(--acc)' : '' %>" data-gr-id="<%= r.id %>" id="gr-<%= r.id %>">
+      <div class="ma-card__row">
+        <div style="min-width:0">
+          <p class="ma-card__title">
+            <%= r.rating != null ? r.rating + '★' : 'Review' %> · <%= r.author || 'Google reviewer' %>
+            <% if (r.isNew) { %> <span class="ma-fold__hint" style="color:#059669;font-weight:800">NEW</span><% } %>
+          </p>
+          <% if (r.reviewedAt) { %><p class="ma-card__meta"><%= String(r.reviewedAt).slice(0, 10) %></p><% } %>
+        </div>
+        <% if (!r.ownerResponse) { %>
+        <span class="ma-fold__hint" style="margin:0;color:#b45309;font-weight:800">Needs reply</span>
+        <% } %>
+      </div>
+      <% if (r.text) { %>
+      <p class="ma-card__note" style="white-space:pre-wrap"><%= r.text %></p>
+      <% } else { %>
+      <p class="ma-card__meta" style="font-style:italic">Rating only — no written comment.</p>
+      <% } %>
+      <div style="margin-top:10px" data-gr-reply>
+        <label class="ma-label" for="gr-draft-<%= r.id %>">AI reply draft</label>
+        <textarea id="gr-draft-<%= r.id %>" class="ma-textarea" rows="3" data-gr-draft maxlength="3500" placeholder="Generate a reply, tweak it, then copy into Google."><%= r.replyDraft || '' %></textarea>
+        <div class="ma-actions" style="margin:8px 0 0">
+          <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-gr-generate="<%= r.id %>">Generate with AI</button>
+          <button type="button" class="ma-btn ma-btn--sm" data-gr-copy="<%= r.id %>" <%= r.replyDraft ? '' : 'disabled' %>><%- icons.copy %> Copy reply</button>
+        </div>
+        <p class="ma-hint" data-gr-msg style="margin:6px 0 0;min-height:1.1em"></p>
+      </div>
+    </div>
+    <% }); %>
+  </div>
+  <% if (_grSummary.newCount) { %>
+  <button type="button" class="ma-btn ma-btn--ghost ma-btn--block" id="maGrMarkSeen" style="margin-top:4px">Mark all seen</button>
+  <% } %>
+
+  <details class="ma-fold ma-fold--inset" style="margin-top:12px">
+    <summary>Listing &amp; sync <span class="ma-fold__hint">Outscraper</span></summary>
+    <div class="ma-fold__body">
+      <div class="ma-card ma-card--flush">
+        <% if (!_grOut) { %>
+        <p class="ma-flash ma-flash--err" style="margin:0 0 10px">AdHello Outscraper isn’t ready yet. Try again shortly or contact support.</p>
+        <% } %>
+        <form id="maGrSettings" autocomplete="off">
+          <div class="ma-field">
+            <label class="ma-label" for="maGrQuery">Google listing</label>
+            <input id="maGrQuery" name="query" class="ma-input" value="<%= _grSettings.query || _grQueryHint || '' %>" placeholder="Uses your Google review link from Settings" maxlength="500">
+            <p class="ma-hint">Defaults from your <a href="<%= base %>/review/settings">Google review link</a>. Place ID or Maps URL works best.</p>
+          </div>
+          <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
+            <input type="checkbox" name="autoSync" value="1" <%= _grSettings.autoSync !== false ? 'checked' : '' %> style="margin-top:3px">
+            <span>Auto-sync &amp; notify me on new reviews</span>
+          </label>
+          <div class="ma-actions" style="margin:0">
+            <button type="button" class="ma-btn ma-btn--soft" id="maGrSave">Save</button>
+            <button type="button" class="ma-btn" id="maGrSync" <%= _grOut ? '' : 'disabled' %>>Sync now</button>
+          </div>
+          <p class="ma-hint" id="maGrStatus" role="status" style="margin:8px 0 0;min-height:1.2em">
+            <% if (_grSummary.lastSyncedAt) { %>Last sync · <%= _grSummary.lastSyncedAt.slice(0, 16).replace('T', ' ') %> UTC<% } %>
+          </p>
+        </form>
+      </div>
+    </div>
+  </details>
+</section>
+<% } else { %>
+<details class="ma-fold" id="maGoogleReviews" <%= _grFoldOpen ? 'open' : '' %>>
   <summary>
     Google reviews
     <span class="ma-fold__hint">
@@ -34,13 +125,6 @@
     <% } else { %>
     <div class="ma-card ma-card--flush" style="margin-bottom:10px">
       <p class="ma-hint" style="margin-top:0">We watch your Google listing with AdHello’s Outscraper. New reviews ping your bell — then generate an AI reply and copy it into Google.</p>
-      <% if (_grSummary.placeRating != null || _grSummary.total) { %>
-      <div class="ma-kpis" style="margin-bottom:10px">
-        <div class="ma-kpi"><strong><%= _grSummary.total %></strong><span>In inbox</span></div>
-        <div class="ma-kpi"><strong><%= _grSummary.newCount %></strong><span>New</span></div>
-        <div class="ma-kpi"><strong><% if (_grSummary.placeRating != null) { %><%= Number(_grSummary.placeRating).toFixed(1) %>★<% } else { %>—<% } %></strong><span>Rating</span></div>
-      </div>
-      <% } %>
       <% if (!_grOut) { %>
       <p class="ma-flash ma-flash--err" style="margin:0 0 10px">AdHello Outscraper isn’t ready yet. Try again shortly or contact support.</p>
       <% } %>
@@ -66,158 +150,120 @@
         </p>
       </form>
     </div>
-
-    <% if (!_grReviews.length) { %>
     <div class="ma-card ma-card--flush ma-empty">
       <p>No Google reviews synced yet. Save your listing and tap <strong>Sync now</strong>.</p>
     </div>
-    <% } else { %>
-    <div id="maGrList">
-      <% _grReviews.forEach(function (r) {
-        var _focus = _grFocus && _grFocus === r.id;
-      %>
-      <div class="ma-card ma-card--flush" style="margin-bottom:8px<%= r.isNew ? ';border-color:rgba(16,185,129,.45)' : '' %><%= _focus ? ';box-shadow:0 0 0 2px var(--acc)' : '' %>" data-gr-id="<%= r.id %>" id="gr-<%= r.id %>">
-        <div class="ma-card__row">
-          <div style="min-width:0">
-            <p class="ma-card__title">
-              <%= r.rating != null ? r.rating + '★' : 'Review' %> · <%= r.author || 'Google reviewer' %>
-              <% if (r.isNew) { %> <span class="ma-fold__hint" style="color:#059669;font-weight:800">NEW</span><% } %>
-            </p>
-            <% if (r.reviewedAt) { %><p class="ma-card__meta"><%= String(r.reviewedAt).slice(0, 10) %></p><% } %>
-          </div>
-          <% if (!r.ownerResponse) { %>
-          <span class="ma-fold__hint" style="margin:0;color:#b45309;font-weight:800">Needs reply</span>
-          <% } %>
-        </div>
-        <% if (r.text) { %>
-        <p class="ma-card__note" style="white-space:pre-wrap"><%= r.text %></p>
-        <% } else { %>
-        <p class="ma-card__meta" style="font-style:italic">Rating only — no written comment.</p>
-        <% } %>
-        <div style="margin-top:10px" data-gr-reply>
-          <label class="ma-label" for="gr-draft-<%= r.id %>">AI reply draft</label>
-          <textarea id="gr-draft-<%= r.id %>" class="ma-textarea" rows="3" data-gr-draft maxlength="3500" placeholder="Generate a reply, tweak it, then copy into Google."><%= r.replyDraft || '' %></textarea>
-          <div class="ma-actions" style="margin:8px 0 0">
-            <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-gr-generate="<%= r.id %>">Generate with AI</button>
-            <button type="button" class="ma-btn ma-btn--sm" data-gr-copy="<%= r.id %>" <%= r.replyDraft ? '' : 'disabled' %>><%- icons.copy %> Copy reply</button>
-          </div>
-          <p class="ma-hint" data-gr-msg style="margin:6px 0 0;min-height:1.1em"></p>
-        </div>
-      </div>
-      <% }); %>
-    </div>
-    <% if (_grSummary.newCount) { %>
-    <button type="button" class="ma-btn ma-btn--ghost ma-btn--block" id="maGrMarkSeen" style="margin-top:4px">Mark all seen</button>
-    <% } %>
-    <% } %>
-
-    <script>
-    (function () {
-      var base = <%= JSON.stringify(base) %>;
-      var statusEl = document.getElementById('maGrStatus');
-      function setStatus(msg, isErr) {
-        if (!statusEl) return;
-        statusEl.textContent = msg || '';
-        statusEl.style.color = isErr ? '#b91c1c' : '';
-      }
-      function payload() {
-        var q = document.getElementById('maGrQuery');
-        var a = document.querySelector('#maGrSettings [name=autoSync]');
-        return {
-          query: q ? q.value : '',
-          autoSync: !!(a && a.checked),
-          force: true
-        };
-      }
-      async function post(path, body) {
-        var res = await fetch(base + path, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: body ? JSON.stringify(body) : '{}'
-        });
-        var data = await res.json().catch(function () { return {}; });
-        if (!res.ok || data.success === false) throw new Error(data.error || 'Request failed');
-        return data;
-      }
-      var saveBtn = document.getElementById('maGrSave');
-      if (saveBtn) saveBtn.addEventListener('click', async function () {
-        saveBtn.disabled = true;
-        try {
-          await post('/review/google-reviews/settings', payload());
-          setStatus('Saved.');
-        } catch (e) { setStatus(e.message || 'Save failed', true); }
-        saveBtn.disabled = false;
-      });
-      var syncBtn = document.getElementById('maGrSync');
-      if (syncBtn) syncBtn.addEventListener('click', async function () {
-        syncBtn.disabled = true;
-        setStatus('Syncing with Outscraper…');
-        try {
-          var data = await post('/review/google-reviews/sync', payload());
-          setStatus(data.newCount ? (data.newCount + ' new review' + (data.newCount === 1 ? '' : 's')) : (data.skipped ? 'Already up to date' : 'Synced'));
-          location.reload();
-        } catch (e) {
-          setStatus(e.message || 'Sync failed', true);
-          syncBtn.disabled = false;
-        }
-      });
-      var seenBtn = document.getElementById('maGrMarkSeen');
-      if (seenBtn) seenBtn.addEventListener('click', async function () {
-        seenBtn.disabled = true;
-        try {
-          await post('/review/google-reviews/mark-all-seen');
-          location.reload();
-        } catch (e) {
-          setStatus(e.message || 'Failed', true);
-          seenBtn.disabled = false;
-        }
-      });
-      document.querySelectorAll('[data-gr-generate]').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-          var id = btn.getAttribute('data-gr-generate');
-          var box = btn.closest('[data-gr-reply]');
-          var ta = box && box.querySelector('[data-gr-draft]');
-          var msg = box && box.querySelector('[data-gr-msg]');
-          var copy = box && box.querySelector('[data-gr-copy]');
-          btn.disabled = true;
-          if (msg) msg.textContent = 'Writing reply…';
-          try {
-            var data = await post('/review/google-reviews/' + encodeURIComponent(id) + '/draft-reply', {});
-            if (ta) ta.value = data.reply || '';
-            if (copy) copy.disabled = !data.reply;
-            if (msg) msg.textContent = 'Draft ready — copy and paste into Google.';
-          } catch (e) {
-            if (msg) msg.textContent = e.message || 'AI draft failed';
-          }
-          btn.disabled = false;
-        });
-      });
-      document.querySelectorAll('[data-gr-copy]').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-          var box = btn.closest('[data-gr-reply]');
-          var ta = box && box.querySelector('[data-gr-draft]');
-          var msg = box && box.querySelector('[data-gr-msg]');
-          var text = ta ? String(ta.value || '').trim() : '';
-          if (!text) return;
-          try {
-            if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
-            else { ta.focus(); ta.select(); document.execCommand('copy'); }
-            if (msg) msg.textContent = 'Copied — paste into your Google Business reply.';
-            btn.textContent = 'Copied!';
-            setTimeout(function () { btn.innerHTML = btn.getAttribute('data-label') || 'Copy reply'; }, 1600);
-          } catch (e) {
-            if (msg) msg.textContent = 'Copy failed — select the text and copy manually.';
-          }
-        });
-      });
-      var focusId = <%= JSON.stringify(_grFocus) %>;
-      if (focusId) {
-        var node = document.getElementById('gr-' + focusId);
-        if (node) setTimeout(function () { node.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 120);
-      }
-    })();
-    </script>
     <% } %>
   </div>
 </details>
+<% } %>
+
+<% if (!_grLocked) { %>
+<script>
+(function () {
+  var base = <%= JSON.stringify(base) %>;
+  var statusEl = document.getElementById('maGrStatus');
+  function setStatus(msg, isErr) {
+    if (!statusEl) return;
+    statusEl.textContent = msg || '';
+    statusEl.style.color = isErr ? '#b91c1c' : '';
+  }
+  function payload() {
+    var q = document.getElementById('maGrQuery');
+    var a = document.querySelector('#maGrSettings [name=autoSync]');
+    return {
+      query: q ? q.value : '',
+      autoSync: !!(a && a.checked),
+      force: true
+    };
+  }
+  async function post(path, body) {
+    var res = await fetch(base + path, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: body ? JSON.stringify(body) : '{}'
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok || data.success === false) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+  var saveBtn = document.getElementById('maGrSave');
+  if (saveBtn) saveBtn.addEventListener('click', async function () {
+    saveBtn.disabled = true;
+    try {
+      await post('/review/google-reviews/settings', payload());
+      setStatus('Saved.');
+    } catch (e) { setStatus(e.message || 'Save failed', true); }
+    saveBtn.disabled = false;
+  });
+  var syncBtn = document.getElementById('maGrSync');
+  if (syncBtn) syncBtn.addEventListener('click', async function () {
+    syncBtn.disabled = true;
+    setStatus('Syncing with Outscraper…');
+    try {
+      var data = await post('/review/google-reviews/sync', payload());
+      setStatus(data.newCount ? (data.newCount + ' new review' + (data.newCount === 1 ? '' : 's')) : (data.skipped ? 'Already up to date' : 'Synced'));
+      location.reload();
+    } catch (e) {
+      setStatus(e.message || 'Sync failed', true);
+      syncBtn.disabled = false;
+    }
+  });
+  var seenBtn = document.getElementById('maGrMarkSeen');
+  if (seenBtn) seenBtn.addEventListener('click', async function () {
+    seenBtn.disabled = true;
+    try {
+      await post('/review/google-reviews/mark-all-seen');
+      location.reload();
+    } catch (e) {
+      setStatus(e.message || 'Failed', true);
+      seenBtn.disabled = false;
+    }
+  });
+  document.querySelectorAll('[data-gr-generate]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.getAttribute('data-gr-generate');
+      var box = btn.closest('[data-gr-reply]');
+      var ta = box && box.querySelector('[data-gr-draft]');
+      var msg = box && box.querySelector('[data-gr-msg]');
+      var copy = box && box.querySelector('[data-gr-copy]');
+      btn.disabled = true;
+      if (msg) msg.textContent = 'Writing reply…';
+      try {
+        var data = await post('/review/google-reviews/' + encodeURIComponent(id) + '/draft-reply', {});
+        if (ta) ta.value = data.reply || '';
+        if (copy) copy.disabled = !data.reply;
+        if (msg) msg.textContent = 'Draft ready — copy and paste into Google.';
+      } catch (e) {
+        if (msg) msg.textContent = e.message || 'AI draft failed';
+      }
+      btn.disabled = false;
+    });
+  });
+  document.querySelectorAll('[data-gr-copy]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var box = btn.closest('[data-gr-reply]');
+      var ta = box && box.querySelector('[data-gr-draft]');
+      var msg = box && box.querySelector('[data-gr-msg]');
+      var text = ta ? String(ta.value || '').trim() : '';
+      if (!text) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(text);
+        else { ta.focus(); ta.select(); document.execCommand('copy'); }
+        if (msg) msg.textContent = 'Copied — paste into your Google Business reply.';
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.innerHTML = btn.getAttribute('data-label') || 'Copy reply'; }, 1600);
+      } catch (e) {
+        if (msg) msg.textContent = 'Copy failed — select the text and copy manually.';
+      }
+    });
+  });
+  var focusId = <%= JSON.stringify(_grFocus) %>;
+  if (focusId) {
+    var node = document.getElementById('gr-' + focusId);
+    if (node) setTimeout(function () { node.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 120);
+  }
+})();
+</script>
+<% } %>

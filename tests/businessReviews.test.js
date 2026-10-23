@@ -212,10 +212,14 @@ describe('businessReviews', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const svc = fs.readFileSync(path.join(__dirname, '../services/businessReviews.js'), 'utf8');
     assert.match(review, /_google_reviews/);
+    // Synced inbox is above the QR card so biz reviews aren’t buried.
+    assert.ok(review.indexOf("_google_reviews") < review.indexOf('ma-qr'));
     assert.match(partial, /Generate with AI/);
     assert.match(partial, /Copy reply/);
     assert.match(partial, /See Google reviews/);
     assert.match(partial, /AdHello/);
+    assert.match(partial, /_grShowInbox/);
+    assert.match(partial, /maGrList/);
     assert.match(route, /google-reviews\/sync/);
     assert.match(route, /resolveReviewsOutscraperEnv/);
     assert.match(svc, /resolveAgencyProviderEnv/);
