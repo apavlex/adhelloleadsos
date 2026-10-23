@@ -10,6 +10,8 @@ const dbService = require('./database');
 const SUB_PREFIX = 'pushsub:';
 /** Contractor portal devices (no AdHello login) — scoped by packageId. */
 const PORTAL_SUB_PREFIX = 'portalpush:';
+/** Member Reviews app (/m) devices — scoped by networkId + memberId (works for free-app members). */
+const MEMBER_SUB_PREFIX = 'memberpush:';
 const VAPID_KV_KEY = 'sys:vapid_keys';
 
 let configured = null;
@@ -209,6 +211,71 @@ async function sendPortalPush({ packageId, workspaceId } = {}, payload) {
   return deliverPush(matchingPortalSubscriptions({ packageId, workspaceId }), payload);
 }
 
+function memberSubKey(endpoint) {
+  return MEMBER_SUB_PREFIX + crypto.createHash('sha256').update(String(endpoint)).digest('hex').slice(0, 32);
+}
+
+function saveMemberSubscription({ subscription, networkId, memberId, userAgent }) {
+  if (!validSubscription(subscription)) return { ok: false, error: 'Invalid push subscription.' };
+  const nid = String(networkId || '').trim();
+  const mid = String(memberId || '').trim();
+  if (!nid || !mid) return { ok: false, error: 'Member is required.' };
+  const key = memberSubKey(subscription.endpoint);
+  const existing = readSub(key);
+  const now = new Date().toISOString();
+  dbService.setKvSync(key, {
+    kind: 'member_app',
+    endpoint: subscription.endpoint,
+    keys: { p256dh: subscription.keys.p256dh, auth: subscription.keys.auth },
+    networkId: nid,
+    memberId: mid,
+    userAgent: String(userAgent || '').slice(0, 200),
+    createdAt: (existing && existing.createdAt) || now,
+    updatedAt: now,
+  });
+  return { ok: true };
+}
+
+function removeMemberSubscription(endpoint, { networkId, memberId } = {}) {
+  const key = memberSubKey(endpoint);
+  const existing = readSub(key);
+  if (!existing) return;
+  if (networkId && existing.networkId && existing.networkId !== String(networkId)) return;
+  if (memberId && existing.memberId && existing.memberId !== String(memberId)) return;
+  dbService.deleteKvSync(key);
+}
+
+function matchingMemberSubscriptions({ networkId, memberId } = {}) {
+  const nid = String(networkId || '').trim();
+  const mid = String(memberId || '').trim();
+  if (!nid || !mid) return [];
+  return dbService
+    .listKvKeysSync(MEMBER_SUB_PREFIX)
+    .map((key) => {
+      const sub = readSub(key);
+      return sub ? { key, ...sub } : null;
+    })
+    .filter(Boolean)
+    .filter((sub) => sub.networkId === nid && sub.memberId === mid);
+}
+
+/**
+ * Push to a Reviews-app member. Uses member-scoped subscriptions, and also
+ * any linked contractor-portal (package) subscriptions so older installs still notify.
+ */
+async function sendMemberPush({ networkId, memberId, packageId, workspaceId } = {}, payload) {
+  const byEndpoint = new Map();
+  for (const sub of matchingMemberSubscriptions({ networkId, memberId })) {
+    if (sub && sub.endpoint) byEndpoint.set(sub.endpoint, sub);
+  }
+  if (packageId) {
+    for (const sub of matchingPortalSubscriptions({ packageId, workspaceId })) {
+      if (sub && sub.endpoint && !byEndpoint.has(sub.endpoint)) byEndpoint.set(sub.endpoint, sub);
+    }
+  }
+  return deliverPush([...byEndpoint.values()], payload);
+}
+
 /**
  * Fire-and-forget alert when a new lead is delivered to a contractor package.
  * url should be the contractor portal leads page (/p/:token/leads).
@@ -270,8 +337,12 @@ module.exports = {
   savePortalSubscription,
   removePortalSubscription,
   matchingPortalSubscriptions,
+  saveMemberSubscription,
+  removeMemberSubscription,
+  matchingMemberSubscriptions,
   sendPush,
   sendPortalPush,
+  sendMemberPush,
   notifyContractorNewLead,
   notifyJobFinished,
 };

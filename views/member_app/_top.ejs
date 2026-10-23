@@ -17,7 +17,7 @@
     <a class="ma-iconbtn <%= topSettings.on ? 'is-on' : '' %>" href="<%= topSettings.href %>" aria-label="<%= topSettings.label || 'Settings' %>" title="<%= topSettings.label || 'Settings' %>" <%= topSettings.on ? 'aria-current=page' : '' %>><%- icons.settings %></a>
     <% } %>
     <a class="ma-iconbtn" href="<%= base %>/customers/new" aria-label="Add a customer" title="Add a customer"><%- icons.plus %></a>
-    <div class="ma-bell" id="maBellRoot" data-base="<%= base %>" data-push="<%= typeof appointment !== 'undefined' && appointment ? '1' : '0' %>">
+    <div class="ma-bell" id="maBellRoot" data-base="<%= base %>" data-push="1">
       <button type="button" class="ma-iconbtn ma-bell__btn" data-ma-bell-open aria-label="Lead notifications" title="Lead notifications" aria-expanded="false" aria-controls="maBellPanel">
         <%- icons.bell %>
         <span class="ma-bell__ping" data-ma-bell-ping hidden></span>
@@ -45,7 +45,7 @@
         </div>
         <div class="ma-bell__push" data-ma-bell-push>
           <button type="button" class="ma-bell__push-btn" data-ma-bell-push-enable>Turn on phone alerts</button>
-          <p class="ma-bell__push-status" data-ma-bell-push-status>New website leads, agency leads, and referrals arrive on this device — even when the app is closed.</p>
+          <p class="ma-bell__push-status" data-ma-bell-push-status>Messages from your agency, leads, and referrals arrive on this device — even when the app is closed.</p>
           <button type="button" class="ma-bell__push-off" data-ma-bell-push-off hidden>Turn off on this device</button>
         </div>
         <div class="ma-bell__foot">

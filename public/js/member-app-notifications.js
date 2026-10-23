@@ -451,12 +451,6 @@
     if (pushOff) pushOff.hidden = true;
     pushEnable.disabled = false;
     pushEnable.dataset.state = state;
-    if (!pushOk) {
-      pushEnable.textContent = 'Alerts need a linked lead package';
-      pushEnable.disabled = true;
-      setPushStatus('Ask your agency to connect appointments so website and agency leads can notify this phone.');
-      return;
-    }
     if (state === 'install') {
       pushEnable.textContent = 'Add to Home Screen first';
       pushEnable.disabled = true;
@@ -471,8 +465,8 @@
       pushEnable.textContent = (label.charAt(0).toUpperCase() + label.slice(1)) + ' on · Send test';
       setPushStatus(
         ghlEnabled
-          ? 'New leads, referrals, and GHL calls & texts arrive on this device, even when the app is closed.'
-          : 'New leads, agency assignments, and referrals arrive on this device, even when the app is closed.',
+          ? 'Agency messages, leads, referrals, and GHL calls & texts arrive on this device, even when the app is closed.'
+          : 'Agency messages, leads, and referrals arrive on this device, even when the app is closed.',
       );
       if (pushOff) pushOff.hidden = false;
     } else if (state === 'working') {
@@ -482,14 +476,13 @@
       pushEnable.textContent = 'Turn on ' + label;
       setPushStatus(
         ghlEnabled
-          ? 'Turn on ' + label + ' for leads, referrals, and GHL calls & texts that need you now.'
-          : 'Turn on ' + label + ' for website forms, agency leads, and referrals that need you now.',
+          ? 'Turn on ' + label + ' for agency messages, leads, referrals, and GHL calls & texts.'
+          : 'Turn on ' + label + ' for agency messages, leads, and referrals.',
       );
     }
   }
 
   function enablePush() {
-    if (!pushOk) return;
     if (pushEnable && pushEnable.dataset.state === 'on') {
       post('/push/test', {}).catch(function () { /* ignore */ });
       return;

@@ -680,6 +680,41 @@
         })();
       </script>
       <% } %>
+      <% if (canManage && totals.members) { %>
+      <details class="net-card net-more mb-4" id="net-message-members" <%= typeof notice !== 'undefined' && notice && /Messaged|phone alert|text/i.test(String(notice)) ? 'open' : '' %>>
+        <summary class="flex items-center justify-between gap-2">
+          <span class="font-display font-bold">Message members</span>
+          <span class="net-btn net-btn-ghost">App alert or SMS</span>
+        </summary>
+        <p class="mt-3 text-[13px] text-brand-muted leading-relaxed">Send a custom message to people using the Reviews app. <strong class="text-brand-dark dark:text-white">Notify by app</strong> pops up on their phone when they turned on alerts (and lands in Notifications). <strong class="text-brand-dark dark:text-white">Send SMS</strong> texts their phone like a regular message.</p>
+        <form method="post" action="/network/members/broadcast" class="mt-3 space-y-3">
+          <div>
+            <label class="net-label" for="netBroadcastMessage">Message</label>
+            <textarea id="netBroadcastMessage" name="message" rows="3" class="net-input" maxlength="480" required placeholder="e.g. Reminder: referral rewards reset Friday — open the app to claim."></textarea>
+          </div>
+          <div>
+            <span class="net-label">Send via</span>
+            <div class="net-checks">
+              <label class="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-[13px] font-semibold cursor-pointer">
+                <input type="checkbox" name="channelApp" value="1" checked> Notify by app
+              </label>
+              <label class="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-[13px] font-semibold cursor-pointer">
+                <input type="checkbox" name="channelSms" value="1"> Send SMS
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="net-label" for="netBroadcastAudience">Audience</label>
+            <select id="netBroadcastAudience" name="audience" class="net-input">
+              <option value="all">All active members (<%= totals.members %>)</option>
+              <option value="free">App trial only (<%= totals.freeMembers %>)</option>
+              <option value="partner">Partners only (<%= totals.partnerMembers %>)</option>
+            </select>
+          </div>
+          <button type="submit" class="net-btn net-btn-yellow" onclick="return confirm('Send this message to the selected members?');">Send message</button>
+        </form>
+      </details>
+      <% } %>
       <% if (canManage) { %>
       <details class="net-card net-more mb-4" id="net-add-member" <%= prefillLeadKey || prefillTrade || !totals.members ? 'open' : '' %>>
         <summary class="flex items-center justify-between gap-2">

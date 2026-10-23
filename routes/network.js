@@ -18,6 +18,7 @@ const teamFieldWork = require('../services/teamFieldWork');
 const memberWork = require('../services/memberWork');
 const memberJobMedia = require('../services/memberJobMedia');
 const networkLeadSend = require('../services/networkLeadSend');
+const networkBroadcast = require('../services/networkBroadcast');
 const multer = require('multer');
 
 const TABS = new Set(['seats', 'members', 'applications', 'referrals', 'send', 'brand', 'setup', 'field-work', 'calendar']);
@@ -940,6 +941,38 @@ router.post('/members/:id/send-portal-link', async (req, res) => {
   } catch (err) {
     console.error('[network] portal link send failed:', err.message);
     return reply(req, res, { ok: false, tab: 'members', notice: 'Could not send the member page link.', status: 500 });
+  }
+});
+
+/** Custom message to network members — app push (phone popup) and/or SMS. */
+router.post('/members/broadcast', async (req, res) => {
+  if (!canManage(req)) {
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners, admins, and managers can message members.', status: 403 });
+  }
+  try {
+    const network = await loadNetwork(req);
+    const channels = networkBroadcast.parseChannels(req.body || {});
+    const result = await networkBroadcast.broadcastToMembers({
+      network,
+      message: req.body && req.body.message,
+      channels,
+      audience: networkBroadcast.parseAudience(req.body && req.body.audience),
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+    return reply(req, res, {
+      ok: !!result.ok,
+      tab: 'members',
+      notice: result.ok ? result.notice : (result.error || 'Could not send that message.'),
+      data: result.ok ? {
+        targeted: result.targeted,
+        appDelivered: result.appDelivered,
+        smsSent: result.smsSent,
+      } : undefined,
+      status: result.ok ? 200 : 400,
+    });
+  } catch (err) {
+    console.error('[network] members broadcast failed:', err.message);
+    return reply(req, res, { ok: false, tab: 'members', notice: 'Could not send that message.', status: 500 });
   }
 });
 

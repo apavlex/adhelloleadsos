@@ -471,21 +471,27 @@ async function notifyReferralPool({ network, referral, baseUrl }) {
 
 /**
  * Phone/home-screen Web Push for a partner who turned on alerts in the member app.
- * Scoped to their linked appointment package (same subscription as website-lead alerts).
+ * Uses member-scoped subscriptions (and package subscriptions when linked).
  */
 async function pushMemberReferralAlert({ network, member, baseUrl, referral, summary, kind } = {}) {
-  const workspaceId = network && network.ownerWorkspaceId;
-  if (!workspaceId || !member) return { sent: 0 };
+  if (!network || !member) return { sent: 0 };
+  const workspaceId = network.ownerWorkspaceId;
   const memberAppointmentLink = require('./memberAppointmentLink');
-  const pkg = await memberAppointmentLink.findPackageForMember(workspaceId, member);
-  if (!pkg || pkg.portalEnabled === false) return { sent: 0 };
+  const pkg = workspaceId
+    ? await memberAppointmentLink.findPackageForMember(workspaceId, member).catch(() => null)
+    : null;
   const push = require('./pushNotifications');
   const app = memberPortalLink(baseUrl, network, member);
   const url = kind === 'pool' ? `${app}/referrals?view=pool` : `${app}/referrals`;
   const title = kind === 'pool' ? 'Open referral in the pool' : 'New referral';
   const body = String(summary || homeownerSummary(referral, network) || 'Open your app').slice(0, 200);
-  return push.sendPortalPush(
-    { packageId: pkg.id, workspaceId },
+  return push.sendMemberPush(
+    {
+      networkId: network.id,
+      memberId: member.id,
+      packageId: pkg && pkg.portalEnabled !== false ? pkg.id : undefined,
+      workspaceId,
+    },
     {
       title,
       body,

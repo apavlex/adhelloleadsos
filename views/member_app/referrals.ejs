@@ -73,12 +73,12 @@
       </article>
       <% }); %>
     <% } else if (view === 'received') { %>
-      <% if (_hasAppt && !_locked) { %>
+      <% if (!_locked) { %>
       <section class="ma-card" id="maPushRoot" data-base="<%= base %>" style="margin-bottom:12px">
         <div class="ma-card__row">
           <div style="min-width:0">
-            <p class="ma-card__title">Lead alerts</p>
-            <p class="ma-card__meta" data-ma-push-status>Turn on phone or desktop alerts so new website and agency leads wake you up.</p>
+            <p class="ma-card__title">Phone alerts</p>
+            <p class="ma-card__meta" data-ma-push-status>Turn on phone or desktop alerts so agency messages, leads, and referrals wake you up.</p>
           </div>
         </div>
         <div class="ma-actions" style="margin-top:10px">
@@ -86,7 +86,7 @@
           <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-push-off hidden>Turn off</button>
         </div>
       </section>
-      <% if (typeof openLeadCount !== 'undefined') { %>
+      <% if (_hasAppt && typeof openLeadCount !== 'undefined') { %>
       <p class="ma-page-sub" style="margin-top:0"><%= openLeadCount %> open website/agency · <%= typeof leadCredits !== 'undefined' && leadCredits ? leadCredits.remaining : 0 %> credits left</p>
       <% } %>
       <% } %>
@@ -328,7 +328,7 @@
     <% } %>
   </main>
   <%- include('_tabbar') %>
-  <% if (typeof appointment !== 'undefined' && appointment && !_locked) { %>
+  <% if (!_locked) { %>
   <script src="/js/member-app-push.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
   <% } %>
 </body>
