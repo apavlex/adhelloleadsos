@@ -1,6 +1,6 @@
 /**
- * Partner-app lead alerts — same Web Push stack as the contractor portal,
- * scoped to the linked appointment package so website/admin leads notify /m.
+ * Partner-app phone alerts — Web Push for the Reviews /m app.
+ * Subscriptions are scoped by network + member (free-app members included).
  */
 (function () {
   var root = document.getElementById('maPushRoot');
@@ -104,11 +104,11 @@
       setStatus('Allow notifications for this site in your browser settings, then try again.');
     } else if (state === 'on') {
       setButton(label.charAt(0).toUpperCase() + label.slice(1) + ' on', 'on');
-      setStatus('You’ll get website and agency leads here even when the app is closed.');
+      setStatus('You’ll get agency messages, leads, and referrals here even when the app is closed.');
       if (off) off.hidden = false;
     } else {
       setButton('Turn on ' + label, 'off');
-      setStatus('Turn on ' + label + ' for new website forms and leads your agency sends.');
+      setStatus('Turn on ' + label + ' for agency messages, leads, and referrals.');
     }
   }
 

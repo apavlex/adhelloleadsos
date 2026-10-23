@@ -3190,7 +3190,7 @@ router.get('/m/:token/activity.json', withMember(async (req, res, ctx) => {
     historyCount,
     ghlAlertsAvailable: ghlAvailable,
     ghlAlertsEnabled: ghlEnabled,
-    pushAvailable: !!(ctx.appointment && ctx.appointment.packageId),
+    pushAvailable: true,
   });
 }));
 
@@ -3201,6 +3201,19 @@ router.get('/m/:token/notifications', withMember(async (req, res, ctx) => {
     topTitle: 'History',
     topBack: { href: ctx.base, label: 'Home' },
     history,
+  });
+}));
+
+/** Network news & updates feed (from workspace admins/managers). */
+router.get('/m/:token/news', withMember(async (req, res, ctx) => {
+  const networkNews = require('../services/networkNews');
+  const posts = networkNews.list(ctx.network.id).slice(0, 60);
+  const highlightId = String((req.query && req.query.id) || '').trim();
+  return render(res, 'news', ctx, {
+    topTitle: 'News & updates',
+    topBack: { href: ctx.base, label: 'Home' },
+    posts,
+    highlightId,
   });
 }));
 
@@ -3472,47 +3485,65 @@ router.post('/m/:token/leads/:leadId/refer', form, withMember(async (req, res, c
   return res.redirect(303, `${back}?ok=${ok}&view=sent`);
 }));
 
-/** Web Push for lead alerts — scoped to the linked appointment package. */
+/** Web Push for member-app alerts — scoped by network + member (free-app members included). */
 router.get('/m/:token/push/key', withMember(async (req, res) => {
   const push = require('../services/pushNotifications');
   return res.json({ success: true, publicKey: push.publicKey() });
 }));
 
 router.post('/m/:token/push/subscribe', express.json(), withMember(async (req, res, ctx) => {
-  if (!ctx.appointment) {
-    return res.status(400).json({ success: false, error: 'Link an appointment package to get lead alerts.' });
-  }
   const push = require('../services/pushNotifications');
-  const result = push.savePortalSubscription({
-    subscription: req.body && req.body.subscription,
-    workspaceId: ctx.appointment.workspaceId,
-    packageId: ctx.appointment.packageId,
+  const subscription = req.body && req.body.subscription;
+  const result = push.saveMemberSubscription({
+    subscription,
+    networkId: ctx.network.id,
+    memberId: ctx.member.id,
     userAgent: req.get('user-agent'),
   });
   if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+  // Dual-write package subscription so website/admin lead paths still notify this device.
+  if (ctx.appointment && ctx.appointment.packageId) {
+    push.savePortalSubscription({
+      subscription,
+      workspaceId: ctx.appointment.workspaceId,
+      packageId: ctx.appointment.packageId,
+      userAgent: req.get('user-agent'),
+    });
+  }
   return res.json({ success: true });
 }));
 
 router.post('/m/:token/push/unsubscribe', express.json(), withMember(async (req, res, ctx) => {
   const push = require('../services/pushNotifications');
   const endpoint = req.body && req.body.endpoint;
-  if (endpoint && ctx.appointment) {
-    push.removePortalSubscription(endpoint, ctx.appointment.packageId);
+  if (endpoint) {
+    push.removeMemberSubscription(endpoint, {
+      networkId: ctx.network.id,
+      memberId: ctx.member.id,
+    });
+    if (ctx.appointment && ctx.appointment.packageId) {
+      push.removePortalSubscription(endpoint, ctx.appointment.packageId);
+    }
   }
   return res.json({ success: true });
 }));
 
 router.post('/m/:token/push/test', express.json(), withMember(async (req, res, ctx) => {
-  if (!ctx.appointment) {
-    return res.status(400).json({ success: false, error: 'No package linked.' });
-  }
   const push = require('../services/pushNotifications');
-  const { sent } = await push.sendPortalPush(
-    { packageId: ctx.appointment.packageId, workspaceId: ctx.appointment.workspaceId },
+  const biz = (ctx.appointment && ctx.appointment.package && ctx.appointment.package.businessName)
+    || (ctx.member && ctx.member.companyName)
+    || 'your business';
+  const { sent } = await push.sendMemberPush(
     {
-      title: 'Lead alerts are on',
-      body: `You’ll get website and agency leads for ${ctx.appointment.package.businessName} here.`,
-      url: `${ctx.base}/referrals`,
+      networkId: ctx.network.id,
+      memberId: ctx.member.id,
+      packageId: ctx.appointment && ctx.appointment.packageId,
+      workspaceId: ctx.appointment && ctx.appointment.workspaceId,
+    },
+    {
+      title: 'Phone alerts are on',
+      body: `You’ll get messages and alerts for ${biz} here.`,
+      url: ctx.base,
       tag: 'member-push-test',
     },
   );

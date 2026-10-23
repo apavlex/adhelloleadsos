@@ -274,10 +274,14 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
         href,
       });
       try {
-        const pkg = await memberAppointmentLink.findPackageForMember(wid, member, network);
-        if (!pkg || pkg.portalEnabled === false) continue;
-        const result = await push.sendPortalPush(
-          { packageId: pkg.id, workspaceId: wid },
+        const pkg = await memberAppointmentLink.findPackageForMember(wid, member, network).catch(() => null);
+        const result = await push.sendMemberPush(
+          {
+            networkId: network.id,
+            memberId: member.id,
+            packageId: pkg && pkg.portalEnabled !== false ? pkg.id : undefined,
+            workspaceId: wid,
+          },
           {
             title: `${typeLabel}: ${who}`.slice(0, 120),
             body,

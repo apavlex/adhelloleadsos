@@ -293,6 +293,10 @@
     document.documentElement.style.overflow = '';
     // "Not now" / Got it only snooze this browser session — never permanently hide.
     if (persist) markSnoozed();
+    // Next: in-your-face phone alerts prompt (leads + News & updates).
+    try {
+      window.dispatchEvent(new CustomEvent('ma-install-closed', { detail: { persist: !!persist } }));
+    } catch (e) { /* old browser */ }
   }
 
   // Home (+ Get the app ?install=1): show install sheet immediately as the first thing.
