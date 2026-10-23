@@ -238,6 +238,69 @@ describe('memberGhlAlerts', () => {
     assert.ok(network);
   });
 
+  it('activity.json omits GHL sms from Leads when Waiting-on-a-reply is on', async () => {
+    const http = require('node:http');
+    const express = require('express');
+    const { createMemberPortalToken } = require('../services/networkLinkSign');
+    const memberApp = require('../routes/memberApp');
+
+    const network = await store.getNetwork(NID);
+    const owner = await store.saveMember(NID, {
+      id: 'owner',
+      companyName: 'Owner Co',
+      email: 'owner@example.com',
+      ghlAlertsEnabled: true,
+    });
+    await dbService.saveLead({
+      key: 'lead:nate_sms',
+      workspaceId: WID,
+      title: 'Nate',
+      phone: '+15559990000',
+      inboundEvents: [
+        {
+          id: 'sms1',
+          type: 'sms',
+          at: new Date().toISOString(),
+          preview: 'Still with me?',
+        },
+      ],
+    });
+    memberActivity.add(NID, owner.id, {
+      kind: 'sms',
+      title: 'Text: Nate',
+      body: 'Still with me?',
+      href: '/m/tok',
+    });
+    memberActivity.add(NID, owner.id, {
+      kind: 'referral',
+      title: 'New referral',
+      body: 'Roof job',
+      href: '/m/tok/referrals',
+    });
+
+    const token = createMemberPortalToken({ networkId: NID, memberId: owner.id });
+    const app = express();
+    app.set('view engine', 'ejs');
+    app.set('views', path.join(root, 'views'));
+    app.use(memberApp);
+    const server = http.createServer(app);
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/m/${token}/activity.json`);
+      assert.equal(res.status, 200);
+      const data = await res.json();
+      assert.equal(data.success, true);
+      assert.equal(data.ghlAlertsEnabled, true);
+      assert.ok(data.ghlItems.some((i) => i.kind === 'sms' && /Nate/.test(i.title)));
+      assert.ok(data.items.some((i) => i.kind === 'referral'));
+      assert.ok(!data.items.some((i) => i.kind === 'sms'), 'sms must not duplicate under Leads & referrals');
+      assert.ok(network);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
   it('marks a pending GHL inbound lead done and clears Done all', async () => {
     const network = await store.getNetwork(NID);
     const owner = await store.saveMember(NID, {
