@@ -626,6 +626,41 @@ async function notifyFeedback({ network, member, feedback }) {
   return memberResult;
 }
 
+/**
+ * Flooring partner requested a material quote — notify the network owner
+ * (the material supplier). Opens a task on the owner workspace.
+ */
+async function notifyMaterialQuote({ network, member, quote }) {
+  // Supplier = network owner only (not a trade partner / other member).
+  const email = String((quote && quote.toOwnerEmail) || '').trim().toLowerCase()
+    || await operatorEmail(network);
+  if (!email) return { ok: false, error: 'No network owner email — cannot reach the supplier.' };
+  const company = String((member && member.companyName) || 'A flooring partner').trim().slice(0, 80);
+  const site = (quote && quote.jobSite) || {};
+  const where = [site.name, site.city].filter(Boolean).join(' · ') || 'job site';
+  const photoN = Array.isArray(quote && quote.photos) ? quote.photos.length : 0;
+  const bits = [
+    photoN ? `${photoN} photo${photoN === 1 ? '' : 's'}` : '',
+    quote && quote.measure ? 'measure' : '',
+    quote && quote.materials ? 'materials' : '',
+  ].filter(Boolean).join(', ');
+  const title = `Material quote for you (network owner): ${company} → ${where}${bits ? ` (${bits})` : ''}`;
+  try {
+    const memberId = member && member.id ? String(member.id).trim() : '';
+    const task = await upsertOpenTaskForLead(network.ownerWorkspaceId, email, {
+      title: title.slice(0, 240),
+      leadKey: (member && member.leadKey) || null,
+      scheduledAt: new Date().toISOString(),
+      source: TASK_SOURCE_NETWORK,
+      href: memberId ? `/network?tab=members&q=${encodeURIComponent(company)}` : '/network?tab=members',
+    });
+    return { ok: true, taskId: task && task.id, title, ownerEmail: email };
+  } catch (err) {
+    console.warn('[network] material quote task failed:', err.message);
+    return { ok: false, error: err.message || 'Could not notify network owner.' };
+  }
+}
+
 /** Operator task for referrals nobody is working (unrouted or declined). */
 async function createOperatorTask({ network, referral, reason, member }) {
   const email = await operatorEmail(network);
@@ -873,6 +908,7 @@ module.exports = {
   notifyApplication,
   notifyFeedback,
   notifyLeadRequest,
+  notifyMaterialQuote,
   notifyReviewRewardPending,
   notifyCustomerSharedWithTeammate,
   notifyJobSharedWithTeammate,

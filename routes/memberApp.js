@@ -46,6 +46,7 @@ const freeAppSignup = require('../services/freeAppSignup');
 const freeAppListWorkspace = require('../services/freeAppListWorkspace');
 const memberShareInvite = require('../services/memberShareInvite');
 const jobMedia = require('../services/memberJobMedia');
+const materialQuotes = require('../services/materialQuotes');
 const contractorPortal = require('../services/contractorPortal');
 const memberAppointmentLink = require('../services/memberAppointmentLink');
 const appointmentPackages = require('../services/appointmentPackages');
@@ -167,6 +168,7 @@ function withReviewUpload(fieldName) {
 
 const OK_MESSAGES = {
   sent: 'Referral sent. They were notified.',
+  quote_sent: 'Material quote sent to your network owner (supplier).',
   matched: 'Referral received. The network will match it with a member.',
   accept: 'Accepted. Reach out to the customer.',
   claim: 'Claimed. This referral is yours — reach out to the customer.',
@@ -307,6 +309,7 @@ async function loadContext(token) {
   if (!member) return null;
   const pathBase = `/m/${encodeURIComponent(token)}`;
   const free = freeAppSignup.isAppFreeMember(member);
+  const flooring = freeAppSignup.isFlooringOffer(member);
   const memberHeroUrl = free && member.heroUpdatedAt
     ? `${pathBase}/hero.jpg?v=${encodeURIComponent(member.heroUpdatedAt)}`
     : '';
@@ -322,6 +325,7 @@ async function loadContext(token) {
     profilePhotoUrl: profilePhotoUrl(pathBase, member),
     hasProfilePhoto: hasProfilePhoto(member),
     isAppFree: free,
+    isFlooringPartner: flooring,
     appointment: null,
   };
   // Don't decode logo/photo buffers on every page — only for /icon-*.png routes.
@@ -352,6 +356,7 @@ async function maybeEnsureDemoOwnerReviewApp(ctx) {
   const network = await store.getNetwork(ctx.network.id) || ctx.network;
   const member = await store.getMember(network.id, ctx.member.id) || ctx.member;
   const free = freeAppSignup.isAppFreeMember(member);
+  const flooring = freeAppSignup.isFlooringOffer(member);
   const memberHeroUrl = free && member.heroUpdatedAt
     ? `${ctx.base}/hero.jpg?v=${encodeURIComponent(member.heroUpdatedAt)}`
     : '';
@@ -365,6 +370,8 @@ async function maybeEnsureDemoOwnerReviewApp(ctx) {
     greetingName: firstName(member),
     profilePhotoUrl: profilePhotoUrl(ctx.base, member),
     hasProfilePhoto: hasProfilePhoto(member),
+    isAppFree: free,
+    isFlooringPartner: flooring,
     appIconVersion: appIconVersionHint({ member, brand }),
   };
 }
@@ -1352,9 +1359,12 @@ router.post('/m/:token/referrals/:id', form, withMember(async (req, res, ctx) =>
   return res.redirect(303, back);
 }));
 
-// ── Join (free members) / Send (partners) ────────────────────────────────────
+// ── Join (free) / Quote (flooring) / Send (partners) ─────────────────────────
 
 async function renderJoin(req, res, ctx) {
+  if (freeAppSignup.isFlooringOffer(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/quote`);
+  }
   if (!freeAppSignup.isAppFreeMember(ctx.member)) {
     return res.redirect(303, `${ctx.base}/send`);
   }
@@ -1366,8 +1376,74 @@ async function renderJoin(req, res, ctx) {
 
 router.get('/m/:token/join', withMember((req, res, ctx) => renderJoin(req, res, ctx)));
 
+async function renderQuote(req, res, ctx, flash, formValues, status) {
+  if (!freeAppSignup.isFlooringOffer(ctx.member)) {
+    if (freeAppSignup.isAppFreeMember(ctx.member)) {
+      return res.redirect(303, `${ctx.base}/join`);
+    }
+    return res.redirect(303, `${ctx.base}/send`);
+  }
+  return render(res, 'quote', ctx, {
+    flash: flash || flashFromQuery(req),
+    formValues: formValues || {},
+  }, status);
+}
+
+router.get('/m/:token/quote', withMember((req, res, ctx) => renderQuote(req, res, ctx)));
+
+const quoteUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 6 * 1024 * 1024, files: materialQuotes.MAX_PHOTOS },
+});
+
+router.post('/m/:token/quote', (req, res, next) => {
+  const ct = String(req.headers['content-type'] || '');
+  if (ct.includes('multipart/form-data')) {
+    return quoteUpload.array('photos', materialQuotes.MAX_PHOTOS)(req, res, (err) => {
+      if (!err) return next();
+      req.quoteUploadError = err.code === 'LIMIT_FILE_SIZE'
+        ? 'That photo is too large (max 6 MB).'
+        : 'Could not upload those photos.';
+      return next();
+    });
+  }
+  return form(req, res, next);
+}, withMember(async (req, res, ctx) => {
+  if (!freeAppSignup.isFlooringOffer(ctx.member)) {
+    return res.redirect(303, freeAppSignup.isAppFreeMember(ctx.member) ? `${ctx.base}/join` : `${ctx.base}/send`);
+  }
+  const body = req.body || {};
+  if (req.quoteUploadError) {
+    return renderQuote(req, res, ctx, { error: req.quoteUploadError }, body, 400);
+  }
+  const result = await materialQuotes.submitQuote({
+    network: ctx.network,
+    member: ctx.member,
+    input: body,
+    photoFiles: req.files || [],
+    baseUrl: notify.baseUrlFromReq(req),
+  });
+  if (!result.ok) return renderQuote(req, res, ctx, { error: result.error }, body, 400);
+  return res.redirect(303, `${ctx.base}?ok=quote_sent`);
+}));
+
+router.get('/m/:token/quote/:id/photos/:photoId', withMember(async (req, res, ctx) => {
+  if (!freeAppSignup.isFlooringOffer(ctx.member)) return res.status(404).end();
+  const quote = await materialQuotes.getQuote(ctx.network.id, req.params.id);
+  if (!quote || quote.fromMemberId !== ctx.member.id) return res.status(404).end();
+  if (!quote.photos.some((p) => p.id === req.params.photoId)) return res.status(404).end();
+  const photo = await materialQuotes.getQuotePhoto(ctx.network.id, quote.id, req.params.photoId);
+  if (!photo) return res.status(404).end();
+  res.setHeader('Content-Type', photo.contentType || 'image/jpeg');
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  return res.send(photo.buffer);
+}));
+
 async function renderSend(req, res, ctx, flash, formValues, status) {
-  // Free-app members use Join instead of Send; paid/trial partners keep Send.
+  // Flooring partners request material quotes; free-app uses Join; partners keep Send.
+  if (freeAppSignup.isFlooringOffer(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/quote`);
+  }
   const locked = freeAppSignup.isAppFreeMember(ctx.member);
   if (locked) {
     return res.redirect(303, `${ctx.base}/join`);
@@ -1400,6 +1476,9 @@ router.get('/m/:token/send', withMember((req, res, ctx) => {
 }));
 
 router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isFlooringOffer(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/quote`);
+  }
   if (freeAppSignup.isAppFreeMember(ctx.member)) {
     return res.redirect(303, `${ctx.base}/join`);
   }
