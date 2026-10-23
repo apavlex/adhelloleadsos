@@ -88,8 +88,15 @@
       letter-spacing: -0.025em;
       color: var(--fa-ink);
     }
+    .fa-card-trial {
+      margin: 0.4rem 0 0;
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--fa-muted-soft);
+    }
     .fa-card-lead {
-      margin: 0.5rem 0 0;
+      margin: 0.65rem 0 0;
       font-size: 0.925rem;
       line-height: 1.5;
       color: var(--fa-muted);
@@ -358,14 +365,12 @@
   <% const _trial = typeof trialSignupHref !== 'undefined' ? trialSignupHref : '/signup'; %>
   <% const _action = typeof formAction !== 'undefined' && formAction ? formAction : '/app'; %>
   <% const _joinName = typeof joinNetworkName !== 'undefined' ? String(joinNetworkName || '').trim() : ''; %>
-  <% const _brandName = (typeof brand !== 'undefined' && brand && brand.appName) ? brand.appName : 'AdHello'; %>
-
   <main class="fa-main">
     <div class="fa-card">
       <a class="fa-brand" href="https://adhello.io" rel="noopener">
-        <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" />
+        <img src="/images/adhello-app-icon.png" alt="Reviews App" width="40" height="40" />
         <div>
-          <strong><%= _brandName %></strong>
+          <strong>Reviews App</strong>
           <span><%= _joinName ? ('Join ' + _joinName) : 'Pay-per-performance' %></span>
         </div>
       </a>
@@ -380,8 +385,9 @@
         <div class="fa-ok" role="status">Link sent. It can take a minute. Already have it? <a class="underline font-semibold" href="<%= _login %>">Get a fresh link</a>.</div>
         <p class="fa-foot" style="margin-top:1.5rem">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="underline" href="<%= _trial %>">Start a free trial</a>.</p>
       <% } else { %>
-        <h1>Start your 30-day trial</h1>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Grow with <strong>pay-per-performance marketing</strong> and a referral network — you only pay commission on leads you approve. Plus reviews and jobs on your phone. Free for 30 days — no credit card.</p>
+        <h1>Grow reviews &amp; referrals for your business!</h1>
+        <p class="fa-card-trial">30-day free trial · no credit card</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Grow with <strong>pay-per-performance marketing</strong> and a referral network — you only pay commission on leads you approve. Plus reviews and jobs on your phone.</p>
 
         <ul class="fa-benefits" aria-label="What you get">
           <li>
