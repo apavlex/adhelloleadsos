@@ -11,13 +11,15 @@
       const _locked = typeof referralsLocked !== 'undefined' && referralsLocked;
       const _formLeads = typeof formLeads !== 'undefined' && Array.isArray(formLeads) ? formLeads : [];
       const _contactLeads = typeof contactLeads !== 'undefined' && Array.isArray(contactLeads) ? contactLeads : [];
+      const _contactQuotesTop = typeof contactQuotes !== 'undefined' && Array.isArray(contactQuotes) ? contactQuotes : [];
       const _hasAppt = typeof appointment !== 'undefined' && appointment;
       const _inboxCount = received.length
         + _formLeads.filter(function (l) { return l.status !== 'closed'; }).length
-        + _contactLeads.length;
+        + _contactLeads.length
+        + _contactQuotesTop.length;
     %>
     <% if (_locked) { %>
-    <p class="ma-page-sub">See new project names as they come in — upgrade to unlock contact details and claim jobs. Contacts you mark as leads still show below.</p>
+    <p class="ma-page-sub">See new project names as they come in — upgrade to unlock contact details and claim jobs. Contacts you mark as leads<% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %> or quote requests<% } %> still show below.</p>
     <%- include('_flash') %>
     <%- include('_upgrade_gate', {
       upgradeTitle: 'Unlock lead details',
@@ -193,8 +195,48 @@
       </section>
       <% } %>
 
+      <% const _contactQuotes = _contactQuotesTop; %>
+      <% if (_contactQuotes.length) { %>
+      <section class="ma-section<%= _formLeads.length ? '' : ' ma-section--first' %>" aria-label="Contacts marked as quote requests">
+        <div class="ma-section__head">
+          <h2>Quote requests</h2>
+        </div>
+        <% _contactQuotes.forEach(function (row) { %>
+        <article class="ma-card" id="contact-quote-<%= row.id %>">
+          <div class="ma-card__row">
+            <div style="min-width:0">
+              <p class="ma-card__title"><%= row.name %></p>
+              <p class="ma-card__meta">
+                Material quote from contacts
+                <% if (row.at) { %> · <%= new Date(row.at).toLocaleString() %><% } %>
+              </p>
+              <% if (row.phone || row.email || row.address) { %>
+              <p class="ma-card__meta" style="margin-top:6px">
+                <% if (row.phone) { %><a href="tel:<%= String(row.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= row.phone %></a><% } %>
+                <% if (row.phone && row.email) { %> · <% } %>
+                <% if (row.email) { %><a href="mailto:<%= row.email %>" style="color:inherit"><%= row.email %></a><% } %>
+                <% if ((row.phone || row.email) && row.address) { %> · <% } %>
+                <% if (row.address) { %><%= row.address %><% } %>
+              </p>
+              <% } %>
+              <% if (row.preview) { %><p class="ma-card__note"><%= row.preview %></p><% } %>
+            </div>
+            <span class="ma-pill ma-pill--job-estimate">Quote</span>
+          </div>
+          <div class="ma-actions">
+            <a class="ma-btn ma-btn--sm" href="<%= row.quoteHref || (base + '/quote?customer=' + encodeURIComponent(row.id)) %>"><%- icons.send %> Request quote</a>
+            <form method="post" action="<%= base %>/customers/c/<%= encodeURIComponent(row.id) %>/mark-customer">
+              <button type="submit" class="ma-btn ma-btn--sm"><%- icons.customers %> Mark as customer</button>
+            </form>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= row.href %>">Open</a>
+          </div>
+        </article>
+        <% }); %>
+      </section>
+      <% } %>
+
       <% if (_contactLeads.length) { %>
-      <section class="ma-section<%= _formLeads.length ? '' : ' ma-section--first' %>" aria-label="Contacts marked as leads">
+      <section class="ma-section<%= (_formLeads.length || _contactQuotes.length) ? '' : ' ma-section--first' %>" aria-label="Contacts marked as leads">
         <div class="ma-section__head">
           <h2>From contacts</h2>
         </div>
@@ -222,6 +264,9 @@
           </div>
           <div class="ma-actions">
             <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
+            <% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.quoteHref || (base + '/quote?customer=' + encodeURIComponent(lead.id)) %>">Quote</a>
+            <% } %>
             <form method="post" action="<%= base %>/customers/c/<%= encodeURIComponent(lead.id) %>/mark-customer">
               <button type="submit" class="ma-btn ma-btn--sm"><%- icons.customers %> Mark as customer</button>
             </form>
@@ -233,8 +278,8 @@
       <% } %>
 
       <% if (received.length) { %>
-      <section class="ma-section<%= (_formLeads.length || _contactLeads.length) ? '' : ' ma-section--first' %>" aria-label="Network referrals">
-        <% if (_formLeads.length || _contactLeads.length) { %>
+      <section class="ma-section<%= (_formLeads.length || _contactLeads.length || _contactQuotes.length) ? '' : ' ma-section--first' %>" aria-label="Network referrals">
+        <% if (_formLeads.length || _contactLeads.length || _contactQuotes.length) { %>
         <div class="ma-section__head">
           <h2>Network referrals</h2>
         </div>

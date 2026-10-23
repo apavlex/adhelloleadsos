@@ -266,6 +266,17 @@ async function submitQuote({ network, member, input, photoFiles = [], baseUrl } 
     quote = await attachPhotos(network.id, quote, prepared);
   }
 
+  // If started from a contact, keep that contact marked as a quote request.
+  const customerId = cleanText(input && (input.customerId || input.customer), 40);
+  if (customerId) {
+    try {
+      const work = require('./memberWork');
+      await work.setCustomerKind(network.id, member.id, customerId, 'quote');
+    } catch (err) {
+      console.warn('[materialQuotes] mark contact quote failed:', err.message);
+    }
+  }
+
   const notified = await notify.notifyMaterialQuote({
     network,
     member,

@@ -97,12 +97,25 @@
       <p class="ma-hint ma-cust-lead-filter" style="margin:10px 0 0">
         <% if (typeof showLeads !== 'undefined' && showLeads) { %>
           Showing <%= leadCount %> lead<%= leadCount === 1 ? '' : 's' %> in this list.
-          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined }) %>">Hide leads</a>
+          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined, quotes: (typeof showQuotes !== 'undefined' && showQuotes) ? '1' : undefined }) %>">Hide leads</a>
           · <a class="ma-label-link" href="<%= base %>/referrals">Open Leads</a>
         <% } else { %>
           <%= typeof hiddenLeadCount === 'number' ? hiddenLeadCount : leadCount %> lead<%= (typeof hiddenLeadCount === 'number' ? hiddenLeadCount : leadCount) === 1 ? '' : 's' %> in your Leads folder.
           <a class="ma-label-link" href="<%= base %>/referrals">Open Leads</a>
-          · <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined, leads: '1' }) %>">Show here</a>
+          · <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined, leads: '1', quotes: (typeof showQuotes !== 'undefined' && showQuotes) ? '1' : undefined }) %>">Show here</a>
+        <% } %>
+      </p>
+      <% } %>
+      <% if (typeof quoteCount === 'number' && quoteCount > 0 && typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
+      <p class="ma-hint ma-cust-lead-filter" style="margin:10px 0 0">
+        <% if (typeof showQuotes !== 'undefined' && showQuotes) { %>
+          Showing <%= quoteCount %> quote request<%= quoteCount === 1 ? '' : 's' %> in this list.
+          <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined, leads: (typeof showLeads !== 'undefined' && showLeads) ? '1' : undefined }) %>">Hide quotes</a>
+          · <a class="ma-label-link" href="<%= base %>/referrals">Open quote requests</a>
+        <% } else { %>
+          <%= quoteCount %> quote request<%= quoteCount === 1 ? '' : 's' %> in Leads.
+          <a class="ma-label-link" href="<%= base %>/referrals">Open Leads</a>
+          · <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined, leads: (typeof showLeads !== 'undefined' && showLeads) ? '1' : undefined, quotes: '1' }) %>">Show here</a>
         <% } %>
       </p>
       <% } %>
@@ -148,6 +161,7 @@
           </span>
           <span class="ma-row__end">
             <% if (c.isLead) { %><span class="ma-pill ma-pill--accepted">Lead</span><% } %>
+            <% if (c.isQuoteRequest) { %><span class="ma-pill ma-pill--job-estimate">Quote</span><% } %>
             <% if (c.isPartner) { %><span class="ma-pill">Partner</span><% } %>
             <% if (c.top) { %><span class="ma-pill ma-pill--job-<%= c.top.status %>"><%= c.top.statusLabel %></span><% } %>
             <% if (c.openCount > 1) { %><small><%= c.openCount %> open</small><% } %>

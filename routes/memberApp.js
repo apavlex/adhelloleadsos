@@ -196,6 +196,7 @@ const OK_MESSAGES = {
   customer: 'Customer saved.',
   customer_deleted: 'Customer deleted.',
   marked_lead: 'Moved to Leads.',
+  marked_quote: 'Marked as a material quote request.',
   marked_customer: 'Moved to Customers.',
   unmarked_lead: 'Moved to Customers.',
   tag: 'Tags updated and synced with GHL CRM.',
@@ -1261,17 +1262,28 @@ function presentContactLead(customer, base) {
     preview: notes.length > 160 ? `${notes.slice(0, 157)}…` : notes,
     at: c.markedAsLeadAt || c.updatedAt || c.createdAt || '',
     href: `${base}/customers/c/${encodeURIComponent(c.id)}`,
+    quoteHref: `${base}/quote?customer=${encodeURIComponent(c.id)}`,
+  };
+}
+
+function presentContactQuote(customer, base) {
+  const row = presentContactLead(customer, base);
+  return {
+    ...row,
+    at: (customer && (customer.markedAsQuoteAt || customer.updatedAt || customer.createdAt)) || row.at,
   };
 }
 
 async function renderReferrals(req, res, ctx, flash, status) {
   const view = ['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received';
-  const [referrals, members, jobs, leadRequest, contactLeadRows] = await Promise.all([
+  const flooring = freeAppSignup.isFlooringOffer(ctx.member);
+  const [referrals, members, jobs, leadRequest, contactLeadRows, contactQuoteRows] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
     work.listJobs(ctx.network.id, ctx.member.id),
     memberLeadRequests.leadRequestState(ctx),
     work.listContactLeads(ctx.network.id, ctx.member.id),
+    flooring ? work.listContactQuotes(ctx.network.id, ctx.member.id) : Promise.resolve([]),
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
@@ -1299,6 +1311,7 @@ async function renderReferrals(req, res, ctx, flash, status) {
     memberLeadRequests.presentFormLead(lead, { detailsAllowed }));
   // Own contacts marked as leads — always show full details (member owns them).
   const contactLeads = contactLeadRows.slice(0, 60).map((c) => presentContactLead(c, ctx.base));
+  const contactQuotes = (contactQuoteRows || []).slice(0, 60).map((c) => presentContactQuote(c, ctx.base));
   // Free app + unpaid/expired trial: name teasers only (paid unlocks details).
   const referralsLocked = !detailsAllowed;
   let partnerDirectory = [];
@@ -1326,6 +1339,7 @@ async function renderReferrals(req, res, ctx, flash, status) {
     pool,
     formLeads,
     contactLeads,
+    contactQuotes,
     partnerDirectory,
     partnerMembers,
     openLeadCount: appt ? (appt.openLeadCount || 0) : 0,
@@ -1389,7 +1403,38 @@ async function renderQuote(req, res, ctx, flash, formValues, status) {
   }, status);
 }
 
-router.get('/m/:token/quote', withMember((req, res, ctx) => renderQuote(req, res, ctx)));
+router.get('/m/:token/quote', withMember(async (req, res, ctx) => {
+  const q = req.query || {};
+  let formValues = {
+    name: String(q.name || '').slice(0, 120),
+    phone: String(q.phone || '').slice(0, 40),
+    email: String(q.email || '').slice(0, 200),
+    notes: String(q.notes || q.note || '').slice(0, 2000),
+    zip: String(q.zip || '').slice(0, 10),
+    city: String(q.city || '').slice(0, 80),
+    address: String(q.address || '').slice(0, 200),
+    materials: String(q.materials || '').slice(0, 2000),
+    measure: String(q.measure || '').slice(0, 2000),
+    confirm: q.confirm === '1' || q.confirm === 'on' ? 'on' : '',
+  };
+  const customerId = String(q.customer || '').trim();
+  if (customerId && freeAppSignup.isFlooringOffer(ctx.member)) {
+    const customer = await work.getCustomer(ctx.network.id, ctx.member.id, customerId);
+    if (customer) {
+      formValues = {
+        ...formValues,
+        name: formValues.name || customer.name || '',
+        phone: formValues.phone || customer.phone || '',
+        email: formValues.email || customer.email || '',
+        address: formValues.address || customer.address || '',
+        notes: formValues.notes || customer.notes || '',
+        customerId: customer.id,
+      };
+    }
+  }
+  const hasPrefill = Object.values(formValues).some((v) => v);
+  return renderQuote(req, res, ctx, flashFromQuery(req), hasPrefill ? formValues : undefined);
+}));
 
 const quoteUpload = multer({
   storage: multer.memoryStorage(),
@@ -1585,11 +1630,14 @@ async function renderCustomers(req, res, ctx, flash, status) {
       };
     });
     const showLeads = String(req.query.leads || '') === '1';
+    const showQuotes = String(req.query.quotes || '') === '1';
     const partnerCount = annotated.filter((c) => c.isPartner).length;
     const leadCount = annotated.filter((c) => c.isLead).length;
+    const quoteCount = annotated.filter((c) => c.isQuoteRequest).length;
     const rows = annotated
       .filter((c) => showPartners || !c.isPartner)
       .filter((c) => showLeads || !c.isLead)
+      .filter((c) => showQuotes || !c.isQuoteRequest)
       .sort(work.compareCustomersRecentFirst);
     Object.assign(extra, {
       q,
@@ -1598,6 +1646,8 @@ async function renderCustomers(req, res, ctx, flash, status) {
       partnerCount,
       hiddenPartnerCount: showPartners ? 0 : partnerCount,
       showLeads,
+      showQuotes,
+      quoteCount,
       leadCount,
       hiddenLeadCount: showLeads ? 0 : leadCount,
     });
@@ -1669,6 +1719,7 @@ async function renderCustomerPage(res, ctx, {
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
     ghlActivity: ghlActivity || null,
+    contactKind: customer ? work.customerKind(customer) : 'customer',
     ...tagViews,
   }, status);
 }
@@ -1885,7 +1936,7 @@ router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res
 
 /** Mark contact as lead → Leads folder (hidden from Customers list). */
 router.post('/m/:token/customers/c/:id/mark-lead', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, req.params.id, true);
+  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'lead');
   if (!result.ok) {
     const data = await customerPageData(req, ctx, req.params.id);
     if (!data) return res.redirect(303, `${ctx.base}/customers`);
@@ -1895,12 +1946,42 @@ router.post('/m/:token/customers/c/:id/mark-lead', form, withMember(async (req, 
       status: 400,
     });
   }
+  const stay = String((req.body && req.body.stay) || '') === '1';
+  if (stay) {
+    return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_lead`);
+  }
   return res.redirect(303, `${ctx.base}/referrals?ok=marked_lead#contact-lead-${encodeURIComponent(req.params.id)}`);
 }));
 
-/** Mark lead as customer → back on Customers list (clears isLead). */
+/** Flooring: mark contact as a material quote request (hidden from Customers list). */
+router.post('/m/:token/customers/c/:id/mark-quote', form, withMember(async (req, res, ctx) => {
+  if (!freeAppSignup.isFlooringOffer(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}`);
+  }
+  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'quote');
+  if (!result.ok) {
+    const data = await customerPageData(req, ctx, req.params.id);
+    if (!data) return res.redirect(303, `${ctx.base}/customers`);
+    return renderCustomerPage(res, ctx, {
+      ...data,
+      flash: { error: result.error || 'Could not mark as quote.' },
+      status: 400,
+    });
+  }
+  const openQuote = String((req.body && req.body.openQuote) || '') === '1';
+  if (openQuote) {
+    return res.redirect(303, `${ctx.base}/quote?customer=${encodeURIComponent(req.params.id)}&ok=marked_quote`);
+  }
+  const stay = String((req.body && req.body.stay) || '') === '1';
+  if (stay) {
+    return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_quote`);
+  }
+  return res.redirect(303, `${ctx.base}/referrals?ok=marked_quote#contact-quote-${encodeURIComponent(req.params.id)}`);
+}));
+
+/** Mark lead/quote as customer → back on Customers list. */
 router.post('/m/:token/customers/c/:id/unmark-lead', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, req.params.id, false);
+  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer');
   if (!result.ok) {
     const data = await customerPageData(req, ctx, req.params.id);
     if (!data) return res.redirect(303, `${ctx.base}/customers`);
@@ -1919,7 +2000,7 @@ router.post('/m/:token/customers/c/:id/unmark-lead', form, withMember(async (req
 
 /** Alias: same as unmark-lead — clearer “Mark as customer” action from Leads. */
 router.post('/m/:token/customers/c/:id/mark-customer', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, req.params.id, false);
+  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer');
   if (!result.ok) {
     return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not mark as customer.')}`);
   }

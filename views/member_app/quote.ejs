@@ -14,6 +14,7 @@
     <% const fv = formValues || {}; %>
     <section class="ma-section">
       <form method="post" action="<%= base %>/quote" class="ma-card" enctype="multipart/form-data" autocomplete="off" id="mqForm" data-ma-loading="Sending quote…">
+        <% if (fv.customerId) { %><input type="hidden" name="customerId" value="<%= fv.customerId %>"><% } %>
         <div class="ma-field">
           <label class="ma-label" for="mqName">Job site / customer</label>
           <input id="mqName" name="name" class="ma-input" value="<%= fv.name || '' %>" required autocomplete="off" autocapitalize="words" placeholder="e.g. Smith residence">
