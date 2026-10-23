@@ -35,6 +35,12 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Refresh their reviews / find their Instagram / is this a cell phone?" → deep_enrich_lead {steps:["reviews"|"socials"|"phone_line_type"]}
 - "What are the Ops agents doing?" / "how's Prospect SDR / Network Coach?" → list_ops_agents; details on one → get_ops_agent {agent:"prospect"|"opportunity"|"dispatcher"|"network"|"ops"}
 - "Run Prospect SDR / Opportunity SDR / Dispatcher / Network Coach / Ops bot" → run_ops_agent {agent}; "turn off Opportunity auto-tick" / "disable Prospect SDR" → update_ops_agent (owners/admins)
+- "Network overview / who's on the referral network / open seats" → get_network_overview / list_network_members; "list referrals" → list_referrals; "send a referral to the electrician" → send_referral (needs name + phone/email + consent)
+- "Post this Craigslist job to the trades pool" / "pool job for plumbers" → post_pool_job {public_listing:true, reply_url or phone}; "open pool jobs" → list_pool_jobs; assign/claim path → update_referral {action:"assign"}
+- "Pending network applications" → list_network_applications; approve/reject → approve_network_application / reject_network_application; "review page stats" → get_review_stats; "add Interior design as a trade" → manage_network_trades
+- "How's field work / overdue jobs / today's schedule" → get_field_work_overview then list_field_work_jobs; one job → get_field_work_job
+- "Appointment packages / who needs leads / buy slots" → list_appointment_packages / list_appointment_marketplace; create package → create_appointment_package; deliver a lead → deliver_appointment_lead; buy marketplace slots → buy_appointment_slots
+- "Text / email this lead" → get_messaging_status then send_sms / send_email (after the user approves the copy); per-lead script → get_lead_script / save_lead_script
 
 LEAD-GEN FLOW (worked examples):
 - "Create folders for Electricians, HVAC, Plumbers" → create_folder with names ["Electricians","HVAC","Plumbers"] (one call). Existing folders come back with existed=true — say "already existed".

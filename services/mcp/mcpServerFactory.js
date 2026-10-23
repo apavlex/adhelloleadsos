@@ -20,6 +20,8 @@ const workspaceTools = require('./mcpWorkspaceOps');
 const prospectingTools = require('./mcpProspecting');
 const leadSourceTools = require('./mcpLeadSources');
 const agentOpsTools = require('./mcpAgentOps');
+const appointmentTools = require('./mcpAppointments');
+const fieldWorkTools = require('./mcpFieldWork');
 const mcpOAuth = require('./mcpOAuth');
 const mcpLogger = require('./mcpLogger');
 
@@ -171,6 +173,9 @@ const READ_ONLY_TOOLS = new Set([
   ...workspaceTools.READ_ONLY_WORKSPACE_TOOLS,
   ...prospectingTools.READ_ONLY_PROSPECTING_TOOLS,
   ...leadSourceTools.READ_ONLY_LEAD_SOURCE_TOOLS,
+  ...agentOpsTools.READ_ONLY_AGENT_OPS_TOOLS,
+  ...appointmentTools.READ_ONLY_APPOINTMENT_TOOLS,
+  ...fieldWorkTools.READ_ONLY_FIELD_WORK_TOOLS,
 ]);
 
 // Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
@@ -184,6 +189,7 @@ const DESTRUCTIVE_TOOLS = new Set([
   ...workspaceTools.DESTRUCTIVE_WORKSPACE_TOOLS,
   ...prospectingTools.DESTRUCTIVE_PROSPECTING_TOOLS,
   ...leadSourceTools.DESTRUCTIVE_LEAD_SOURCE_TOOLS,
+  ...appointmentTools.DESTRUCTIVE_APPOINTMENT_TOOLS,
 ]);
 
 // Reaches outside this app: paid lead searches, enrichment, GHL, texting businesses.
@@ -196,6 +202,7 @@ const OPEN_WORLD_TOOLS = new Set([
   ...workspaceTools.OPEN_WORLD_WORKSPACE_TOOLS,
   ...prospectingTools.OPEN_WORLD_PROSPECTING_TOOLS,
   ...leadSourceTools.OPEN_WORLD_LEAD_SOURCE_TOOLS,
+  ...appointmentTools.OPEN_WORLD_APPOINTMENT_TOOLS,
 ]);
 
 function toolAnnotations(name) {
@@ -224,7 +231,7 @@ function createCrmMcpServer(ctx) {
   const server = new McpServer(
     {
       name: 'adhello-ceo-crm',
-      version: '1.7.0',
+      version: '1.8.0',
     },
     multi
       ? {
@@ -668,6 +675,8 @@ function createCrmMcpServer(ctx) {
     ...prospectingTools.PROSPECTING_TOOLS,
     ...leadSourceTools.LEAD_SOURCE_TOOLS,
     ...agentOpsTools.AGENT_OPS_TOOLS,
+    ...appointmentTools.APPOINTMENT_TOOLS,
+    ...fieldWorkTools.FIELD_WORK_TOOLS,
   ]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
@@ -684,9 +693,9 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.7.0',
+    version: '1.8.0',
     description:
-      'AdHello CEO Command Center CRM — workspace overview, lead folders, lead searches (Google Maps, building permits, new business registrations, property / product listings, saved folder searches, recurring schedules), CSV import, duplicate merging, leads (create, assign, notes, history, delete), tags, bookmarks, scripts, opportunity pipelines and stages, prospecting stages, replies inbox, team activity, GHL sync and messaging, enrichment (contacts, Google reviews, social profiles, phone line type), prospecting (lead scoring, ICP fit, website audits, business research, decision-maker lookup, AI-personalized outreach, audit links, auto-outreach / cadence / sequence enrollment, call outcomes, call queue, text threads), team tasks, follow-ups, the referral network (members, referrals, trades pool jobs via post_pool_job / list_pool_jobs, applications, review stats), and Ops agents (list, inspect, run, and configure Prospect SDR, Opportunity SDR, Dispatcher, Network Coach, Ops bot).',
+      'AdHello CEO Command Center — full workspace platform for AI managers: lead folders and searches (Google Maps, permits, business formations, listings, saved searches, schedules), CSV import, duplicate merge, leads (create, assign, notes, history, delete), tags, bookmarks, scripts, opportunity pipelines and stages, prospecting stages, replies inbox, team activity, GHL sync and messaging, enrichment, prospecting (scoring, ICP fit, website audits, research, decision makers, personalized outreach, audit links, auto-outreach / cadence / sequences, call outcomes, call queue, SMS threads), team tasks, follow-ups, referral network (members, referrals, trades pool jobs via post_pool_job / list_pool_jobs, applications, review stats), team field work (overview, job list, job detail), appointment packages and marketplace (list/create packages, deliver leads, buy slots), and Ops agents (Prospect SDR, Opportunity SDR, Dispatcher, Network Coach, Ops bot).',
     authentication: {
       type: 'oauth2',
       header: 'Authorization',
@@ -945,6 +954,8 @@ function getOpenAiToolManifest() {
         ...prospectingTools.openAiFunctionTools(),
         ...leadSourceTools.openAiFunctionTools(),
         ...agentOpsTools.openAiFunctionTools(),
+        ...appointmentTools.openAiFunctionTools(),
+        ...fieldWorkTools.openAiFunctionTools(),
       ].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,

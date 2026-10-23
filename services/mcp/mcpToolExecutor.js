@@ -13,6 +13,8 @@ const workspaceTools = require('./mcpWorkspaceOps');
 const prospectingTools = require('./mcpProspecting');
 const leadSourceTools = require('./mcpLeadSources');
 const agentOpsTools = require('./mcpAgentOps');
+const appointmentTools = require('./mcpAppointments');
+const fieldWorkTools = require('./mcpFieldWork');
 const botActivity = require('./mcpBotActivity');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
@@ -56,6 +58,8 @@ const TOOL_NAMES = [
   ...prospectingTools.PROSPECTING_TOOL_NAMES,
   ...leadSourceTools.LEAD_SOURCE_TOOL_NAMES,
   ...agentOpsTools.AGENT_OPS_TOOL_NAMES,
+  ...appointmentTools.APPOINTMENT_TOOL_NAMES,
+  ...fieldWorkTools.FIELD_WORK_TOOL_NAMES,
 ];
 
 const LIST_LEADS_DESCRIPTION =
@@ -220,6 +224,14 @@ async function executeCrmTool(rawCtx, toolName, args) {
         }
         if (agentOpsTools.AGENT_OPS_TOOL_NAMES.includes(name)) {
           result = await agentOpsTools.executeAgentOpsTool(ctx, name, input);
+          break;
+        }
+        if (appointmentTools.APPOINTMENT_TOOL_NAMES.includes(name)) {
+          result = await appointmentTools.executeAppointmentTool(ctx, name, input);
+          break;
+        }
+        if (fieldWorkTools.FIELD_WORK_TOOL_NAMES.includes(name)) {
+          result = await fieldWorkTools.executeFieldWorkTool(ctx, name, input);
           break;
         }
         const err = new Error(`Unknown tool: ${name}`);
@@ -563,6 +575,8 @@ function getOpenAiFunctionTools() {
     ...prospectingTools.openAiFunctionTools(),
     ...leadSourceTools.openAiFunctionTools(),
     ...agentOpsTools.openAiFunctionTools(),
+    ...appointmentTools.openAiFunctionTools(),
+    ...fieldWorkTools.openAiFunctionTools(),
     {
       type: 'function',
       function: {
