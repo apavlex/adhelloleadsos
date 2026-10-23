@@ -365,13 +365,14 @@
   <% const _trial = typeof trialSignupHref !== 'undefined' ? trialSignupHref : '/signup'; %>
   <% const _action = typeof formAction !== 'undefined' && formAction ? formAction : '/app'; %>
   <% const _joinName = typeof joinNetworkName !== 'undefined' ? String(joinNetworkName || '').trim() : ''; %>
+  <% const _flooring = typeof flooringPartner !== 'undefined' ? !!flooringPartner : false; %>
   <main class="fa-main">
     <div class="fa-card">
       <a class="fa-brand" href="https://adhello.io" rel="noopener">
         <img src="/images/adhello-app-icon.png" alt="Reviews App" width="40" height="40" />
         <div>
           <strong>Reviews App</strong>
-          <span><%= _joinName ? ('Join ' + _joinName) : 'Pay-per-performance' %></span>
+          <span><%= _joinName ? ('Join ' + _joinName) : (_flooring ? 'Flooring partners' : 'Pay-per-performance') %></span>
         </div>
       </a>
 
@@ -383,11 +384,18 @@
           <li><strong>Turn on phone alerts</strong> — allow notifications so leads, referrals, and News &amp; updates pop up on your phone.</li>
         </ol>
         <div class="fa-ok" role="status">Link sent. It can take a minute. Already have it? <a class="underline font-semibold" href="<%= _login %>">Get a fresh link</a>.</div>
+        <% if (!_flooring) { %>
         <p class="fa-foot" style="margin-top:1.5rem">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="underline" href="<%= _trial %>">Start a free trial</a>.</p>
+        <% } %>
       <% } else { %>
         <h1>Grow reviews &amp; referrals for your business!</h1>
+        <% if (_flooring) { %>
+        <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
+        <p class="fa-card-lead">Built for flooring partners — reviews, jobs, and referrals on your phone. No timed trial. Lead delivery stays <strong>pay-per-performance</strong>: commission only on leads you approve.</p>
+        <% } else { %>
         <p class="fa-card-trial">30-day free trial · no credit card</p>
         <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Grow with <strong>pay-per-performance marketing</strong> and a referral network — you only pay commission on leads you approve. Plus reviews and jobs on your phone.</p>
+        <% } %>
 
         <ul class="fa-benefits" aria-label="What you get">
           <li>
@@ -433,7 +441,7 @@
             </div>
           </li>
         </ul>
-        <div class="fa-perks"><span>Pay per performance</span><span>Referrals</span><span>30-day free trial</span></div>
+        <div class="fa-perks"><span>Pay per performance</span><span>Referrals</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
 
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
@@ -460,7 +468,7 @@
           </div>
           <div class="fa-field">
             <label for="fa-trades">Trades or areas you work in</label>
-            <textarea id="fa-trades" name="serviceTrades" required maxlength="200" rows="2" placeholder="e.g. Flooring, carpet, LVP — or your trade"><%= _f.serviceTrades || '' %></textarea>
+            <textarea id="fa-trades" name="serviceTrades" required maxlength="200" rows="2" placeholder="<%= _flooring ? 'e.g. Hardwood, LVP, carpet, tile' : 'e.g. Flooring, carpet, LVP — or your trade' %>"><%= _f.serviceTrades || (_flooring ? 'Flooring' : '') %></textarea>
             <p class="fa-field-hint">What you do — used to match reviews and referrals.</p>
           </div>
           <div class="fa-grid2">
@@ -483,23 +491,38 @@
           <div class="fa-terms">
             <input id="fa-terms" name="acceptTerms" type="checkbox" value="on" required <%= _f.acceptTerms ? 'checked' : '' %>>
             <label for="fa-terms">
+              <% if (_flooring) { %>
+              I agree to the <a href="#fa-terms-details">Terms &amp; Conditions</a>: I keep Reviews App access
+              <strong>as long as I buy material from you</strong>. Lead delivery is
+              <strong>pay-per-performance</strong> — commission only on leads I <strong>approve</strong>.
+              <% } else { %>
               I agree to the <a href="#fa-terms-details">Terms &amp; Conditions</a>: AdHello Reviews is a
               <strong>pay-per-performance</strong> model. I will pay commission on leads I receive through the app
               <strong>after I approve them</strong>.
+              <% } %>
             </label>
           </div>
           <details class="fa-terms-details" id="fa-terms-details">
-            <summary>Terms &amp; Conditions — pay-per-performance</summary>
+            <summary>Terms &amp; Conditions — <%= _flooring ? 'flooring partners' : 'pay-per-performance' %></summary>
             <ul>
+              <% if (_flooring) { %>
+              <li>Your Reviews App account stays active <strong>while you purchase material from us</strong> — there is no timed free trial.</li>
+              <li>If material purchases stop, we may pause or end app access.</li>
+              <li>Lead delivery is <strong>pay-per-performance</strong>: when you receive a lead, you choose whether to <strong>approve</strong> it.</li>
+              <li>Approving a lead means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
+              <li>Declining a lead does not create a commission obligation for that lead.</li>
+              <li>By checking the box above and submitting this form, you accept these Terms &amp; Conditions.</li>
+              <% } else { %>
               <li>The Reviews app trial and core tools may be free; lead delivery is <strong>pay-per-performance</strong>.</li>
               <li>When you receive a lead through the app, you choose whether to <strong>approve</strong> (accept) it.</li>
               <li>Approving a lead means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
               <li>Declining a lead does not create a commission obligation for that lead.</li>
               <li>By checking the box above and submitting this form, you accept these Terms &amp; Conditions.</li>
+              <% } %>
             </ul>
           </details>
 
-          <button type="submit" class="fa-btn" id="fa-submit">Text me my trial link</button>
+          <button type="submit" class="fa-btn" id="fa-submit"><%= _flooring ? 'Text me my app link' : 'Text me my trial link' %></button>
         </form>
         <script>
           (function () {

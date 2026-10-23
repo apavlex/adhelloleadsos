@@ -1,5 +1,5 @@
 <%
-  const _isFree = typeof isAppFree !== 'undefined' ? !!isAppFree : (member && member.plan === 'app_free');
+  const _isFree = typeof isAppFree !== 'undefined' ? !!isAppFree : (member && (member.plan === 'app_free' || member.plan === 'app_flooring'));
   // Review tab always lands on QR / share — not the GHL send form (?ask=1).
   const _reviewHref = base + '/review';
   // Review keeps the raised round FAB; label font/baseline match every other tab.

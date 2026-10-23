@@ -552,7 +552,8 @@ function freeAppPortalSms({ firstName, reviewsLink }) {
 
 /** Free signups + anyone on the host Agency network get Referral Network copy. */
 function usesReferralNetworkPortalSms(network, member) {
-  if (String((member && member.plan) || '') === 'app_free') return true;
+  const plan = String((member && member.plan) || '');
+  if (plan === 'app_free' || plan === 'app_flooring') return true;
   const brand = brandView(network);
   const label = `${brand.appName || ''} ${network && network.name ? network.name : ''}`;
   return /adhello/i.test(label) && /agency|referral\s*network/i.test(label);

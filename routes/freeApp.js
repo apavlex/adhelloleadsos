@@ -1,7 +1,8 @@
 /**
  * Public free member-app signup — pasteable AdHello.io / reviews.adhello.io links.
- *   GET/POST /app           → AdHello Agency network (default public trial)
- *   GET/POST /join/:slug    → that agency's network (workspace slug)
+ *   GET/POST /app              → AdHello Agency network (30-day trial)
+ *   GET/POST /app/flooring     → Flooring partners (no trial; material purchase access)
+ *   GET/POST /join/:slug       → that agency's network (workspace slug)
  * Mounted before ensureAuthenticated (no Google / workspace required).
  */
 const express = require('express');
@@ -33,10 +34,15 @@ async function render(req, res, {
   status = 200,
   network = null,
   joinSlug = '',
+  offer = '',
 } = {}) {
   const brand = await brandForNetwork(network);
   const slug = freeAppSignup.cleanJoinSlug(joinSlug);
-  const formAction = slug ? `/join/${encodeURIComponent(slug)}` : '/app';
+  const normalizedOffer = freeAppSignup.normalizeSignupOffer(offer);
+  const flooring = normalizedOffer === freeAppSignup.OFFER_FLOORING;
+  let formAction = '/app';
+  if (slug) formAction = `/join/${encodeURIComponent(slug)}`;
+  else if (flooring) formAction = '/app/flooring';
   return res.status(status).render('free_app', {
     brand,
     form: formValues,
@@ -47,7 +53,37 @@ async function render(req, res, {
     formAction,
     joinSlug: slug,
     joinNetworkName: network && network.name ? network.name : '',
+    signupOffer: normalizedOffer,
+    flooringPartner: flooring,
   });
+}
+
+async function handleAppPost(req, res, next, { offer = '' } = {}) {
+  try {
+    const { form: formValues, errors, digits, email } = freeAppSignup.readForm(req.body || {});
+    if (errors.length) {
+      return render(req, res, { formValues, errors, status: 400, offer });
+    }
+    const result = await freeAppSignup.signupFreeApp({
+      form: formValues,
+      digits,
+      email,
+      baseUrl: getReviewPublicBaseUrl(),
+      ip: clientIp(req),
+      offer,
+    });
+    if (!result.ok) {
+      return render(req, res, {
+        formValues,
+        errors: [result.error || 'Could not send your app link. Try again.'],
+        status: result.code === 'rate_limit' ? 429 : 400,
+        offer,
+      });
+    }
+    return render(req, res, { formValues: {}, sent: true, offer });
+  } catch (err) {
+    return next(err);
+  }
 }
 
 router.get('/app', async (req, res, next) => {
@@ -58,31 +94,18 @@ router.get('/app', async (req, res, next) => {
   }
 });
 
-router.post('/app', form, async (req, res, next) => {
+router.post('/app', form, (req, res, next) => handleAppPost(req, res, next));
+
+router.get('/app/flooring', async (req, res, next) => {
   try {
-    const { form: formValues, errors, digits, email } = freeAppSignup.readForm(req.body || {});
-    if (errors.length) {
-      return render(req, res, { formValues, errors, status: 400 });
-    }
-    const result = await freeAppSignup.signupFreeApp({
-      form: formValues,
-      digits,
-      email,
-      baseUrl: getReviewPublicBaseUrl(),
-      ip: clientIp(req),
-    });
-    if (!result.ok) {
-      return render(req, res, {
-        formValues,
-        errors: [result.error || 'Could not send your app link. Try again.'],
-        status: result.code === 'rate_limit' ? 429 : 400,
-      });
-    }
-    return render(req, res, { formValues: {}, sent: true });
+    return await render(req, res, { offer: freeAppSignup.OFFER_FLOORING });
   } catch (err) {
     return next(err);
   }
 });
+
+router.post('/app/flooring', form, (req, res, next) =>
+  handleAppPost(req, res, next, { offer: freeAppSignup.OFFER_FLOORING }));
 
 router.get('/join/:slug', async (req, res, next) => {
   try {

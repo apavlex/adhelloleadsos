@@ -122,6 +122,49 @@ describe('freeAppSignup', () => {
     mock.restoreAll();
   });
 
+  it('creates an app_flooring member with no trial end (material partners)', async () => {
+    const notify = require('../services/networkNotify');
+    let sent = null;
+    mock.method(notify, 'sendMemberPortalLink', async (args) => {
+      sent = args;
+      return { ok: true, channel: 'sms' };
+    });
+
+    const { form, digits, email } = freeAppSignup.readForm({
+      contactName: 'Fran',
+      companyName: 'Fran Flooring',
+      phone: '503-555-0144',
+      email: 'fran@example.com',
+      acceptTerms: 'on',
+      ...areaFields({ serviceTrades: 'Flooring', serviceCity: 'Camas', serviceRadiusMiles: '30' }),
+    });
+    const result = await freeAppSignup.signupFreeApp({
+      form,
+      digits,
+      email,
+      baseUrl: 'https://leads.adhello.io',
+      ip: '203.0.113.55',
+      offer: freeAppSignup.OFFER_FLOORING,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.created, true);
+    assert.equal(result.member.plan, freeAppSignup.PLAN_APP_FLOORING);
+    assert.equal(result.member.signupOffer, freeAppSignup.OFFER_FLOORING);
+    assert.equal(result.member.trialEndsAt, '');
+    assert.equal(result.member.termsVersion, freeAppSignup.TERMS_VERSION_FLOORING);
+    assert.equal(freeAppSignup.isAppFreeMember(result.member), true);
+    assert.equal(freeAppSignup.isFlooringOffer(result.member), true);
+    assert.equal(freeAppSignup.isAppTrialExpired(result.member), false);
+    const status = freeAppSignup.appTrialStatus(result.member);
+    assert.equal(status.state, 'active');
+    assert.equal(status.label, 'Flooring partner');
+    assert.equal(sent.welcome, true);
+
+    const lead = await dbService.getLead(result.member.leadKey, network.ownerWorkspaceId);
+    assert.equal(lead.source, 'flooring_partner_signup');
+    mock.restoreAll();
+  });
+
   it('can activate a reviews-app trial member before the trial ends', async () => {
     const members = await store.listMembers(network.id);
     const alex = members.find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550100');
@@ -244,10 +287,71 @@ describe('freeAppSignup', () => {
       false,
     );
     assert.equal(
+      await memberLeadRequests.planAllowsLeadRequests(
+        { ownerWorkspaceId: 'ws1' },
+        { plan: freeAppSignup.PLAN_APP_FLOORING },
+      ),
+      false,
+    );
+    assert.equal(
       await memberLeadRequests.planAllowsLeadRequests({ ownerWorkspaceId: 'ws1' }, { plan: '' }),
       true,
     );
     mock.restoreAll();
+  });
+
+  it('serves GET /app/flooring and accepts POST without a timed trial', async () => {
+    const notify = require('../services/networkNotify');
+    mock.method(notify, 'sendMemberPortalLink', async () => ({ ok: true, channel: 'sms' }));
+
+    const app = express();
+    app.set('view engine', 'ejs');
+    app.set('views', path.join(__dirname, '..', 'views'));
+    app.locals.assetVersion = 'test';
+    app.use('/', freeAppRoutes);
+
+    const server = await new Promise((resolve) => {
+      const s = app.listen(0, () => resolve(s));
+    });
+    const base = `http://127.0.0.1:${server.address().port}`;
+    try {
+      const get = await fetch(`${base}/app/flooring`);
+      assert.equal(get.status, 200);
+      const html = await get.text();
+      assert.match(html, /Flooring partners/);
+      assert.match(html, /Keep your account as long as you buy material from us/);
+      assert.match(html, /action="\/app\/flooring"/);
+      assert.match(html, /Text me my app link/);
+      assert.doesNotMatch(html, /30-day free trial/);
+      assert.doesNotMatch(html, /Text me my trial link/);
+      assert.match(html, /buy material from you/i);
+      assert.match(html, /name="acceptTerms"/);
+
+      const post = await fetch(`${base}/app/flooring`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          contactName: 'Lee',
+          companyName: 'Lee Floors',
+          phone: '503-555-0166',
+          acceptTerms: 'on',
+          ...areaFields({ serviceTrades: 'Flooring', serviceCity: 'Vancouver', serviceRadiusMiles: '25' }),
+        }),
+      });
+      assert.equal(post.status, 200);
+      assert.match(await post.text(), /Check your phone/);
+
+      const members = await store.listMembers(network.id);
+      const lee = members.find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550166');
+      assert.ok(lee);
+      assert.equal(lee.plan, freeAppSignup.PLAN_APP_FLOORING);
+      assert.equal(lee.trialEndsAt, '');
+      assert.equal(lee.signupOffer, freeAppSignup.OFFER_FLOORING);
+      assert.equal(freeAppSignup.isAppTrialExpired(lee), false);
+    } finally {
+      await new Promise((r) => server.close(r));
+      mock.restoreAll();
+    }
   });
 
   it('serves GET /app and accepts POST /app', async () => {
@@ -394,8 +498,13 @@ describe('freeAppSignup', () => {
     const publicBase = fs.readFileSync(path.join(__dirname, '../lib/publicBaseUrl.js'), 'utf8');
     assert.match(server, /routes\/freeApp/);
     assert.match(route, /router\.(get|post)\('\/app'/);
+    assert.match(route, /\/app\/flooring/);
     assert.match(route, /router\.(get|post)\('\/join\/:slug'/);
-    assert.match(view, /Start your 30-day trial/);
+    assert.match(view, /_flooring/);
+    assert.match(view, /buy material from us/i);
+    assert.match(view, /Grow reviews &amp; referrals for your business!/);
+    assert.match(view, /fa-card-trial/);
+    assert.match(view, /30-day free trial/);
     assert.match(view, /Text me my trial link/);
     assert.match(view, /id="fa-form"/);
     assert.match(view, /formAction/);

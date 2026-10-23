@@ -46,7 +46,8 @@ function parseAudience(raw) {
 function memberMatchesAudience(member, audience) {
   if (!member || member.workspaceStaff) return false;
   if (member.status !== 'active') return false;
-  const free = member.plan === 'app_free';
+  const plan = String(member.plan || '');
+  const free = plan === 'app_free' || plan === 'app_flooring';
   if (audience === 'free') return free;
   if (audience === 'partner') return !free;
   // 'all' and 'active' — active non-staff (already filtered)

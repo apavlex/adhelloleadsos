@@ -120,7 +120,7 @@ router.get('/', async (req, res, next) => {
       if (!key) continue;
       memberMetaByLeadKey.set(key, {
         hasSeat: true,
-        isAppFree: String(m.plan || '') === 'app_free',
+        isAppFree: String(m.plan || '') === 'app_free' || String(m.plan || '') === 'app_flooring',
         memberActive: String(m.status || '') === 'active',
         joinedWhen: referralNetwork.formatWhen(m.joinedAt),
       });
