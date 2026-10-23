@@ -8,17 +8,17 @@
     <div class="flex items-start justify-between gap-3 mb-5">
       <div>
         <h2 id="sendLeadTitle" class="font-display font-black text-xl text-brand-dark dark:text-white">Send lead</h2>
-        <p class="text-sm text-brand-muted mt-1">Pick teammates in the Reviews app. They get a notification to accept — same accept flow as referrals.</p>
+        <p class="text-sm text-brand-muted mt-1">Send to a Reviews-app user on this network or any workspace you manage. They get a notification to accept.</p>
       </div>
       <button type="button" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center shrink-0" aria-label="Close" data-send-lead-close>
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
       </button>
     </div>
 
-    <p id="sendLeadLoading" class="text-sm text-brand-muted py-6 text-center">Loading teammates…</p>
+    <p id="sendLeadLoading" class="text-sm text-brand-muted py-6 text-center">Loading Reviews-app users…</p>
 
     <div id="sendLeadEmpty" class="hidden py-2">
-      <p class="text-sm text-brand-dark dark:text-white">No active teammates yet. Add members on Referral Leads so they show up here with a Reviews app.</p>
+      <p class="text-sm text-brand-dark dark:text-white">No active Reviews-app users found in workspaces you manage. Add members on Referral Leads first.</p>
       <div class="flex flex-col sm:flex-row gap-3 pt-5">
         <a href="/network?tab=members" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest text-center">Add members</a>
         <button type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white" data-send-lead-close>Cancel</button>
@@ -34,15 +34,30 @@
     </div>
 
     <form id="sendLeadForm" class="space-y-4 hidden" novalidate>
+      <div id="sendLeadScopeWrap" class="hidden">
+        <label class="<%= _slLabel %>">Send to</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center justify-center gap-2 rounded-xl border border-brand-border dark:border-white/10 px-3 py-2.5 cursor-pointer has-[:checked]:border-brand-yellow has-[:checked]:bg-brand-yellow/10">
+            <input type="radio" name="scope" value="network" id="sendLeadScopeNetwork" class="h-3.5 w-3.5 text-brand-yellow focus:ring-brand-yellow" checked />
+            <span class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white">This network</span>
+          </label>
+          <label class="flex items-center justify-center gap-2 rounded-xl border border-brand-border dark:border-white/10 px-3 py-2.5 cursor-pointer has-[:checked]:border-brand-yellow has-[:checked]:bg-brand-yellow/10">
+            <input type="radio" name="scope" value="all" id="sendLeadScopeAll" class="h-3.5 w-3.5 text-brand-yellow focus:ring-brand-yellow" />
+            <span class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white">All workspaces</span>
+          </label>
+        </div>
+      </div>
       <div>
         <div class="flex items-center justify-between gap-2 mb-1.5">
-          <label class="<%= _slLabel %> mb-0">Teammates <span class="text-red-500">*</span></label>
-          <label class="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-dark dark:text-white cursor-pointer">
+          <label class="<%= _slLabel %> mb-0" id="sendLeadRecipientsLabel">Recipients <span class="text-red-500">*</span></label>
+          <label id="sendLeadAllWrap" class="inline-flex items-center gap-1.5 text-[11px] font-bold text-brand-dark dark:text-white cursor-pointer">
             <input type="checkbox" id="sendLeadAll" name="sendAll" value="1" class="h-3.5 w-3.5 rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" />
             Send to all
           </label>
         </div>
-        <div id="sendLeadTeammateList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto rounded-xl border border-brand-border dark:border-white/10 p-2 bg-brand-cream/20 dark:bg-slate-800/40"></div>
+        <input type="search" id="sendLeadSearch" class="<%= _slField %> mb-2" placeholder="Search name, email, or workspace…" autocomplete="off" />
+        <div id="sendLeadTeammateList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded-xl border border-brand-border dark:border-white/10 p-2 bg-brand-cream/20 dark:bg-slate-800/40"></div>
+        <p id="sendLeadListHint" class="text-[11px] text-brand-muted mt-1.5"></p>
       </div>
       <div>
         <label for="sendLeadName" class="<%= _slLabel %>">Lead name <span class="text-red-500">*</span></label>
