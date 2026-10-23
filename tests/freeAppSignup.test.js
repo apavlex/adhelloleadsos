@@ -95,6 +95,8 @@ describe('freeAppSignup', { concurrency: false }, () => {
     assert.equal(net.id, flooringNetwork.id);
     assert.equal(freeAppSignup.isFlooringHostWorkspace({ slug: 'tpr-flooring' }), true);
     assert.equal(freeAppSignup.isFlooringHostWorkspace({ slug: 'adhello-agency' }), false);
+    assert.equal(freeAppSignup.isFlooringHostWorkspace({ slug: 'bright-electric', name: 'Bright Electric' }), false);
+    assert.equal(freeAppSignup.isFlooringHostWorkspace({ name: 'Bright Electric' }), false);
     assert.equal(await freeAppSignup.isFlooringHostNetwork(flooringNetwork), true);
     assert.equal(await freeAppSignup.isFlooringHostNetwork(network), false);
   });

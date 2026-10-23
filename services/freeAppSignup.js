@@ -252,13 +252,18 @@ async function resolveFreeAppNetwork() {
  */
 async function resolveFlooringWorkspaceId(slug) {
   const bySlug = await dbService.getWorkspaceIdForSlug(slug);
-  if (bySlug) return bySlug;
+  if (bySlug) {
+    const bySlugWs = await dbService.getWorkspace(bySlug);
+    // Never treat Bright Electric / Agency as the flooring host, even if the
+    // slug mapping was pointed there by mistake.
+    if (bySlugWs && !isExcludedFlooringHostWorkspace(bySlugWs)) return bySlug;
+  }
   try {
     const ids = await dbService.listWorkspaceIds();
     for (const id of ids || []) {
       // eslint-disable-next-line no-await-in-loop
       const ws = await dbService.getWorkspace(id);
-      if (!ws) continue;
+      if (!ws || isExcludedFlooringHostWorkspace(ws)) continue;
       const name = String(ws.name || '').trim().toLowerCase();
       if (name !== 'tpr flooring' && !/^tpr\b.*\bflooring\b/.test(name)) continue;
       const existingSlug = cleanJoinSlug(ws.slug);
@@ -283,6 +288,12 @@ async function resolveFlooringAppNetwork() {
   if (forcedId) {
     const network = await store.getNetwork(forcedId);
     if (!network) throw new Error('Flooring-app network is not configured.');
+    if (network.ownerWorkspaceId) {
+      const forcedWs = await dbService.getWorkspace(network.ownerWorkspaceId);
+      if (isExcludedFlooringHostWorkspace(forcedWs)) {
+        throw new Error('Flooring-app network cannot be Bright Electric or AdHello Agency.');
+      }
+    }
     return network;
   }
   const slug = flooringEnvSlug();
@@ -291,15 +302,28 @@ async function resolveFlooringAppNetwork() {
     throw new Error('TPR Flooring workspace is not set up yet (slug: ' + slug + ').');
   }
   const ws = await dbService.getWorkspace(workspaceId);
+  if (isExcludedFlooringHostWorkspace(ws)) {
+    throw new Error('Flooring partners belong on TPR Flooring, not Bright Electric / Agency.');
+  }
   return store.getOrCreateNetworkForWorkspace(workspaceId, {
     name: (ws && ws.name) || 'TPR Flooring',
     ownerEmail: await ownerEmailFromWorkspace(ws),
   });
 }
 
+/** Workspaces that must never host /app/flooring (electric / agency demos). */
+function isExcludedFlooringHostWorkspace(ws) {
+  if (!ws) return false;
+  const slug = cleanJoinSlug(ws.slug);
+  const name = String(ws.name || '').trim().toLowerCase();
+  if (slug === 'bright-electric' || slug === 'adhello-agency') return true;
+  if (name === 'bright electric' || name === 'adhello agency') return true;
+  return false;
+}
+
 /** True when this Agency OS workspace hosts the public /app/flooring offer. */
 function isFlooringHostWorkspace(ws) {
-  if (!ws) return false;
+  if (!ws || isExcludedFlooringHostWorkspace(ws)) return false;
   const slug = cleanJoinSlug(ws.slug);
   if (slug && slug === flooringEnvSlug()) return true;
   // Name fallback for the default TPR host (slug may not be set yet).
