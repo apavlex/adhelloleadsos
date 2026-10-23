@@ -14,7 +14,8 @@ const COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_QTY = 25;
 
 function isAppFreeMember(member) {
-  return String((member && member.plan) || '') === 'app_free';
+  // app_free (timed trial) + app_flooring (material-purchase access) share freemium gates.
+  return require('./freeAppSignup').isAppFreeMember(member);
 }
 
 async function planAllowsLeadRequests(network, member) {

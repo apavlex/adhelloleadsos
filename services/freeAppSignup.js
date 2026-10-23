@@ -1,7 +1,8 @@
 /**
- * Public reviews-app signup (AdHello.io → /app).
+ * Public reviews-app signup (AdHello.io → /app, /app/flooring).
  * Creates (or reopens) a network member on the AdHello Agency network with
- * plan "app_free" on a 30-day trial, then texts/emails the installable /m/:token link.
+ * plan "app_free" (30-day trial) or "app_flooring" (material-purchase access,
+ * no timed trial), then texts/emails the installable /m/:token link.
  * Does not create an Agency OS workspace trial or GHL sub-account at signup.
  * A managed Agency OS workspace is created later on first customer-list upload
  * (see freeAppListWorkspace) so ops can run that list from the CRM.
@@ -16,8 +17,12 @@ const referralNetwork = require('./referralNetwork');
 const { upsertOpenTaskForLead, TASK_SOURCE_NETWORK } = require('./userTasks');
 
 const PLAN_APP_FREE = 'app_free';
+/** Flooring partners: no timed trial — access while they buy material from the supplier. */
+const PLAN_APP_FLOORING = 'app_flooring';
+const OFFER_FLOORING = 'flooring';
 const DEFAULT_WORKSPACE_SLUG = 'adhello-agency';
 const DAY_MS = 86400000;
+const TERMS_VERSION_FLOORING = 'reviews-flooring-material-v1';
 const IP_DAY_PREFIX = 'freeAppSignupIp:';
 const MAX_PER_IP_PER_DAY = 8;
 
@@ -120,20 +125,59 @@ function acceptedTerms(body = {}) {
 /** Current Reviews app signup terms id (pay-per-performance / lead commission). */
 const TERMS_VERSION = 'reviews-ppp-v1';
 
+function normalizeSignupOffer(raw) {
+  const o = String(raw || '').trim().toLowerCase();
+  return o === OFFER_FLOORING || o === 'flooring_material' || o === 'material' ? OFFER_FLOORING : '';
+}
+
+function isFlooringOffer(offerOrMember) {
+  if (!offerOrMember) return false;
+  if (typeof offerOrMember === 'string') return normalizeSignupOffer(offerOrMember) === OFFER_FLOORING;
+  const plan = String(offerOrMember.plan || '');
+  const offer = String(offerOrMember.signupOffer || '');
+  return plan === PLAN_APP_FLOORING || normalizeSignupOffer(offer) === OFFER_FLOORING;
+}
+
+/** Max drive distance options (miles) for Reviews signup service area. */
+const DRIVE_MILES_OPTIONS = [10, 15, 20, 25, 30, 45, 60, 75, 100];
+
+function parseDriveMiles(raw) {
+  const n = parseInt(String(raw == null ? '' : raw).trim(), 10);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (DRIVE_MILES_OPTIONS.includes(n)) return n;
+  // Allow typed values in a sensible band (e.g. 40).
+  if (n >= 5 && n <= 200) return n;
+  return 0;
+}
+
 /** @returns {{ form: object, errors: string[] }} */
 function readForm(body = {}) {
   const pick = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
   const termsOk = acceptedTerms(body);
+  const serviceTrades = pick(
+    body.serviceTrades || body.workTrades || body.trades || body.areas,
+    200,
+  );
+  const serviceCity = pick(body.serviceCity || body.city || body.workCity, 80);
+  const serviceRadiusMiles = parseDriveMiles(body.serviceRadiusMiles || body.driveMiles || body.driveRadius);
   const form = {
     contactName: pick(body.contactName || body.name, 120),
     companyName: pick(body.companyName || body.company, 160),
     phone: pick(body.phone, 40),
     email: pick(body.email, 200),
+    serviceTrades,
+    serviceCity,
+    serviceRadiusMiles,
     acceptTerms: termsOk,
   };
   const errors = [];
   if (!form.contactName) errors.push('Add your name.');
   if (!form.companyName) errors.push('Add your business name.');
+  if (!form.serviceTrades) errors.push('Add the trades or areas you work in.');
+  if (!form.serviceCity) errors.push('Add the city you work in.');
+  if (!form.serviceRadiusMiles) {
+    errors.push('Choose how far you’re willing to drive for reviews and referrals.');
+  }
   const digits = phoneDigits(form.phone);
   const email = cleanEmail(form.email);
   if (!digits && !email) errors.push('Add a mobile number or email so we can send your app link.');
@@ -264,9 +308,22 @@ async function notifyOperatorNewFreeApp({ network, member }) {
  * Double-submit safe: per-contact inflight lock + short send cooldown.
  * @returns {{ ok: true, member, network, notified, created: boolean } | { ok: false, error: string, code?: string }}
  */
-async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networkOpt = null, joinSlug = '' } = {}) {
+async function signupFreeApp({
+  form,
+  digits,
+  email,
+  baseUrl,
+  ip,
+  network: networkOpt = null,
+  joinSlug = '',
+  offer: offerOpt = '',
+} = {}) {
   const lockKey = contactLockKey({ digits, email });
   const viaJoin = !!cleanJoinSlug(joinSlug) || !!(networkOpt && networkOpt.id);
+  const offer = normalizeSignupOffer(offerOpt || (form && form.signupOffer));
+  const flooring = offer === OFFER_FLOORING;
+  const memberPlan = flooring ? PLAN_APP_FLOORING : PLAN_APP_FREE;
+  const termsVersion = flooring ? TERMS_VERSION_FLOORING : TERMS_VERSION;
 
   let network = networkOpt || null;
   if (!network && joinSlug) {
@@ -336,21 +393,37 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networ
     const existing = await findExistingMember(network.id, { digits, email });
     if (existing) {
       let member = existing;
-      // Returning visitor: reopen if paused; keep partner plans, else mark app_free.
+      // Returning visitor: reopen if paused; keep partner plans, else mark freemium plan.
       const patch = {};
       if (member.status === 'paused' && !isAppTrialExpired(member)) patch.status = 'active';
       // Don't re-apply freemium after an admin activated them to a partner seat.
-      if (!member.plan && !member.planActivatedAt) patch.plan = PLAN_APP_FREE;
-      // Backfill trial end for legacy free signups that never had one.
-      if ((patch.plan || member.plan) === PLAN_APP_FREE && !member.trialEndsAt && !member.planActivatedAt) {
+      if (!member.plan && !member.planActivatedAt) patch.plan = memberPlan;
+      // Flooring partners: move trial members onto material-access plan (no expiry).
+      if (flooring && !member.planActivatedAt && (member.plan === PLAN_APP_FREE || !member.plan)) {
+        patch.plan = PLAN_APP_FLOORING;
+        patch.signupOffer = OFFER_FLOORING;
+        patch.trialEndsAt = '';
+      }
+      // Backfill trial end for legacy free signups that never had one (not flooring).
+      if (!flooring
+        && (patch.plan || member.plan) === PLAN_APP_FREE
+        && !member.trialEndsAt
+        && !member.planActivatedAt) {
         const start = Date.parse(member.joinedAt || '') || Date.now();
         patch.trialEndsAt = new Date(start + appTrialDays() * DAY_MS).toISOString();
       }
       // Record / refresh Terms acceptance from this signup submit.
       if (form.acceptTerms) {
         patch.termsAcceptedAt = new Date().toISOString();
-        patch.termsVersion = TERMS_VERSION;
+        patch.termsVersion = termsVersion;
       }
+      // Refresh service area from this signup (trades, city, drive radius).
+      if (form.serviceTrades) patch.serviceTrades = form.serviceTrades;
+      if (form.serviceCity) {
+        patch.serviceCity = form.serviceCity;
+        if (!member.reviewKeywordCity) patch.reviewKeywordCity = form.serviceCity;
+      }
+      if (form.serviceRadiusMiles) patch.serviceRadiusMiles = form.serviceRadiusMiles;
       if (Object.keys(patch).length) {
         member = await store.saveMember(network.id, { ...member, ...patch });
       }
@@ -360,16 +433,29 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networ
       return { ok: true, member, network, notified, created: false };
     }
 
+    const areaBits = [
+      form.serviceTrades ? `Trades/areas: ${form.serviceTrades}` : '',
+      form.serviceCity ? `City: ${form.serviceCity}` : '',
+      form.serviceRadiusMiles ? `Drive: ${form.serviceRadiusMiles} mi` : '',
+    ].filter(Boolean).join(' · ');
     const saved = await dbService.saveLeadWithMeta({
       workspaceId: network.ownerWorkspaceId,
       title: form.companyName,
       contactName: form.contactName || '',
       phone: form.phone || 'N/A',
       email: email || form.email || 'N/A',
-      source: viaJoin ? 'network_join_signup' : 'free_app_signup',
-      message: viaJoin
-        ? `Joined ${network.name || 'network'} via public signup link`
-        : 'Signed up for the AdHello reviews app trial',
+      city: form.serviceCity || '',
+      source: viaJoin
+        ? 'network_join_signup'
+        : (flooring ? 'flooring_partner_signup' : 'free_app_signup'),
+      message: [
+        viaJoin
+          ? `Joined ${network.name || 'network'} via public signup link`
+          : (flooring
+            ? 'Signed up for Reviews App as a flooring partner (material purchase access)'
+            : 'Signed up for the AdHello reviews app trial'),
+        areaBits,
+      ].filter(Boolean).join(' — '),
     });
     const lead = await dbService.getLead(saved.key, network.ownerWorkspaceId);
     if (!lead || !lead.key) {
@@ -381,7 +467,9 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networ
     }
 
     const joinedAt = new Date().toISOString();
-    const trialEndsAt = new Date(Date.parse(joinedAt) + appTrialDays() * DAY_MS).toISOString();
+    const trialEndsAt = flooring
+      ? ''
+      : new Date(Date.parse(joinedAt) + appTrialDays() * DAY_MS).toISOString();
     const member = await store.saveMember(network.id, {
       leadKey: lead.key,
       companyName: form.companyName,
@@ -389,11 +477,17 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networ
       phone: form.phone || '',
       email: email || '',
       status: 'active',
-      plan: PLAN_APP_FREE,
+      plan: memberPlan,
+      signupOffer: offer || '',
       trialEndsAt,
       joinedAt,
       termsAcceptedAt: joinedAt,
-      termsVersion: TERMS_VERSION,
+      termsVersion,
+      serviceTrades: form.serviceTrades || '',
+      serviceCity: form.serviceCity || '',
+      serviceRadiusMiles: form.serviceRadiusMiles || 0,
+      // Seed review keyword city from the city they said they work in.
+      reviewKeywordCity: form.serviceCity || '',
     });
 
     const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: true })
@@ -421,11 +515,12 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networ
 }
 
 function isAppFreeMember(member) {
-  return String((member && member.plan) || '') === PLAN_APP_FREE;
+  const plan = String((member && member.plan) || '');
+  return plan === PLAN_APP_FREE || plan === PLAN_APP_FLOORING;
 }
 
 /**
- * Reviews-app trial status for an app_free member.
+ * Reviews-app trial status for an app_free / flooring member.
  * @returns {null | { state: 'trial'|'expired'|'active', daysLeft: number, endsAt: string, label: string }}
  */
 function appTrialStatus(member, now = Date.now()) {
@@ -434,6 +529,10 @@ function appTrialStatus(member, now = Date.now()) {
       return { state: 'active', daysLeft: 0, endsAt: '', label: 'Active' };
     }
     return null;
+  }
+  // Flooring partners: no clock — access while they buy material.
+  if (isFlooringOffer(member)) {
+    return { state: 'active', daysLeft: 0, endsAt: '', label: 'Flooring partner' };
   }
   const endsMs = Date.parse(member.trialEndsAt || '') || 0;
   // Legacy free signups without trialEndsAt: treat as still on trial for 30 days from join.
@@ -498,15 +597,22 @@ function matchesMemberPlanFilter(member, filter) {
 
 module.exports = {
   PLAN_APP_FREE,
+  PLAN_APP_FLOORING,
+  OFFER_FLOORING,
   DEFAULT_WORKSPACE_SLUG,
   TERMS_VERSION,
+  TERMS_VERSION_FLOORING,
   SEND_COOLDOWN_PREFIX,
   INFLIGHT_PREFIX,
   appTrialDays,
   contactLockKey,
   cleanJoinSlug,
+  normalizeSignupOffer,
+  isFlooringOffer,
   readForm,
   phoneDigits,
+  DRIVE_MILES_OPTIONS,
+  parseDriveMiles,
   cleanEmail,
   takeIpSlot,
   resolveFreeAppNetwork,

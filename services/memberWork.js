@@ -216,6 +216,14 @@ function normalizeCustomer(raw) {
      */
     isLead: c.isLead === true,
     markedAsLeadAt: c.isLead === true && c.markedAsLeadAt ? String(c.markedAsLeadAt) : '',
+    /**
+     * Flooring partners: contact is a material quote request (mutually exclusive with isLead).
+     * Shows under Leads → Quote requests; hidden from the main Customers list.
+     */
+    isQuoteRequest: c.isQuoteRequest === true && c.isLead !== true,
+    markedAsQuoteAt: c.isQuoteRequest === true && c.isLead !== true && c.markedAsQuoteAt
+      ? String(c.markedAsQuoteAt)
+      : '',
     referralId: isRecordId(c.referralId) ? c.referralId : '',
     ghlContactId: cleanLine(c.ghlContactId, 80),
     ghlSyncedAt: c.ghlSyncedAt ? String(c.ghlSyncedAt) : '',
@@ -464,18 +472,52 @@ async function listContactLeads(networkId, memberId) {
     .sort((a, b) => String(b.markedAsLeadAt || b.updatedAt || '').localeCompare(String(a.markedAsLeadAt || a.updatedAt || '')));
 }
 
-/** Toggle “show in Leads” without changing contact details. */
-async function setCustomerLeadFlag(networkId, memberId, id, isLead) {
+/** Flooring: contacts marked as material quote requests. */
+async function listContactQuotes(networkId, memberId) {
+  const rows = await listCustomers(networkId, memberId);
+  return rows
+    .filter((c) => c && c.isQuoteRequest)
+    .sort((a, b) => String(b.markedAsQuoteAt || b.updatedAt || '').localeCompare(String(a.markedAsQuoteAt || a.updatedAt || '')));
+}
+
+/**
+ * Contact kind for flooring (and lead/customer elsewhere):
+ *   `customer` | `lead` | `quote`
+ * Lead and quote are mutually exclusive; both hide the contact from the main list.
+ */
+function customerKind(customer) {
+  if (!customer) return 'customer';
+  if (customer.isLead) return 'lead';
+  if (customer.isQuoteRequest) return 'quote';
+  return 'customer';
+}
+
+async function setCustomerKind(networkId, memberId, id, kind) {
   const existing = await getCustomer(networkId, memberId, id);
   if (!existing) return { ok: false, error: 'Customer not found.' };
-  const want = isLead === true;
-  if (existing.isLead === want) return { ok: true, customer: existing, unchanged: true };
+  const next = String(kind || '').trim().toLowerCase();
+  if (!['customer', 'lead', 'quote'].includes(next)) {
+    return { ok: false, error: 'Pick customer, lead, or quote.' };
+  }
+  const now = new Date().toISOString();
+  const wantLead = next === 'lead';
+  const wantQuote = next === 'quote';
+  if (existing.isLead === wantLead && existing.isQuoteRequest === wantQuote) {
+    return { ok: true, customer: existing, unchanged: true, kind: next };
+  }
   const customer = await writeCustomer(networkId, memberId, {
     ...existing,
-    isLead: want,
-    markedAsLeadAt: want ? (existing.markedAsLeadAt || new Date().toISOString()) : '',
+    isLead: wantLead,
+    markedAsLeadAt: wantLead ? (existing.markedAsLeadAt || now) : '',
+    isQuoteRequest: wantQuote,
+    markedAsQuoteAt: wantQuote ? (existing.markedAsQuoteAt || now) : '',
   });
-  return { ok: true, customer };
+  return { ok: true, customer, kind: next };
+}
+
+/** Toggle “show in Leads” without changing contact details. */
+async function setCustomerLeadFlag(networkId, memberId, id, isLead) {
+  return setCustomerKind(networkId, memberId, id, isLead === true ? 'lead' : 'customer');
 }
 
 /** Create (no id) or update (id of an existing customer in this scope). */
@@ -1162,8 +1204,11 @@ module.exports = {
   leadTouchMsForCustomer,
   listCustomers,
   listContactLeads,
+  listContactQuotes,
+  customerKind,
   getCustomer,
   saveCustomer,
+  setCustomerKind,
   setCustomerLeadFlag,
   setCustomerTags,
   remainingCustomerSlots,

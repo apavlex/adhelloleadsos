@@ -8,7 +8,7 @@
   <meta property="og:title" content="AdHello — pay-per-performance marketing &amp; referrals">
   <meta property="og:description" content="Get leads when you approve them, grow through referrals, and collect reviews on every job. 30 days free — no credit card.">
   <meta property="og:type" content="website">
-  <title>Start your 30-day trial · AdHello</title>
+  <title>Grow reviews &amp; referrals for your business · AdHello</title>
   <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
   <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
   <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
@@ -88,8 +88,15 @@
       letter-spacing: -0.025em;
       color: var(--fa-ink);
     }
+    .fa-card-trial {
+      margin: 0.4rem 0 0;
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1.35;
+      color: var(--fa-muted-soft);
+    }
     .fa-card-lead {
-      margin: 0.5rem 0 0;
+      margin: 0.65rem 0 0;
       font-size: 0.925rem;
       line-height: 1.5;
       color: var(--fa-muted);
@@ -111,18 +118,23 @@
       border: 1px solid rgba(250, 204, 21, 0.28);
     }
     .fa-benefits__ico {
-      width: 1.75rem;
-      height: 1.75rem;
-      border-radius: 0.5rem;
+      width: 2.35rem;
+      height: 2.35rem;
+      border-radius: 999px;
       flex-shrink: 0;
-      background: var(--fa-yellow);
-      color: var(--fa-ink);
+      background: #fff;
+      color: #1f242e;
+      border: 1px solid rgba(31, 36, 46, 0.1);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-size: 12px;
-      font-weight: 900;
       line-height: 1;
+    }
+    .fa-benefits__ico svg {
+      width: 1.35rem;
+      height: 1.35rem;
+      display: block;
     }
     .fa-benefits strong {
       display: block;
@@ -155,9 +167,10 @@
       letter-spacing: 0;
       color: rgba(31, 36, 46, 0.45);
     }
-    .fa-field input {
+    .fa-field input,
+    .fa-field select,
+    .fa-field textarea {
       width: 100%;
-      height: 2.9rem;
       border-radius: 0.75rem;
       border: 1px solid var(--fa-line);
       background: #fff;
@@ -168,9 +181,33 @@
       box-sizing: border-box;
       font-family: var(--fa-font);
     }
-    .fa-field input:focus {
+    .fa-field input,
+    .fa-field select { height: 2.9rem; }
+    .fa-field textarea {
+      min-height: 4.5rem;
+      padding: 0.7rem 0.9rem;
+      resize: vertical;
+      line-height: 1.4;
+    }
+    .fa-field input:focus,
+    .fa-field select:focus,
+    .fa-field textarea:focus {
       border-color: var(--fa-yellow-hot);
       box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.28);
+    }
+    .fa-field-hint {
+      margin: 0.35rem 0 0;
+      font-size: 12px;
+      line-height: 1.35;
+      color: var(--fa-muted-soft);
+    }
+    .fa-grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    @media (max-width: 479px) {
+      .fa-grid2 { grid-template-columns: 1fr; }
     }
     .fa-perks {
       display: flex;
@@ -328,15 +365,14 @@
   <% const _trial = typeof trialSignupHref !== 'undefined' ? trialSignupHref : '/signup'; %>
   <% const _action = typeof formAction !== 'undefined' && formAction ? formAction : '/app'; %>
   <% const _joinName = typeof joinNetworkName !== 'undefined' ? String(joinNetworkName || '').trim() : ''; %>
-  <% const _brandName = (typeof brand !== 'undefined' && brand && brand.appName) ? brand.appName : 'AdHello'; %>
-
+  <% const _flooring = typeof flooringPartner !== 'undefined' ? !!flooringPartner : false; %>
   <main class="fa-main">
     <div class="fa-card">
       <a class="fa-brand" href="https://adhello.io" rel="noopener">
-        <img src="/images/adhello-app-icon.png" alt="AdHello" width="40" height="40" />
+        <img src="/images/adhello-app-icon.png" alt="Reviews App" width="40" height="40" />
         <div>
-          <strong><%= _brandName %></strong>
-          <span><%= _joinName ? ('Join ' + _joinName) : 'Pay-per-performance' %></span>
+          <strong>Reviews App</strong>
+          <span><%= _joinName ? ('Join ' + _joinName) : (_flooring ? 'Flooring partners' : 'Pay-per-performance') %></span>
         </div>
       </a>
 
@@ -348,35 +384,64 @@
           <li><strong>Turn on phone alerts</strong> — allow notifications so leads, referrals, and News &amp; updates pop up on your phone.</li>
         </ol>
         <div class="fa-ok" role="status">Link sent. It can take a minute. Already have it? <a class="underline font-semibold" href="<%= _login %>">Get a fresh link</a>.</div>
+        <% if (!_flooring) { %>
         <p class="fa-foot" style="margin-top:1.5rem">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="underline" href="<%= _trial %>">Start a free trial</a>.</p>
+        <% } %>
       <% } else { %>
-        <h1>Start your 30-day trial</h1>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Grow with <strong>pay-per-performance marketing</strong> and a referral network — you only pay commission on leads you approve. Plus reviews and jobs on your phone. Free for 30 days — no credit card.</p>
+        <h1>Grow reviews &amp; referrals for your business!</h1>
+        <% if (_flooring) { %>
+        <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
+        <p class="fa-card-lead">Built for flooring partners — reviews, jobs, and referrals on your phone. No timed trial. Lead delivery stays <strong>pay-per-performance</strong>: commission only on leads you approve.</p>
+        <% } else { %>
+        <p class="fa-card-trial">30-day free trial · no credit card</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Grow with <strong>pay-per-performance marketing</strong> and a referral network — you only pay commission on leads you approve. Plus reviews and jobs on your phone.</p>
+        <% } %>
 
         <ul class="fa-benefits" aria-label="What you get">
           <li>
-            <span class="fa-benefits__ico" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18m0-18l4 4m-4-4L8 7M4 14h16"/></svg></span>
-            <div>
-              <strong>Pay-per-performance marketing</strong>
-              <span>Get leads through the app. Approve what you want — commission only on leads you accept. Decline the rest at no cost.</span>
-            </div>
-          </li>
-          <li>
-            <span class="fa-benefits__ico" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12h15m0 0l-5.25-5.25M19.5 12l-5.25 5.25"/></svg></span>
-            <div>
-              <strong>Referral network that feeds you work</strong>
-              <span>Send and receive referrals with partners in your area — grow without cold calling strangers.</span>
-            </div>
-          </li>
-          <li>
-            <span class="fa-benefits__ico" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5l2.7 5.5 6.1.9-4.4 4.3 1 6.1L12 16.4 6.6 19.3l1-6.1L3.2 8.9l6.1-.9L12 2.5z"/></svg></span>
+            <span class="fa-benefits__ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3.2l2.2 4.5 5 .7-3.6 3.5.9 5L12 14.6 7.5 16.9l.9-5L4.8 8.4l5-.7L12 3.2z" fill="currentColor" stroke="none"/>
+                <rect x="3.5" y="14.2" width="7.2" height="6.3" rx="1.2"/>
+                <path d="M5.4 16.2h3.4M5.4 18h2.2"/>
+                <path d="M14.2 17.2h6.3M17.3 14.5v5.4"/>
+              </svg>
+            </span>
             <div>
               <strong>Reviews &amp; jobs on every site</strong>
               <span>Ask for Google reviews when the job wraps, and keep customers &amp; jobs on your Home Screen — no App Store.</span>
             </div>
           </li>
+          <li>
+            <span class="fa-benefits__ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="8.2" cy="8" r="2.6"/>
+                <circle cx="15.8" cy="8" r="2.6"/>
+                <path d="M3.8 18.5c.5-2.6 2.5-4 4.4-4s3.9 1.4 4.4 4"/>
+                <path d="M11.4 18.5c.5-2.6 2.5-4 4.4-4s3.9 1.4 4.4 4"/>
+                <path d="M10.6 11.2c.7.7 1.7 1.1 2.7 1.1s2-.4 2.7-1.1"/>
+              </svg>
+            </span>
+            <div>
+              <strong>Referral network that feeds you work</strong>
+              <span>Send and receive referrals with partners in your area — grow without cold calling strangers. Closed jobs credit your ads account.</span>
+            </div>
+          </li>
+          <li>
+            <span class="fa-benefits__ico" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3.5" y="4.5" width="17" height="15" rx="2.2"/>
+                <path d="M7 15.2V11.4M12 15.2V8.8M17 15.2v-2.6"/>
+                <path d="M7.2 8.2h2.6l2.2 3.2 2.1-4.2h2.7" stroke-width="1.8"/>
+              </svg>
+            </span>
+            <div>
+              <strong>Pay-per-performance marketing</strong>
+              <span>Get leads through the app. Approve what you want — commission only on leads you accept. Decline the rest at no cost.</span>
+            </div>
+          </li>
         </ul>
-        <div class="fa-perks"><span>Pay per performance</span><span>Referrals</span><span>30-day free trial</span></div>
+        <div class="fa-perks"><span>Pay per performance</span><span>Referrals</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
 
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
@@ -401,27 +466,63 @@
             <label for="fa-email">Email <span class="opt">(if you prefer email)</span></label>
             <input id="fa-email" name="email" type="email" autocomplete="email" maxlength="200" value="<%= _f.email || '' %>">
           </div>
+          <div class="fa-field">
+            <label for="fa-trades">Trades or areas you work in</label>
+            <textarea id="fa-trades" name="serviceTrades" required maxlength="200" rows="2" placeholder="<%= _flooring ? 'e.g. Hardwood, LVP, carpet, tile' : 'e.g. Flooring, carpet, LVP — or your trade' %>"><%= _f.serviceTrades || (_flooring ? 'Flooring' : '') %></textarea>
+            <p class="fa-field-hint">What you do — used to match reviews and referrals.</p>
+          </div>
+          <div class="fa-grid2">
+            <div class="fa-field" style="margin-top:0.9rem">
+              <label for="fa-city">City you work in</label>
+              <input id="fa-city" name="serviceCity" autocomplete="address-level2" required maxlength="80" value="<%= _f.serviceCity || '' %>" placeholder="e.g. Camas">
+            </div>
+            <div class="fa-field" style="margin-top:0.9rem">
+              <label for="fa-drive">Willing to drive</label>
+              <select id="fa-drive" name="serviceRadiusMiles" required>
+                <option value="">Max distance…</option>
+                <% [10, 15, 20, 25, 30, 45, 60, 75, 100].forEach(function (mi) { %>
+                <option value="<%= mi %>" <%= Number(_f.serviceRadiusMiles) === mi ? 'selected' : '' %>><%= mi %> miles</option>
+                <% }) %>
+              </select>
+            </div>
+          </div>
+          <p class="fa-field-hint" style="margin-top:0.35rem">City + drive distance = where you want reviews and referrals from.</p>
 
           <div class="fa-terms">
             <input id="fa-terms" name="acceptTerms" type="checkbox" value="on" required <%= _f.acceptTerms ? 'checked' : '' %>>
             <label for="fa-terms">
+              <% if (_flooring) { %>
+              I agree to the <a href="#fa-terms-details">Terms &amp; Conditions</a>: I keep Reviews App access
+              <strong>as long as I buy material from you</strong>. Lead delivery is
+              <strong>pay-per-performance</strong> — commission only on leads I <strong>approve</strong>.
+              <% } else { %>
               I agree to the <a href="#fa-terms-details">Terms &amp; Conditions</a>: AdHello Reviews is a
               <strong>pay-per-performance</strong> model. I will pay commission on leads I receive through the app
               <strong>after I approve them</strong>.
+              <% } %>
             </label>
           </div>
           <details class="fa-terms-details" id="fa-terms-details">
-            <summary>Terms &amp; Conditions — pay-per-performance</summary>
+            <summary>Terms &amp; Conditions — <%= _flooring ? 'flooring partners' : 'pay-per-performance' %></summary>
             <ul>
+              <% if (_flooring) { %>
+              <li>Your Reviews App account stays active <strong>while you purchase material from us</strong> — there is no timed free trial.</li>
+              <li>If material purchases stop, we may pause or end app access.</li>
+              <li>Lead delivery is <strong>pay-per-performance</strong>: when you receive a lead, you choose whether to <strong>approve</strong> it.</li>
+              <li>Approving a lead means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
+              <li>Declining a lead does not create a commission obligation for that lead.</li>
+              <li>By checking the box above and submitting this form, you accept these Terms &amp; Conditions.</li>
+              <% } else { %>
               <li>The Reviews app trial and core tools may be free; lead delivery is <strong>pay-per-performance</strong>.</li>
               <li>When you receive a lead through the app, you choose whether to <strong>approve</strong> (accept) it.</li>
               <li>Approving a lead means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
               <li>Declining a lead does not create a commission obligation for that lead.</li>
               <li>By checking the box above and submitting this form, you accept these Terms &amp; Conditions.</li>
+              <% } %>
             </ul>
           </details>
 
-          <button type="submit" class="fa-btn" id="fa-submit">Text me my trial link</button>
+          <button type="submit" class="fa-btn" id="fa-submit"><%= _flooring ? 'Text me my app link' : 'Text me my trial link' %></button>
         </form>
         <script>
           (function () {

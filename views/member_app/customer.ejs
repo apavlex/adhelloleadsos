@@ -8,24 +8,44 @@
     <%- include('_top', { topBack: { href: base + '/customers', label: 'Customers' } }) %>
     <% const fv = formValues || {}; %>
     <% if (customer) { %>
-    <% if (customer.isLead) { %>
-    <form id="maUnmarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/unmark-lead" hidden>
+    <%
+      const _flooring = typeof isFlooringPartner !== 'undefined' ? !!isFlooringPartner : false;
+      const _kind = typeof contactKind !== 'undefined' ? contactKind : (customer.isLead ? 'lead' : (customer.isQuoteRequest ? 'quote' : 'customer'));
+    %>
+    <form id="maMarkCustomerForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-customer" hidden>
       <input type="hidden" name="stay" value="1">
     </form>
-    <% } else { %>
-    <form id="maMarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-lead" hidden></form>
+    <form id="maMarkLeadForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-lead" hidden>
+      <input type="hidden" name="stay" value="1">
+    </form>
+    <% if (_flooring) { %>
+    <form id="maMarkQuoteForm" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-quote" hidden>
+      <input type="hidden" name="stay" value="1">
+    </form>
     <% } %>
     <div class="ma-titlebar">
       <h1 class="ma-page-title"><%= customer.name %></h1>
       <div class="ma-titlebar__actions">
         <% if (customer.referralId) { %><span class="ma-pill ma-pill--sent">From referral</span><% } %>
-        <% if (customer.isLead) { %>
-        <button type="submit" form="maUnmarkLeadForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
-        <% } else { %>
-        <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
-        <% } %>
+        <% if (_kind === 'lead') { %><span class="ma-pill ma-pill--accepted">Lead</span><% } %>
+        <% if (_kind === 'quote') { %><span class="ma-pill ma-pill--job-estimate">Quote</span><% } %>
       </div>
     </div>
+    <% if (_flooring) { %>
+    <nav class="ma-seg ma-seg--3" aria-label="Contact type" style="margin:0 0 12px">
+      <button type="submit" form="maMarkCustomerForm" class="<%= _kind === 'customer' ? 'is-on' : '' %>" <%= _kind === 'customer' ? 'aria-current=page' : '' %>><%- icons.customers %><span>Customer</span></button>
+      <button type="submit" form="maMarkLeadForm" class="<%= _kind === 'lead' ? 'is-on' : '' %>" <%= _kind === 'lead' ? 'aria-current=page' : '' %>><%- icons.leads %><span>Lead</span></button>
+      <button type="submit" form="maMarkQuoteForm" class="<%= _kind === 'quote' ? 'is-on' : '' %>" <%= _kind === 'quote' ? 'aria-current=page' : '' %>><%- icons.send %><span>Quote</span></button>
+    </nav>
+    <% } else { %>
+    <div class="ma-titlebar__actions" style="margin:0 0 12px;justify-content:flex-start">
+      <% if (_kind === 'lead') { %>
+      <button type="submit" form="maMarkCustomerForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
+      <% } else { %>
+      <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
+      <% } %>
+    </div>
+    <% } %>
     <% const tel = String(customer.phone || '').replace(/[^0-9+]/g, ''); %>
     <% const mapsHref = googleMapsSearchUrl({ name: customer.name, address: customer.address }); %>
     <div class="ma-quick">
@@ -40,8 +60,20 @@
         aria-label="Request a review — review message before sending"
       ><%- icons.review %><span>Review</span></a>
       <% } %>
+      <% if (_flooring) { %>
+      <form class="ma-quick__form" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-quote">
+        <input type="hidden" name="openQuote" value="1">
+        <button type="submit" class="ma-quick__btn" aria-label="Request a material quote for this contact">
+          <%- icons.packages %><span>Quote</span>
+        </button>
+      </form>
+      <% } else { %>
       <a class="ma-quick__btn<%= mapsHref ? '' : ' is-off' %>" <%- mapsHref ? 'href="' + mapsHref + '" target="_blank" rel="noopener"' : 'aria-disabled="true"' %>><%- icons.mapPin %><span>Map</span></a>
+      <% } %>
     </div>
+    <% if (_flooring) { %>
+    <p class="ma-hint" style="margin:8px 0 0">Tap <strong>Quote</strong> to mark this contact as a material quote request and open the quote form with their details filled in. Or use Customer / Lead / Quote above.</p>
+    <% } %>
     <% if (typeof reviewSendLocked !== 'undefined' && reviewSendLocked) { %>
     <p class="ma-hint" style="margin:8px 0 0">Text/email review sends need a GHL CRM account on the monthly plan. Share your QR from the Review tab for free, or <a href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">upgrade</a>.</p>
     <% } else if (typeof reviewAskStatus !== 'undefined' && reviewAskStatus) { %>

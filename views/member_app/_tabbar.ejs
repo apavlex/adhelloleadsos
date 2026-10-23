@@ -1,18 +1,25 @@
 <%
-  const _isFree = typeof isAppFree !== 'undefined' ? !!isAppFree : (member && member.plan === 'app_free');
+  const _isFlooring = typeof isFlooringPartner !== 'undefined'
+    ? !!isFlooringPartner
+    : !!(member && (member.plan === 'app_flooring' || member.signupOffer === 'flooring'));
+  const _isFree = typeof isAppFree !== 'undefined' ? !!isAppFree : (member && (member.plan === 'app_free' || member.plan === 'app_flooring'));
   // Review tab always lands on QR / share — not the GHL send form (?ask=1).
   const _reviewHref = base + '/review';
   // Review keeps the raised round FAB; label font/baseline match every other tab.
+  // Flooring partners: Quote (material request) replaces Send.
   // Free members: Join replaces Send (upgrade path).
   // Leads tab → /referrals (website + agency + network referrals in one place).
+  const _sendTab = _isFlooring
+    ? { id: 'quote', label: 'Quote', href: base + '/quote', icon: icons.send }
+    : (_isFree
+      ? { id: 'join', label: 'Join', href: base + '/join', icon: icons.enroll }
+      : { id: 'send', label: 'Send', href: base + '/send', icon: icons.send });
   const _tabs = [
     { id: 'home', label: 'Home', href: base, icon: icons.home },
     { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
     { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review, fab: true },
     { id: 'referrals', label: 'Leads', href: base + '/referrals', icon: icons.referrals },
-    _isFree
-      ? { id: 'join', label: 'Join', href: base + '/join', icon: icons.enroll }
-      : { id: 'send', label: 'Send', href: base + '/send', icon: icons.send },
+    _sendTab,
   ];
   const _appName = (brand && brand.appName) ? brand.appName : 'this app';
 %>

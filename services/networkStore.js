@@ -158,12 +158,13 @@ function normalizeMember(raw) {
     zoneIds: [...new Set((Array.isArray(m.zoneIds) ? m.zoneIds : []).map((id) => String(id || '').trim()).filter(Boolean))],
     status: m.status === 'paused' ? 'paused' : 'active',
     /**
-     * Member commercial plan. `app_free` = public reviews-app trial signup
-     * (reviews / customers / jobs; leads + workspace upgrade gated). Empty =
-     * partner / owner on a paid or activated agency seat.
+     * Member commercial plan. `app_free` = public reviews-app trial signup;
+     * `app_flooring` = flooring partner (material-purchase access, no timed
+     * trial). Both are freemium (reviews / customers / jobs; leads gated).
+     * Empty = partner / owner on a paid or activated agency seat.
      */
     plan: cleanText(m.plan, 40),
-    /** ISO when the reviews-app trial ends (app_free only). */
+    /** ISO when the reviews-app trial ends (app_free only; empty for flooring). */
     trialEndsAt: cleanText(m.trialEndsAt, 40),
     /** ISO when an admin activated this member off the freemium trial. */
     planActivatedAt: cleanText(m.planActivatedAt, 40),
@@ -171,6 +172,20 @@ function normalizeMember(raw) {
     termsAcceptedAt: cleanText(m.termsAcceptedAt, 40),
     /** Terms document id accepted at signup (e.g. reviews-ppp-v1). */
     termsVersion: cleanText(m.termsVersion, 40),
+    /**
+     * Public signup offer track (`flooring` = material-purchase access, no timed trial).
+     */
+    signupOffer: cleanText(m.signupOffer, 40),
+    /**
+     * Public Reviews signup: trades/areas they work in, base city, and how far
+     * they’ll drive for reviews + referrals/leads (miles).
+     */
+    serviceTrades: cleanText(m.serviceTrades, 200),
+    serviceCity: cleanText(m.serviceCity, 80),
+    serviceRadiusMiles: (() => {
+      const n = parseInt(m.serviceRadiusMiles, 10);
+      return Number.isFinite(n) && n > 0 ? Math.min(200, n) : 0;
+    })(),
     /**
      * Agency OS workspace created when this free-app member first uploads a
      * customer list — so ops can manage that list from the CRM.

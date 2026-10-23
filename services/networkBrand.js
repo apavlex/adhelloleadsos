@@ -106,7 +106,8 @@ function formatStat(value) {
 function brandView(network, member, opts = {}) {
   const net = network && typeof network === 'object' ? network : {};
   const brand = normalizeBrand(net.brand);
-  const free = !!(opts.freeApp || (member && String(member.plan || '') === 'app_free'));
+  const plan = member ? String(member.plan || '') : '';
+  const free = !!(opts.freeApp || plan === 'app_free' || plan === 'app_flooring');
   const companyName = free && member ? cleanText(member.companyName, 60) : '';
   // Free app never inherits the host agency network name — product is Reviews App.
   // Signup company stays on the hero subtitle so members still see their business.

@@ -802,7 +802,7 @@
             </div>
             <span class="flex shrink-0 items-center gap-1.5">
               <% if (m.isFreeApp && m.appTrial) { %>
-              <span class="net-pill <%= m.trialExpired ? 'net-pill-declined' : 'net-pill-free' %>" title="<%= m.trialExpired ? 'Reviews app trial ended — activate to restore access' : ('Reviews app trial · ' + (m.appTrial.daysLeft === 1 ? 'last day' : m.appTrial.daysLeft + ' days left')) %>"><%= m.trialLabel || 'Trial' %></span>
+              <span class="net-pill <%= m.trialExpired ? 'net-pill-declined' : 'net-pill-free' %>" title="<%= m.trialExpired ? 'Reviews app trial ended — activate to restore access' : (m.appTrial.state === 'active' ? (m.trialLabel || 'Flooring partner') : ('Reviews app trial · ' + (m.appTrial.daysLeft === 1 ? 'last day' : m.appTrial.daysLeft + ' days left'))) %>"><%= m.trialLabel || 'Trial' %></span>
               <% } else if (m.isFreeApp) { %>
               <span class="net-pill net-pill-free" title="Reviews app trial">Trial</span>
               <% } %>

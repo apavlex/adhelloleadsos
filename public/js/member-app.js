@@ -531,13 +531,25 @@
     });
   });
 
-  /** Take photo / Choose from library sheet (customer + job pages). */
+  /** Take photo / Choose from library sheet (customer + job pages).
+   *  Optional collect mode (`data-ma-photo-collect`) appends files to a target
+   *  input for a parent form (material quote) instead of POSTing immediately. */
   function initPhotoCapture(root) {
     if (!root || root.getAttribute('data-ma-ready') === '1') return;
     var sheet = root.querySelector('[data-ma-photo-sheet]');
-    var form = root.querySelector('form.ma-photo-form');
+    // Prefer a real <form>; collect-mode pages may use a <div class="ma-photo-form">
+    // so they don’t nest a form inside another (browser would break the outer form).
+    var form = root.querySelector('form.ma-photo-form') || root.querySelector('.ma-photo-form');
     var file = root.querySelector('input[type="file"][name="photo"]');
     if (!sheet || !form || !file) return;
+    var collectSel = root.getAttribute('data-ma-photo-collect') || '';
+    var previewSel = root.getAttribute('data-ma-photo-preview') || '';
+    var countSel = root.getAttribute('data-ma-photo-count') || '';
+    var maxPhotos = Math.max(1, Math.min(12, parseInt(root.getAttribute('data-ma-photo-max') || '8', 10) || 8));
+    var collectInput = collectSel ? document.querySelector(collectSel) : null;
+    var previewEl = previewSel ? document.querySelector(previewSel) : null;
+    var countEl = countSel ? document.querySelector(countSel) : null;
+    var collected = [];
 
     function openSheet() {
       // Portal to <body> so the sheet isn’t trapped under the fixed tab bar /
@@ -557,9 +569,54 @@
       try { file.value = ''; } catch (e) { /* ignore */ }
     }
 
+    function syncCollectInput() {
+      if (!collectInput || typeof DataTransfer === 'undefined') return;
+      var dt = new DataTransfer();
+      collected.forEach(function (item) { dt.items.add(item.file); });
+      collectInput.files = dt.files;
+    }
+
+    function renderCollectPreview() {
+      if (countEl) countEl.textContent = collected.length + '/' + maxPhotos;
+      if (root.querySelector('[data-ma-photo-open]')) {
+        root.querySelector('[data-ma-photo-open]').hidden = collected.length >= maxPhotos;
+      }
+      if (!previewEl) return;
+      previewEl.hidden = !collected.length;
+      previewEl.innerHTML = '';
+      collected.forEach(function (item, idx) {
+        var fig = document.createElement('figure');
+        fig.className = 'ma-photos__item';
+        var img = document.createElement('img');
+        img.src = item.url;
+        img.alt = 'Quote photo ' + (idx + 1);
+        img.loading = 'lazy';
+        var wrap = document.createElement('a');
+        wrap.href = item.url;
+        wrap.className = 'ma-photos__thumb';
+        wrap.appendChild(img);
+        wrap.addEventListener('click', function (e) { e.preventDefault(); });
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'ma-photos__del';
+        del.setAttribute('aria-label', 'Remove photo');
+        del.textContent = '×';
+        del.addEventListener('click', function () {
+          try { URL.revokeObjectURL(item.url); } catch (err) { /* ignore */ }
+          collected.splice(idx, 1);
+          syncCollectInput();
+          renderCollectPreview();
+        });
+        fig.appendChild(wrap);
+        fig.appendChild(del);
+        previewEl.appendChild(fig);
+      });
+    }
+
     root.querySelectorAll('[data-ma-photo-open]').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.preventDefault();
+        if (collectInput && collected.length >= maxPhotos) return;
         openSheet();
       });
     });
@@ -586,6 +643,19 @@
 
     file.addEventListener('change', function () {
       if (!file.files || !file.files.length) return;
+      if (collectInput) {
+        var picked = file.files[0];
+        if (picked && collected.length < maxPhotos) {
+          collected.push({
+            file: picked,
+            url: URL.createObjectURL(picked),
+          });
+          syncCollectInput();
+          renderCollectPreview();
+        }
+        closeSheet();
+        return;
+      }
       if (typeof form.requestSubmit === 'function') form.requestSubmit();
       else form.submit();
     });
