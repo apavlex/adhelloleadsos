@@ -267,6 +267,38 @@
       line-height: 1.45;
       margin-top: 1.25rem;
     }
+    .fa-sent-steps {
+      margin: 1rem 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 0.65rem;
+    }
+    .fa-sent-steps li {
+      display: grid;
+      grid-template-columns: 1.6rem 1fr;
+      gap: 0.55rem;
+      align-items: start;
+      font-size: 14px;
+      line-height: 1.4;
+      color: var(--fa-muted);
+      counter-increment: fa-step;
+    }
+    .fa-sent-steps { counter-reset: fa-step; }
+    .fa-sent-steps li::before {
+      content: counter(fa-step);
+      width: 1.6rem;
+      height: 1.6rem;
+      border-radius: 999px;
+      background: #facc15;
+      color: #1f242e;
+      font-weight: 900;
+      font-size: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .fa-sent-steps strong { color: var(--fa-ink); }
     .fa-back {
       margin-top: 1.5rem;
       text-align: center;
@@ -310,7 +342,11 @@
 
       <% if (sent) { %>
         <h1>Check your phone</h1>
-        <p class="fa-card-lead">If that number or email is valid, your app link is on its way<% if (_joinName) { %> for <strong><%= _joinName %></strong><% } %>. Open it, then Share → Add to Home Screen.</p>
+        <p class="fa-card-lead">If that number or email is valid, your app link is on its way<% if (_joinName) { %> for <strong><%= _joinName %></strong><% } %>. Open it, then:</p>
+        <ol class="fa-sent-steps" aria-label="Next steps">
+          <li><strong>Add to Home Screen</strong> — Share → Add to Home Screen so it opens like an app.</li>
+          <li><strong>Turn on phone alerts</strong> — allow notifications so leads, referrals, and News &amp; updates pop up on your phone.</li>
+        </ol>
         <div class="fa-ok" role="status">Link sent. It can take a minute. Already have it? <a class="underline font-semibold" href="<%= _login %>">Get a fresh link</a>.</div>
         <p class="fa-foot" style="margin-top:1.5rem">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="underline" href="<%= _trial %>">Start a free trial</a>.</p>
       <% } else { %>

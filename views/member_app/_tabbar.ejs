@@ -89,8 +89,44 @@
     </div>
   </div>
 </div>
+
+<%
+  const _pushBase = typeof base !== 'undefined' ? base : '';
+  const _joinedAt = (typeof member !== 'undefined' && member && member.joinedAt) ? member.joinedAt : '';
+%>
+<div
+  class="ma-install-modal ma-push-nudge-modal"
+  id="maPushNudge"
+  hidden
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="maPushNudgeTitle"
+  data-ma-push-base="<%= _pushBase %>"
+  data-ma-push-joined="<%= _joinedAt %>"
+  data-ma-push-app="<%= _appName %>"
+>
+  <div class="ma-install-sheet ma-push-nudge-sheet">
+    <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-push-nudge-close>&times;</button>
+    <p class="ma-install-kicker" style="margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--acc,#FFDB3A)">Don’t miss leads &amp; updates</p>
+    <h2 id="maPushNudgeTitle">Turn on phone alerts</h2>
+    <p class="ma-install-lead">
+      New <b>leads</b>, <b>referrals</b>, and <b>News &amp; updates</b> from your network pop up on this phone — even when the app is closed. Turn alerts on now so you never miss a job.
+    </p>
+    <ol class="ma-install-steps" data-ma-push-nudge-steps>
+      <li><span class="ma-install-n">1</span><span>Tap <b>Turn on alerts</b> below.</span></li>
+      <li><span class="ma-install-n">2</span><span>Allow notifications when your phone asks.</span></li>
+      <li><span class="ma-install-n">3</span><span>You’re set — leads and network updates wake you up.</span></li>
+    </ol>
+    <p class="ma-install-lead" data-ma-push-nudge-status hidden></p>
+    <div class="ma-install-actions">
+      <button type="button" class="ma-btn" data-ma-push-nudge-enable>Turn on alerts</button>
+      <button type="button" class="ma-btn ma-btn--ghost" data-ma-push-nudge-close>Not now</button>
+    </div>
+  </div>
+</div>
 <script>window.__maVoiceEndpoint = <%- JSON.stringify((typeof base !== 'undefined' && base ? base : '') + '/voice/transcribe') %>;</script>
 <script src="/js/alex-voice-input.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/member-customer-search.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/member-app-notifications.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/member-app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+<script src="/js/member-app-push-nudge.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>

@@ -546,7 +546,7 @@ function freeAppPortalSms({ firstName, reviewsLink }) {
   return [
     `Hey ${firstName} — you’re in the AdHello Referral Network!`,
     `Quickest win: start collecting free reviews right here → ${reviewsLink}`,
-    'After that, handle customers, jobs, and referrals in the app. Tip: Share → Add to Home Screen.',
+    'Open the app → Add to Home Screen, then Turn on phone alerts so leads & updates pop up on your phone.',
   ].join('\n');
 }
 
