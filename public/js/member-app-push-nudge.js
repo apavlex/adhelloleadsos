@@ -187,6 +187,9 @@
         clearSnooze();
         enableBtn.textContent = 'Alerts are on';
         setStatus('You’re set — leads, referrals, and News & updates will pop up on this phone.', true);
+        try {
+          window.dispatchEvent(new CustomEvent('ma-push-enabled'));
+        } catch (_) { /* ignore */ }
         post('/push/test', {}).catch(function () {});
         setTimeout(function () { closeModal(false); }, 1400);
       })

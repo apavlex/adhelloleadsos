@@ -188,6 +188,7 @@ const OK_MESSAGES = {
   logo_cleared: 'Custom logo removed. Your review page will use the network logo or initials.',
   hero_saved: 'Home banner image updated.',
   hero_cleared: 'Home banner image removed.',
+  setup_dismissed: 'Setup checklist hidden. You can finish anytime from Profile.',
   profile_saved: 'Profile saved.',
   photo_saved: 'Profile photo saved.',
   photo_cleared: 'Profile photo removed.',
@@ -1175,6 +1176,13 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
         memberLeadRequests.presentFormLead(lead, { detailsAllowed: false })),
     };
   }
+  const memberAppOnboarding = require('../services/memberAppOnboarding');
+  const setupChecklist = memberAppOnboarding.buildChecklist({
+    member: ctx.member,
+    network: ctx.network,
+    base: ctx.base,
+    networkHeroUrl: (ctx.brand && ctx.brand.heroUrl) || (ctx.network.brand && ctx.network.brand.heroUrl) || '',
+  });
   render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     // Leads → customers → referrals (hero shows open jobs as projects).
@@ -1194,6 +1202,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     leadDetailsLocked: !leadDetailsAllowed,
     upgradeHref: '/signup',
     flash: flashFromQuery(req),
+    setupChecklist,
   });
   // CRM sync in the background so Home stays snappy on mobile.
   scheduleOwnerCustomerSync(ctx);
@@ -3808,7 +3817,33 @@ router.post('/m/:token/push/subscribe', express.json(), withMember(async (req, r
       userAgent: req.get('user-agent'),
     });
   }
+  try {
+    const memberAppOnboarding = require('../services/memberAppOnboarding');
+    const setupChecklist = memberAppOnboarding.markStep(ctx.member.setupChecklist, 'notifications');
+    await store.saveMember(ctx.network.id, { ...ctx.member, setupChecklist });
+  } catch (_) { /* non-blocking */ }
   return res.json({ success: true });
+}));
+
+/** Mark a client-detected setup step (notifications / Home Screen) or dismiss the checklist. */
+router.post('/m/:token/setup/step', express.json(), withMember(async (req, res, ctx) => {
+  noStore(res);
+  const memberAppOnboarding = require('../services/memberAppOnboarding');
+  const step = String((req.body && req.body.step) || '').trim();
+  if (!['notifications', 'home_screen'].includes(step)) {
+    return res.status(400).json({ success: false, error: 'Unknown setup step.' });
+  }
+  const setupChecklist = memberAppOnboarding.markStep(ctx.member.setupChecklist, step);
+  await store.saveMember(ctx.network.id, { ...ctx.member, setupChecklist });
+  return res.json({ success: true, step, setupChecklist });
+}));
+
+router.post('/m/:token/setup/dismiss', form, withMember(async (req, res, ctx) => {
+  const memberAppOnboarding = require('../services/memberAppOnboarding');
+  const setupChecklist = memberAppOnboarding.dismiss(ctx.member.setupChecklist);
+  await store.saveMember(ctx.network.id, { ...ctx.member, setupChecklist });
+  if (wantsJson(req)) return res.json({ success: true });
+  return res.redirect(303, `${ctx.base}?ok=setup_dismissed`);
 }));
 
 router.post('/m/:token/push/unsubscribe', express.json(), withMember(async (req, res, ctx) => {

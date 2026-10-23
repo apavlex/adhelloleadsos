@@ -1,0 +1,124 @@
+<%# Reviews-app setup checklist — Home after signup. Expects `setupChecklist`. %>
+<% const _sc = typeof setupChecklist !== 'undefined' && setupChecklist ? setupChecklist : null; %>
+<% if (_sc && _sc.show && _sc.steps && _sc.steps.length) { %>
+<section class="ma-section ma-onboard" id="maOnboarding" aria-label="Get set up" data-ma-onboard>
+  <div class="ma-onboard__card">
+    <div class="ma-onboard__head">
+      <div class="min-w-0">
+        <p class="ma-onboard__eyebrow">Get set up</p>
+        <h2 class="ma-onboard__title">Finish your Reviews app</h2>
+        <p class="ma-onboard__progress"><%= _sc.doneCount %> of <%= _sc.total %> done</p>
+      </div>
+      <form method="post" action="<%= base %>/setup/dismiss" class="ma-onboard__dismiss-form">
+        <button type="submit" class="ma-onboard__dismiss" aria-label="Hide setup checklist">Not now</button>
+      </form>
+    </div>
+    <div class="ma-onboard__bar" aria-hidden="true">
+      <span class="ma-onboard__bar-fill" style="width:<%= Math.round((_sc.doneCount / _sc.total) * 100) %>%"></span>
+    </div>
+    <ol class="ma-onboard__list">
+      <% _sc.steps.forEach(function (step, i) { %>
+      <li class="ma-onboard__item<%= step.done ? ' is-done' : '' %>" data-ma-onboard-step="<%= step.id %>">
+        <span class="ma-onboard__check" aria-hidden="true"><% if (step.done) { %>✓<% } else { %><%= i + 1 %><% } %></span>
+        <div class="ma-onboard__body">
+          <p class="ma-onboard__step-title"><%= step.title %></p>
+          <p class="ma-onboard__step-hint"><%= step.hint %></p>
+        </div>
+        <% if (step.done) { %>
+        <span class="ma-onboard__done-label">Done</span>
+        <% } else if (step.action === 'notifications') { %>
+        <button type="button" class="ma-btn ma-btn--soft ma-onboard__cta" data-ma-onboard-action="notifications"><%= step.cta %></button>
+        <% } else if (step.action === 'install') { %>
+        <button type="button" class="ma-btn ma-btn--soft ma-onboard__cta" data-ma-install-open data-ma-onboard-action="install"><%= step.cta %></button>
+        <% } else if (step.id === 'banner') { %>
+        <label class="ma-btn ma-btn--soft ma-onboard__cta" for="maOnboardHeroInput"><%= step.cta %></label>
+        <% } else { %>
+        <a class="ma-btn ma-btn--soft ma-onboard__cta" href="<%= step.href %>"><%= step.cta %></a>
+        <% } %>
+      </li>
+      <% }); %>
+    </ol>
+    <form id="maOnboardHeroForm" class="ma-onboard__hero-form" method="post" action="<%= base %>/brand/hero" enctype="multipart/form-data" autocomplete="off" hidden>
+      <input id="maOnboardHeroInput" type="file" name="hero" accept="image/jpeg,image/png,image/webp,image/gif" required>
+    </form>
+  </div>
+</section>
+<script>
+(function () {
+  var root = document.getElementById('maOnboarding');
+  if (!root || root.getAttribute('data-ma-onboard-ready')) return;
+  root.setAttribute('data-ma-onboard-ready', '1');
+  var base = <%- JSON.stringify(typeof base !== 'undefined' ? base : '') %>;
+
+  function postStep(stepId) {
+    if (!base || !stepId) return Promise.resolve();
+    return fetch(base + '/setup/step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ step: stepId }),
+    }).catch(function () {});
+  }
+
+  function markLocal(stepId) {
+    var item = root.querySelector('[data-ma-onboard-step="' + stepId + '"]');
+    if (!item || item.classList.contains('is-done')) return;
+    item.classList.add('is-done');
+    var check = item.querySelector('.ma-onboard__check');
+    if (check) check.textContent = '✓';
+    var cta = item.querySelector('.ma-onboard__cta');
+    if (cta) {
+      var done = document.createElement('span');
+      done.className = 'ma-onboard__done-label';
+      done.textContent = 'Done';
+      cta.replaceWith(done);
+    }
+  }
+
+  var heroInput = document.getElementById('maOnboardHeroInput');
+  var heroForm = document.getElementById('maOnboardHeroForm');
+  if (heroInput && heroForm) {
+    heroInput.addEventListener('change', function () {
+      if (!heroInput.files || !heroInput.files.length) return;
+      if (heroForm.requestSubmit) heroForm.requestSubmit();
+      else heroForm.submit();
+    });
+  }
+
+  root.querySelectorAll('[data-ma-onboard-action="notifications"]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var nudge = document.getElementById('maPushNudge');
+      var enable = nudge && nudge.querySelector('[data-ma-push-nudge-enable]');
+      if (enable) {
+        if (nudge) nudge.hidden = false;
+        enable.click();
+      } else if (window.AdHelloMemberPush && typeof window.AdHelloMemberPush.enable === 'function') {
+        window.AdHelloMemberPush.enable();
+      }
+    });
+  });
+
+  // Push subscribe route marks the step server-side; refresh UI when permission lands.
+  window.addEventListener('ma-push-enabled', function () {
+    markLocal('notifications');
+  });
+
+  window.addEventListener('ma-install-closed', function (ev) {
+    if (ev && ev.detail && ev.detail.persist) {
+      postStep('home_screen').then(function () { markLocal('home_screen'); });
+    }
+  });
+
+  var standalone =
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    window.navigator.standalone === true;
+  if (standalone) {
+    postStep('home_screen').then(function () { markLocal('home_screen'); });
+  }
+
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    postStep('notifications').then(function () { markLocal('notifications'); });
+  }
+})();
+</script>
+<% } %>

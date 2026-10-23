@@ -2370,6 +2370,133 @@ html[data-ma-theme="dark"] .ma-appt {
 }
 .ma-dash-actions .ma-btn { width: 100%; justify-content: center; }
 
+/* Setup checklist after Reviews-app signup */
+.ma-onboard { margin-top: 14px; }
+.ma-onboard__card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+.ma-onboard__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ma-onboard__eyebrow {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--acc-ink);
+}
+.ma-onboard__title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.ma-onboard__progress {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.ma-onboard__dismiss {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 0;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ma-onboard__dismiss:active { opacity: 0.7; }
+.ma-onboard__bar {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.ma-onboard__bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--acc);
+  transition: width 0.25s ease;
+}
+.ma-onboard__list {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ma-onboard__item {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 10px;
+  border-radius: 14px;
+  background: var(--bg);
+}
+.ma-onboard__item.is-done { opacity: 0.72; }
+.ma-onboard__check {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--acc) 22%, var(--card));
+  color: var(--acc-ink);
+}
+.ma-onboard__item.is-done .ma-onboard__check {
+  background: var(--acc);
+  color: var(--on);
+}
+.ma-onboard__step-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.ma-onboard__step-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.ma-onboard__cta {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ma-onboard__done-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.ma-onboard__hero-form { position: absolute; width: 0; height: 0; overflow: hidden; }
+html[data-ma-theme="dark"] .ma-onboard__card { box-shadow: none; border-color: transparent; }
+
 /* Job photos + review-ask status */
 .ma-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}
 .ma-photos__item{position:relative;margin:0;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--muted) 12%,transparent)}
