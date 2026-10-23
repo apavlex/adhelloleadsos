@@ -57,34 +57,52 @@ function isPaidMember(member) {
 }
 
 /**
- * Best Outscraper query from the member's Google review link / company.
+ * Outscraper query for a Reviews-app member — Google request-site link only.
+ * Never falls back to CRM lead place / company name (that pulls the wrong listing).
  * @param {object} member
- * @param {object|null} [lead]
+ * @param {object|null} [_lead] unused; kept for call-site compatibility
  */
-function resolveQueryFromMember(member, lead) {
+function resolveQueryFromMember(member, _lead) {
   const google = String((member && member.reviewLinks && member.reviewLinks.google) || '').trim();
-  if (google) {
-    try {
-      const u = new URL(google);
-      const placeId =
-        u.searchParams.get('placeid') ||
-        u.searchParams.get('placeId') ||
-        u.searchParams.get('query_place_id') ||
-        '';
-      if (placeId && /^[A-Za-z0-9_-]{10,}$/.test(placeId)) return placeId;
-    } catch { /* ignore */ }
-    if (/^https?:\/\//i.test(google)) return google;
-  }
-  const pid = String((lead && (lead.placeId || lead.place_id)) || '').trim();
-  if (pid && /^[A-Za-z0-9_-]{10,}$/.test(pid)) return pid;
-  const maps = String((lead && (lead.url || lead.googlePlaces)) || '').trim();
-  if (maps) return maps;
-  const parts = [
-    member && member.companyName,
-    lead && lead.city,
-    lead && lead.state,
-  ].filter((p) => p && String(p).trim());
-  return parts.join(', ');
+  if (!google) return '';
+  try {
+    const u = new URL(google);
+    const placeId =
+      u.searchParams.get('placeid') ||
+      u.searchParams.get('placeId') ||
+      u.searchParams.get('query_place_id') ||
+      '';
+    if (placeId && /^[A-Za-z0-9_-]{10,}$/.test(placeId)) return placeId;
+  } catch { /* ignore */ }
+  if (/^https?:\/\//i.test(google)) return google;
+  return '';
+}
+
+/**
+ * Strip HTML Outscraper sometimes embeds (literal &lt;br&gt; in review text).
+ * Converts breaks to newlines; removes remaining tags.
+ */
+function sanitizeReviewText(value, max = 4000) {
+  let s = String(value == null ? '' : value);
+  if (!s) return '';
+  s = s
+    .replace(/<\s*br\s*\/?\s*>/gi, '\n')
+    .replace(/<\s*\/\s*p\s*>/gi, '\n')
+    .replace(/<\s*p[^>]*>/gi, '')
+    .replace(/<\s*\/\s*div\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+  return s.slice(0, max);
 }
 
 function readJson(key, fallback) {
@@ -104,6 +122,10 @@ function clean(v, max) {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, max);
+}
+
+function cleanMultiline(v, max) {
+  return sanitizeReviewText(v, max);
 }
 
 /** Paid / activated workspaces (and legacy workspaces that never had a trial). */
@@ -170,8 +192,19 @@ function getStore(workspaceId) {
   if (!wid) return emptyStore();
   const raw = readJson(storeKey(wid), null);
   if (!raw) return emptyStore();
+  const reviews = Array.isArray(raw.reviews)
+    ? raw.reviews.map((r) => {
+      if (!r || typeof r !== 'object') return r;
+      return {
+        ...r,
+        text: sanitizeReviewText(r.text, 4000),
+        ownerResponse: sanitizeReviewText(r.ownerResponse, 4000),
+        author: clean(r.author, 120),
+      };
+    })
+    : [];
   return {
-    reviews: Array.isArray(raw.reviews) ? raw.reviews : [],
+    reviews,
     placeRating: raw.placeRating != null && Number.isFinite(Number(raw.placeRating)) ? Number(raw.placeRating) : null,
     placeReviewsCount:
       raw.placeReviewsCount != null && Number.isFinite(Number(raw.placeReviewsCount))
@@ -241,10 +274,10 @@ function normalizeStoredReview(raw, { isNew = false, seenAt = null } = {}) {
     : raw.stars != null ? raw.stars
     : null;
   const rating = ratingRaw != null ? Number(ratingRaw) : null;
-  const text = clean(raw.review_text || raw.text || raw.reviewText || raw.snippet || '', 4000);
+  const text = cleanMultiline(raw.review_text || raw.text || raw.reviewText || raw.snippet || '', 4000);
   const author = clean(raw.author_title || raw.author_name || raw.author || raw.user_name || '', 120);
   const reviewed = reviewDateFromRow(raw);
-  const ownerResponse = clean(
+  const ownerResponse = cleanMultiline(
     raw.owner_answer || raw.ownerAnswer || raw.owner_response || raw.ownerResponse || '',
     4000
   );
@@ -684,25 +717,23 @@ async function syncMember(network, member, opts = {}) {
   }
 
   const ws = opts.workspace || (await dbService.getWorkspace(wid));
-  let lead = opts.lead || null;
-  if (!lead && member.leadKey) {
-    lead = await dbService.getLead(member.leadKey, wid).catch(() => null);
-  }
 
-  let settings = getSettings(sid);
-  const inferred = resolveQueryFromMember(member, lead);
-  const query = clean(opts.query != null ? opts.query : settings.query || inferred, 500);
+  // Source of truth: Google link from Review request sites — never CRM lead / free-text.
+  const query = resolveQueryFromMember(member);
   if (!query) {
-    const err = new Error('Add your Google review link in Review settings, then sync.');
+    const err = new Error('Add your Google review link under Review → Settings (request sites), then sync.');
     err.code = 'QUERY_REQUIRED';
     err.status = 400;
     throw err;
   }
 
+  let settings = getSettings(sid);
+  const queryChanged = !!(settings.query && settings.query !== query);
   if (
-    opts.query != null ||
+    queryChanged ||
     !settings.query ||
     !settings.businessName ||
+    opts.autoSync != null ||
     (opts.businessName != null && opts.businessName !== settings.businessName)
   ) {
     settings = saveSettings(sid, {
@@ -716,7 +747,12 @@ async function syncMember(network, member, opts = {}) {
     });
   }
 
-  const store = getStore(sid);
+  // Drop inbox from a previous (wrong) listing when the Google request-site link changes.
+  let store = getStore(sid);
+  if (queryChanged) {
+    store = emptyStore();
+    saveStore(sid, store);
+  }
   if (!opts.force && store.lastSyncedAt) {
     const last = Date.parse(store.lastSyncedAt) || 0;
     if (last && Date.now() - last < MIN_SYNC_GAP_MS && store.reviews.length) {
@@ -869,9 +905,8 @@ async function syncDueMembers(opts = {}) {
       if (!isPaidMember(member)) continue;
       const sid = memberStorageId(network.id, member.id);
       const settings = getSettings(sid);
-      const inferred = resolveQueryFromMember(member, null);
       if (!settings.autoSync) continue;
-      if (!settings.query && !inferred && !(member.reviewLinks && member.reviewLinks.google)) continue;
+      if (!resolveQueryFromMember(member)) continue;
       try {
         // eslint-disable-next-line no-await-in-loop
         const r = await syncMember(network, member, {
@@ -930,6 +965,7 @@ module.exports = {
   isPaidWorkspace,
   isPaidMember,
   resolveQueryFromMember,
+  sanitizeReviewText,
   getSettings,
   saveSettings,
   getStore,
