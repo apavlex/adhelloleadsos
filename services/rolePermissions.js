@@ -26,6 +26,7 @@ const PAGES = [
   { id: 'today', label: 'Today', group: 'General', paths: ['/today'] },
   { id: 'opportunities', label: 'Opportunities', group: 'Sales', paths: ['/opportunities'] },
   { id: 'engagement', label: 'Engagement', group: 'Sales', paths: ['/engagement'] },
+  { id: 'business-reviews', label: 'Business Reviews', group: 'Sales', paths: ['/business-reviews'] },
   { id: 'leads', label: 'Leads (find, queue, pipeline, folders)', group: 'Sales', paths: ['/leads', '/prospecting', '/pipeline', '/history'] },
   { id: 'focus', label: 'Call mode', group: 'Sales', paths: ['/focus'] },
   { id: 'automate', label: 'Automate', group: 'Sales', paths: ['/ceo'] },

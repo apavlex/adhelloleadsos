@@ -364,6 +364,7 @@ async function fetchGoogleMapsReviews({ query, reviewsLimit, sort, integrationEn
   console.log(`[Outscraper] Reviews returned ${reviews.length} rows for query.`);
   return {
     reviews,
+    place: place || null,
     placeRating: Number.isFinite(placeRating) ? placeRating : null,
     placeReviewsCount: Number.isFinite(placeReviewsCount) ? placeReviewsCount : null,
   };

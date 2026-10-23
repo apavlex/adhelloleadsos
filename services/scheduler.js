@@ -17,6 +17,7 @@ const { runTaskPushReminders } = require('./taskPushReminders');
 const { runReviewAskReminders } = require('./reviewAsk');
 const { runJobVisitReminders } = require('./jobVisitReminders');
 const { tickAllWorkspaces: tickAgentOpsWorkspaces } = require('./agentOps');
+const businessReviews = require('./businessReviews');
 
 function normalizeVoicemailLibrary(raw) {
   if (!Array.isArray(raw)) return [];
@@ -401,6 +402,9 @@ module.exports = {
       );
       runJobVisitReminders().catch((e) =>
         console.error('[SCHEDULER] Job visit reminders failed:', e.message)
+      );
+      businessReviews.syncDueWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] Business reviews sync failed:', e.message)
       );
     });
 
