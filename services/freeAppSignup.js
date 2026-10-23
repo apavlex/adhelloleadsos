@@ -1,8 +1,9 @@
 /**
  * Public reviews-app signup (AdHello.io → /app, /app/flooring).
- * Creates (or reopens) a network member on the AdHello Agency network with
- * plan "app_free" (30-day trial) or "app_flooring" (material-purchase access,
- * no timed trial), then texts/emails the installable /m/:token link.
+ * Creates (or reopens) a network member with plan "app_free" (30-day trial on
+ * the AdHello Agency network) or "app_flooring" (material-purchase access on
+ * the TPR Flooring network by default, no timed trial), then texts/emails the
+ * installable /m/:token link.
  * Does not create an Agency OS workspace trial or GHL sub-account at signup.
  * A managed Agency OS workspace is created later on first customer-list upload
  * (see freeAppListWorkspace) so ops can run that list from the CRM.
@@ -21,6 +22,8 @@ const PLAN_APP_FREE = 'app_free';
 const PLAN_APP_FLOORING = 'app_flooring';
 const OFFER_FLOORING = 'flooring';
 const DEFAULT_WORKSPACE_SLUG = 'adhello-agency';
+/** Default host for /app/flooring — material quotes go to this network’s owner. */
+const DEFAULT_FLOORING_WORKSPACE_SLUG = 'tpr-flooring';
 const DAY_MS = 86400000;
 const TERMS_VERSION_FLOORING = 'reviews-flooring-material-v1';
 const IP_DAY_PREFIX = 'freeAppSignupIp:';
@@ -87,6 +90,16 @@ function envSlug() {
 
 function envNetworkId() {
   return String(process.env.FREE_APP_NETWORK_ID || '').trim();
+}
+
+function flooringEnvSlug() {
+  return String(process.env.FREE_APP_FLOORING_WORKSPACE_SLUG || DEFAULT_FLOORING_WORKSPACE_SLUG)
+    .trim()
+    .toLowerCase() || DEFAULT_FLOORING_WORKSPACE_SLUG;
+}
+
+function flooringEnvNetworkId() {
+  return String(process.env.FREE_APP_FLOORING_NETWORK_ID || '').trim();
 }
 
 function phoneDigits(value) {
@@ -207,6 +220,14 @@ function slugifyJoinName(name) {
   return cleanJoinSlug(name) || 'network';
 }
 
+async function ownerEmailFromWorkspace(ws) {
+  const direct = String((ws && ws.ownerEmail) || '').trim().toLowerCase();
+  if (direct) return direct;
+  const members = ws && ws.members && typeof ws.members === 'object' ? ws.members : {};
+  const owner = Object.entries(members).find(([, row]) => row && row.role === 'owner');
+  return owner ? String(owner[0] || '').trim().toLowerCase() : '';
+}
+
 async function resolveFreeAppNetwork() {
   const forcedId = envNetworkId();
   if (forcedId) {
@@ -218,16 +239,109 @@ async function resolveFreeAppNetwork() {
   const workspaceId = await dbService.getWorkspaceIdForSlug(slug);
   if (!workspaceId) throw new Error('AdHello Agency workspace is not set up yet.');
   const ws = await dbService.getWorkspace(workspaceId);
-  const ownerEmail = String((ws && ws.ownerEmail) || '').trim().toLowerCase()
-    || (() => {
-      const members = ws && ws.members && typeof ws.members === 'object' ? ws.members : {};
-      const owner = Object.entries(members).find(([, row]) => row && row.role === 'owner');
-      return owner ? owner[0] : '';
-    })();
   return store.getOrCreateNetworkForWorkspace(workspaceId, {
     name: (ws && ws.name) || 'AdHello',
-    ownerEmail,
+    ownerEmail: await ownerEmailFromWorkspace(ws),
   });
+}
+
+/**
+ * Prefer slug mapping; if missing, find a workspace named like TPR Flooring and
+ * ensure the flooring slug points at it (so /app/flooring works without a
+ * manual slug edit on an existing workspace).
+ */
+async function resolveFlooringWorkspaceId(slug) {
+  const bySlug = await dbService.getWorkspaceIdForSlug(slug);
+  if (bySlug) {
+    const bySlugWs = await dbService.getWorkspace(bySlug);
+    // Never treat Bright Electric / Agency as the flooring host, even if the
+    // slug mapping was pointed there by mistake.
+    if (bySlugWs && !isExcludedFlooringHostWorkspace(bySlugWs)) return bySlug;
+  }
+  try {
+    const ids = await dbService.listWorkspaceIds();
+    for (const id of ids || []) {
+      // eslint-disable-next-line no-await-in-loop
+      const ws = await dbService.getWorkspace(id);
+      if (!ws || isExcludedFlooringHostWorkspace(ws)) continue;
+      const name = String(ws.name || '').trim().toLowerCase();
+      if (name !== 'tpr flooring' && !/^tpr\b.*\bflooring\b/.test(name)) continue;
+      const existingSlug = cleanJoinSlug(ws.slug);
+      if (!existingSlug || existingSlug === slug) {
+        await dbService.saveWorkspace(ws.id, { ...ws, slug });
+      }
+      await dbService.saveWorkspaceSlug(slug, ws.id);
+      return ws.id;
+    }
+  } catch (_) {
+    /* fall through */
+  }
+  return '';
+}
+
+/**
+ * Network that receives /app/flooring partners (material quotes → owner).
+ * Defaults to the TPR Flooring workspace; override with FREE_APP_FLOORING_*.
+ */
+async function resolveFlooringAppNetwork() {
+  const forcedId = flooringEnvNetworkId();
+  if (forcedId) {
+    const network = await store.getNetwork(forcedId);
+    if (!network) throw new Error('Flooring-app network is not configured.');
+    if (network.ownerWorkspaceId) {
+      const forcedWs = await dbService.getWorkspace(network.ownerWorkspaceId);
+      if (isExcludedFlooringHostWorkspace(forcedWs)) {
+        throw new Error('Flooring-app network cannot be Bright Electric or AdHello Agency.');
+      }
+    }
+    return network;
+  }
+  const slug = flooringEnvSlug();
+  const workspaceId = await resolveFlooringWorkspaceId(slug);
+  if (!workspaceId) {
+    throw new Error('TPR Flooring workspace is not set up yet (slug: ' + slug + ').');
+  }
+  const ws = await dbService.getWorkspace(workspaceId);
+  if (isExcludedFlooringHostWorkspace(ws)) {
+    throw new Error('Flooring partners belong on TPR Flooring, not Bright Electric / Agency.');
+  }
+  return store.getOrCreateNetworkForWorkspace(workspaceId, {
+    name: (ws && ws.name) || 'TPR Flooring',
+    ownerEmail: await ownerEmailFromWorkspace(ws),
+  });
+}
+
+/** Workspaces that must never host /app/flooring (electric / agency demos). */
+function isExcludedFlooringHostWorkspace(ws) {
+  if (!ws) return false;
+  const slug = cleanJoinSlug(ws.slug);
+  const name = String(ws.name || '').trim().toLowerCase();
+  if (slug === 'bright-electric' || slug === 'adhello-agency') return true;
+  if (name === 'bright electric' || name === 'adhello agency') return true;
+  return false;
+}
+
+/** True when this Agency OS workspace hosts the public /app/flooring offer. */
+function isFlooringHostWorkspace(ws) {
+  if (!ws || isExcludedFlooringHostWorkspace(ws)) return false;
+  const slug = cleanJoinSlug(ws.slug);
+  if (slug && slug === flooringEnvSlug()) return true;
+  // Name fallback for the default TPR host (slug may not be set yet).
+  if (flooringEnvSlug() !== DEFAULT_FLOORING_WORKSPACE_SLUG) return false;
+  const name = String(ws.name || '').trim().toLowerCase();
+  return name === 'tpr flooring' || /^tpr\b.*\bflooring\b/.test(name);
+}
+
+async function isFlooringHostNetwork(network) {
+  if (!network || !network.ownerWorkspaceId) return false;
+  const forcedId = flooringEnvNetworkId();
+  if (forcedId && String(network.id) === forcedId) return true;
+  try {
+    const ws = await dbService.getWorkspace(network.ownerWorkspaceId);
+    return isFlooringHostWorkspace(ws);
+  } catch (_) {
+    return false;
+  }
 }
 
 /**
@@ -320,10 +434,8 @@ async function signupFreeApp({
 } = {}) {
   const lockKey = contactLockKey({ digits, email });
   const viaJoin = !!cleanJoinSlug(joinSlug) || !!(networkOpt && networkOpt.id);
-  const offer = normalizeSignupOffer(offerOpt || (form && form.signupOffer));
-  const flooring = offer === OFFER_FLOORING;
-  const memberPlan = flooring ? PLAN_APP_FLOORING : PLAN_APP_FREE;
-  const termsVersion = flooring ? TERMS_VERSION_FLOORING : TERMS_VERSION;
+  let offer = normalizeSignupOffer(offerOpt || (form && form.signupOffer));
+  let flooring = offer === OFFER_FLOORING;
 
   let network = networkOpt || null;
   if (!network && joinSlug) {
@@ -332,9 +444,20 @@ async function signupFreeApp({
       return { ok: false, code: 'not_found', error: 'That signup link is not valid or the network was removed.' };
     }
   }
+  // Join links on the flooring host workspace always create flooring partners
+  // (material quotes → that workspace owner), even without ?offer=flooring.
+  if (network && !flooring && viaJoin && (await isFlooringHostNetwork(network))) {
+    flooring = true;
+    offer = OFFER_FLOORING;
+  }
+  const memberPlan = flooring ? PLAN_APP_FLOORING : PLAN_APP_FREE;
+  const termsVersion = flooring ? TERMS_VERSION_FLOORING : TERMS_VERSION;
+
   if (!network) {
     try {
-      network = await resolveFreeAppNetwork();
+      network = flooring
+        ? await resolveFlooringAppNetwork()
+        : await resolveFreeAppNetwork();
     } catch (err) {
       return { ok: false, code: 'config', error: err.message || 'Free app signup is not available right now.' };
     }
@@ -600,6 +723,7 @@ module.exports = {
   PLAN_APP_FLOORING,
   OFFER_FLOORING,
   DEFAULT_WORKSPACE_SLUG,
+  DEFAULT_FLOORING_WORKSPACE_SLUG,
   TERMS_VERSION,
   TERMS_VERSION_FLOORING,
   SEND_COOLDOWN_PREFIX,
@@ -607,8 +731,11 @@ module.exports = {
   appTrialDays,
   contactLockKey,
   cleanJoinSlug,
+  flooringEnvSlug,
   normalizeSignupOffer,
   isFlooringOffer,
+  isFlooringHostWorkspace,
+  isFlooringHostNetwork,
   readForm,
   phoneDigits,
   DRIVE_MILES_OPTIONS,
@@ -616,6 +743,7 @@ module.exports = {
   cleanEmail,
   takeIpSlot,
   resolveFreeAppNetwork,
+  resolveFlooringAppNetwork,
   resolveNetworkByJoinSlug,
   getOrEnsureJoinSlug,
   findExistingMember,
