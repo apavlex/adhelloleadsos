@@ -824,30 +824,48 @@ html.ws-settings-navigating .ws-settings-main {
     padding: 0;
     box-sizing: border-box;
 }
-/* Desktop sidebar shell: keep loader a true viewport portal (not content-column only). */
+/*
+ * Desktop sidebar shell crush rule (body.app-with-sidebar > :not(...)) sets height:0
+ * with higher specificity than #adhelloNavLoading — that pinned the spinner to the top.
+ * !important full-viewport sizing keeps it vertically + horizontally centered.
+ */
 @media (min-width: 768px) {
-    body.app-with-sidebar > #adhelloNavLoading.app-body-portal {
-        grid-column: auto;
-        grid-row: auto;
-        position: fixed;
-        inset: 0;
-        width: 100vw;
-        width: 100dvw;
-        height: 100vh;
-        height: 100dvh;
-        min-height: 0;
-        max-width: none;
-        margin: 0;
-        padding: 0;
-        overflow: visible;
-        pointer-events: none;
+    body.app-with-sidebar > #adhelloNavLoading {
+        grid-column: 1 / -1 !important;
+        grid-row: 1 !important;
+        position: fixed !important;
+        inset: 0 !important;
+        top: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        width: 100dvw !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        pointer-events: none !important;
+        z-index: 9998 !important;
+        box-sizing: border-box !important;
     }
 }
 #adhelloNavLoading.is-on {
     opacity: 1;
 }
 #adhelloNavLoading .adhello-nav-loader {
-    position: relative;
+    /* Absolute center as a backup if the overlay box is ever height-collapsed */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: 88px;
     height: 88px;
     display: flex;

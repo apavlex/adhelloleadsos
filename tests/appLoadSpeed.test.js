@@ -42,6 +42,10 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(css, /adhello-nav-loader/);
   assert.match(css, /adhello-nav-loader-spin/);
   assert.match(css, /adhello-nav-loader-icon/);
+  // Desktop sidebar crush must not pin the spinner to the top of the page.
+  assert.match(css, /body\.app-with-sidebar\s*>\s*#adhelloNavLoading/);
+  assert.match(css, /height:\s*100dvh\s*!important/);
+  assert.match(css, /translate\(-50%,\s*-50%\)/);
 });
 
 test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
