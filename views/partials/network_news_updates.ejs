@@ -1,0 +1,62 @@
+<%# News & updates — workspace → Reviews-app members (app alert and/or SMS). %>
+<% if (typeof canManage !== 'undefined' && canManage && totals && totals.members) { %>
+<details class="net-card net-more mb-4" id="net-message-members" <%= typeof notice !== 'undefined' && notice && /Posted news|phone alert|News & updates|text/i.test(String(notice)) ? 'open' : '' %>>
+  <summary class="flex items-center justify-between gap-2">
+    <span class="font-display font-bold">News &amp; updates</span>
+    <span class="net-btn net-btn-ghost">App alert or SMS</span>
+  </summary>
+  <p class="mt-3 text-[13px] text-brand-muted leading-relaxed">Post news, links, and app updates for people using the Reviews app. They open it from <strong class="text-brand-dark dark:text-white">Notifications → News &amp; updates</strong>. <strong class="text-brand-dark dark:text-white">Notify by app</strong> pops up on their phone (and the bell). <strong class="text-brand-dark dark:text-white">Send SMS</strong> texts their phone.</p>
+  <form method="post" action="/network/members/broadcast" class="mt-3 space-y-3">
+    <div>
+      <label class="net-label" for="netBroadcastTitle">Title</label>
+      <input id="netBroadcastTitle" name="title" type="text" class="net-input" maxlength="120" required placeholder="e.g. New referral bonus this weekend">
+    </div>
+    <div>
+      <label class="net-label" for="netBroadcastMessage">Update</label>
+      <textarea id="netBroadcastMessage" name="message" rows="3" class="net-input" maxlength="800" required placeholder="What should partners know? Tips, deadlines, app changes…"></textarea>
+    </div>
+    <div>
+      <label class="net-label" for="netBroadcastLink">Link (optional)</label>
+      <input id="netBroadcastLink" name="link" type="url" class="net-input" maxlength="500" placeholder="https://…">
+    </div>
+    <div>
+      <span class="net-label">Notify via</span>
+      <div class="net-checks">
+        <label class="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-[13px] font-semibold cursor-pointer">
+          <input type="checkbox" name="channelApp" value="1" checked> Notify by app
+        </label>
+        <label class="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-slate-600 px-3 py-1.5 text-[13px] font-semibold cursor-pointer">
+          <input type="checkbox" name="channelSms" value="1"> Send SMS
+        </label>
+      </div>
+    </div>
+    <div>
+      <label class="net-label" for="netBroadcastAudience">Audience</label>
+      <select id="netBroadcastAudience" name="audience" class="net-input">
+        <option value="all">All active members (<%= totals.members %>)</option>
+        <option value="free">App trial only (<%= totals.freeMembers %>)</option>
+        <option value="partner">Partners only (<%= totals.partnerMembers %>)</option>
+      </select>
+    </div>
+    <button type="submit" class="net-btn net-btn-yellow" onclick="return confirm('Post this update and notify the selected members?');">Post update</button>
+  </form>
+  <% const newsPosts = typeof networkNewsPosts !== 'undefined' && Array.isArray(networkNewsPosts) ? networkNewsPosts : []; %>
+  <% if (newsPosts.length) { %>
+  <div class="mt-4 border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
+    <p class="net-label">Recent posts</p>
+    <% newsPosts.forEach(function (p) { %>
+    <div class="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-slate-200/80 dark:border-slate-600 px-3 py-2">
+      <div class="min-w-0 flex-1">
+        <p class="text-[13px] font-bold text-brand-dark dark:text-white"><%= p.title %></p>
+        <p class="text-[12px] text-brand-muted mt-0.5 line-clamp-2"><%= p.body %></p>
+        <% if (p.link) { %><p class="text-[11px] font-semibold mt-1 truncate"><a class="underline" href="<%= p.link %>" target="_blank" rel="noopener noreferrer"><%= p.link %></a></p><% } %>
+      </div>
+      <form method="post" action="/network/members/news/<%= encodeURIComponent(p.id) %>/remove" onsubmit="return confirm('Remove this news post from the app feed?');">
+        <button type="submit" class="net-btn net-btn-ghost">Remove</button>
+      </form>
+    </div>
+    <% }); %>
+  </div>
+  <% } %>
+</details>
+<% } %>
