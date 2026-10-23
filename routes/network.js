@@ -285,14 +285,21 @@ router.get('/', async (req, res, next) => {
 
     let networkJoinSlug = '';
     let networkJoinUrl = '';
+    let flooringSignupUrl = '';
+    let isFlooringHost = false;
     if (canManage(req)) {
       try {
         networkJoinSlug = await freeAppSignup.getOrEnsureJoinSlug(network);
-        const { getNetworkJoinUrl } = require('../lib/publicBaseUrl');
+        const { getNetworkJoinUrl, getFlooringAppSignupUrl } = require('../lib/publicBaseUrl');
         networkJoinUrl = getNetworkJoinUrl(networkJoinSlug);
+        isFlooringHost = freeAppSignup.isFlooringHostWorkspace(req.workspace)
+          || (await freeAppSignup.isFlooringHostNetwork(network));
+        if (isFlooringHost) flooringSignupUrl = getFlooringAppSignupUrl();
       } catch (_) {
         networkJoinSlug = '';
         networkJoinUrl = '';
+        flooringSignupUrl = '';
+        isFlooringHost = false;
       }
     }
 
@@ -343,6 +350,8 @@ router.get('/', async (req, res, next) => {
       canManage: canManage(req),
       networkJoinSlug,
       networkJoinUrl,
+      flooringSignupUrl,
+      isFlooringHost,
       networkNewsPosts,
       ghlSubaccounts: networkMembers.ghlSubaccountsAllowedFor(req.workspace),
       notice: String(req.query.notice || '').trim(),

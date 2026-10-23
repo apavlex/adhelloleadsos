@@ -643,13 +643,32 @@
     <% } %>
 
     <% if (tab === 'members') { %>
+      <% const _flooringHost = typeof isFlooringHost !== 'undefined' && isFlooringHost; %>
+      <% const _flooringUrl = typeof flooringSignupUrl !== 'undefined' ? String(flooringSignupUrl || '') : ''; %>
+      <% if (canManage && _flooringHost && _flooringUrl) { %>
+      <div class="net-card mb-4" id="net-flooring-link">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Flooring partner app</p>
+            <p class="font-display font-bold text-brand-dark dark:text-white">Reviews app + material quote link</p>
+            <p class="mt-1 text-[13px] text-brand-muted leading-relaxed">Share this with flooring partners. They get the Reviews app with quote sending — material quote requests come to <em>you</em> as the network owner.</p>
+            <p class="mt-3 break-all font-mono text-[13px] font-semibold text-brand-dark dark:text-white" id="netFlooringUrlText"><%= _flooringUrl %></p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" class="net-btn net-btn-yellow" id="netFlooringCopyBtn" data-join-url="<%= _flooringUrl %>">Copy link</button>
+            <a class="net-btn net-btn-ghost" href="<%= _flooringUrl %>" target="_blank" rel="noopener noreferrer">Open</a>
+          </div>
+        </div>
+        <p class="mt-2 text-[11px] font-semibold text-brand-muted" id="netFlooringCopyStatus" hidden>Copied</p>
+      </div>
+      <% } %>
       <% if (canManage && typeof networkJoinUrl !== 'undefined' && networkJoinUrl) { %>
       <div class="net-card mb-4" id="net-join-link">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Partner signup link</p>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= _flooringHost ? 'Network join link' : 'Partner signup link' %></p>
             <p class="font-display font-bold text-brand-dark dark:text-white">Share this so partners join <em>your</em> network</p>
-            <p class="mt-1 text-[13px] text-brand-muted leading-relaxed">Text or email this link. Signups land here as App trial members — not on AdHello’s public pool.</p>
+            <p class="mt-1 text-[13px] text-brand-muted leading-relaxed"><% if (_flooringHost) { %>Same network as the flooring app above — join signups here also become flooring partners with quote sending.<% } else { %>Text or email this link. Signups land here as App trial members — not on AdHello’s public pool.<% } %></p>
             <p class="mt-3 break-all font-mono text-[13px] font-semibold text-brand-dark dark:text-white" id="netJoinUrlText"><%= networkJoinUrl %></p>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">
@@ -659,29 +678,35 @@
         </div>
         <p class="mt-2 text-[11px] font-semibold text-brand-muted" id="netJoinCopyStatus" hidden>Copied</p>
       </div>
+      <% } %>
+      <% if (canManage && ((_flooringHost && _flooringUrl) || (typeof networkJoinUrl !== 'undefined' && networkJoinUrl))) { %>
       <script>
         (function () {
-          var btn = document.getElementById('netJoinCopyBtn');
-          var status = document.getElementById('netJoinCopyStatus');
-          if (!btn) return;
-          btn.addEventListener('click', function () {
-            var url = btn.getAttribute('data-join-url') || '';
-            if (!url) return;
-            var done = function () {
-              if (status) {
-                status.hidden = false;
-                setTimeout(function () { status.hidden = true; }, 1600);
-              }
-            };
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              navigator.clipboard.writeText(url).then(done).catch(function () {
+          function wireCopy(btnId, statusId) {
+            var btn = document.getElementById(btnId);
+            var status = document.getElementById(statusId);
+            if (!btn) return;
+            btn.addEventListener('click', function () {
+              var url = btn.getAttribute('data-join-url') || '';
+              if (!url) return;
+              var done = function () {
+                if (status) {
+                  status.hidden = false;
+                  setTimeout(function () { status.hidden = true; }, 1600);
+                }
+              };
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(url).then(done).catch(function () {
+                  window.prompt('Copy this link:', url);
+                });
+              } else {
                 window.prompt('Copy this link:', url);
-              });
-            } else {
-              window.prompt('Copy this link:', url);
-              done();
-            }
-          });
+                done();
+              }
+            });
+          }
+          wireCopy('netJoinCopyBtn', 'netJoinCopyStatus');
+          wireCopy('netFlooringCopyBtn', 'netFlooringCopyStatus');
         })();
       </script>
       <% } %>

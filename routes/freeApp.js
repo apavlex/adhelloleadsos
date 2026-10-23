@@ -1,8 +1,10 @@
 /**
  * Public free member-app signup — pasteable AdHello.io / reviews.adhello.io links.
  *   GET/POST /app              → AdHello Agency network (30-day trial)
- *   GET/POST /app/flooring     → Flooring partners (no trial; material purchase access)
- *   GET/POST /join/:slug       → that agency's network (workspace slug)
+ *   GET/POST /app/flooring     → Flooring partners on TPR Flooring network
+ *                                 (no trial; material quotes → that workspace owner)
+ *   GET/POST /join/:slug       → that agency's network (workspace slug;
+ *                                 flooring host slug creates app_flooring members)
  * Mounted before ensureAuthenticated (no Google / workspace required).
  */
 const express = require('express');
@@ -52,17 +54,35 @@ async function render(req, res, {
     loginHref: '/m/login',
     formAction,
     joinSlug: slug,
-    joinNetworkName: network && network.name ? network.name : '',
+    // Only label "Join {network}" for /join/:slug — /app/flooring may pass
+    // the host network for branding without implying a join link.
+    joinNetworkName: slug && network && network.name ? network.name : '',
     signupOffer: normalizedOffer,
     flooringPartner: flooring,
   });
 }
 
+async function flooringNetworkForRender() {
+  try {
+    return await freeAppSignup.resolveFlooringAppNetwork();
+  } catch (_) {
+    return null;
+  }
+}
+
 async function handleAppPost(req, res, next, { offer = '' } = {}) {
   try {
+    const flooring = freeAppSignup.normalizeSignupOffer(offer) === freeAppSignup.OFFER_FLOORING;
+    const hostNetwork = flooring ? await flooringNetworkForRender() : null;
     const { form: formValues, errors, digits, email } = freeAppSignup.readForm(req.body || {});
     if (errors.length) {
-      return render(req, res, { formValues, errors, status: 400, offer });
+      return render(req, res, {
+        formValues,
+        errors,
+        status: 400,
+        offer,
+        network: hostNetwork,
+      });
     }
     const result = await freeAppSignup.signupFreeApp({
       form: formValues,
@@ -71,6 +91,7 @@ async function handleAppPost(req, res, next, { offer = '' } = {}) {
       baseUrl: getReviewPublicBaseUrl(),
       ip: clientIp(req),
       offer,
+      network: hostNetwork || undefined,
     });
     if (!result.ok) {
       return render(req, res, {
@@ -78,9 +99,15 @@ async function handleAppPost(req, res, next, { offer = '' } = {}) {
         errors: [result.error || 'Could not send your app link. Try again.'],
         status: result.code === 'rate_limit' ? 429 : 400,
         offer,
+        network: hostNetwork || result.network || null,
       });
     }
-    return render(req, res, { formValues: {}, sent: true, offer });
+    return render(req, res, {
+      formValues: {},
+      sent: true,
+      offer,
+      network: result.network || hostNetwork,
+    });
   } catch (err) {
     return next(err);
   }
@@ -98,7 +125,11 @@ router.post('/app', form, (req, res, next) => handleAppPost(req, res, next));
 
 router.get('/app/flooring', async (req, res, next) => {
   try {
-    return await render(req, res, { offer: freeAppSignup.OFFER_FLOORING });
+    const network = await flooringNetworkForRender();
+    return await render(req, res, {
+      offer: freeAppSignup.OFFER_FLOORING,
+      network,
+    });
   } catch (err) {
     return next(err);
   }
@@ -106,6 +137,13 @@ router.get('/app/flooring', async (req, res, next) => {
 
 router.post('/app/flooring', form, (req, res, next) =>
   handleAppPost(req, res, next, { offer: freeAppSignup.OFFER_FLOORING }));
+
+async function offerForJoinNetwork(network) {
+  if (network && (await freeAppSignup.isFlooringHostNetwork(network))) {
+    return freeAppSignup.OFFER_FLOORING;
+  }
+  return '';
+}
 
 router.get('/join/:slug', async (req, res, next) => {
   try {
@@ -119,7 +157,8 @@ router.get('/join/:slug', async (req, res, next) => {
         status: 404,
       });
     }
-    return render(req, res, { network, joinSlug });
+    const offer = await offerForJoinNetwork(network);
+    return render(req, res, { network, joinSlug, offer });
   } catch (err) {
     return next(err);
   }
@@ -138,9 +177,10 @@ router.post('/join/:slug', form, async (req, res, next) => {
         status: 404,
       });
     }
+    const offer = await offerForJoinNetwork(network);
     const { form: formValues, errors, digits, email } = freeAppSignup.readForm(req.body || {});
     if (errors.length) {
-      return render(req, res, { formValues, errors, status: 400, network, joinSlug });
+      return render(req, res, { formValues, errors, status: 400, network, joinSlug, offer });
     }
     const result = await freeAppSignup.signupFreeApp({
       form: formValues,
@@ -150,6 +190,7 @@ router.post('/join/:slug', form, async (req, res, next) => {
       ip: clientIp(req),
       network,
       joinSlug,
+      offer,
     });
     if (!result.ok) {
       return render(req, res, {
@@ -158,9 +199,10 @@ router.post('/join/:slug', form, async (req, res, next) => {
         status: result.code === 'rate_limit' ? 429 : 400,
         network,
         joinSlug,
+        offer,
       });
     }
-    return render(req, res, { formValues: {}, sent: true, network, joinSlug });
+    return render(req, res, { formValues: {}, sent: true, network, joinSlug, offer });
   } catch (err) {
     return next(err);
   }

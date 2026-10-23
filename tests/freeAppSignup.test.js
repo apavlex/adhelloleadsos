@@ -26,8 +26,9 @@ function areaFields(extra = {}) {
   };
 }
 
-describe('freeAppSignup', () => {
+describe('freeAppSignup', { concurrency: false }, () => {
   let network;
+  let flooringNetwork;
 
   before(async () => {
     await dbService.saveWorkspace('ws_free_app_agency', {
@@ -40,6 +41,18 @@ describe('freeAppSignup', () => {
     network = await store.getOrCreateNetworkForWorkspace('ws_free_app_agency', {
       name: 'AdHello',
       ownerEmail: 'ops@adhello.io',
+    });
+
+    await dbService.saveWorkspace('ws_tpr_flooring', {
+      name: 'TPR Flooring',
+      slug: 'tpr-flooring',
+      salesScriptsPresetKey: 'retail_install',
+      members: { 'greg@tprflooring.com': { role: 'owner' } },
+    });
+    await dbService.saveWorkspaceSlug('tpr-flooring', 'ws_tpr_flooring');
+    flooringNetwork = await store.getOrCreateNetworkForWorkspace('ws_tpr_flooring', {
+      name: 'TPR Flooring',
+      ownerEmail: 'greg@tprflooring.com',
     });
   });
 
@@ -75,6 +88,15 @@ describe('freeAppSignup', () => {
   it('resolves the adhello-agency network', async () => {
     const net = await freeAppSignup.resolveFreeAppNetwork();
     assert.equal(net.id, network.id);
+  });
+
+  it('resolves the tpr-flooring network for /app/flooring', async () => {
+    const net = await freeAppSignup.resolveFlooringAppNetwork();
+    assert.equal(net.id, flooringNetwork.id);
+    assert.equal(freeAppSignup.isFlooringHostWorkspace({ slug: 'tpr-flooring' }), true);
+    assert.equal(freeAppSignup.isFlooringHostWorkspace({ slug: 'adhello-agency' }), false);
+    assert.equal(await freeAppSignup.isFlooringHostNetwork(flooringNetwork), true);
+    assert.equal(await freeAppSignup.isFlooringHostNetwork(network), false);
   });
 
   it('creates an app_free member and marks the lead', async () => {
@@ -159,8 +181,9 @@ describe('freeAppSignup', () => {
     assert.equal(status.state, 'active');
     assert.equal(status.label, 'Flooring partner');
     assert.equal(sent.welcome, true);
+    assert.equal(result.network.id, flooringNetwork.id);
 
-    const lead = await dbService.getLead(result.member.leadKey, network.ownerWorkspaceId);
+    const lead = await dbService.getLead(result.member.leadKey, flooringNetwork.ownerWorkspaceId);
     assert.equal(lead.source, 'flooring_partner_signup');
     mock.restoreAll();
   });
@@ -341,17 +364,49 @@ describe('freeAppSignup', () => {
       assert.equal(post.status, 200);
       assert.match(await post.text(), /Check your phone/);
 
-      const members = await store.listMembers(network.id);
+      const members = await store.listMembers(flooringNetwork.id);
       const lee = members.find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550166');
       assert.ok(lee);
       assert.equal(lee.plan, freeAppSignup.PLAN_APP_FLOORING);
       assert.equal(lee.trialEndsAt, '');
       assert.equal(lee.signupOffer, freeAppSignup.OFFER_FLOORING);
       assert.equal(freeAppSignup.isAppTrialExpired(lee), false);
+      const onAgency = (await store.listMembers(network.id))
+        .find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550166');
+      assert.equal(onAgency, undefined);
     } finally {
       await new Promise((r) => server.close(r));
       mock.restoreAll();
     }
+  });
+
+  it('join on tpr-flooring creates a flooring partner without offer param', async () => {
+    const notify = require('../services/networkNotify');
+    mock.method(notify, 'sendMemberPortalLink', async () => ({ ok: true, channel: 'sms' }));
+
+    const { form, digits, email } = freeAppSignup.readForm({
+      contactName: 'Pat',
+      companyName: 'Pat Floors',
+      phone: '503-555-0191',
+      acceptTerms: 'on',
+      ...areaFields({ serviceTrades: 'LVP', serviceCity: 'Camas', serviceRadiusMiles: '20' }),
+    });
+    const result = await freeAppSignup.signupFreeApp({
+      form,
+      digits,
+      email,
+      baseUrl: 'https://reviews.adhello.io',
+      ip: '203.0.113.91',
+      joinSlug: 'tpr-flooring',
+      network: flooringNetwork,
+    });
+    assert.equal(result.ok, true);
+    assert.equal(result.network.id, flooringNetwork.id);
+    assert.ok(result.member);
+    assert.equal(result.member.plan, freeAppSignup.PLAN_APP_FLOORING);
+    assert.equal(result.member.signupOffer, freeAppSignup.OFFER_FLOORING);
+    assert.equal(result.member.trialEndsAt, '');
+    mock.restoreAll();
   });
 
   it('serves GET /app and accepts POST /app', async () => {
