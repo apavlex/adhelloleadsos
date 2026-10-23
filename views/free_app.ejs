@@ -4,10 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#FFFDF5">
-  <meta name="description" content="Start a 30-day AdHello trial — pay-per-performance leads, referral network, and reviews on every job. You only pay commission on leads you approve. No credit card.">
-  <meta property="og:title" content="AdHello — pay-per-performance leads &amp; referrals">
-  <meta property="og:description" content="Get leads when you approve them, grow through referrals, and collect reviews on every job. 30 days free — no credit card.">
+  <%
+    const _ogTitle = typeof ogTitle !== 'undefined' && ogTitle
+      ? ogTitle
+      : 'AdHello Reviews app — reviews &amp; referrals';
+    const _ogDesc = typeof ogDescription !== 'undefined' && ogDescription
+      ? ogDescription
+      : 'Collect Google reviews and grow through referrals on your phone. 30-day free trial — no credit card.';
+    const _ogUrl = typeof ogUrl !== 'undefined' && ogUrl ? ogUrl : 'https://reviews.adhello.io/app';
+    const _ogImage = typeof ogImageUrl !== 'undefined' && ogImageUrl ? ogImageUrl : '';
+  %>
+  <meta name="description" content="<%= _ogDesc %>">
+  <meta property="og:title" content="<%= _ogTitle %>">
+  <meta property="og:description" content="<%= _ogDesc %>">
   <meta property="og:type" content="website">
+  <meta property="og:site_name" content="AdHello.io">
+  <meta property="og:url" content="<%= _ogUrl %>">
+  <% if (_ogImage) { %>
+  <meta property="og:image" content="<%= _ogImage %>">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= _ogTitle %>">
+  <meta name="twitter:description" content="<%= _ogDesc %>">
+  <meta name="twitter:image" content="<%= _ogImage %>">
+  <% } %>
   <title>Grow reviews &amp; referrals for your business · AdHello</title>
   <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
   <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">

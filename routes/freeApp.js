@@ -10,10 +10,24 @@
 const express = require('express');
 const freeAppSignup = require('../services/freeAppSignup');
 const networkBrand = require('../services/networkBrand');
+const freeAppOg = require('../services/freeAppOg');
 const { getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const router = express.Router();
 const form = express.urlencoded({ extended: false, limit: '16kb' });
+
+async function serveFreeAppOg(req, res, offer) {
+  try {
+    const pack = await freeAppOg.renderFreeAppOgImage({ offer });
+    res.setHeader('Content-Type', pack.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+    res.setHeader('Content-Length', String(pack.buffer.length));
+    return res.status(200).send(pack.buffer);
+  } catch (err) {
+    console.warn('[freeApp] og image failed:', err && err.message);
+    return res.status(500).type('text/plain').send('Preview image unavailable');
+  }
+}
 
 function clientIp(req) {
   return String(req.headers['x-forwarded-for'] || (req.socket && req.socket.remoteAddress) || '')
@@ -45,6 +59,17 @@ async function render(req, res, {
   let formAction = '/app';
   if (slug) formAction = `/join/${encodeURIComponent(slug)}`;
   else if (flooring) formAction = '/app/flooring';
+  const publicBase = getReviewPublicBaseUrl();
+  let pagePath = '/app';
+  if (slug) pagePath = `/join/${encodeURIComponent(slug)}`;
+  else if (flooring) pagePath = '/app/flooring';
+  const ogOffer = flooring ? freeAppSignup.OFFER_FLOORING : '';
+  const ogTitle = flooring
+    ? 'AdHello Reviews app — reviews, referrals &amp; material quotes'
+    : 'AdHello Reviews app — reviews &amp; referrals';
+  const ogDescription = flooring
+    ? 'Collect Google reviews, share referrals, and request material quotes on your phone.'
+    : 'Collect Google reviews and grow through referrals on your phone. 30-day free trial — no credit card.';
   return res.status(status).render('free_app', {
     brand,
     form: formValues,
@@ -59,6 +84,10 @@ async function render(req, res, {
     joinNetworkName: slug && network && network.name ? network.name : '',
     signupOffer: normalizedOffer,
     flooringPartner: flooring,
+    ogTitle,
+    ogDescription,
+    ogUrl: `${publicBase}${pagePath}`,
+    ogImageUrl: freeAppOg.ogImageAbsoluteUrl(publicBase, ogOffer),
   });
 }
 
@@ -112,6 +141,10 @@ async function handleAppPost(req, res, next, { offer = '' } = {}) {
     return next(err);
   }
 }
+
+router.get('/app/og.jpg', (req, res) => serveFreeAppOg(req, res, ''));
+router.get('/app/flooring/og.jpg', (req, res) =>
+  serveFreeAppOg(req, res, freeAppSignup.OFFER_FLOORING));
 
 router.get('/app', async (req, res, next) => {
   try {
