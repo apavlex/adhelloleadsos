@@ -24,19 +24,22 @@ describe('freeAppOg', () => {
     assert.match(freeAppOg.ogImagePath(''), /\/app\/og\.jpg\?v=/);
     assert.match(freeAppOg.ogImagePath('flooring'), /\/app\/flooring\/og\.jpg\?v=/);
     assert.match(freeAppOg.ogImageAbsoluteUrl('https://reviews.adhello.io', ''), /reviews\.adhello\.io\/app\/og\.jpg/);
-    assert.match(freeAppOg.OG_VERSION, /v2|reviews-referrals/);
+    assert.match(freeAppOg.OG_VERSION, /reviews-referrals-v4/);
   });
 
-  it('vendors Liberation Sans so Docker can draw overlay text', () => {
-    assert.ok(fs.existsSync(freeAppOg.FONT_BOLD_PATH), 'bold font missing');
-    assert.ok(fs.existsSync(freeAppOg.FONT_REGULAR_PATH), 'regular font missing');
+  it('crops stock hero to exclude Your business image placeholder', () => {
+    assert.ok(fs.existsSync(freeAppOg.STOCK_HERO_PATH), 'stock hero missing');
+    const { left, top, width, height } = freeAppOg.CLEAN_HERO_EXTRACT;
+    assert.ok(width <= 780, 'crop should stay on the cab side of the van');
+    assert.ok(left + width <= 900, 'crop should not include the side-panel decal');
+    assert.ok(height >= 500);
+    assert.ok(top >= 0);
     const svc = fs.readFileSync(path.join(__dirname, '../services/freeAppOg.js'), 'utf8');
-    assert.match(svc, /base64/);
-    assert.match(svc, /OgSans/);
-    assert.doesNotMatch(svc, /Helvetica,\s*Arial/);
+    assert.doesNotMatch(svc, /<text[\s>]/);
+    assert.doesNotMatch(svc, /og-text/);
   });
 
-  it('renderFreeAppOgImage returns a JPEG around 1200×630', async () => {
+  it('renderFreeAppOgImage returns a JPEG around 1200×630 with no overlay text', async () => {
     const pack = await freeAppOg.renderFreeAppOgImage({});
     assert.equal(pack.contentType, 'image/jpeg');
     assert.ok(pack.buffer.length > 8000);
