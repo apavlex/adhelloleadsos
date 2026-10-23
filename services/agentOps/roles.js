@@ -32,6 +32,15 @@ const ROLES = [
     jobs: ['dispatcher.scan_pool'],
   },
   {
+    id: 'network',
+    name: 'Network',
+    title: 'Network Coach',
+    blurb: 'Keeps the referral partner network alive — replies, active partners, stuck referrals, and open seats.',
+    color: '#0d9488',
+    defaultJob: 'network.nurture',
+    jobs: ['network.nurture'],
+  },
+  {
     id: 'ops',
     name: 'Ops',
     title: 'Ops bot',
@@ -50,6 +59,7 @@ const JOB_LABELS = {
   'opportunity.scan_board': 'Scan opportunity board',
   'review.scan': 'Scan opportunity board',
   'dispatcher.scan_pool': 'Scan referral pool',
+  'network.nurture': 'Nurture partner network',
   'ops.health': 'Ops health check',
 };
 

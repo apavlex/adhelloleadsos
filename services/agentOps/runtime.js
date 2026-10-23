@@ -33,6 +33,8 @@ const HANDLERS = {
     }),
   'dispatcher.scan_pool': (wid, job, ctx) =>
     tools.scanPool(wid, { role: ROLE_BY_ID.dispatcher, onBehalfOf: ctx.onBehalfOf }),
+  'network.nurture': (wid, job, ctx) =>
+    tools.nurtureNetwork(wid, { role: ROLE_BY_ID.network, onBehalfOf: ctx.onBehalfOf }),
   'ops.health': (wid, job, ctx) =>
     tools.opsHealth(wid, { role: ROLE_BY_ID.ops, onBehalfOf: ctx.onBehalfOf }),
 };

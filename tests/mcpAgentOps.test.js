@@ -65,15 +65,18 @@ describe('Ops agents MCP tools', () => {
     assert.equal(resolveRole('Prospect SDR').id, 'prospect');
     assert.equal(resolveRole('opportunity').id, 'opportunity');
     assert.equal(resolveRole('Review bot').id, 'opportunity');
+    assert.equal(resolveRole('Network Coach').id, 'network');
     assert.equal(resolveRole('ops bot').id, 'ops');
   });
 
-  it('list_ops_agents returns the four role bots', async () => {
+  it('list_ops_agents returns the five role bots', async () => {
     const out = await listOpsAgents({ workspaceId: WID, userEmail: OWNER });
-    assert.equal(out.count, 4);
+    assert.equal(out.count, 5);
     assert.equal(out.ops_enabled, true);
     const ids = out.agents.map((a) => a.id).sort();
-    assert.deepEqual(ids, ['dispatcher', 'opportunity', 'ops', 'prospect']);
+    assert.deepEqual(ids, ['dispatcher', 'network', 'opportunity', 'ops', 'prospect']);
+    const coach = out.agents.find((a) => a.id === 'network');
+    assert.equal(coach.name, 'Network Coach');
   });
 
   it('update_ops_agent can disable auto-tick for Prospect SDR', async () => {
@@ -107,7 +110,7 @@ describe('Ops agents MCP tools', () => {
       {},
     );
     assert.equal(listed.success, true);
-    assert.equal(listed.count, 4);
+    assert.equal(listed.count, 5);
 
     await dbService.saveWorkspace(WID, {
       ...(await dbService.getWorkspace(WID)),

@@ -1,6 +1,6 @@
 /**
- * Ops agents (Prospect SDR, Opportunity SDR, Dispatcher, Ops bot) for MCP clients
- * and the in-app chat: list status, read insights, run a role, and change settings.
+ * Ops agents (Prospect SDR, Opportunity SDR, Dispatcher, Network Coach, Ops bot)
+ * for MCP clients and the in-app chat: list status, read insights, run a role, and change settings.
  */
 const { z } = require('zod/v3');
 const { zodToJsonSchema } = require('zod-to-json-schema');
@@ -27,7 +27,9 @@ async function requireManager(ctx, what) {
 
 function resolveRole(ref) {
   const raw = String(ref || '').trim();
-  if (!raw) throw toolError('Say which Ops agent (prospect, opportunity, dispatcher, or ops).', 'AGENT_REQUIRED');
+  if (!raw) {
+    throw toolError('Say which Ops agent (prospect, opportunity, dispatcher, network, or ops).', 'AGENT_REQUIRED');
+  }
   const id = normalizeRoleId(raw.toLowerCase().replace(/\s+/g, '_'));
   if (ROLE_BY_ID[id]) return ROLE_BY_ID[id];
 
@@ -36,6 +38,14 @@ function resolveRole(ref) {
     prospect: ['prospect', 'prospect sdr', 'focus', 'focus sdr', 'sdr'],
     opportunity: ['opportunity', 'opportunity sdr', 'review', 'review bot', 'review sdr'],
     dispatcher: ['dispatcher', 'dispatch'],
+    network: [
+      'network',
+      'network coach',
+      'partner network',
+      'partners',
+      'nurture',
+      'referral network',
+    ],
     ops: ['ops', 'ops bot', 'health', 'ops health'],
   };
   for (const [roleId, names] of Object.entries(aliases)) {
@@ -232,7 +242,7 @@ const AGENT_OPS_TOOLS = [
   {
     name: 'list_ops_agents',
     description:
-      'List AdHello Ops agents (Prospect SDR, Opportunity SDR, Dispatcher, Ops bot): on/off, auto-tick, running state, last insight, and top recommended leads/tasks. ' +
+      'List AdHello Ops agents (Prospect SDR, Opportunity SDR, Dispatcher, Network Coach, Ops bot): on/off, auto-tick, running state, last insight, and top recommended leads/tasks. ' +
       'Use this when the user asks what the Ops bots are doing or whether they are healthy.',
     schema: z.object({}),
     run: listOpsAgents,
@@ -241,12 +251,14 @@ const AGENT_OPS_TOOLS = [
     name: 'get_ops_agent',
     description:
       'Get one Ops agent in detail: current insight, top items, recent runs, and recent insights. ' +
-      'Agents: prospect (Prospect SDR), opportunity (Opportunity SDR), dispatcher, ops (Ops bot).',
+      'Agents: prospect (Prospect SDR), opportunity (Opportunity SDR), dispatcher, network (Network Coach), ops (Ops bot).',
     schema: z.object({
       agent: z
         .string()
         .min(1)
-        .describe('Agent id or name: prospect, opportunity, dispatcher, ops (or "Prospect SDR", "Opportunity SDR").'),
+        .describe(
+          'Agent id or name: prospect, opportunity, dispatcher, network, ops (or "Prospect SDR", "Network Coach").',
+        ),
       limit: z.number().int().min(1).max(20).optional().describe('How many recent runs/insights to return (default 8).'),
     }),
     run: getOpsAgent,
@@ -256,7 +268,8 @@ const AGENT_OPS_TOOLS = [
     description:
       'Run one Ops agent now (same as Run on Today → Ops agents). Owners/admins only. ' +
       'Prospect SDR preps the home-service Portland–Vancouver call queue; Opportunity SDR ranks open deals (skips SMS STOP / DNC); ' +
-      'Dispatcher scans the referral/appointment pool; Ops bot checks GHL sync and messaging health.',
+      'Dispatcher scans the referral/appointment pool; Network Coach nurtures the partner network (replies, quiet partners, stuck referrals, open seats); ' +
+      'Ops bot checks GHL sync and messaging health.',
     schema: z.object({
       agent: z.string().min(1).describe('Agent id or name to run.'),
       force: z
