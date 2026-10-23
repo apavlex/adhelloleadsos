@@ -440,7 +440,8 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /ma-qr/);
     assert.match(reviewHtml, /review\/settings/);
     assert.match(reviewHtml, /aria-label="Review settings"/);
-    assert.match(reviewHtml, /Show your QR/);
+    assert.match(reviewHtml, /ma-page-title">Reviews</);
+    assert.match(reviewHtml, /Request a review/);
     assert.match(reviewHtml, /review\/preview/);
     assert.ok(!/target="_blank"[^>]*>Preview/.test(reviewHtml));
 
