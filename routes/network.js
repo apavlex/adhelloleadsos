@@ -1052,7 +1052,7 @@ router.get('/send-options', async (req, res) => {
   }
 });
 
-/** Leads Network — teammates available for Send lead (Reviews-app members). */
+/** Leads Network — Reviews-app recipients for Send lead (this network + all managed workspaces). */
 router.get('/lead-send-options', async (req, res) => {
   try {
     if (!canManage(req)) {
@@ -1061,11 +1061,22 @@ router.get('/lead-send-options', async (req, res) => {
     const network = await loadNetwork(req);
     const members = await store.listMembers(network.id);
     const teammates = networkLeadSend.listLeadTeammates(members);
+    const email = userEmail(req);
+    const q = String((req.query && req.query.q) || '').trim();
+    const directory = await networkLeadSend.listDirectoryRecipients({
+      userEmail: email,
+      q,
+      limit: 250,
+    });
+    const workspaces = await networkLeadSend.listManageableWorkspaces(email);
     return res.json({
       success: true,
       networkName: network.name,
       teammates,
-      ready: teammates.length > 0,
+      directory,
+      workspaceCount: workspaces.length,
+      canCrossWorkspace: workspaces.length > 1 || directory.some((r) => r.networkId !== network.id),
+      ready: teammates.length > 0 || directory.length > 0,
     });
   } catch (err) {
     console.error('[network] lead send options failed:', err.message);
@@ -1074,8 +1085,8 @@ router.get('/lead-send-options', async (req, res) => {
 });
 
 /**
- * Leads Network — send a lead to one or more Reviews-app teammates (or all).
- * Creates network referrals so accept / decline works like partner referrals,
+ * Leads Network — send a lead to Reviews-app users (this network and/or across
+ * workspaces the sender manages). Creates referrals on each recipient’s network
  * and fires SMS + in-app + push notifications.
  */
 router.post('/leads/send', express.urlencoded({ extended: true }), express.json(), async (req, res) => {
@@ -1090,35 +1101,62 @@ router.post('/leads/send', express.urlencoded({ extended: true }), express.json(
     }
     const network = await loadNetwork(req);
     const body = req.body || {};
+    const scope = String(body.scope || 'network').trim().toLowerCase() === 'all' ? 'all' : 'network';
     const sendAll = body.sendAll === '1' || body.sendAll === 'on' || body.sendAll === true || body.sendAll === 'true';
     let memberIds = body.memberIds;
     if (typeof memberIds === 'string') {
       memberIds = memberIds.split(',').map((s) => s.trim()).filter(Boolean);
     }
     if (!Array.isArray(memberIds)) memberIds = [];
-    // Checkbox group posts as memberIds[] or repeated memberIds.
     if (!memberIds.length && Array.isArray(body['memberIds[]'])) {
       memberIds = body['memberIds[]'];
     }
+    let targets = body.targets;
+    if (typeof targets === 'string') {
+      targets = targets.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    if (!Array.isArray(targets)) targets = [];
+    if (!targets.length && Array.isArray(body['targets[]'])) {
+      targets = body['targets[]'];
+    }
 
-    const members = await store.listMembers(network.id);
-    const result = await networkLeadSend.sendLeadToTeammates({
-      network,
-      members,
-      memberIds,
-      sendAll,
-      lead: {
-        name: body.name,
-        phone: body.phone,
-        email: body.email,
-        city: body.city,
-        zip: body.zip,
-        address: body.address,
-        note: body.note,
-      },
-      by: userEmail(req) || 'operator',
-      baseUrl: notify.baseUrlFromReq(req),
-    });
+    const lead = {
+      name: body.name,
+      phone: body.phone,
+      email: body.email,
+      city: body.city,
+      zip: body.zip,
+      address: body.address,
+      note: body.note,
+    };
+    const by = userEmail(req) || 'operator';
+    const baseUrl = notify.baseUrlFromReq(req);
+
+    let result;
+    if (scope === 'all' || targets.length) {
+      // Cross-workspace: targets are networkId:memberId keys from the directory.
+      const crossTargets = targets.length
+        ? targets
+        : memberIds; // UI may post selected keys as memberIds in all-scope mode
+      result = await networkLeadSend.sendLeadAcrossWorkspaces({
+        userEmail: by,
+        targets: crossTargets,
+        lead,
+        by,
+        baseUrl,
+      });
+    } else {
+      const members = await store.listMembers(network.id);
+      result = await networkLeadSend.sendLeadToTeammates({
+        network,
+        members,
+        memberIds,
+        sendAll,
+        lead,
+        by,
+        baseUrl,
+      });
+    }
 
     if (!result.ok) {
       return reply(req, res, { ok: false, tab: 'field-work', notice: result.error, status: 400, data: result });
@@ -1126,9 +1164,14 @@ router.post('/leads/send', express.urlencoded({ extended: true }), express.json(
 
     const n = result.count;
     const skipped = (result.skipped && result.skipped.length) || 0;
-    let notice = n === 1
-      ? `Lead sent to ${result.delivered[0].name}. They get a Reviews-app alert to accept.`
-      : `Lead sent to ${n} teammates. They get Reviews-app alerts to accept.`;
+    let notice;
+    if (n === 1) {
+      const d0 = result.delivered[0];
+      const where = d0.workspaceName ? ` (${d0.workspaceName})` : '';
+      notice = `Lead sent to ${d0.name}${where}. They get a Reviews-app alert to accept.`;
+    } else {
+      notice = `Lead sent to ${n} Reviews-app users. They get alerts to accept.`;
+    }
     if (skipped) notice += ` (${skipped} skipped.)`;
     return reply(req, res, {
       ok: true,
