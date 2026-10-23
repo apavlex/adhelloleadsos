@@ -93,19 +93,18 @@
   function render(state) {
     var off = root.querySelector('[data-ma-push-off]');
     if (off) off.hidden = true;
+    // Hide the whole card once alerts are on — manage from the bell panel instead.
+    if (state === 'on' || state === 'unsupported') {
+      root.hidden = true;
+      return;
+    }
     root.hidden = false;
     if (state === 'install') {
       setButton('Add to Home Screen first', 'install');
       setStatus('On iPhone: Share → Add to Home Screen, open this app from your home screen, then turn alerts on.');
-    } else if (state === 'unsupported') {
-      root.hidden = true;
     } else if (state === 'denied') {
       setButton('Notifications blocked', 'denied');
       setStatus('Allow notifications for this site in your browser settings, then try again.');
-    } else if (state === 'on') {
-      setButton(label.charAt(0).toUpperCase() + label.slice(1) + ' on', 'on');
-      setStatus('You’ll get agency messages, leads, and referrals here even when the app is closed.');
-      if (off) off.hidden = false;
     } else {
       setButton('Turn on ' + label, 'off');
       setStatus('Turn on ' + label + ' for agency messages, leads, and referrals.');
