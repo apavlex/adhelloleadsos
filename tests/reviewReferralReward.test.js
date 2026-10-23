@@ -16,6 +16,21 @@ describe('review referral reward circular load', () => {
   });
 });
 
+describe('review referral reward settings UI', () => {
+  it('keeps setup closed until the offer checkbox is checked', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const view = fs.readFileSync(
+      path.join(__dirname, '../views/member_app/review_settings.ejs'),
+      'utf8'
+    );
+    assert.match(view, /id="maReviewRewardSetup"/);
+    assert.match(view, /maReviewRewardSetup" <%= _rw\.enabled \? '' : 'hidden' %>/);
+    assert.match(view, /id="rvRewardEnabled"/);
+    assert.match(view, /setup\.hidden = !box\.checked/);
+  });
+});
+
 describe('review referral reward settings', () => {
   it('normalizes defaults and body', () => {
     const empty = reward.normalizeSettings(null);
