@@ -155,9 +155,10 @@
       letter-spacing: 0;
       color: rgba(31, 36, 46, 0.45);
     }
-    .fa-field input {
+    .fa-field input,
+    .fa-field select,
+    .fa-field textarea {
       width: 100%;
-      height: 2.9rem;
       border-radius: 0.75rem;
       border: 1px solid var(--fa-line);
       background: #fff;
@@ -168,9 +169,33 @@
       box-sizing: border-box;
       font-family: var(--fa-font);
     }
-    .fa-field input:focus {
+    .fa-field input,
+    .fa-field select { height: 2.9rem; }
+    .fa-field textarea {
+      min-height: 4.5rem;
+      padding: 0.7rem 0.9rem;
+      resize: vertical;
+      line-height: 1.4;
+    }
+    .fa-field input:focus,
+    .fa-field select:focus,
+    .fa-field textarea:focus {
       border-color: var(--fa-yellow-hot);
       box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.28);
+    }
+    .fa-field-hint {
+      margin: 0.35rem 0 0;
+      font-size: 12px;
+      line-height: 1.35;
+      color: var(--fa-muted-soft);
+    }
+    .fa-grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    @media (max-width: 479px) {
+      .fa-grid2 { grid-template-columns: 1fr; }
     }
     .fa-perks {
       display: flex;
@@ -401,6 +426,27 @@
             <label for="fa-email">Email <span class="opt">(if you prefer email)</span></label>
             <input id="fa-email" name="email" type="email" autocomplete="email" maxlength="200" value="<%= _f.email || '' %>">
           </div>
+          <div class="fa-field">
+            <label for="fa-trades">Trades or areas you work in</label>
+            <textarea id="fa-trades" name="serviceTrades" required maxlength="200" rows="2" placeholder="e.g. Flooring, carpet, LVP — or your trade"><%= _f.serviceTrades || '' %></textarea>
+            <p class="fa-field-hint">What you do — used to match reviews and referrals.</p>
+          </div>
+          <div class="fa-grid2">
+            <div class="fa-field" style="margin-top:0.9rem">
+              <label for="fa-city">City you work in</label>
+              <input id="fa-city" name="serviceCity" autocomplete="address-level2" required maxlength="80" value="<%= _f.serviceCity || '' %>" placeholder="e.g. Camas">
+            </div>
+            <div class="fa-field" style="margin-top:0.9rem">
+              <label for="fa-drive">Willing to drive</label>
+              <select id="fa-drive" name="serviceRadiusMiles" required>
+                <option value="">Max distance…</option>
+                <% [10, 15, 20, 25, 30, 45, 60, 75, 100].forEach(function (mi) { %>
+                <option value="<%= mi %>" <%= Number(_f.serviceRadiusMiles) === mi ? 'selected' : '' %>><%= mi %> miles</option>
+                <% }) %>
+              </select>
+            </div>
+          </div>
+          <p class="fa-field-hint" style="margin-top:0.35rem">City + drive distance = where you want reviews and referrals from.</p>
 
           <div class="fa-terms">
             <input id="fa-terms" name="acceptTerms" type="checkbox" value="on" required <%= _f.acceptTerms ? 'checked' : '' %>>

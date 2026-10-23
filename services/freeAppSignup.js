@@ -120,20 +120,46 @@ function acceptedTerms(body = {}) {
 /** Current Reviews app signup terms id (pay-per-performance / lead commission). */
 const TERMS_VERSION = 'reviews-ppp-v1';
 
+/** Max drive distance options (miles) for Reviews signup service area. */
+const DRIVE_MILES_OPTIONS = [10, 15, 20, 25, 30, 45, 60, 75, 100];
+
+function parseDriveMiles(raw) {
+  const n = parseInt(String(raw == null ? '' : raw).trim(), 10);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (DRIVE_MILES_OPTIONS.includes(n)) return n;
+  // Allow typed values in a sensible band (e.g. 40).
+  if (n >= 5 && n <= 200) return n;
+  return 0;
+}
+
 /** @returns {{ form: object, errors: string[] }} */
 function readForm(body = {}) {
   const pick = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
   const termsOk = acceptedTerms(body);
+  const serviceTrades = pick(
+    body.serviceTrades || body.workTrades || body.trades || body.areas,
+    200,
+  );
+  const serviceCity = pick(body.serviceCity || body.city || body.workCity, 80);
+  const serviceRadiusMiles = parseDriveMiles(body.serviceRadiusMiles || body.driveMiles || body.driveRadius);
   const form = {
     contactName: pick(body.contactName || body.name, 120),
     companyName: pick(body.companyName || body.company, 160),
     phone: pick(body.phone, 40),
     email: pick(body.email, 200),
+    serviceTrades,
+    serviceCity,
+    serviceRadiusMiles,
     acceptTerms: termsOk,
   };
   const errors = [];
   if (!form.contactName) errors.push('Add your name.');
   if (!form.companyName) errors.push('Add your business name.');
+  if (!form.serviceTrades) errors.push('Add the trades or areas you work in.');
+  if (!form.serviceCity) errors.push('Add the city you work in.');
+  if (!form.serviceRadiusMiles) {
+    errors.push('Choose how far you’re willing to drive for reviews and referrals.');
+  }
   const digits = phoneDigits(form.phone);
   const email = cleanEmail(form.email);
   if (!digits && !email) errors.push('Add a mobile number or email so we can send your app link.');
@@ -351,6 +377,13 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networ
         patch.termsAcceptedAt = new Date().toISOString();
         patch.termsVersion = TERMS_VERSION;
       }
+      // Refresh service area from this signup (trades, city, drive radius).
+      if (form.serviceTrades) patch.serviceTrades = form.serviceTrades;
+      if (form.serviceCity) {
+        patch.serviceCity = form.serviceCity;
+        if (!member.reviewKeywordCity) patch.reviewKeywordCity = form.serviceCity;
+      }
+      if (form.serviceRadiusMiles) patch.serviceRadiusMiles = form.serviceRadiusMiles;
       if (Object.keys(patch).length) {
         member = await store.saveMember(network.id, { ...member, ...patch });
       }
@@ -360,16 +393,25 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networ
       return { ok: true, member, network, notified, created: false };
     }
 
+    const areaBits = [
+      form.serviceTrades ? `Trades/areas: ${form.serviceTrades}` : '',
+      form.serviceCity ? `City: ${form.serviceCity}` : '',
+      form.serviceRadiusMiles ? `Drive: ${form.serviceRadiusMiles} mi` : '',
+    ].filter(Boolean).join(' · ');
     const saved = await dbService.saveLeadWithMeta({
       workspaceId: network.ownerWorkspaceId,
       title: form.companyName,
       contactName: form.contactName || '',
       phone: form.phone || 'N/A',
       email: email || form.email || 'N/A',
+      city: form.serviceCity || '',
       source: viaJoin ? 'network_join_signup' : 'free_app_signup',
-      message: viaJoin
-        ? `Joined ${network.name || 'network'} via public signup link`
-        : 'Signed up for the AdHello reviews app trial',
+      message: [
+        viaJoin
+          ? `Joined ${network.name || 'network'} via public signup link`
+          : 'Signed up for the AdHello reviews app trial',
+        areaBits,
+      ].filter(Boolean).join(' — '),
     });
     const lead = await dbService.getLead(saved.key, network.ownerWorkspaceId);
     if (!lead || !lead.key) {
@@ -394,6 +436,11 @@ async function signupFreeApp({ form, digits, email, baseUrl, ip, network: networ
       joinedAt,
       termsAcceptedAt: joinedAt,
       termsVersion: TERMS_VERSION,
+      serviceTrades: form.serviceTrades || '',
+      serviceCity: form.serviceCity || '',
+      serviceRadiusMiles: form.serviceRadiusMiles || 0,
+      // Seed review keyword city from the city they said they work in.
+      reviewKeywordCity: form.serviceCity || '',
     });
 
     const notified = await notify.sendMemberPortalLink({ network, member, baseUrl, welcome: true })
@@ -507,6 +554,8 @@ module.exports = {
   cleanJoinSlug,
   readForm,
   phoneDigits,
+  DRIVE_MILES_OPTIONS,
+  parseDriveMiles,
   cleanEmail,
   takeIpSlot,
   resolveFreeAppNetwork,

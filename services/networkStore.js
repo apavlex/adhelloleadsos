@@ -172,6 +172,16 @@ function normalizeMember(raw) {
     /** Terms document id accepted at signup (e.g. reviews-ppp-v1). */
     termsVersion: cleanText(m.termsVersion, 40),
     /**
+     * Public Reviews signup: trades/areas they work in, base city, and how far
+     * they’ll drive for reviews + referrals/leads (miles).
+     */
+    serviceTrades: cleanText(m.serviceTrades, 200),
+    serviceCity: cleanText(m.serviceCity, 80),
+    serviceRadiusMiles: (() => {
+      const n = parseInt(m.serviceRadiusMiles, 10);
+      return Number.isFinite(n) && n > 0 ? Math.min(200, n) : 0;
+    })(),
+    /**
      * Agency OS workspace created when this free-app member first uploads a
      * customer list — so ops can manage that list from the CRM.
      */

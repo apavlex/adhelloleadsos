@@ -17,6 +17,15 @@ const freeAppSignup = require('../services/freeAppSignup');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const freeAppRoutes = require('../routes/freeApp');
 
+function areaFields(extra = {}) {
+  return {
+    serviceTrades: 'Flooring, carpet',
+    serviceCity: 'Camas',
+    serviceRadiusMiles: '30',
+    ...extra,
+  };
+}
+
 describe('freeAppSignup', () => {
   let network;
 
@@ -38,10 +47,14 @@ describe('freeAppSignup', () => {
     const empty = freeAppSignup.readForm({});
     assert.ok(empty.errors.length >= 2);
     assert.ok(empty.errors.some((e) => /Terms/i.test(e)));
+    assert.ok(empty.errors.some((e) => /trades or areas/i.test(e)));
+    assert.ok(empty.errors.some((e) => /city/i.test(e)));
+    assert.ok(empty.errors.some((e) => /drive/i.test(e)));
     const noTerms = freeAppSignup.readForm({
       contactName: 'Sam',
       companyName: 'Sam Plumbing',
       phone: '(503) 555-0199',
+      ...areaFields(),
     });
     assert.ok(noTerms.errors.some((e) => /pay-per-performance|Terms/i.test(e)));
     const ok = freeAppSignup.readForm({
@@ -49,10 +62,14 @@ describe('freeAppSignup', () => {
       companyName: 'Sam Plumbing',
       phone: '(503) 555-0199',
       acceptTerms: 'on',
+      ...areaFields(),
     });
     assert.deepEqual(ok.errors, []);
     assert.equal(ok.digits, '5035550199');
     assert.equal(ok.form.acceptTerms, true);
+    assert.equal(ok.form.serviceTrades, 'Flooring, carpet');
+    assert.equal(ok.form.serviceCity, 'Camas');
+    assert.equal(ok.form.serviceRadiusMiles, 30);
   });
 
   it('resolves the adhello-agency network', async () => {
@@ -74,6 +91,7 @@ describe('freeAppSignup', () => {
       phone: '503-555-0100',
       email: 'alex@example.com',
       acceptTerms: 'on',
+      ...areaFields({ serviceTrades: 'Electrical', serviceCity: 'Portland', serviceRadiusMiles: '45' }),
     });
     const result = await freeAppSignup.signupFreeApp({
       form,
@@ -86,6 +104,10 @@ describe('freeAppSignup', () => {
     assert.equal(result.created, true);
     assert.equal(result.member.plan, 'app_free');
     assert.equal(result.member.companyName, 'Alex Electric');
+    assert.equal(result.member.serviceTrades, 'Electrical');
+    assert.equal(result.member.serviceCity, 'Portland');
+    assert.equal(result.member.serviceRadiusMiles, 45);
+    assert.equal(result.member.reviewKeywordCity, 'Portland');
     assert.ok(result.member.trialEndsAt);
     assert.ok(result.member.termsAcceptedAt);
     assert.equal(result.member.termsVersion, freeAppSignup.TERMS_VERSION);
@@ -126,6 +148,7 @@ describe('freeAppSignup', () => {
       companyName: 'Alex Electric Again',
       phone: '503-555-0100',
       acceptTerms: 'on',
+      ...areaFields(),
     });
     const again = await freeAppSignup.signupFreeApp({
       form,
@@ -156,6 +179,7 @@ describe('freeAppSignup', () => {
       companyName: 'Casey Roofing',
       phone: '503-555-0177',
       acceptTerms: 'on',
+      ...areaFields({ serviceTrades: 'Roofing', serviceCity: 'Vancouver' }),
     });
     const args = {
       form,
@@ -254,6 +278,11 @@ describe('freeAppSignup', () => {
       assert.match(html, /\.fa-btn:disabled/);
       assert.match(html, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);
       assert.match(html, /name="acceptTerms"/);
+      assert.match(html, /name="serviceTrades"/);
+      assert.match(html, /name="serviceCity"/);
+      assert.match(html, /name="serviceRadiusMiles"/);
+      assert.match(html, /Trades or areas you work in/);
+      assert.match(html, /Willing to drive/);
       assert.match(html, /pay-per-performance/i);
       assert.match(html, /commission/i);
 
@@ -264,6 +293,7 @@ describe('freeAppSignup', () => {
           contactName: 'Jordan',
           companyName: 'Jordan HVAC',
           email: 'jordan@example.com',
+          ...areaFields(),
         }),
       });
       assert.equal(rejected.status, 400);
@@ -277,6 +307,7 @@ describe('freeAppSignup', () => {
           companyName: 'Jordan HVAC',
           email: 'jordan@example.com',
           acceptTerms: 'on',
+          ...areaFields({ serviceTrades: 'HVAC', serviceCity: 'Camas', serviceRadiusMiles: '25' }),
         }),
       });
       assert.equal(post.status, 200);
@@ -330,6 +361,7 @@ describe('freeAppSignup', () => {
           companyName: 'Pat Plumbing',
           phone: '503-555-0188',
           acceptTerms: 'on',
+          ...areaFields({ serviceTrades: 'Plumbing', serviceCity: 'Battle Ground', serviceRadiusMiles: '20' }),
         }),
       });
       assert.equal(post.status, 200);
@@ -340,6 +372,9 @@ describe('freeAppSignup', () => {
       assert.ok(pat);
       assert.equal(pat.plan, 'app_free');
       assert.ok(pat.termsAcceptedAt);
+      assert.equal(pat.serviceTrades, 'Plumbing');
+      assert.equal(pat.serviceCity, 'Battle Ground');
+      assert.equal(pat.serviceRadiusMiles, 20);
 
       const lead = await dbService.getLead(pat.leadKey, partnerNet.ownerWorkspaceId);
       assert.equal(lead.source, 'network_join_signup');
@@ -364,6 +399,9 @@ describe('freeAppSignup', () => {
     assert.match(view, /id="fa-form"/);
     assert.match(view, /formAction/);
     assert.match(view, /name="acceptTerms"/);
+    assert.match(view, /name="serviceTrades"/);
+    assert.match(view, /name="serviceCity"/);
+    assert.match(view, /name="serviceRadiusMiles"/);
     assert.match(view, /pay-per-performance/i);
     assert.match(view, /btn\.disabled = true/);
     assert.match(view, /\.fa-btn:disabled/);
