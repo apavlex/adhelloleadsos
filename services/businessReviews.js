@@ -79,6 +79,36 @@ function resolveQueryFromMember(member, _lead) {
 }
 
 /**
+ * Yelp Outscraper query from the member's Yelp request-site link only.
+ * @param {object} member
+ */
+function resolveYelpQueryFromMember(member) {
+  const yelp = String((member && member.reviewLinks && member.reviewLinks.yelp) || '').trim();
+  if (!yelp) return '';
+  try {
+    const u = new URL(yelp);
+    if (!/yelp\.com$/i.test(u.hostname) && !/\.yelp\.com$/i.test(u.hostname)) {
+      // Still allow pasted biz slugs / ids without a full host.
+      if (!/^https?:\/\//i.test(yelp)) return yelp;
+      return '';
+    }
+    // Prefer /biz/{slug} path; Outscraper accepts full Yelp URLs.
+    if (/\/biz\//i.test(u.pathname) || /\/biz_redir/i.test(u.pathname)) return yelp;
+    return yelp;
+  } catch {
+    // Bare slug / id
+    if (/^[A-Za-z0-9_-]{3,}$/.test(yelp)) return yelp;
+    return '';
+  }
+}
+
+function normalizeSource(value) {
+  const s = String(value || '').toLowerCase().trim();
+  if (s === 'yelp') return 'yelp';
+  return 'google';
+}
+
+/**
  * Strip HTML Outscraper sometimes embeds (literal &lt;br&gt; in review text).
  * Converts breaks to newlines; removes remaining tags.
  */
@@ -136,6 +166,7 @@ function isPaidWorkspace(ws) {
 function defaultSettings() {
   return {
     query: '',
+    yelpQuery: '',
     businessName: '',
     autoSync: true,
     reviewsLimit: DEFAULT_LIMIT,
@@ -151,6 +182,7 @@ function getSettings(workspaceId) {
   if (!raw) return base;
   return {
     query: clean(raw.query, 500),
+    yelpQuery: clean(raw.yelpQuery, 500),
     businessName: clean(raw.businessName, 160),
     autoSync: raw.autoSync !== false,
     reviewsLimit: Math.min(100, Math.max(5, parseInt(raw.reviewsLimit, 10) || DEFAULT_LIMIT)),
@@ -164,6 +196,7 @@ function saveSettings(workspaceId, patch) {
   const prev = getSettings(wid);
   const next = {
     query: patch.query != null ? clean(patch.query, 500) : prev.query,
+    yelpQuery: patch.yelpQuery != null ? clean(patch.yelpQuery, 500) : prev.yelpQuery,
     businessName: patch.businessName != null ? clean(patch.businessName, 160) : prev.businessName,
     autoSync: patch.autoSync != null ? !!patch.autoSync : prev.autoSync,
     reviewsLimit: patch.reviewsLimit != null
@@ -197,6 +230,7 @@ function getStore(workspaceId) {
       if (!r || typeof r !== 'object') return r;
       return {
         ...r,
+        source: normalizeSource(r.source),
         text: sanitizeReviewText(r.text, 4000),
         ownerResponse: sanitizeReviewText(r.ownerResponse, 4000),
         author: clean(r.author, 120),
@@ -232,6 +266,7 @@ function saveStore(workspaceId, store) {
 }
 
 function reviewFingerprint(raw) {
+  const source = normalizeSource(raw && raw.source);
   const id =
     raw.review_id ||
     raw.reviewId ||
@@ -239,14 +274,14 @@ function reviewFingerprint(raw) {
     raw.review_link ||
     raw.reviewLink ||
     '';
-  if (id && String(id).trim()) return `id:${String(id).trim().slice(0, 200)}`;
+  if (id && String(id).trim()) return `${source}:id:${String(id).trim().slice(0, 200)}`;
   const author = String(raw.author_title || raw.author_name || raw.author || raw.user_name || '').trim();
   const text = String(raw.review_text || raw.text || raw.reviewText || '').trim().slice(0, 240);
   const ts = String(
-    raw.review_timestamp || raw.review_datetime_utc || raw.reviewedAt || raw.time || ''
+    raw.review_timestamp || raw.review_datetime_utc || raw.reviewedAt || raw.time || raw.date || ''
   ).trim();
-  const h = crypto.createHash('sha1').update(`${author}|${text}|${ts}`).digest('hex').slice(0, 16);
-  return `h:${h}`;
+  const h = crypto.createHash('sha1').update(`${source}|${author}|${text}|${ts}`).digest('hex').slice(0, 16);
+  return `${source}:h:${h}`;
 }
 
 function normalizeStoredReview(raw, { isNew = false, seenAt = null } = {}) {
@@ -259,7 +294,8 @@ function normalizeStoredReview(raw, { isNew = false, seenAt = null } = {}) {
   if (!raw || typeof raw !== 'object') {
     return {
       ...base,
-      id: reviewFingerprint({}),
+      id: reviewFingerprint({ source: 'google' }),
+      source: 'google',
       ownerResponse: '',
       reviewLink: '',
       isNew: !!isNew,
@@ -268,6 +304,7 @@ function normalizeStoredReview(raw, { isNew = false, seenAt = null } = {}) {
       replyDraftAt: null,
     };
   }
+  const source = normalizeSource(raw.source);
   const ratingRaw =
     raw.review_rating != null ? raw.review_rating
     : raw.rating != null ? raw.rating
@@ -275,15 +312,24 @@ function normalizeStoredReview(raw, { isNew = false, seenAt = null } = {}) {
     : null;
   const rating = ratingRaw != null ? Number(ratingRaw) : null;
   const text = cleanMultiline(raw.review_text || raw.text || raw.reviewText || raw.snippet || '', 4000);
-  const author = clean(raw.author_title || raw.author_name || raw.author || raw.user_name || '', 120);
-  const reviewed = reviewDateFromRow(raw);
-  const ownerResponse = cleanMultiline(
-    raw.owner_answer || raw.ownerAnswer || raw.owner_response || raw.ownerResponse || '',
-    4000
+  const author = clean(
+    raw.author_title || raw.author_name || raw.author || raw.user_name || raw.user || '',
+    120
   );
+  const reviewed = reviewDateFromRow(raw);
+  let ownerRaw =
+    raw.owner_answer || raw.ownerAnswer || raw.owner_response || raw.ownerResponse || '';
+  if (!ownerRaw && Array.isArray(raw.owner_replies) && raw.owner_replies.length) {
+    const first = raw.owner_replies[0];
+    ownerRaw = typeof first === 'string'
+      ? first
+      : (first && (first.text || first.comment || first.reply || first.message)) || '';
+  }
+  const ownerResponse = cleanMultiline(ownerRaw, 4000);
   const reviewLink = clean(raw.review_link || raw.reviewLink || raw.link || '', 500);
   return {
-    id: reviewFingerprint(raw),
+    id: reviewFingerprint({ ...raw, source }),
+    source,
     rating: Number.isFinite(rating) ? rating : null,
     text,
     author,
@@ -312,6 +358,7 @@ function mergeReviews(existing, incoming, { markNew = true } = {}) {
     if (prev) {
       byId.set(next.id, {
         ...prev,
+        source: next.source || prev.source || 'google',
         rating: next.rating != null ? next.rating : prev.rating,
         text: next.text || prev.text,
         author: next.author || prev.author,
@@ -547,13 +594,14 @@ async function draftReplyForStorage(storageId, reviewId, opts = {}) {
       opts.businessName || settings.businessName || store.placeName || (meteringWs && meteringWs.name),
       120
     ) || 'our team';
+  const platform = normalizeSource(review.source) === 'yelp' ? 'Yelp' : 'Google Business Profile';
 
   const ai = await trials.runMetered(meteringWs, () =>
     chatCompletion({
       messages: [
         {
           role: 'system',
-          content: `You write short Google Business Profile owner replies that a business can copy and paste.
+          content: `You write short ${platform} owner replies that a business can copy and paste.
 
 Rules:
 - Sound human, warm, and professional. No emojis unless the review used them.
@@ -571,6 +619,7 @@ Return JSON only: {"reply":"the full reply text"}`,
           role: 'user',
           content: JSON.stringify({
             businessName,
+            platform,
             rating: review.rating,
             author: review.author,
             reviewText: review.text,
@@ -656,7 +705,8 @@ async function notifyMemberNewReviews(network, member, newOnes, { baseUrl } = {}
     const who = r.author || 'a customer';
     const snippet = r.text ? clean(r.text, 120) : 'No written comment';
     const href = `${portal}/review?googleReview=${encodeURIComponent(r.id)}`;
-    const title = `${stars} Google review from ${who}`;
+    const platform = normalizeSource(r.source) === 'yelp' ? 'Yelp' : 'Google';
+    const title = `${stars} ${platform} review from ${who}`;
     const body = `${biz}: ${snippet}`;
     const entry = memberActivity.add(network.id, member.id, {
       kind: 'google_review',
@@ -696,12 +746,12 @@ async function notifyMemberNewReviews(network, member, newOnes, { baseUrl } = {}
 }
 
 /**
- * Sync Google reviews for a Reviews-app member (uses network owner Outscraper keys).
+ * Sync Google + Yelp reviews for a Reviews-app member (request-site links only).
  */
 async function syncMember(network, member, opts = {}) {
   if (!network || !member) throw new Error('Network and member required');
   if (!isPaidMember(member)) {
-    const err = new Error('Google review inbox is on the monthly plan. Upgrade to unlock it.');
+    const err = new Error('Review inbox is on the monthly plan. Upgrade to unlock it.');
     err.code = 'PAID_ONLY';
     err.status = 402;
     throw err;
@@ -718,26 +768,35 @@ async function syncMember(network, member, opts = {}) {
 
   const ws = opts.workspace || (await dbService.getWorkspace(wid));
 
-  // Source of truth: Google link from Review request sites — never CRM lead / free-text.
-  const query = resolveQueryFromMember(member);
-  if (!query) {
-    const err = new Error('Add your Google review link under Review → Settings (request sites), then sync.');
+  // Source of truth: Google + Yelp links from Review request sites.
+  const googleQuery = resolveQueryFromMember(member);
+  const yelpQuery = resolveYelpQueryFromMember(member);
+  if (!googleQuery && !yelpQuery) {
+    const err = new Error(
+      'Add your Google and/or Yelp review link under Review → Settings (request sites), then sync.'
+    );
     err.code = 'QUERY_REQUIRED';
     err.status = 400;
     throw err;
   }
 
   let settings = getSettings(sid);
-  const queryChanged = !!(settings.query && settings.query !== query);
+  const googleChanged = !!(settings.query && googleQuery && settings.query !== googleQuery)
+    || (!!settings.query && !googleQuery);
+  const yelpChanged = !!(settings.yelpQuery && yelpQuery && settings.yelpQuery !== yelpQuery)
+    || (!!settings.yelpQuery && !yelpQuery);
   if (
-    queryChanged ||
-    !settings.query ||
+    googleChanged ||
+    yelpChanged ||
+    settings.query !== googleQuery ||
+    settings.yelpQuery !== yelpQuery ||
     !settings.businessName ||
     opts.autoSync != null ||
     (opts.businessName != null && opts.businessName !== settings.businessName)
   ) {
     settings = saveSettings(sid, {
-      query,
+      query: googleQuery,
+      yelpQuery,
       businessName:
         opts.businessName != null
           ? opts.businessName
@@ -747,10 +806,18 @@ async function syncMember(network, member, opts = {}) {
     });
   }
 
-  // Drop inbox from a previous (wrong) listing when the Google request-site link changes.
   let store = getStore(sid);
-  if (queryChanged) {
-    store = emptyStore();
+  // Drop reviews for a source when its request-site link changed / was removed.
+  if (googleChanged || yelpChanged) {
+    let kept = store.reviews || [];
+    if (googleChanged) kept = kept.filter((r) => normalizeSource(r.source) !== 'google');
+    if (yelpChanged) kept = kept.filter((r) => normalizeSource(r.source) !== 'yelp');
+    store = {
+      ...store,
+      reviews: kept,
+      knownIds: kept.map((r) => r.id),
+      lastError: null,
+    };
     saveStore(sid, store);
   }
   if (!opts.force && store.lastSyncedAt) {
@@ -777,16 +844,39 @@ async function syncMember(network, member, opts = {}) {
     throw err;
   }
 
-  let pack;
+  const limit = settings.reviewsLimit;
+  const errors = [];
+  let googlePack = null;
+  let yelpPack = null;
   try {
-    pack = await trials.runMetered(ws || { id: wid }, () =>
-      outscraper.fetchGoogleMapsReviews({
-        query,
-        reviewsLimit: settings.reviewsLimit,
-        sort: 'newest',
-        integrationEnv,
-      })
-    );
+    const jobs = [];
+    if (googleQuery) {
+      jobs.push(
+        trials.runMetered(ws || { id: wid }, () =>
+          outscraper.fetchGoogleMapsReviews({
+            query: googleQuery,
+            reviewsLimit: limit,
+            sort: 'newest',
+            integrationEnv,
+          })
+        ).then((pack) => { googlePack = pack; })
+          .catch((e) => { errors.push(`Google: ${e.message || 'sync failed'}`); })
+      );
+    }
+    if (yelpQuery) {
+      jobs.push(
+        trials.runMetered(ws || { id: wid }, () =>
+          outscraper.fetchYelpReviews({
+            query: yelpQuery,
+            reviewsLimit: limit,
+            sort: 'date_desc',
+            integrationEnv,
+          })
+        ).then((pack) => { yelpPack = pack; })
+          .catch((e) => { errors.push(`Yelp: ${e.message || 'sync failed'}`); })
+      );
+    }
+    await Promise.all(jobs);
   } catch (e) {
     saveStore(sid, {
       ...store,
@@ -795,20 +885,51 @@ async function syncMember(network, member, opts = {}) {
     throw e;
   }
 
+  if (!googlePack && !yelpPack) {
+    const msg = errors.join(' · ') || 'Outscraper sync failed';
+    saveStore(sid, { ...store, lastError: msg });
+    const err = new Error(msg);
+    err.code = 'SYNC_FAILED';
+    err.status = 502;
+    throw err;
+  }
+
+  const incoming = [];
+  if (googlePack) {
+    for (const r of googlePack.reviews || []) incoming.push({ ...r, source: 'google' });
+  }
+  if (yelpPack) {
+    for (const r of yelpPack.reviews || []) incoming.push({ ...r, source: 'yelp' });
+  }
+
   const markNew = store.knownIds.length > 0 || store.reviews.length > 0;
-  const { reviews, newOnes } = mergeReviews(store.reviews, pack.reviews || [], { markNew });
+  const { reviews, newOnes } = mergeReviews(store.reviews, incoming, { markNew });
   const placeName =
-    clean((pack.place && (pack.place.name || pack.place.title)) || settings.businessName, 200) ||
-    settings.businessName ||
-    clean(member.companyName, 200);
+    clean(
+      (googlePack && googlePack.place && (googlePack.place.name || googlePack.place.title))
+        || (yelpPack && yelpPack.place && (yelpPack.place.name || yelpPack.place.title))
+        || settings.businessName,
+      200
+    )
+    || settings.businessName
+    || clean(member.companyName, 200);
   const nextStore = {
     reviews,
-    placeRating: pack.placeRating != null ? pack.placeRating : store.placeRating,
+    placeRating:
+      googlePack && googlePack.placeRating != null
+        ? googlePack.placeRating
+        : yelpPack && yelpPack.placeRating != null
+          ? yelpPack.placeRating
+          : store.placeRating,
     placeReviewsCount:
-      pack.placeReviewsCount != null ? pack.placeReviewsCount : store.placeReviewsCount,
+      googlePack && googlePack.placeReviewsCount != null
+        ? googlePack.placeReviewsCount
+        : yelpPack && yelpPack.placeReviewsCount != null
+          ? yelpPack.placeReviewsCount
+          : store.placeReviewsCount,
     placeName,
     lastSyncedAt: new Date().toISOString(),
-    lastError: null,
+    lastError: errors.length ? errors.join(' · ') : null,
     knownIds: reviews.map((r) => r.id),
   };
   saveStore(sid, nextStore);
@@ -832,6 +953,10 @@ async function syncMember(network, member, opts = {}) {
     newCount: newOnes.length,
     newOnes,
     notifications,
+    sources: {
+      google: !!googlePack,
+      yelp: !!yelpPack,
+    },
   };
 }
 
@@ -906,7 +1031,7 @@ async function syncDueMembers(opts = {}) {
       const sid = memberStorageId(network.id, member.id);
       const settings = getSettings(sid);
       if (!settings.autoSync) continue;
-      if (!resolveQueryFromMember(member)) continue;
+      if (!resolveQueryFromMember(member) && !resolveYelpQueryFromMember(member)) continue;
       try {
         // eslint-disable-next-line no-await-in-loop
         const r = await syncMember(network, member, {
@@ -965,6 +1090,7 @@ module.exports = {
   isPaidWorkspace,
   isPaidMember,
   resolveQueryFromMember,
+  resolveYelpQueryFromMember,
   sanitizeReviewText,
   getSettings,
   saveSettings,

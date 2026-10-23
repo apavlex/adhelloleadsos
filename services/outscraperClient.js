@@ -370,6 +370,127 @@ async function fetchGoogleMapsReviews({ query, reviewsLimit, sort, integrationEn
   };
 }
 
+/**
+ * Flatten Outscraper /yelp-reviews payload into { place, reviews }.
+ * Data is typically [ [ review, review, … ] ] per query.
+ */
+function flattenYelpReviewsPayload(data) {
+  if (!Array.isArray(data) || !data.length) return { place: null, reviews: [] };
+  const reviews = [];
+  let place = null;
+  for (const chunk of data) {
+    const rows = Array.isArray(chunk) ? chunk : chunk && typeof chunk === 'object' ? [chunk] : [];
+    for (const row of rows) {
+      if (!row || typeof row !== 'object') continue;
+      if (!place && (row.business_name || row.name || row.title)) {
+        place = {
+          name: row.business_name || row.name || row.title || '',
+          rating: row.business_rating != null ? row.business_rating : row.rating,
+          reviews: row.reviews_count != null ? row.reviews_count : row.reviews,
+        };
+      }
+      // Skip bare business rows with no review body/id.
+      if (
+        row.review_id ||
+        row.reviewId ||
+        row.review_text ||
+        row.review_rating != null ||
+        row.rating != null
+      ) {
+        reviews.push(row);
+      }
+    }
+  }
+  return { place, reviews };
+}
+
+/**
+ * Yelp reviews via Outscraper (GET /yelp-reviews, async + poll).
+ * @param {{ query: string, reviewsLimit?: number, sort?: string, integrationEnv?: Record<string, string> }} params
+ */
+async function fetchYelpReviews({ query, reviewsLimit, sort, integrationEnv }) {
+  if (!isConfigured(integrationEnv)) {
+    throw new Error('Outscraper is not configured (set OUTSCRAPER_API_KEY).');
+  }
+  const q = String(query || '').trim();
+  if (!q) throw new Error('Yelp query is required (yelp.com/biz/… URL or business id).');
+
+  const limit = Math.min(100, Math.max(5, parseInt(reviewsLimit, 10) || 25));
+  const syncMode = ['1', 'true', 'yes'].includes(String(process.env.OUTSCRAPER_REVIEWS_SYNC || '').toLowerCase().trim());
+  const useAsync = !syncMode;
+  const sortVal = sort || 'date_desc';
+
+  const u = new URL(`${apiBase(integrationEnv)}/yelp-reviews`);
+  u.searchParams.set('query', q);
+  u.searchParams.set('limit', String(limit));
+  u.searchParams.set('sort', sortVal);
+  u.searchParams.set('async', useAsync ? 'true' : 'false');
+
+  console.log(`[Outscraper] Yelp reviews: "${q.slice(0, 80)}" (limit=${limit}, async=${useAsync})`);
+
+  const initTimeout = useAsync ? MAPS_INIT_TIMEOUT_MS : Math.max(MAPS_INIT_TIMEOUT_MS, 120000);
+  const { ok, status, json } = await outscraperFetchJson(u.toString(), {
+    timeoutMs: initTimeout,
+    integrationEnv,
+  });
+
+  if (!ok) {
+    const msg = json?.errorMessage || json?.message || `HTTP ${status}`;
+    throw new Error(`Outscraper Yelp reviews: ${msg}`);
+  }
+
+  let payload = json;
+  if (payload?.status === 'Failure') {
+    throw new Error(payload.errorMessage || payload.message || 'Outscraper Yelp reviews task failed');
+  }
+
+  if (useAsync && payload?.id && payload?.status !== 'Success') {
+    let pollUrl = payload.results_location;
+    if (pollUrl && !String(pollUrl).startsWith('http')) {
+      pollUrl = `${apiBase(integrationEnv)}${String(pollUrl).startsWith('/') ? '' : '/'}${pollUrl}`;
+    }
+    if (!pollUrl) pollUrl = `${apiBase(integrationEnv)}/requests/${payload.id}`;
+    const deadline = Date.now() + MAPS_MAX_WAIT_MS;
+    let first = true;
+    while (Date.now() < deadline) {
+      if (!first) await sleep(MAPS_POLL_MS);
+      first = false;
+      const polled = await outscraperFetchJson(pollUrl, {
+        timeoutMs: MAPS_INIT_TIMEOUT_MS,
+        integrationEnv,
+      });
+      if (polled.status === 204 || (polled.json && polled.json.status === 'Failure')) {
+        throw new Error(polled.json?.errorMessage || polled.json?.message || 'Outscraper Yelp reviews failed');
+      }
+      if (polled.json?.status === 'Success' && polled.json.data) {
+        payload = polled.json;
+        break;
+      }
+    }
+    if (payload?.status !== 'Success' || !payload.data) {
+      throw new Error('Outscraper Yelp reviews timed out waiting for results');
+    }
+  }
+
+  if (payload?.status !== 'Success' || !payload.data) {
+    throw new Error(payload?.errorMessage || 'Unexpected Outscraper Yelp reviews response');
+  }
+
+  const { place, reviews } = flattenYelpReviewsPayload(payload.data);
+  const placeRating =
+    place && place.rating != null ? Number(place.rating) : null;
+  const placeReviewsCount =
+    place && place.reviews != null ? parseInt(place.reviews, 10) : null;
+
+  console.log(`[Outscraper] Yelp reviews returned ${reviews.length} rows for query.`);
+  return {
+    reviews,
+    place: place || null,
+    placeRating: Number.isFinite(placeRating) ? placeRating : null,
+    placeReviewsCount: Number.isFinite(placeReviewsCount) ? placeReviewsCount : null,
+  };
+}
+
 const CONTACTS_MAX_WAIT_MS = Math.max(
   15000,
   parseInt(process.env.OUTSCRAPER_CONTACTS_MAX_WAIT_MS || '90000', 10) || 90000,
@@ -1242,6 +1363,8 @@ module.exports = {
   apiKey,
   searchGoogleMaps,
   fetchGoogleMapsReviews,
+  fetchYelpReviews,
+  flattenYelpReviewsPayload,
   fetchContactsAndLeads,
   fetchAdsChecker,
   fetchPhonesEnricher,
