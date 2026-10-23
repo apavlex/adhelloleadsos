@@ -1105,7 +1105,7 @@ test('Review tab and home links open QR page not the ask form', async () => {
     assert.doesNotMatch(home, /\/review\?ask=1/);
 
     const review = await (await fetch(`${base}/review`)).text();
-    assert.match(review, /ma-page-title">Reviews</);
+    assert.match(review, /Show your QR/);
     assert.match(review, /Request a review/);
     assert.match(review, /ma-qr/);
     assert.doesNotMatch(review, /id="maAskForm"\s+open/);
