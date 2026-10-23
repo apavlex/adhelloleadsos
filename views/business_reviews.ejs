@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <% const _paid = typeof paid !== 'undefined' && paid; %>
+    <% const _summary = typeof summary !== 'undefined' && summary ? summary : { total: 0, newCount: 0, unreplied: 0, withDraft: 0 }; %>
+    <% const _settings = typeof settings !== 'undefined' && settings ? settings : { query: '', businessName: '', autoSync: true }; %>
+    <% const _reviews = Array.isArray(reviews) ? reviews : []; %>
+    <% const _outConfigured = typeof outscraperConfigured !== 'undefined' && outscraperConfigured; %>
+    <% const _contact = typeof contact !== 'undefined' && contact ? contact : { url: '', email: 'hello@adhello.ai', label: 'Book a call' }; %>
+    <% const _focus = typeof focusReviewId !== 'undefined' ? String(focusReviewId || '') : ''; %>
+
+    <header class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Reputation</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Business Reviews</h1>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">Google reviews pulled with Outscraper. Get notified when new ones land, then draft an AI reply and copy it into Google with one click.</p>
+      </div>
+      <% if (_paid) { %>
+      <div class="flex flex-wrap gap-2 shrink-0">
+        <button type="button" id="brSyncBtn" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest"<%= !_settings.query || !_outConfigured ? ' disabled' : '' %>>Sync reviews</button>
+        <a href="/workspace/integrations#integration-outscraper" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Outscraper</a>
+      </div>
+      <% } %>
+    </header>
+
+    <% if (!_paid) { %>
+    <section class="rounded-[2rem] border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/15 via-white to-white dark:from-brand-yellow/10 dark:via-slate-900 dark:to-slate-950 px-8 py-12 text-center shadow-sm" aria-labelledby="brLockedTitle">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Paid plan</p>
+      <h2 id="brLockedTitle" class="font-display font-bold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">Unlock your Google review inbox</h2>
+      <p class="text-sm text-brand-muted dark:text-slate-400 max-w-lg mx-auto mb-6 leading-relaxed">On a paid plan, Agency OS watches your Google Business Profile with Outscraper, rings the notification bell when a new review arrives, and helps you draft a reply you can copy straight into Google.</p>
+      <ul class="text-left max-w-md mx-auto mb-8 space-y-2 text-sm text-brand-dark dark:text-slate-200">
+        <li class="flex gap-2"><span class="text-brand-yellow font-black" aria-hidden="true">✓</span> Live review feed from Outscraper</li>
+        <li class="flex gap-2"><span class="text-brand-yellow font-black" aria-hidden="true">✓</span> Bell + history notifications for new reviews</li>
+        <li class="flex gap-2"><span class="text-brand-yellow font-black" aria-hidden="true">✓</span> AI owner reply drafts with one-click copy</li>
+      </ul>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <% if (_contact.url) { %>
+        <a href="<%= _contact.url %>" target="_blank" rel="noopener noreferrer" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest"><%= _contact.label || 'Upgrade' %></a>
+        <% } %>
+        <a href="mailto:<%= _contact.email %>?subject=<%= encodeURIComponent('Upgrade for Business Reviews: ' + (typeof workspaceName !== 'undefined' ? workspaceName : 'Agency OS')) %>" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Email <%= _contact.email %></a>
+      </div>
+    </section>
+    <% } else { %>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Reviews</p>
+        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.total %></p>
+      </div>
+      <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">New</p>
+        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.newCount %></p>
+      </div>
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Unreplied</p>
+        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.unreplied %></p>
+      </div>
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Rating</p>
+        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><% if (_summary.placeRating != null) { %><%= Number(_summary.placeRating).toFixed(1) %>★<% } else { %>—<% } %></p>
+      </div>
+    </div>
+
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="brSettingsTitle">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+        <div>
+          <h2 id="brSettingsTitle" class="font-display font-bold text-lg text-brand-dark dark:text-white">Google listing</h2>
+          <p class="text-xs text-brand-muted mt-1">Place ID, Maps URL, or exact business name + city. Auto-sync checks for new reviews in the background.</p>
+        </div>
+        <% if (!_outConfigured) { %>
+        <a href="/workspace/integrations#integration-outscraper" class="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300 underline">Connect Outscraper first</a>
+        <% } else if (_summary.lastSyncedAt) { %>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Last sync · <%= wsDateTime(_summary.lastSyncedAt, { dateStyle: 'medium', timeStyle: 'short' }) %></p>
+        <% } %>
+      </div>
+      <% if (_summary.lastError) { %>
+      <p class="mb-4 text-xs text-rose-700 dark:text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2"><%= _summary.lastError %></p>
+      <% } %>
+      <form id="brSettingsForm" method="post" action="/business-reviews/settings" class="grid gap-4 sm:grid-cols-2">
+        <label class="block sm:col-span-2">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Maps query</span>
+          <input type="text" name="query" value="<%= _settings.query %>" placeholder="ChIJ… or https://maps.google.com/… or Acme Plumbing Portland OR" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-4 py-2.5 text-sm" required />
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Business name (for AI replies)</span>
+          <input type="text" name="businessName" value="<%= _settings.businessName || _summary.placeName || '' %>" placeholder="<%= typeof workspaceName !== 'undefined' ? workspaceName : 'Your business' %>" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-4 py-2.5 text-sm" />
+        </label>
+        <label class="flex items-end gap-2 pb-2">
+          <input type="checkbox" name="autoSync" value="1" class="rounded border-brand-border"<%= _settings.autoSync !== false ? ' checked' : '' %> />
+          <span class="text-sm text-brand-dark dark:text-slate-200">Auto-sync &amp; notify on new reviews</span>
+        </label>
+        <div class="sm:col-span-2 flex flex-wrap gap-2">
+          <button type="submit" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Save</button>
+          <button type="button" id="brSaveSyncBtn" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest"<%= !_outConfigured ? ' disabled' : '' %>>Save &amp; sync now</button>
+        </div>
+      </form>
+    </section>
+
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white">Inbox<% if (_summary.placeName) { %> <span class="text-brand-muted font-semibold text-sm">· <%= _summary.placeName %></span><% } %></h2>
+      <% if (_summary.newCount) { %>
+      <button type="button" id="brMarkSeenBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow">Mark all seen</button>
+      <% } %>
+    </div>
+
+    <% if (!_reviews.length) { %>
+    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
+      <h3 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No reviews synced yet</h3>
+      <p class="text-sm text-brand-muted max-w-md mx-auto mb-6">Save your Google listing above, then sync. New reviews will show here and ping your notification bell.</p>
+      <button type="button" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest" onclick="document.getElementById('brSaveSyncBtn') && document.getElementById('brSaveSyncBtn').click()"<%= !_outConfigured || !_settings.query ? ' disabled' : '' %>>Sync with Outscraper</button>
+    </div>
+    <% } else { %>
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Google reviews">
+      <ul class="divide-y divide-brand-border/40 dark:divide-white/10" id="brReviewList">
+        <% _reviews.forEach(function (r) {
+          var _when = r.reviewedAt ? wsDateTime(r.reviewedAt, { dateStyle: 'medium' }) : '';
+          var _stars = r.rating != null ? String(r.rating) : '—';
+          var _isFocus = _focus && _focus === r.id;
+        %>
+        <li class="p-5 sm:p-6 <%= r.isNew ? 'bg-emerald-500/5' : '' %> <%= _isFocus ? 'ring-2 ring-inset ring-brand-yellow/50' : '' %>" data-review-id="<%= r.id %>" id="review-<%= r.id %>">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-2">
+            <div>
+              <p class="font-display font-bold text-brand-dark dark:text-white">
+                <%= _stars %>★ · <%= r.author || 'Google reviewer' %>
+                <% if (r.isNew) { %><span class="ml-2 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-full">New</span><% } %>
+              </p>
+              <% if (_when) { %><p class="text-[11px] text-brand-muted mt-0.5"><%= _when %></p><% } %>
+            </div>
+            <% if (r.ownerResponse) { %>
+            <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 px-2 py-1 rounded-full">Already replied on Google</span>
+            <% } else { %>
+            <span class="text-[9px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200 bg-amber-500/10 px-2 py-1 rounded-full">Needs reply</span>
+            <% } %>
+          </div>
+          <% if (r.text) { %>
+          <p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed whitespace-pre-wrap"><%= r.text %></p>
+          <% } else { %>
+          <p class="text-sm text-brand-muted italic">No written comment — rating only.</p>
+          <% } %>
+
+          <div class="mt-4 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-bg/60 dark:bg-slate-950/50 p-4" data-reply-box>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">AI reply draft</p>
+              <div class="flex flex-wrap gap-2">
+                <button type="button" class="br-draft-btn btn-pill border border-brand-border dark:border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" data-review-id="<%= r.id %>">Generate with AI</button>
+                <button type="button" class="br-copy-btn btn-pill btn-primary px-3 py-1.5 text-[10px] font-black uppercase tracking-widest" data-review-id="<%= r.id %>"<%= r.replyDraft ? '' : ' disabled' %>>Copy reply</button>
+              </div>
+            </div>
+            <textarea class="br-draft-text w-full min-h-[110px] rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm leading-relaxed" rows="4" placeholder="Generate a reply, tweak it, then copy into Google." data-review-id="<%= r.id %>"><%= r.replyDraft || '' %></textarea>
+            <p class="br-draft-status mt-2 text-[11px] text-brand-muted min-h-[1rem]" role="status"></p>
+            <% if (r.reviewLink) { %>
+            <a href="<%= r.reviewLink %>" target="_blank" rel="noopener noreferrer" class="inline-block mt-1 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open on Google</a>
+            <% } %>
+          </div>
+        </li>
+        <% }); %>
+      </ul>
+    </section>
+    <% } %>
+
+    <script>
+    (function () {
+      var statusEl = null;
+      function toast(msg, isErr) {
+        var el = document.getElementById('brPageStatus');
+        if (!el) {
+          el = document.createElement('p');
+          el.id = 'brPageStatus';
+          el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full px-4 py-2 text-xs font-bold shadow-lg';
+          document.body.appendChild(el);
+        }
+        el.textContent = msg || '';
+        el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full px-4 py-2 text-xs font-bold shadow-lg ' +
+          (isErr ? 'bg-rose-600 text-white' : 'bg-brand-dark text-white dark:bg-white dark:text-brand-dark');
+        el.hidden = !msg;
+        if (msg) setTimeout(function () { el.hidden = true; }, 3200);
+      }
+
+      function formPayload() {
+        var form = document.getElementById('brSettingsForm');
+        if (!form) return {};
+        var fd = new FormData(form);
+        return {
+          query: String(fd.get('query') || ''),
+          businessName: String(fd.get('businessName') || ''),
+          autoSync: form.querySelector('[name=autoSync]') && form.querySelector('[name=autoSync]').checked,
+          force: true
+        };
+      }
+
+      async function syncNow(btn) {
+        if (btn) btn.disabled = true;
+        toast('Syncing with Outscraper…');
+        try {
+          var res = await fetch('/business-reviews/sync', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify(formPayload())
+          });
+          var data = await res.json().catch(function () { return {}; });
+          if (!res.ok || !data.success) throw new Error(data.error || 'Sync failed');
+          toast(data.newCount ? (data.newCount + ' new review' + (data.newCount === 1 ? '' : 's')) : (data.skipped ? 'Already up to date' : 'Synced'));
+          location.reload();
+        } catch (e) {
+          toast(e.message || 'Sync failed', true);
+          if (btn) btn.disabled = false;
+        }
+      }
+
+      var syncBtn = document.getElementById('brSyncBtn');
+      if (syncBtn) syncBtn.addEventListener('click', function () { syncNow(syncBtn); });
+      var saveSync = document.getElementById('brSaveSyncBtn');
+      if (saveSync) saveSync.addEventListener('click', function () { syncNow(saveSync); });
+
+      var markSeen = document.getElementById('brMarkSeenBtn');
+      if (markSeen) {
+        markSeen.addEventListener('click', async function () {
+          markSeen.disabled = true;
+          try {
+            var res = await fetch('/business-reviews/mark-all-seen', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { Accept: 'application/json' }
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) throw new Error(data.error || 'Failed');
+            location.reload();
+          } catch (e) {
+            toast(e.message || 'Failed', true);
+            markSeen.disabled = false;
+          }
+        });
+      }
+
+      document.querySelectorAll('.br-draft-btn').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var id = btn.getAttribute('data-review-id');
+          var box = btn.closest('[data-reply-box]');
+          var ta = box && box.querySelector('.br-draft-text');
+          var st = box && box.querySelector('.br-draft-status');
+          var copyBtn = box && box.querySelector('.br-copy-btn');
+          btn.disabled = true;
+          if (st) st.textContent = 'Writing reply…';
+          try {
+            var res = await fetch('/business-reviews/reviews/' + encodeURIComponent(id) + '/draft-reply', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ businessName: formPayload().businessName })
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) throw new Error(data.error || 'AI draft failed');
+            if (ta) ta.value = data.reply || '';
+            if (copyBtn) copyBtn.disabled = !data.reply;
+            if (st) st.textContent = 'Draft ready — copy and paste into Google.';
+          } catch (e) {
+            if (st) st.textContent = e.message || 'AI draft failed';
+          } finally {
+            btn.disabled = false;
+          }
+        });
+      });
+
+      document.querySelectorAll('.br-copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var box = btn.closest('[data-reply-box]');
+          var ta = box && box.querySelector('.br-draft-text');
+          var st = box && box.querySelector('.br-draft-status');
+          var text = ta ? String(ta.value || '').trim() : '';
+          if (!text) return;
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(text);
+            } else {
+              ta.focus();
+              ta.select();
+              document.execCommand('copy');
+            }
+            if (st) st.textContent = 'Copied — paste into your Google Business reply.';
+            btn.textContent = 'Copied!';
+            setTimeout(function () { btn.textContent = 'Copy reply'; }, 1600);
+          } catch (e) {
+            if (st) st.textContent = 'Copy failed — select the text and copy manually.';
+          }
+        });
+      });
+
+      var focusId = <%= JSON.stringify(_focus) %>;
+      if (focusId) {
+        var node = document.getElementById('review-' + focusId);
+        if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    })();
+    </script>
+    <% } %>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>
