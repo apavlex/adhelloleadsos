@@ -19,6 +19,7 @@ module.exports = {
   prepareFocus: tools.prepareFocus,
   scanOpportunityBoard: tools.scanOpportunityBoard,
   scanPool: tools.scanPool,
+  nurtureNetwork: tools.nurtureNetwork,
   opsHealth: tools.opsHealth,
   runJob: runtime.runJob,
   enqueueAndRun: runtime.enqueueAndRun,

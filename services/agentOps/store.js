@@ -60,6 +60,7 @@ function defaultSettings() {
       prospect: { enabled: true, autoTick: true },
       opportunity: { enabled: true, autoTick: true },
       dispatcher: { enabled: true, autoTick: true },
+      network: { enabled: true, autoTick: true },
       ops: { enabled: true, autoTick: true },
     },
     lastTickAt: null,

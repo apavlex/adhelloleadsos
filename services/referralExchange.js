@@ -495,6 +495,7 @@ function networkTotals(referrals) {
 
 module.exports = {
   STATUSES,
+  OPEN_STATUSES,
   STATUS_LABELS,
   ACTION_LABELS,
   UNROUTED_REASONS,

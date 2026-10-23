@@ -131,14 +131,17 @@ describe('agentOps role bots', () => {
 
   it('lists Prospect + Opportunity SDRs with default jobs', () => {
     const roles = agentOps.listRoles();
-    assert.equal(roles.length, 4);
+    assert.equal(roles.length, 5);
     const prospect = roles.find((r) => r.id === 'prospect');
     const opportunity = roles.find((r) => r.id === 'opportunity');
+    const network = roles.find((r) => r.id === 'network');
     assert.equal(prospect.title, 'Prospect SDR');
     assert.equal(opportunity.title, 'Opportunity SDR');
+    assert.equal(network.title, 'Network Coach');
     assert.equal(agentOps.roleForJob('prospect.prepare').id, 'prospect');
     assert.equal(agentOps.roleForJob('opportunity.scan_board').id, 'opportunity');
     assert.equal(agentOps.roleForJob('sdr.prepare_focus').id, 'prospect');
+    assert.equal(agentOps.roleForJob('network.nurture').id, 'network');
   });
 
   it('Prospect SDR prepare builds a prospect insight', async () => {
@@ -199,19 +202,31 @@ describe('agentOps role bots', () => {
     assert.equal(again.result.reason, 'fresh');
   });
 
-  it('Dispatcher and Ops jobs write insights', async () => {
+  it('Dispatcher, Network Coach, and Ops jobs write insights', async () => {
     const disp = await agentOps.enqueueAndRun('ws_ops', 'dispatcher.scan_pool', {
       onBehalfOf: 'owner@ops.test',
     });
     assert.equal(disp.ok, true);
+    const network = await agentOps.enqueueAndRun('ws_ops', 'network.nurture', {
+      onBehalfOf: 'owner@ops.test',
+    });
+    assert.equal(network.ok, true);
+    assert.match(network.result.summary || '', /Network Coach/i);
+    assert.ok(Array.isArray(network.result.items));
     const ops = await agentOps.enqueueAndRun('ws_ops', 'ops.health', {
       onBehalfOf: 'owner@ops.test',
     });
     assert.equal(ops.ok, true);
     assert.ok(ops.result.summary);
     const runs = agentOps.listRecentRuns('ws_ops', 10);
-    assert.ok(runs.length >= 2);
+    assert.ok(runs.length >= 3);
     assert.ok(runs.some((r) => r.type === 'ops.health' && r.status === 'ok'));
+    assert.ok(runs.some((r) => r.type === 'network.nurture' && r.status === 'ok'));
+    const dash = agentOps.dashboardForWorkspace('ws_ops');
+    const coach = dash.roles.find((r) => r.id === 'network');
+    assert.ok(coach);
+    assert.ok(coach.insight);
+    assert.equal(coach.title, 'Network Coach');
   });
 
   it('settings can disable a role and block enqueue', () => {

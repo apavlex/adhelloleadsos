@@ -14,7 +14,13 @@ const ghlMessaging = require('../ghlMessaging');
 const appointmentPackages = require('../appointmentPackages');
 const appointmentPool = require('../appointmentPool');
 const networkStore = require('../networkStore');
-const { poolReferralsForMember } = require('../referralExchange');
+const networkTrades = require('../networkTrades');
+const {
+  poolReferralsForMember,
+  memberStats,
+  seatHolder,
+  OPEN_STATUSES,
+} = require('../referralExchange');
 const store = require('./store');
 const memory = require('./memory');
 const {
@@ -25,6 +31,32 @@ const {
 
 /** Don't rewrite Opportunity insights / activity more than once per cooldown window. */
 const OPPORTUNITY_FRESH_MS = 50 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+/** Referral stuck in "sent" (partner hasn't accepted). */
+const STUCK_SENT_MS = 2 * DAY_MS;
+/** Referral stuck in "accepted" (not booked yet). */
+const STUCK_ACCEPTED_MS = 5 * DAY_MS;
+/** Quiet partner: no send/receive activity and stale profile. */
+const QUIET_PARTNER_MS = 14 * DAY_MS;
+/** How far back to look for inbound replies needing a response. */
+const REPLY_LOOKBACK_MS = 72 * 60 * 60 * 1000;
+
+const INBOUND_REPLY = { sms_inbound: 'sms', email_inbound: 'email', call_inbound: 'call' };
+
+function isOutboundTouch(type) {
+  return /outbound|^sms$|^email$|^call$|^call_log$|^voicemail/.test(String(type || ''));
+}
+
+function ageMs(iso) {
+  const ms = Date.parse(String(iso || ''));
+  return Number.isFinite(ms) ? Date.now() - ms : Infinity;
+}
+
+function daysLabel(ms) {
+  if (!Number.isFinite(ms) || ms === Infinity) return '';
+  const d = Math.max(1, Math.round(ms / DAY_MS));
+  return `${d}d`;
+}
 
 function actorFor(role, onBehalfOf) {
   const name = (role && (role.title || role.name)) || 'Ops bot';
@@ -420,6 +452,276 @@ async function scanPool(workspaceId, { role, onBehalfOf } = {}) {
 }
 
 /**
+ * Network Coach — keep the referral partner network alive:
+ * unanswered lead replies, quiet/paused partners, stuck referrals, open seats, pending apps.
+ */
+async function nurtureNetwork(workspaceId, { role, onBehalfOf } = {}) {
+  const wid = String(workspaceId || '').trim();
+  const items = [];
+  let networkId = null;
+  let pendingApps = 0;
+  let openSeats = 0;
+  let stuckReferrals = 0;
+  let quietPartners = 0;
+  let pausedPartners = 0;
+  let awaitingReplies = 0;
+
+  try {
+    const network = await networkStore.getNetworkForWorkspace(wid);
+    if (network) {
+      networkId = network.id;
+      const [members, referrals, applications, zones] = await Promise.all([
+        networkStore.listMembers(network.id),
+        networkStore.listReferrals(network.id),
+        networkStore.listApplications(network.id),
+        networkStore.listZones(network.id),
+      ]);
+      const networkTradeList = networkTrades.tradesForNetwork(network);
+      const partners = members.filter((m) => m && !m.workspaceStaff && m.id !== 'owner');
+
+      const pending = (applications || []).filter((a) => a && a.status === 'pending');
+      pendingApps = pending.length;
+      pending.slice(0, 4).forEach((a) => {
+        items.push(
+          itemRow({
+            kind: 'task',
+            id: a.id,
+            title: a.companyName || a.contactName || 'Network application',
+            subtitle:
+              [a.tradeSlug ? networkTrades.tradeLabel(a.tradeSlug) : '', a.city]
+                .filter(Boolean)
+                .join(' · ') || 'Pending application',
+            href: '/network?tab=applications',
+            badge: 'Apply',
+          }),
+        );
+      });
+
+      const openSeatRows = [];
+      (zones || []).forEach((zone) => {
+        networkTradeList.forEach((t) => {
+          if (!seatHolder(zone, t.slug)) {
+            openSeatRows.push({ zone, trade: t });
+          }
+        });
+      });
+      openSeats = openSeatRows.length;
+      openSeatRows.slice(0, 4).forEach(({ zone, trade }) => {
+        items.push(
+          itemRow({
+            kind: 'task',
+            id: `${zone.id}:${trade.slug}`,
+            title: `Open seat: ${trade.name}`,
+            subtitle: zone.name ? `${zone.name} — recruit a partner` : 'Recruit a partner for this trade',
+            href: '/network',
+            badge: 'Seat',
+          }),
+        );
+      });
+
+      const stuck = (referrals || []).filter((r) => {
+        if (!r || !OPEN_STATUSES.has(r.status)) return false;
+        if (r.status === 'unrouted') return true;
+        if (r.status === 'sent' && ageMs(r.sentAt || r.updatedAt || r.createdAt) >= STUCK_SENT_MS) return true;
+        if (r.status === 'accepted' && ageMs(r.acceptedAt || r.updatedAt || r.createdAt) >= STUCK_ACCEPTED_MS) {
+          return true;
+        }
+        return false;
+      });
+      stuckReferrals = stuck.length;
+      stuck
+        .slice()
+        .sort((a, b) => ageMs(b.updatedAt || b.createdAt) - ageMs(a.updatedAt || a.createdAt))
+        .slice(0, 5)
+        .forEach((r) => {
+          const customer = (r.customer && (r.customer.name || r.customer.phone)) || r.homeownerName || 'Referral';
+          const age = daysLabel(ageMs(r.updatedAt || r.createdAt));
+          const badge =
+            r.status === 'unrouted' ? 'Unrouted' : r.status === 'sent' ? 'Awaiting' : 'Follow up';
+          items.push(
+            itemRow({
+              kind: 'referral',
+              id: r.id,
+              title: String(customer).slice(0, 120),
+              subtitle: [
+                r.status,
+                r.trade || r.tradeSlug,
+                age ? `${age} idle` : null,
+              ]
+                .filter(Boolean)
+                .join(' · '),
+              href: '/referrals',
+              badge,
+            }),
+          );
+        });
+
+      pausedPartners = partners.filter((m) => m.status === 'paused').length;
+      partners
+        .filter((m) => m.status === 'paused')
+        .slice(0, 3)
+        .forEach((m) => {
+          items.push(
+            itemRow({
+              kind: 'task',
+              id: m.id,
+              title: m.companyName || 'Partner',
+              subtitle: 'Paused — check in and reactivate if still a fit',
+              href: '/network',
+              badge: 'Paused',
+            }),
+          );
+        });
+
+      const quiet = partners.filter((m) => {
+        if (m.status !== 'active') return false;
+        const stats = memberStats(referrals, m.id);
+        const activity = (stats.given || 0) + (stats.received || 0);
+        if (activity > 0) return false;
+        return ageMs(m.updatedAt || m.joinedAt) >= QUIET_PARTNER_MS;
+      });
+      quietPartners = quiet.length;
+      quiet
+        .slice()
+        .sort((a, b) => ageMs(b.updatedAt || b.joinedAt) - ageMs(a.updatedAt || a.joinedAt))
+        .slice(0, 4)
+        .forEach((m) => {
+          const age = daysLabel(ageMs(m.updatedAt || m.joinedAt));
+          items.push(
+            itemRow({
+              kind: 'task',
+              id: m.id,
+              title: m.companyName || 'Partner',
+              subtitle: [
+                (m.trades || []).slice(0, 2).map((t) => networkTrades.tradeLabel(t)).join(', ') || null,
+                age ? `quiet ${age}` : 'no referrals yet',
+              ]
+                .filter(Boolean)
+                .join(' · '),
+              href: '/network',
+              badge: 'Nurture',
+            }),
+          );
+        });
+    }
+  } catch (_) {
+    /* optional network */
+  }
+
+  try {
+    const all = await db.getAllLeads(wid);
+    const sinceMs = Date.now() - REPLY_LOOKBACK_MS;
+    const awaiting = [];
+    for (const lead of all) {
+      if (!lead || leadBlocksOutreach(lead)) continue;
+      const updates = Array.isArray(lead.updates) ? lead.updates : [];
+      let lastIn = null;
+      let lastOutMs = 0;
+      for (const e of updates) {
+        const ms = Date.parse((e && e.timestamp) || '');
+        if (!Number.isFinite(ms)) continue;
+        const ch = INBOUND_REPLY[e.type];
+        if (ch) {
+          if (ms >= sinceMs && (!lastIn || ms > lastIn.ms)) lastIn = { ms, ch };
+        } else if (isOutboundTouch(e.type) && ms > lastOutMs) {
+          lastOutMs = ms;
+        }
+      }
+      if (!lastIn || lastOutMs >= lastIn.ms) continue;
+      awaiting.push({ lead, lastIn });
+    }
+    awaiting.sort((a, b) => b.lastIn.ms - a.lastIn.ms);
+    awaitingReplies = awaiting.length;
+    awaiting.slice(0, 5).forEach(({ lead, lastIn }) => {
+      const short = shortLeadKey(lead);
+      const title = String(lead.title || lead.company || lead.email || 'Lead').slice(0, 120);
+      const age = daysLabel(Date.now() - lastIn.ms);
+      items.push(
+        itemRow({
+          kind: 'lead',
+          id: lead.key,
+          title,
+          subtitle: [`Needs ${lastIn.ch} reply`, age ? `${age} waiting` : null].filter(Boolean).join(' · '),
+          href: short ? `/focus?lead=${encodeURIComponent(short)}&from=today` : '/focus?from=today',
+          badge: 'Reply',
+        }),
+      );
+    });
+  } catch (_) {
+    /* optional leads */
+  }
+
+  // Cap cards so the Today panel stays scannable; prioritize replies + stuck refs first.
+  const priority = { Reply: 0, Awaiting: 1, 'Follow up': 2, Unrouted: 3, Apply: 4, Nurture: 5, Paused: 6, Seat: 7 };
+  items.sort((a, b) => (priority[a.badge] ?? 9) - (priority[b.badge] ?? 9));
+  const topItems = items.slice(0, 10);
+
+  const actionBits = [];
+  if (awaitingReplies) actionBits.push(`${awaitingReplies} lead${awaitingReplies === 1 ? '' : 's'} awaiting a reply`);
+  if (stuckReferrals) actionBits.push(`${stuckReferrals} stuck referral${stuckReferrals === 1 ? '' : 's'}`);
+  if (quietPartners) actionBits.push(`${quietPartners} quiet partner${quietPartners === 1 ? '' : 's'}`);
+  if (pausedPartners) actionBits.push(`${pausedPartners} paused`);
+  if (pendingApps) actionBits.push(`${pendingApps} application${pendingApps === 1 ? '' : 's'} to review`);
+  if (openSeats) actionBits.push(`${openSeats} open seat${openSeats === 1 ? '' : 's'}`);
+
+  const summary = actionBits.length
+    ? `Network Coach: ${actionBits.join(', ')}.`
+    : networkId
+      ? 'Network Coach: partners and referrals look healthy — keep sending work through the network.'
+      : 'Network Coach: no referral network on this workspace yet.';
+
+  memory.remember(wid, 'network', {
+    kind: 'nurture',
+    text: summary,
+    meta: {
+      networkId,
+      awaitingReplies,
+      stuckReferrals,
+      quietPartners,
+      pausedPartners,
+      pendingApps,
+      openSeats,
+    },
+  });
+  store.upsertInsight(wid, {
+    roleId: 'network',
+    type: 'network.nurture',
+    title: actionBits.length ? actionBits[0] : networkId ? 'Network healthy' : 'No network yet',
+    body: summary,
+    href: networkId ? '/network' : '/focus?from=today',
+    severity: actionBits.length ? 'action' : 'info',
+    counts: {
+      awaitingReplies,
+      stuckReferrals,
+      quietPartners,
+      pausedPartners,
+      pendingApps,
+      openSeats,
+      items: topItems.length,
+    },
+    meta: { items: topItems },
+  });
+  recordBot(wid, role, onBehalfOf, {
+    category: 'notes',
+    action: 'network_nurture',
+    summary: summary.slice(0, 200),
+  });
+  return {
+    ok: true,
+    summary,
+    counts: {
+      awaitingReplies,
+      stuckReferrals,
+      quietPartners,
+      pausedPartners,
+      pendingApps,
+      openSeats,
+    },
+    items: topItems,
+  };
+}
+
+/**
  * Ops — GHL + messaging + recent failed agent jobs.
  */
 async function opsHealth(workspaceId, { role, onBehalfOf } = {}) {
@@ -552,6 +854,7 @@ module.exports = {
   prepareFocus,
   scanOpportunityBoard,
   scanPool,
+  nurtureNetwork,
   opsHealth,
   actorFor,
   nextMoveForStage,
