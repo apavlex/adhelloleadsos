@@ -5,6 +5,7 @@
  *                                 (no trial; material quotes → that workspace owner)
  *   GET/POST /join/:slug       → that agency's network (workspace slug;
  *                                 flooring host slug creates app_flooring members)
+ *   GET/POST /join/:slug/flooring → that agency's network as flooring partner (Quote)
  * Mounted before ensureAuthenticated (no Google / workspace required).
  */
 const express = require('express');
@@ -57,11 +58,13 @@ async function render(req, res, {
   const normalizedOffer = freeAppSignup.normalizeSignupOffer(offer);
   const flooring = normalizedOffer === freeAppSignup.OFFER_FLOORING;
   let formAction = '/app';
-  if (slug) formAction = `/join/${encodeURIComponent(slug)}`;
+  if (slug && flooring) formAction = `/join/${encodeURIComponent(slug)}/flooring`;
+  else if (slug) formAction = `/join/${encodeURIComponent(slug)}`;
   else if (flooring) formAction = '/app/flooring';
   const publicBase = getReviewPublicBaseUrl();
   let pagePath = '/app';
-  if (slug) pagePath = `/join/${encodeURIComponent(slug)}`;
+  if (slug && flooring) pagePath = `/join/${encodeURIComponent(slug)}/flooring`;
+  else if (slug) pagePath = `/join/${encodeURIComponent(slug)}`;
   else if (flooring) pagePath = '/app/flooring';
   const ogOffer = flooring ? freeAppSignup.OFFER_FLOORING : '';
   const ogTitle = flooring
@@ -178,42 +181,44 @@ async function offerForJoinNetwork(network) {
   return '';
 }
 
-router.get('/join/:slug', async (req, res, next) => {
+async function handleJoinGet(req, res, next, { offer = '' } = {}) {
   try {
     const joinSlug = freeAppSignup.cleanJoinSlug(req.params.slug);
-    if (!joinSlug) return res.redirect(302, '/app');
+    if (!joinSlug) return res.redirect(302, offer ? '/app/flooring' : '/app');
     const network = await freeAppSignup.resolveNetworkByJoinSlug(joinSlug);
     if (!network) {
       return render(req, res, {
         joinSlug,
+        offer,
         errors: ['That signup link is not valid. Ask your agency for a fresh link.'],
         status: 404,
       });
     }
-    const offer = await offerForJoinNetwork(network);
-    return render(req, res, { network, joinSlug, offer });
+    const resolvedOffer = offer || (await offerForJoinNetwork(network));
+    return render(req, res, { network, joinSlug, offer: resolvedOffer });
   } catch (err) {
     return next(err);
   }
-});
+}
 
-router.post('/join/:slug', form, async (req, res, next) => {
+async function handleJoinPost(req, res, next, { offer = '' } = {}) {
   try {
     const joinSlug = freeAppSignup.cleanJoinSlug(req.params.slug);
-    if (!joinSlug) return res.redirect(302, '/app');
+    if (!joinSlug) return res.redirect(302, offer ? '/app/flooring' : '/app');
     const network = await freeAppSignup.resolveNetworkByJoinSlug(joinSlug);
     if (!network) {
       return render(req, res, {
         joinSlug,
+        offer,
         formValues: req.body || {},
         errors: ['That signup link is not valid. Ask your agency for a fresh link.'],
         status: 404,
       });
     }
-    const offer = await offerForJoinNetwork(network);
+    const resolvedOffer = offer || (await offerForJoinNetwork(network));
     const { form: formValues, errors, digits, email } = freeAppSignup.readForm(req.body || {});
     if (errors.length) {
-      return render(req, res, { formValues, errors, status: 400, network, joinSlug, offer });
+      return render(req, res, { formValues, errors, status: 400, network, joinSlug, offer: resolvedOffer });
     }
     const result = await freeAppSignup.signupFreeApp({
       form: formValues,
@@ -223,7 +228,7 @@ router.post('/join/:slug', form, async (req, res, next) => {
       ip: clientIp(req),
       network,
       joinSlug,
-      offer,
+      offer: resolvedOffer,
     });
     if (!result.ok) {
       return render(req, res, {
@@ -232,13 +237,23 @@ router.post('/join/:slug', form, async (req, res, next) => {
         status: result.code === 'rate_limit' ? 429 : 400,
         network,
         joinSlug,
-        offer,
+        offer: resolvedOffer,
       });
     }
-    return render(req, res, { formValues: {}, sent: true, network, joinSlug, offer });
+    return render(req, res, { formValues: {}, sent: true, network, joinSlug, offer: resolvedOffer });
   } catch (err) {
     return next(err);
   }
-});
+}
+
+router.get('/join/:slug/flooring', (req, res, next) =>
+  handleJoinGet(req, res, next, { offer: freeAppSignup.OFFER_FLOORING }));
+
+router.post('/join/:slug/flooring', form, (req, res, next) =>
+  handleJoinPost(req, res, next, { offer: freeAppSignup.OFFER_FLOORING }));
+
+router.get('/join/:slug', (req, res, next) => handleJoinGet(req, res, next));
+
+router.post('/join/:slug', form, (req, res, next) => handleJoinPost(req, res, next));
 
 module.exports = router;

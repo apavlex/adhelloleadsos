@@ -663,12 +663,13 @@
       </div>
       <% } %>
       <% if (canManage && typeof networkJoinUrl !== 'undefined' && networkJoinUrl) { %>
+      <% const _netJoinFlooring = typeof networkJoinIsFlooring !== 'undefined' && networkJoinIsFlooring; %>
       <div class="net-card mb-4" id="net-join-link">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0 flex-1">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= _flooringHost ? 'Network join link' : 'Partner signup link' %></p>
-            <p class="font-display font-bold text-brand-dark dark:text-white">Share this so partners join <em>your</em> network</p>
-            <p class="mt-1 text-[13px] text-brand-muted leading-relaxed"><% if (_flooringHost) { %>Same network as the flooring app above — join signups here also become flooring partners with quote sending.<% } else { %>Text or email this link. Signups land here as App trial members — not on AdHello’s public pool.<% } %></p>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= _netJoinFlooring ? 'Flooring partner signup link' : 'Partner signup link' %></p>
+            <p class="font-display font-bold text-brand-dark dark:text-white"><% if (_netJoinFlooring) { %>Share so flooring partners join <em>your</em> network<% } else { %>Share this so partners join <em>your</em> network<% } %></p>
+            <p class="mt-1 text-[13px] text-brand-muted leading-relaxed"><% if (_netJoinFlooring) { %>Text or email this link. Signups land here with Reviews + <strong>Quote</strong> (material quotes) — not on AdHello’s public /app/flooring pool.<% } else { %>Text or email this link. Signups land here as App trial members — not on AdHello’s public pool.<% } %></p>
             <p class="mt-3 break-all font-mono text-[13px] font-semibold text-brand-dark dark:text-white" id="netJoinUrlText"><%= networkJoinUrl %></p>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">

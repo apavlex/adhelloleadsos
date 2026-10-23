@@ -287,19 +287,34 @@ router.get('/', async (req, res, next) => {
     let networkJoinUrl = '';
     let flooringSignupUrl = '';
     let isFlooringHost = false;
+    let networkJoinIsFlooring = false;
     if (canManage(req)) {
       try {
         networkJoinSlug = await freeAppSignup.getOrEnsureJoinSlug(network);
-        const { getNetworkJoinUrl, getFlooringAppSignupUrl } = require('../lib/publicBaseUrl');
-        networkJoinUrl = getNetworkJoinUrl(networkJoinSlug);
+        const {
+          getNetworkJoinUrl,
+          getNetworkFlooringJoinUrl,
+          getFlooringAppSignupUrl,
+        } = require('../lib/publicBaseUrl');
+        const ownerWs = req.workspace || (network.ownerWorkspaceId
+          ? await require('../services/database').getWorkspace(network.ownerWorkspaceId).catch(() => null)
+          : null);
         isFlooringHost = freeAppSignup.isFlooringHostWorkspace(req.workspace)
+          || freeAppSignup.isFlooringHostWorkspace(ownerWs)
           || (await freeAppSignup.isFlooringHostNetwork(network));
         if (isFlooringHost) flooringSignupUrl = getFlooringAppSignupUrl();
+        networkJoinIsFlooring = freeAppSignup.isFlooringNetworkWorkspace(ownerWs)
+          || freeAppSignup.isFlooringNetworkWorkspace(req.workspace)
+          || isFlooringHost;
+        networkJoinUrl = networkJoinIsFlooring
+          ? getNetworkFlooringJoinUrl(networkJoinSlug)
+          : getNetworkJoinUrl(networkJoinSlug);
       } catch (_) {
         networkJoinSlug = '';
         networkJoinUrl = '';
         flooringSignupUrl = '';
         isFlooringHost = false;
+        networkJoinIsFlooring = false;
       }
     }
 
@@ -360,6 +375,7 @@ router.get('/', async (req, res, next) => {
       networkJoinUrl,
       flooringSignupUrl,
       isFlooringHost,
+      networkJoinIsFlooring,
       networkNewsPosts,
       ghlSubaccounts: networkMembers.ghlSubaccountsAllowedFor(req.workspace),
       notice: String(req.query.notice || '').trim(),

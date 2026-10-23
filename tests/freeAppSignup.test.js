@@ -546,16 +546,77 @@ describe('freeAppSignup', { concurrency: false }, () => {
     }
   });
 
+  it('serves GET /join/:slug/flooring onto that supplier network with Quote plan', async () => {
+    const notify = require('../services/networkNotify');
+    mock.method(notify, 'sendMemberPortalLink', async () => ({ ok: true, channel: 'email' }));
+
+    await dbService.saveWorkspace('ws_tpr_flooring', {
+      name: 'TPR Flooring',
+      slug: 'tpr-flooring',
+      members: { 'ops@tpr.test': { role: 'owner' } },
+    });
+    await dbService.saveWorkspaceSlug('tpr-flooring', 'ws_tpr_flooring');
+    const tprNet = await store.getOrCreateNetworkForWorkspace('ws_tpr_flooring', {
+      name: 'TPR Flooring',
+      ownerEmail: 'ops@tpr.test',
+    });
+    assert.equal(freeAppSignup.isFlooringNetworkWorkspace({ name: 'TPR Flooring' }), true);
+    assert.equal(freeAppSignup.isFlooringNetworkWorkspace({ name: 'Bright Electric' }), false);
+
+    const app = express();
+    app.set('view engine', 'ejs');
+    app.set('views', path.join(__dirname, '..', 'views'));
+    app.locals.assetVersion = 'test';
+    app.use('/', freeAppRoutes);
+    const server = await new Promise((resolve) => {
+      const s = app.listen(0, () => resolve(s));
+    });
+    const base = `http://127.0.0.1:${server.address().port}`;
+    try {
+      const get = await fetch(`${base}/join/tpr-flooring/flooring`);
+      assert.equal(get.status, 200);
+      const html = await get.text();
+      assert.match(html, /action="\/join\/tpr-flooring\/flooring"/);
+      assert.match(html, /TPR Flooring|Flooring partners/);
+
+      const post = await fetch(`${base}/join/tpr-flooring/flooring`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          contactName: 'Sam',
+          companyName: 'Sam Floors',
+          phone: '503-555-0199',
+          acceptTerms: 'on',
+          ...areaFields({ serviceTrades: 'Flooring', serviceCity: 'Portland', serviceRadiusMiles: '25' }),
+        }),
+      });
+      assert.equal(post.status, 200);
+      assert.match(await post.text(), /Check your phone/);
+
+      const members = await store.listMembers(tprNet.id);
+      const sam = members.find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550199');
+      assert.ok(sam);
+      assert.equal(sam.plan, freeAppSignup.PLAN_APP_FLOORING);
+      assert.equal(sam.signupOffer, freeAppSignup.OFFER_FLOORING);
+      assert.equal(freeAppSignup.isFlooringOffer(sam), true);
+    } finally {
+      await new Promise((r) => server.close(r));
+      mock.restoreAll();
+    }
+  });
+
   it('wires the public route before auth and documents the paste URL', () => {
     const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
     const route = fs.readFileSync(path.join(__dirname, '../routes/freeApp.js'), 'utf8');
     const view = fs.readFileSync(path.join(__dirname, '../views/free_app.ejs'), 'utf8');
     const networkView = fs.readFileSync(path.join(__dirname, '../views/network.ejs'), 'utf8');
+    const referralsView = fs.readFileSync(path.join(__dirname, '../views/referrals.ejs'), 'utf8');
     const callout = fs.readFileSync(path.join(__dirname, '../views/member_app/_lead_request_callout.ejs'), 'utf8');
     const publicBase = fs.readFileSync(path.join(__dirname, '../lib/publicBaseUrl.js'), 'utf8');
     assert.match(server, /routes\/freeApp/);
     assert.match(route, /router\.(get|post)\('\/app'/);
     assert.match(route, /\/app\/flooring/);
+    assert.match(route, /\/join\/:slug\/flooring/);
     assert.match(route, /router\.(get|post)\('\/join\/:slug'/);
     assert.match(view, /_flooring/);
     assert.match(view, /buy material from us/i);
@@ -577,7 +638,10 @@ describe('freeAppSignup', { concurrency: false }, () => {
     assert.match(view, /class="fa-foot"/);
     assert.match(networkView, /net-join-link/);
     assert.match(networkView, /networkJoinUrl/);
+    assert.match(networkView, /networkJoinIsFlooring|Flooring partner signup link/);
+    assert.match(referralsView, /Flooring partner signup link/);
     assert.match(publicBase, /getNetworkJoinUrl/);
+    assert.match(publicBase, /getNetworkFlooringJoinUrl/);
     assert.match(callout, /href="\/signup"/);
   });
 });

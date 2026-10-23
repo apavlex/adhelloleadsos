@@ -44,9 +44,11 @@ test('top summary drops Free and Paid cards', () => {
 test('admin workspace signup link renders above the summary cards', () => {
   assert.match(route, /getOrEnsureJoinSlug/);
   assert.match(route, /getNetworkJoinUrl/);
+  assert.match(route, /getNetworkFlooringJoinUrl/);
+  assert.match(route, /isFlooringNetworkWorkspace/);
   assert.match(route, /networkJoinUrl/);
   assert.match(html, /id="ref-join-link"/);
-  assert.match(html, /Workspace signup link/);
+  assert.match(html, /Flooring partner signup link|Workspace signup link/);
   assert.match(html, /refJoinCopyBtn/);
   assert.match(html, /networkJoinUrl/);
   const joinAt = html.indexOf('id="ref-join-link"');

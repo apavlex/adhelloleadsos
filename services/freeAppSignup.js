@@ -383,6 +383,34 @@ async function getOrEnsureJoinSlug(network) {
   return slug;
 }
 
+/**
+ * Supplier / retail-install workspaces (e.g. Flooring, TPR Flooring) share a
+ * flooring-partner signup link so joiners get Quote access on *that* network —
+ * not the public AdHello /app/flooring pool.
+ */
+function isFlooringNetworkWorkspace(ws) {
+  if (!ws || typeof ws !== 'object') return false;
+  const name = String(ws.name || '').toLowerCase();
+  if (name.includes('flooring')) return true;
+  const vertical = String(
+    (ws.salesIntake && ws.salesIntake.vertical) ||
+      (ws.pipelineIntake && ws.pipelineIntake.vertical) ||
+      '',
+  ).toLowerCase();
+  if (vertical.includes('flooring')) return true;
+  const preset = String(
+    ws.salesScriptsPresetKey ||
+      (ws.pipelineIntake && ws.pipelineIntake.presetKey) ||
+      ws.presetKey ||
+      '',
+  ).toLowerCase();
+  return (
+    preset === 'flooring_install' ||
+    preset === 'commercial_flooring' ||
+    preset === 'retail_install'
+  );
+}
+
 function matchesContact(member, { digits, email }) {
   if (digits && phoneDigits(member.phone) === digits) return true;
   if (email && cleanEmail(member.email) === email) return true;
@@ -746,6 +774,7 @@ module.exports = {
   resolveFlooringAppNetwork,
   resolveNetworkByJoinSlug,
   getOrEnsureJoinSlug,
+  isFlooringNetworkWorkspace,
   findExistingMember,
   signupFreeApp,
   isAppFreeMember,

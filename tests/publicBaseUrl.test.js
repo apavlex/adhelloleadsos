@@ -4,12 +4,15 @@ const {
   getPublicBaseUrl,
   getReviewPublicBaseUrl,
   getReviewsAppSignupUrl,
+  getNetworkJoinUrl,
+  getNetworkFlooringJoinUrl,
   getReviewPageUrl,
   getRequestOrigin,
   googleOAuthRedirectUris,
   normalizePublicOrigin,
   ADHELLO_REVIEW_PUBLIC_BASE,
 } = require('../lib/publicBaseUrl');
+
 
 describe('publicBaseUrl', () => {
   it('prefers BASE_URL from env when no request', () => {
@@ -68,6 +71,12 @@ describe('publicBaseUrl', () => {
     assert.equal(ADHELLO_REVIEW_PUBLIC_BASE, 'https://reviews.adhello.io');
     assert.equal(getReviewPublicBaseUrl(), 'https://reviews.adhello.io');
     assert.equal(getReviewsAppSignupUrl(), 'https://reviews.adhello.io/app');
+    assert.equal(getNetworkJoinUrl('tpr-flooring'), 'https://reviews.adhello.io/join/tpr-flooring');
+    assert.equal(
+      getNetworkFlooringJoinUrl('tpr-flooring'),
+      'https://reviews.adhello.io/join/tpr-flooring/flooring',
+    );
+    assert.equal(getNetworkFlooringJoinUrl('Flooring'), 'https://reviews.adhello.io/join/flooring/flooring');
     assert.equal(getReviewPageUrl('brightline-electric'), 'https://reviews.adhello.io/rv/brightline-electric');
     process.env.REVIEW_PUBLIC_BASE_URL = 'https://reviews.adhello.io/';
     assert.equal(getReviewPageUrl('acme'), 'https://reviews.adhello.io/rv/acme');

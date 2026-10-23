@@ -151,15 +151,21 @@ router.get('/', async (req, res, next) => {
       : 0;
 
     // Admin share link so businesses signup onto this workspace’s network.
+    // Flooring / TPR Flooring workspaces use /join/{slug}/flooring (Quote access on *this* network).
     const freeAppSignup = require('../services/freeAppSignup');
     let networkJoinUrl = '';
+    let networkJoinIsFlooring = false;
     if (network && req.canManageWorkspace !== false) {
       try {
-        const { getNetworkJoinUrl } = require('../lib/publicBaseUrl');
+        const { getNetworkJoinUrl, getNetworkFlooringJoinUrl } = require('../lib/publicBaseUrl');
         const joinSlug = await freeAppSignup.getOrEnsureJoinSlug(network);
-        networkJoinUrl = getNetworkJoinUrl(joinSlug);
+        networkJoinIsFlooring = freeAppSignup.isFlooringNetworkWorkspace(ws);
+        networkJoinUrl = networkJoinIsFlooring
+          ? getNetworkFlooringJoinUrl(joinSlug)
+          : getNetworkJoinUrl(joinSlug);
       } catch (_) {
         networkJoinUrl = '';
+        networkJoinIsFlooring = false;
       }
     }
 
@@ -216,6 +222,7 @@ router.get('/', async (req, res, next) => {
       canManageNiches: req.canManageWorkspace !== false,
       openNiches: req.query.niches === '1',
       networkJoinUrl,
+      networkJoinIsFlooring,
       canShareJoinUrl: req.canManageWorkspace !== false,
       canManage: canPostNews,
       networkMemberTotals,
