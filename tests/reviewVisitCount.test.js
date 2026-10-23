@@ -93,10 +93,11 @@ test('Home banner shows open jobs as projects; secondary is customers + visits',
     assert.equal(home.status, 200);
     const html = await home.text();
     // Banner big number = open jobs (2) labeled projects — not leads, brand 91, or review visits.
-    assert.match(html, /ma-hero__stat">\s*2\s*<small>projects<\/small>/i);
-    assert.doesNotMatch(html, /ma-hero__stat">\s*1\s*<small>projects<\/small>/i);
-    assert.doesNotMatch(html, /ma-hero__stat">\s*91\s*</);
-    assert.doesNotMatch(html, /ma-hero__stat">\s*22\s*</);
+    // Tap target opens the open-projects (pending) list.
+    assert.match(html, /ma-hero__stat"[^>]*href="[^"]*\/customers\?view=pending"[^>]*>\s*2\s*<small>projects<\/small>/i);
+    assert.doesNotMatch(html, /ma-hero__stat"[^>]*>\s*1\s*<small>projects<\/small>/i);
+    assert.doesNotMatch(html, /ma-hero__stat"[^>]*>\s*91\s*</);
+    assert.doesNotMatch(html, /ma-hero__stat"[^>]*>\s*22\s*</);
     assert.doesNotMatch(html, /open jobs/i);
     assert.match(html, /22\s*review visits/i);
     // First tile is Leads; open-job count is only on the hero.

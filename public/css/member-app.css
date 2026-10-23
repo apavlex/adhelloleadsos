@@ -559,6 +559,11 @@ body.ma-bell-open .ma-bell { pointer-events: auto; }
   font-size: 34px; line-height: 1; letter-spacing: -0.02em;
   text-shadow: 0 1px 4px rgba(15, 23, 42, 0.55), 0 0 14px rgba(15, 23, 42, 0.3);
 }
+a.ma-hero__stat {
+  display: inline-block; color: inherit; text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+a.ma-hero__stat:active { opacity: 0.88; }
 .ma-hero__stat small {
   font-family: var(--font-text); font-size: 11px; font-weight: 700;
   color: rgba(255, 255, 255, 0.95); letter-spacing: 0; margin-left: 6px;

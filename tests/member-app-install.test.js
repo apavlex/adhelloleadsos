@@ -222,11 +222,12 @@ describe('member app install modal and tab bar', () => {
     assert.match(css, /\.ma-btn\[aria-busy='true'\]/);
   });
 
-  it('Customers view tabs include icons for List, Calendar, and Pending', () => {
+  it('Customers view tabs include icons for List, Calendar, and Projects', () => {
     const html = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
     assert.match(html, /icons\.list/);
     assert.match(html, /icons\.calendar/);
     assert.match(html, /icons\.pending/);
+    assert.match(html, /<span>Projects<\/span>/);
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /list:\s*icon\(/);
     assert.match(icons, /pending:\s*icon\(/);
@@ -240,7 +241,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(html, /<summary>\s*Bring in customers\s*<\/summary>/);
     const toolsAt = html.indexOf('id="maCustTools"');
     const pillsAt = html.indexOf('aria-label="Customer views"');
-    assert.ok(toolsAt > -1 && pillsAt > toolsAt, 'Bring in customers should render before List/Calendar/Pending');
+    assert.ok(toolsAt > -1 && pillsAt > toolsAt, 'Bring in customers should render before List/Calendar/Projects');
     // Closed strip: ~36px, not the default tall fold padding.
     assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*height:\s*36px/);
     assert.match(css, /\.ma-cust-tools\.ma-fold\s*>\s*summary\s*\{[^}]*max-height:\s*36px/);

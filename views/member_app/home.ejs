@@ -74,8 +74,8 @@
         <p class="ma-hero__stat"><%= brand.statValueLabel %><% if (brand.statSuffix) { %><small><%= brand.statSuffix %></small><% } %></p>
         <% if (brand.statLabel) { %><p class="ma-hero__label"><%= brand.statLabel %></p><% } %>
         <% } else { %>
-        <%/* Banner: open jobs as projects; secondary line is customers + review visits only. */%>
-        <p class="ma-hero__stat"><%= Number(_openJobs || 0).toLocaleString('en-US') %><small>projects</small></p>
+        <%/* Banner: open jobs as projects; tap opens Pending (open projects) list. */%>
+        <a class="ma-hero__stat" href="<%= base %>/customers?view=pending" aria-label="View open projects"><%= Number(_openJobs || 0).toLocaleString('en-US') %><small>projects</small></a>
         <p class="ma-hero__label"><%= _customerCount %> customers · <%= Number(_reviewViews || 0).toLocaleString('en-US') %> review visits</p>
         <% } %>
       </div>
