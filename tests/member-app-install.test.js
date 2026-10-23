@@ -443,7 +443,21 @@ describe('member app install modal and tab bar', () => {
     assert.match(viewer, /data-ma-lr/);
     assert.match(viewer, /ma-lr__film/);
     assert.match(js, /function initPhotoLightroomViewer/);
+    assert.match(js, /onLrTouchMove/);
     assert.match(css, /\.ma-lr\s*\{/);
     assert.match(css, /background:#0a0a0a/);
+    assert.match(css, /100dvh/);
+    assert.match(css, /overscroll-behavior:\s*none/);
+    assert.match(css, /touch-action:\s*pan-x/);
+  });
+
+  it('Agency OS photo spotlight stays pinned to the viewport (no vertical drag under status bar)', () => {
+    const viewer = fs.readFileSync(path.join(root, 'views/partials/photo_lightroom.ejs'), 'utf8');
+    assert.match(viewer, /data-os-lr/);
+    assert.match(viewer, /100dvh/);
+    assert.match(viewer, /overscroll-behavior:\s*none/);
+    assert.match(viewer, /onDocTouchMove/);
+    assert.match(viewer, /lockViewport/);
+    assert.doesNotMatch(viewer, /body\.app-with-sidebar>\.os-lr\.app-body-portal\{[^}]*height:\s*auto/);
   });
 });

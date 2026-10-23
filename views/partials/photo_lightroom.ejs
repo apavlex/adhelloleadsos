@@ -23,12 +23,33 @@
   <div class="os-lr__film" data-os-lr-film></div>
 </div>
 <style>
-.os-lr{position:fixed;inset:0;z-index:600;display:flex;flex-direction:column;background:#0a0a0a;color:#f5f5f5;pointer-events:auto}
+/* Pin to the visual viewport — never inherit height:auto from .app-body-portal
+   (that let the sheet rubber-band / slide under the status bar on iOS). */
+.os-lr{
+  position:fixed;top:0;right:0;bottom:0;left:0;
+  width:100%;max-width:none;
+  height:100%;height:100dvh;max-height:100dvh;min-height:100dvh;
+  z-index:600;display:flex;flex-direction:column;
+  background:#0a0a0a;color:#f5f5f5;pointer-events:auto;
+  overflow:hidden;overscroll-behavior:none;
+  touch-action:none;
+  -webkit-transform:translate3d(0,0,0);transform:translate3d(0,0,0);
+}
 .os-lr[hidden]{display:none!important;pointer-events:none}
-body.os-lr-open{overflow:hidden}
-/* Survive desktop body.app-with-sidebar grid crush when portaled to document.body */
-body.app-with-sidebar>.os-lr.app-body-portal{grid-column:auto;grid-row:auto;height:auto;min-height:0;width:auto;max-width:none;margin:0;padding:0;overflow:visible;pointer-events:auto}
-.os-lr__chrome{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top,0px)) 12px 10px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.5) 70%,transparent)}
+body.os-lr-open{overflow:hidden;overscroll-behavior:none}
+html.os-lr-open{overflow:hidden;overscroll-behavior:none}
+/* Survive desktop body.app-with-sidebar grid crush when portaled to document.body —
+   keep full-viewport sizing (do NOT set height:auto). */
+body.app-with-sidebar>.os-lr.app-body-portal{
+  grid-column:auto;grid-row:auto;
+  position:fixed!important;inset:0!important;
+  width:100%!important;max-width:none!important;
+  height:100%!important;height:100dvh!important;
+  max-height:100dvh!important;min-height:100dvh!important;
+  margin:0!important;padding:0!important;
+  overflow:hidden!important;pointer-events:auto;
+}
+.os-lr__chrome{flex:0 0 auto;display:flex;align-items:center;gap:10px;padding:max(10px,env(safe-area-inset-top,0px)) 12px 10px;background:linear-gradient(180deg,rgba(0,0,0,.92),rgba(0,0,0,.5) 70%,transparent);touch-action:manipulation}
 .os-lr__meta{flex:1;min-width:0;text-align:center}
 .os-lr__project{margin:0;font-size:12px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .os-lr__project:empty{display:none}
@@ -37,15 +58,15 @@ body.app-with-sidebar>.os-lr.app-body-portal{grid-column:auto;grid-row:auto;heig
 .os-lr__caption:empty{display:none}
 .os-lr__icon-btn{width:40px;height:40px;border:0;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08);color:#fff;text-decoration:none;cursor:pointer}
 .os-lr__icon-btn svg{width:18px;height:18px}
-.os-lr__stage{flex:1 1 auto;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px 12px}
-.os-lr__img{max-width:100%;max-height:100%;object-fit:contain;border-radius:2px;box-shadow:0 12px 40px rgba(0,0,0,.55);background:#111}
-.os-lr__nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:999px;background:rgba(0,0,0,.45);color:#fff;font-size:28px;line-height:1;cursor:pointer}
+.os-lr__stage{flex:1 1 auto;min-height:0;position:relative;display:flex;align-items:center;justify-content:center;padding:8px 12px;touch-action:pan-x;overscroll-behavior:none}
+.os-lr__img{max-width:100%;max-height:100%;object-fit:contain;border-radius:2px;box-shadow:0 12px 40px rgba(0,0,0,.55);background:#111;-webkit-user-drag:none;user-select:none;pointer-events:none}
+.os-lr__nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border:0;border-radius:999px;background:rgba(0,0,0,.45);color:#fff;font-size:28px;line-height:1;cursor:pointer;touch-action:manipulation}
 .os-lr__nav--prev{left:8px}.os-lr__nav--next{right:8px}
 .os-lr__nav[hidden]{display:none!important}
-.os-lr__film{flex:0 0 auto;display:flex;gap:8px;overflow-x:auto;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:#0a0a0a}
+.os-lr__film{flex:0 0 auto;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;overscroll-behavior-y:none;touch-action:pan-x;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:#0a0a0a;-webkit-overflow-scrolling:touch}
 .os-lr__film[hidden]{display:none!important;padding:0 0 env(safe-area-inset-bottom,0px)}
 .os-lr__thumb{flex:0 0 auto;width:56px;height:56px;padding:0;border:2px solid transparent;border-radius:8px;overflow:hidden;background:#1a1a1a;cursor:pointer}
-.os-lr__thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.7}
+.os-lr__thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.7;pointer-events:none}
 .os-lr__thumb.is-on{border-color:#fff}.os-lr__thumb.is-on img{opacity:1}
 </style>
 <script>
@@ -72,9 +93,36 @@ body.app-with-sidebar>.os-lr.app-body-portal{grid-column:auto;grid-row:auto;heig
     var items = [];
     var index = 0;
     var touchX = null;
+    var touchY = null;
+    var scrollLocked = false;
 
     function attr(el, name) {
       return el && el.getAttribute ? (el.getAttribute(name) || '') : '';
+    }
+
+    /** Block iOS rubber-band / overscroll that slides the fixed spotlight under the status bar. */
+    function onDocTouchMove(e) {
+      if (root.hidden) return;
+      var t = e.target;
+      if (t && t.closest && t.closest('.os-lr__film')) return; /* horizontal film scroll */
+      if (e.cancelable) e.preventDefault();
+    }
+
+    function lockViewport() {
+      if (scrollLocked) return;
+      scrollLocked = true;
+      document.documentElement.classList.add('os-lr-open');
+      document.body.classList.add('os-lr-open');
+      document.addEventListener('touchmove', onDocTouchMove, { passive: false, capture: true });
+    }
+
+    function unlockViewport() {
+      if (!scrollLocked) return;
+      scrollLocked = false;
+      document.documentElement.classList.remove('os-lr-open');
+      document.body.classList.remove('os-lr-open');
+      document.removeEventListener('touchmove', onDocTouchMove, { capture: true });
+      root.style.transform = '';
     }
 
     function projectLine(item, gallery) {
@@ -156,14 +204,15 @@ body.app-with-sidebar>.os-lr.app-body-portal{grid-column:auto;grid-row:auto;heig
       // desktop sidebar grid does not crush this node to height:0 / pointer-events:none.
       if (!root.classList.contains('app-body-portal')) root.classList.add('app-body-portal');
       if (root.parentNode !== document.body) document.body.appendChild(root);
+      root.style.transform = '';
       root.hidden = false;
-      document.body.classList.add('os-lr-open');
+      lockViewport();
       show(start);
     }
 
     function closeViewer() {
       root.hidden = true;
-      document.body.classList.remove('os-lr-open');
+      unlockViewport();
       items = [];
     }
 
@@ -184,14 +233,28 @@ body.app-with-sidebar>.os-lr.app-body-portal{grid-column:auto;grid-row:auto;heig
       stage.addEventListener('touchstart', function (e) {
         var t = e.changedTouches && e.changedTouches[0];
         touchX = t ? t.clientX : null;
+        touchY = t ? t.clientY : null;
+        root.style.transform = '';
       }, { passive: true });
+      stage.addEventListener('touchmove', function (e) {
+        if (touchX == null || touchY == null) return;
+        var t = e.changedTouches && e.changedTouches[0];
+        if (!t) return;
+        var dy = t.clientY - touchY;
+        var dx = t.clientX - touchX;
+        /* Vertical drag used to slide the whole spotlight under the notch — block it. */
+        if (Math.abs(dy) > Math.abs(dx) && e.cancelable) e.preventDefault();
+      }, { passive: false });
       stage.addEventListener('touchend', function (e) {
         if (touchX == null) return;
         var t = e.changedTouches && e.changedTouches[0];
         if (!t) return;
         var dx = t.clientX - touchX;
+        var dy = touchY == null ? 0 : (t.clientY - touchY);
         touchX = null;
-        if (Math.abs(dx) < 48) return;
+        touchY = null;
+        root.style.transform = '';
+        if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy)) return;
         if (dx > 0) show(index - 1); else show(index + 1);
       }, { passive: true });
     }
