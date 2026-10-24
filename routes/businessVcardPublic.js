@@ -7,6 +7,7 @@
 
 const express = require('express');
 const store = require('../services/networkStore');
+const dbService = require('../services/database');
 const businessVcard = require('../services/businessVcard');
 
 const router = express.Router();
@@ -20,9 +21,21 @@ async function loadMemberByReviewSlug(slug) {
   if (!clean) return null;
   const ref = await store.resolveReviewSlug(clean);
   if (!ref) return null;
+  const network = await store.getNetwork(ref.networkId);
   const member = await store.getMember(ref.networkId, ref.memberId);
   if (!member || member.reviewSlug !== ref.slug) return null;
-  return member;
+  return { member, network };
+}
+
+async function leadWebsiteForMember(member, network) {
+  if (!member || !member.leadKey || !network || !network.ownerWorkspaceId) return '';
+  try {
+    const lead = await dbService.getLead(member.leadKey, network.ownerWorkspaceId);
+    const site = lead && (lead.website || lead.url || '');
+    return String(site || '').trim().slice(0, 400);
+  } catch {
+    return '';
+  }
 }
 
 /** /c/acme.vcf — stable contact card for the business. */
@@ -34,8 +47,13 @@ router.get('/c/:slugVcf', async (req, res) => {
       res.setHeader('X-Robots-Tag', 'noindex');
       return res.status(404).type('text/plain').send('Contact card not found.');
     }
-    const member = await loadMemberByReviewSlug(m[1]);
-    const card = member ? businessVcard.vcardFromMember(member) : null;
+    const loaded = await loadMemberByReviewSlug(m[1]);
+    if (!loaded) {
+      res.setHeader('X-Robots-Tag', 'noindex');
+      return res.status(404).type('text/plain').send('Contact card not found.');
+    }
+    const website = await leadWebsiteForMember(loaded.member, loaded.network);
+    const card = businessVcard.vcardFromMember(loaded.member, { website });
     if (!card) {
       res.setHeader('X-Robots-Tag', 'noindex');
       return res.status(404).type('text/plain').send('Contact card not found.');

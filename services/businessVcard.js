@@ -44,14 +44,48 @@ function filenameStem(name, fallback) {
 }
 
 /**
- * Absolute photo URI for PHOTO;VALUE=URI (profile avatar on the public review host).
+ * Absolute HTTPS URI for PHOTO — same image as Profile / request-page logo:
+ * profile photo → custom review logo → (none; initials on the page).
  * @param {object} member
  * @returns {string}
  */
 function photoUriForMember(member) {
-  if (!member || !member.reviewSlug || !member.profilePhotoUpdatedAt) return '';
-  const v = encodeURIComponent(String(member.profilePhotoUpdatedAt));
-  return `${getReviewPublicBaseUrl()}/rv/${encodeURIComponent(member.reviewSlug)}/avatar.png?v=${v}`;
+  if (!member || !member.reviewSlug) return '';
+  const base = getReviewPublicBaseUrl();
+  const slug = encodeURIComponent(member.reviewSlug);
+  if (member.profilePhotoUpdatedAt) {
+    const v = encodeURIComponent(String(member.profilePhotoUpdatedAt));
+    return `${base}/rv/${slug}/avatar.png?v=${v}`;
+  }
+  if (member.reviewLogoUpdatedAt) {
+    const v = encodeURIComponent(String(member.reviewLogoUpdatedAt));
+    return `${base}/rv/${slug}/logo.png?v=${v}`;
+  }
+  return '';
+}
+
+/**
+ * Business website from review-settings “other” links (label Website / homepage),
+ * else Facebook page URL if set. Review request page is a separate URL field.
+ * @param {object} member
+ * @param {string} [leadWebsite] optional website from the linked CRM lead
+ * @returns {string}
+ */
+function websiteFromMember(member, leadWebsite) {
+  const links = member && member.reviewLinks && typeof member.reviewLinks === 'object'
+    ? member.reviewLinks
+    : {};
+  const others = Array.isArray(links.other) ? links.other : [];
+  const labeled = others.find(
+    (row) => row && row.url && /web\s*site|homepage|^site$|^web$/i.test(String(row.label || '')),
+  );
+  if (labeled && labeled.url) return cleanText(labeled.url, 400);
+  const fromLead = cleanText(leadWebsite, 400);
+  if (fromLead && /^https?:\/\//i.test(fromLead)) return fromLead;
+  if (links.facebook) return cleanText(links.facebook, 400);
+  const otherHttps = others.find((row) => row && row.url && /^https?:\/\//i.test(row.url));
+  if (otherHttps) return cleanText(otherHttps.url, 400);
+  return '';
 }
 
 /**
@@ -74,11 +108,12 @@ function nameParts(contactName, companyName) {
  * @param {object} opts
  * @param {string} [opts.fn] display name
  * @param {string} [opts.org] organization
- * @param {string} [opts.contactName] person name (for N)
+ * @param {string} [opts.contactName] person name (for N + NOTE)
  * @param {string} [opts.phone]
  * @param {string} [opts.email]
- * @param {string} [opts.url]
- * @param {string} [opts.photoUrl] HTTPS image URI
+ * @param {string} [opts.website] business website
+ * @param {string} [opts.reviewUrl] public review request page
+ * @param {string} [opts.photoUrl] HTTPS image URI (profile logo)
  * @returns {string}
  */
 function buildVcard(opts = {}) {
@@ -86,8 +121,10 @@ function buildVcard(opts = {}) {
   const fn = cleanText(opts.fn, 160) || org || cleanText(opts.contactName, 120) || 'Business';
   const phone = cleanText(opts.phone, 40);
   const email = cleanText(opts.email, 200);
-  const url = cleanText(opts.url, 400);
+  const website = cleanText(opts.website, 400);
+  const reviewUrl = cleanText(opts.reviewUrl || opts.url, 400);
   const photoUrl = cleanText(opts.photoUrl, 600);
+  const contact = cleanText(opts.contactName, 120);
   const { family, given } = nameParts(opts.contactName, fn);
 
   const lines = [
@@ -97,11 +134,20 @@ function buildVcard(opts = {}) {
     `N:${escapeVcardValue(family)};${escapeVcardValue(given)};;;`,
   ];
   if (org) lines.push(`ORG:${escapeVcardValue(org)}`);
+  if (contact) lines.push(`TITLE:${escapeVcardValue(contact)}`);
   if (phone) lines.push(`TEL;TYPE=CELL,VOICE:${escapeVcardValue(phone)}`);
   if (email) lines.push(`EMAIL;TYPE=INTERNET:${escapeVcardValue(email)}`);
-  if (url) lines.push(`URL:${escapeVcardValue(url)}`);
+  if (website && /^https?:\/\//i.test(website)) {
+    lines.push(`URL;TYPE=WORK:${escapeVcardValue(website)}`);
+  }
+  if (reviewUrl && /^https?:\/\//i.test(reviewUrl) && reviewUrl !== website) {
+    lines.push(`URL:${escapeVcardValue(reviewUrl)}`);
+  }
   if (photoUrl && /^https:\/\//i.test(photoUrl)) {
     lines.push(`PHOTO;VALUE=URI;TYPE=JPEG:${escapeVcardValue(photoUrl)}`);
+  }
+  if (contact) {
+    lines.push(`NOTE:${escapeVcardValue(`Contact: ${contact}`)}`);
   }
   lines.push('END:VCARD');
   return `${lines.join('\r\n')}\r\n`;
@@ -110,18 +156,21 @@ function buildVcard(opts = {}) {
 /**
  * Build vCard + download filename from a network member record.
  * @param {object} member
+ * @param {{ website?: string }} [extras] optional lead website override
  * @returns {{ body: string, filename: string, url: string } | null}
  */
-function vcardFromMember(member) {
+function vcardFromMember(member, extras) {
   if (!member || !member.reviewSlug) return null;
   const company = cleanText(member.companyName, 160) || 'Business';
+  const leadWebsite = extras && extras.website ? extras.website : '';
   const body = buildVcard({
     fn: company,
     org: company,
     contactName: member.contactName,
     phone: member.phone,
     email: member.email,
-    url: getReviewPageUrl(member.reviewSlug),
+    website: websiteFromMember(member, leadWebsite),
+    reviewUrl: getReviewPageUrl(member.reviewSlug),
     photoUrl: photoUriForMember(member),
   });
   return {
@@ -136,6 +185,7 @@ module.exports = {
   filenameStem,
   getBusinessVcardUrl,
   photoUriForMember,
+  websiteFromMember,
   buildVcard,
   vcardFromMember,
 };

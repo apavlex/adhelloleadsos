@@ -16,7 +16,8 @@ describe('businessVcard', () => {
       contactName: 'John Cody',
       phone: '+15551234567',
       email: 'hi@acme.example',
-      url: 'https://reviews.adhello.io/rv/acme-floors',
+      website: 'https://acmefloors.example',
+      reviewUrl: 'https://reviews.adhello.io/rv/acme-floors',
       photoUrl: 'https://reviews.adhello.io/rv/acme-floors/avatar.png?v=1',
     });
     assert.match(body, /^BEGIN:VCARD\r\n/);
@@ -24,10 +25,13 @@ describe('businessVcard', () => {
     assert.match(body, /\r\nFN:Acme Floors\r\n/);
     assert.match(body, /\r\nN:Cody;John;;;\r\n/);
     assert.match(body, /\r\nORG:Acme Floors\r\n/);
+    assert.match(body, /\r\nTITLE:John Cody\r\n/);
     assert.match(body, /\r\nTEL;TYPE=CELL,VOICE:\+15551234567\r\n/);
     assert.match(body, /\r\nEMAIL;TYPE=INTERNET:hi@acme\.example\r\n/);
+    assert.match(body, /\r\nURL;TYPE=WORK:https:\/\/acmefloors\.example\r\n/);
     assert.match(body, /\r\nURL:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\r\n/);
     assert.match(body, /\r\nPHOTO;VALUE=URI;TYPE=JPEG:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\/avatar\.png\?v=1\r\n/);
+    assert.match(body, /\r\nNOTE:Contact: John Cody\r\n/);
     assert.match(body, /\r\nEND:VCARD\r\n$/);
 
     assert.equal(businessVcard.escapeVcardValue('A;B,C\\D\nE'), 'A\\;B\\,C\\\\D\\nE');
@@ -50,13 +54,21 @@ describe('businessVcard', () => {
       phone: '3605551212',
       email: 'pat@example.com',
       profilePhotoUpdatedAt: '2026-01-01T00:00:00.000Z',
+      reviewLinks: { other: [{ label: 'Website', url: 'https://camasflooring.example' }] },
     });
     assert.ok(card);
     assert.equal(card.url, 'https://reviews.adhello.io/c/camas-flooring.vcf');
     assert.equal(card.filename, 'Camas-Flooring.vcf');
     assert.match(card.body, /FN:Camas Flooring/);
     assert.match(card.body, /TEL;TYPE=CELL,VOICE:3605551212/);
-    assert.match(card.body, /PHOTO;VALUE=URI/);
+    assert.match(card.body, /URL;TYPE=WORK:https:\/\/camasflooring\.example/);
+    assert.match(card.body, /PHOTO;VALUE=URI.*avatar\.png/);
+    // Falls back to request-page logo when no profile photo.
+    const logoOnly = businessVcard.photoUriForMember({
+      reviewSlug: 'camas-flooring',
+      reviewLogoUpdatedAt: '2026-02-01T00:00:00.000Z',
+    });
+    assert.match(logoOnly, /\/rv\/camas-flooring\/logo\.png/);
     assert.equal(businessVcard.vcardFromMember({ companyName: 'No slug' }), null);
   });
 
