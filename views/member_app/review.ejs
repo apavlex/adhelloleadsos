@@ -41,48 +41,16 @@
     <% } %>
 
     <% if (_reviewView === 'reviews') { %>
-    <%
-      const _stats = typeof stats !== 'undefined' && stats ? stats : { views: 0, stars: {} };
-      const _totalClicks = typeof totalClicks !== 'undefined' ? Number(totalClicks) || 0 : 0;
-      const _totalStars = typeof totalStars !== 'undefined' ? Number(totalStars) || 0 : 0;
-      const _feedback = Array.isArray(typeof feedback !== 'undefined' ? feedback : null) ? feedback : [];
-    %>
-    <section class="ma-card" style="margin-top:4px" aria-label="Review results">
-      <div class="ma-section__head" style="margin:0 0 10px">
-        <h2 style="font-size:15px;margin:0">Results</h2>
-        <p class="ma-hint" style="margin:4px 0 0"><%= _stats.views || 0 %> visits · <%= _totalClicks %> clicks</p>
-      </div>
-      <div class="ma-kpis">
-        <div class="ma-kpi"><strong><%= _stats.views || 0 %></strong><span>Page visits</span></div>
-        <div class="ma-kpi"><strong><%= _totalClicks %></strong><span>Went to review</span></div>
-        <div class="ma-kpi"><strong><%= _feedback.length %></strong><span>Private notes</span></div>
-      </div>
-      <div class="ma-bars" style="margin-top:12px">
-        <% [5, 4, 3, 2, 1].forEach(function (s) { const n = (_stats.stars && _stats.stars[s]) || 0; %>
-        <div class="ma-bar">
-          <span><%= s %> ★</span>
-          <span class="ma-bar__track"><span class="ma-bar__fill" style="width: <%= _totalStars ? Math.round((n / _totalStars) * 100) : 0 %>%"></span></span>
-          <span style="text-align:right"><%= n %></span>
-        </div>
-        <% }); %>
-      </div>
-      <% if (_feedback.length) { %>
-      <div class="ma-section__head" style="margin-top:14px"><h2 style="font-size:15px">Private feedback</h2></div>
-      <% _feedback.forEach(function (f) { %>
-      <div class="ma-card ma-card--flush" style="margin-bottom:8px;margin-top:8px">
-        <div class="ma-card__row">
-          <div style="min-width:0">
-            <p class="ma-card__title"><%= f.name || 'Customer' %> · <%= '★'.repeat(f.rating || 0) %></p>
-            <p class="ma-card__meta"><% if (f.phone) { %><a href="tel:<%= String(f.phone).replace(/[^0-9+]/g, '') %>" style="color:var(--acc);font-weight:700;text-decoration:none"><%= f.phone %></a> · <% } %><%= f.email ? f.email + ' · ' : '' %><%= f.when %></p>
-          </div>
-        </div>
-        <p class="ma-card__note"><%= f.message %></p>
-      </div>
-      <% }); %>
-      <% } %>
-    </section>
-
-    <%- include('_google_reviews', { googleReviewsTabMode: true }) %>
+    <%- include('_google_reviews', {
+      googleReviewsTabMode: true,
+      reviewPageStats: {
+        views: (typeof stats !== 'undefined' && stats && stats.views) || 0,
+        clicks: typeof totalClicks !== 'undefined' ? Number(totalClicks) || 0 : 0,
+        stars: (typeof stats !== 'undefined' && stats && stats.stars) || {},
+        totalStars: typeof totalStars !== 'undefined' ? Number(totalStars) || 0 : 0,
+        feedback: Array.isArray(typeof feedback !== 'undefined' ? feedback : null) ? feedback : [],
+      },
+    }) %>
     <% } else { %>
 
     <section class="ma-card ma-qr" style="margin-top:4px" aria-label="Share and QR code">
