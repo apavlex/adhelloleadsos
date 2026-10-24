@@ -425,10 +425,10 @@
         <h1>Grow reviews &amp; referrals for your business!</h1>
         <% if (_flooring) { %>
         <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
-        <p class="fa-card-lead">Built for flooring partners — get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request, plus jobs and referrals on your phone. No timed trial. Leads are <strong>exclusive to one partner per territory</strong> — <strong>direct requests to your website and CRM</strong>, not shared like HomeAdvisor or Thumbtack. <strong>Pay-per-performance</strong> on the leads you receive.</p>
+        <p class="fa-card-lead">Built for flooring partners — get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request, plus jobs and referrals on your phone. No timed trial. Leads are <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner per territory</strong> — <strong>not shared with other local companies</strong> like HomeAdvisor or Thumbtack. You can decline work that doesn’t match your business. <strong>Pay-per-performance</strong> on the leads you take.</p>
         <% } else { %>
         <p class="fa-card-trial">30-day free trial · no credit card</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request. Grow with <strong>pay-per-performance leads</strong> and a referral network. We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple contractors. Here, leads are <strong>exclusive to one partner for the territory</strong>: <strong>direct requests to your website and CRM</strong> (you can’t decline them). Pay commission on the leads you receive.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request. Grow with <strong>pay-per-performance leads</strong> and a referral network. We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple local companies. Here, leads are <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner for the territory</strong> — never shared with other local companies. You can decline work that doesn’t match your business. Pay commission on the leads you take.</p>
         <% } %>
 
         <ul class="fa-benefits" aria-label="What you get">
@@ -466,7 +466,7 @@
             </span>
             <div>
               <strong>Pay-per-performance leads</strong>
-              <span>Not shared leads like HomeAdvisor or Thumbtack. Each lead is a <strong>direct request to your website and CRM</strong>, exclusive to one partner for the territory — you can’t decline it. Pay commission on the leads you receive.</span>
+              <span>Not shared with other local companies like HomeAdvisor or Thumbtack. Each lead is a <strong>direct request to your website and CRM</strong>, exclusive to one partner for the territory. Decline work that doesn’t match your business — pay commission on the leads you take.</span>
             </div>
           </li>
         </ul>
@@ -523,13 +523,14 @@
               <% if (_flooring) { %>
               I agree to the <a href="#fa-terms-details">Terms &amp; Conditions</a>: I keep Reviews App access
               <strong>as long as I buy material from you</strong>. Lead delivery is
-              <strong>pay-per-performance</strong> — leads are <strong>direct requests to my website and CRM</strong>
-              (exclusive territory; not declineable shared leads), and I pay commission on leads I receive.
+              <strong>pay-per-performance</strong> — leads are <strong>direct requests to my website and CRM</strong>,
+              exclusive to my territory and <strong>not shared with other local companies</strong>.
+              I may decline work that doesn’t match my business, and I pay commission on leads I take.
               <% } else { %>
               I agree to the <a href="#fa-terms-details">Terms &amp; Conditions</a>: AdHello Reviews is a
               <strong>pay-per-performance</strong> model. Leads are <strong>direct requests to my website and CRM</strong>
-              — exclusive to one partner for the territory, not shared marketplace leads I can decline.
-              I will pay commission on leads I receive through the app.
+              — exclusive to one partner for the territory and <strong>not shared with other local companies</strong>.
+              I may decline work that doesn’t match my business, and I will pay commission on leads I take through the app.
               <% } %>
             </label>
           </div>
@@ -540,15 +541,16 @@
               <li>Your Reviews App account stays active <strong>while you purchase material from us</strong> — there is no timed free trial.</li>
               <li>If material purchases stop, we may pause or end app access.</li>
               <li>Lead delivery is <strong>pay-per-performance</strong>: leads are sent as <strong>direct requests to your website and CRM</strong>.</li>
-              <li>Leads are <strong>exclusive to one partner for the territory</strong> — not shared with other contractors like HomeAdvisor or Thumbtack.</li>
-              <li>Because leads go directly to your website and CRM, they are <strong>not optional marketplace leads you can decline</strong>.</li>
-              <li>Receiving a lead means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
+              <li>Leads are <strong>exclusive to one partner for the territory</strong> — <strong>not shared with other local companies</strong> (unlike HomeAdvisor or Thumbtack).</li>
+              <li>You may <strong>decline work that doesn’t match your business</strong>; declining unfit work does not create a commission obligation for that lead.</li>
+              <li>Taking / accepting a lead means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
               <li>By checking the box above and submitting this form, you accept these Terms &amp; Conditions.</li>
               <% } else { %>
               <li>The Reviews app trial and core tools may be free; lead delivery is <strong>pay-per-performance</strong>.</li>
               <li>Leads are sent as <strong>direct requests to your website and CRM</strong> — exclusive to one partner for the territory.</li>
-              <li>Unlike HomeAdvisor or Thumbtack, leads are <strong>not shared</strong> with multiple contractors and are <strong>not declineable</strong> marketplace handoffs.</li>
-              <li>Receiving a lead through the app means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
+              <li>Unlike HomeAdvisor or Thumbtack, leads are <strong>not shared with other local companies</strong>.</li>
+              <li>You may <strong>decline work that doesn’t match your business</strong>; declining unfit work does not create a commission obligation for that lead.</li>
+              <li>Taking / accepting a lead through the app means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
               <li>By checking the box above and submitting this form, you accept these Terms &amp; Conditions.</li>
               <% } %>
             </ul>

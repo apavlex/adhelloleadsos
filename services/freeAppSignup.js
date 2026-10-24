@@ -197,7 +197,7 @@ function readForm(body = {}) {
   if (form.phone && !digits) errors.push('That phone number does not look valid.');
   if (form.email && !email) errors.push('That email does not look valid.');
   if (!termsOk) {
-    errors.push('Agree to the Terms & Conditions (pay-per-performance commission on direct website/CRM leads) to continue.');
+    errors.push('Agree to the Terms & Conditions (pay-per-performance commission on exclusive website/CRM leads) to continue.');
   }
   return {
     form: { ...form, email: email || form.email, phone: form.phone },
