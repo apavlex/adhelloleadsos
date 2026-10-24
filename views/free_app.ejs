@@ -425,10 +425,10 @@
         <h1>Grow reviews &amp; referrals for your business!</h1>
         <% if (_flooring) { %>
         <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
-        <p class="fa-card-lead">Built for flooring partners — get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request, plus jobs and referrals on your phone. No timed trial. Leads are <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner per territory</strong> — <strong>not shared with other local companies</strong> like HomeAdvisor or Thumbtack. You can decline work that doesn’t match your business. <strong>Pay-per-performance</strong> on the leads you take.</p>
+        <p class="fa-card-lead">Built for flooring partners — get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request, plus jobs and referrals on your phone. No timed trial. Leads work <strong>just like Google Service Ads</strong>, but across our network — <strong>Google, Meta, Yelp</strong>, and more. They’re <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner per territory</strong> — <strong>not shared with other local companies</strong>. You can decline work that doesn’t match your business. <strong>Pay-per-performance</strong> on the leads you take.</p>
         <% } else { %>
         <p class="fa-card-trial">30-day free trial · no credit card</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request. Grow with <strong>pay-per-performance leads</strong> and a referral network. We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple local companies. Here, leads are <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner for the territory</strong> — never shared with other local companies. You can decline work that doesn’t match your business. Pay commission on the leads you take.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request. Grow with <strong>pay-per-performance leads</strong> — <strong>just like Google Service Ads</strong>, but across our network including <strong>Google, Meta, Yelp</strong>, and more. We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple local companies. Here, leads are <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner for the territory</strong> — never shared with other local companies. You can decline work that doesn’t match your business. Pay commission on the leads you take.</p>
         <% } %>
 
         <ul class="fa-benefits" aria-label="What you get">
@@ -466,11 +466,11 @@
             </span>
             <div>
               <strong>Pay-per-performance leads</strong>
-              <span>Not shared with other local companies like HomeAdvisor or Thumbtack. Each lead is a <strong>direct request to your website and CRM</strong>, exclusive to one partner for the territory. Decline work that doesn’t match your business — pay commission on the leads you take.</span>
+              <span><strong>Just like Google Service Ads</strong> — but across our network including <strong>Google, Meta, Yelp</strong>, and more. Direct requests to your website and CRM, exclusive to one partner for the territory — not shared with other local companies. Decline work that doesn’t match your business; pay commission on the leads you take.</span>
             </div>
           </li>
         </ul>
-        <div class="fa-perks"><span>SMS &amp; QR review asks</span><span>Exclusive territory</span><span>Pay per performance</span><span>Referrals</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
+        <div class="fa-perks"><span>SMS &amp; QR review asks</span><span>Google · Meta · Yelp+</span><span>Exclusive territory</span><span>Pay per performance</span><span>Referrals</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
 
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
@@ -540,13 +540,13 @@
               <% if (_flooring) { %>
               <li>Your Reviews App account stays active <strong>while you purchase material from us</strong> — there is no timed free trial.</li>
               <li>If material purchases stop, we may pause or end app access.</li>
-              <li>Lead delivery is <strong>pay-per-performance</strong>: leads are sent as <strong>direct requests to your website and CRM</strong>.</li>
+              <li>Lead delivery is <strong>pay-per-performance</strong> — like <strong>Google Service Ads</strong>, but across our network including <strong>Google, Meta, Yelp</strong>, and more — sent as <strong>direct requests to your website and CRM</strong>.</li>
               <li>Leads are <strong>exclusive to one partner for the territory</strong> — <strong>not shared with other local companies</strong> (unlike HomeAdvisor or Thumbtack).</li>
               <li>You may <strong>decline work that doesn’t match your business</strong>; declining unfit work does not create a commission obligation for that lead.</li>
               <li>Taking / accepting a lead means you agree to pay the applicable <strong>commission</strong> for that lead.</li>
               <li>By checking the box above and submitting this form, you accept these Terms &amp; Conditions.</li>
               <% } else { %>
-              <li>The Reviews app trial and core tools may be free; lead delivery is <strong>pay-per-performance</strong>.</li>
+              <li>The Reviews app trial and core tools may be free; lead delivery is <strong>pay-per-performance</strong> — like <strong>Google Service Ads</strong>, but across our network including <strong>Google, Meta, Yelp</strong>, and more.</li>
               <li>Leads are sent as <strong>direct requests to your website and CRM</strong> — exclusive to one partner for the territory.</li>
               <li>Unlike HomeAdvisor or Thumbtack, leads are <strong>not shared with other local companies</strong>.</li>
               <li>You may <strong>decline work that doesn’t match your business</strong>; declining unfit work does not create a commission obligation for that lead.</li>
