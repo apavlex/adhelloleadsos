@@ -230,6 +230,8 @@ const OK_MESSAGES = {
   share_existing: 'They’re already on your network — contact and projects are on their book.',
   lead_referred: 'Sent to your partner — they got the lead details and a text/email.',
   lead_referred_pool: 'Sent to the network pool — eligible partners can claim it.',
+  cust_ref_rewarded: 'Marked rewarded — that customer earned their referral thank-you.',
+  cust_ref_confirmed: 'Referral confirmed — ready to reward the customer who sent them.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -1512,6 +1514,8 @@ router.get('/m/:token/quote/:id/photos/:photoId', withMember(async (req, res, ct
   return res.send(photo.buffer);
 }));
 
+const SEND_VIEWS = new Set(['lead', 'link', 'board']);
+
 async function renderSend(req, res, ctx, flash, formValues, status) {
   // Flooring partners request material quotes; free-app uses Join; partners keep Send.
   if (freeAppSignup.isFlooringOffer(ctx.member)) {
@@ -1521,18 +1525,86 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
   if (locked) {
     return res.redirect(303, `${ctx.base}/join`);
   }
-  const directory = await directoryFor(ctx.network, ctx.member);
+  const customerReferralLinks = require('../services/customerReferralLinks');
+  const q = (req && req.query) || {};
+  const sendView = SEND_VIEWS.has(String(q.view || '')) ? String(q.view) : 'lead';
+  const pickCustomerId = String(q.customer || '').trim();
+  const [directory, customers, advocates] = await Promise.all([
+    directoryFor(ctx.network, ctx.member),
+    work.listCustomers(ctx.network.id, ctx.member.id),
+    customerReferralLinks.listForMember(ctx.network.id, ctx.member.id, { limit: 250 }),
+  ]);
+  const referralDash = customerReferralLinks.buildDashboard(advocates);
+  let pickedAdvocate = null;
+  if (pickCustomerId && work.isRecordId(pickCustomerId)) {
+    const cust = customers.find((c) => c.id === pickCustomerId);
+    if (cust) {
+      const minted = await customerReferralLinks.ensureAdvocateLink({
+        networkId: ctx.network.id,
+        memberId: ctx.member.id,
+        customerId: cust.id,
+        name: cust.name,
+        phone: cust.phone,
+        email: cust.email,
+      });
+      if (minted.ok) {
+        pickedAdvocate = {
+          customerId: cust.id,
+          name: cust.name,
+          phone: cust.phone || '',
+          email: cust.email || '',
+          url: minted.url,
+          code: minted.advocate.code,
+          clicks: minted.advocate.clicks || 0,
+          referrals: customerReferralLinks.referralCount(minted.advocate),
+          smsText: customerReferralLinks.shareSmsText({
+            company: ctx.member.companyName,
+            name: cust.name,
+            url: minted.url,
+          }),
+        };
+      }
+    }
+  } else if (sendView === 'board' && referralDash.top[0]) {
+    const top = referralDash.top[0];
+    pickedAdvocate = {
+      customerId: top.customerId,
+      name: top.name,
+      phone: top.phone || '',
+      email: top.email || '',
+      url: top.url,
+      code: top.code,
+      clicks: top.clicks || 0,
+      referrals: top.referrals || 0,
+      smsText: customerReferralLinks.shareSmsText({
+        company: ctx.member.companyName,
+        name: top.name,
+        url: top.url,
+      }),
+    };
+  }
   return render(res, 'send', ctx, {
     directory,
     flash: flash || flashFromQuery(req),
     formValues: formValues || {},
     referralsLocked: false,
     upgradeHref: '/signup',
+    sendView,
+    customers: customers
+      .filter((c) => c && !c.isQuoteRequest)
+      .slice(0, 200)
+      .map((c) => ({ id: c.id, name: c.name, phone: c.phone || '', email: c.email || '' })),
+    pickCustomerId,
+    pickedAdvocate,
+    referralDash,
   }, status);
 }
 
 router.get('/m/:token/send', withMember((req, res, ctx) => {
   const q = req.query || {};
+  if (SEND_VIEWS.has(String(q.view || '')) && String(q.view) !== 'lead') {
+    return renderSend(req, res, ctx);
+  }
   const formValues = {
     name: String(q.name || '').slice(0, 120),
     phone: String(q.phone || '').slice(0, 40),
@@ -1572,6 +1644,34 @@ router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
   });
   if (!result.ok) return renderSend(req, res, ctx, { error: result.error }, body, 400);
   return res.redirect(303, `${ctx.base}?ok=${result.referral.status === 'sent' ? 'sent' : 'matched'}`);
+}));
+
+/** Mark a customer-referral conversion confirmed or rewarded (Send → Board). */
+router.post('/m/:token/send/referral/:code/:conversionId', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isFlooringOffer(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/quote`);
+  }
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/join`);
+  }
+  const customerReferralLinks = require('../services/customerReferralLinks');
+  const code = String(req.params.code || '').trim().toLowerCase();
+  const conversionId = String(req.params.conversionId || '').trim();
+  const action = String((req.body && req.body.action) || '').trim();
+  const status = action === 'rewarded' ? 'rewarded' : (action === 'confirmed' ? 'confirmed' : '');
+  if (!customerReferralLinks.isCode(code) || !conversionId || !status) {
+    return res.redirect(303, `${ctx.base}/send?view=board&errmsg=${encodeURIComponent('Could not update that referral.')}`);
+  }
+  const advocate = await customerReferralLinks.getByCode(code);
+  if (!advocate || advocate.networkId !== ctx.network.id || advocate.memberId !== ctx.member.id) {
+    return res.redirect(303, `${ctx.base}/send?view=board&errmsg=${encodeURIComponent('Referral link not found.')}`);
+  }
+  const result = await customerReferralLinks.markConversionStatus(code, conversionId, status);
+  if (!result.ok) {
+    return res.redirect(303, `${ctx.base}/send?view=board&errmsg=${encodeURIComponent('Could not update that referral.')}`);
+  }
+  const ok = status === 'rewarded' ? 'cust_ref_rewarded' : 'cust_ref_confirmed';
+  return res.redirect(303, `${ctx.base}/send?view=board&ok=${ok}`);
 }));
 
 // ── Customers (the member's own jobs and schedule) ───────────────────────────

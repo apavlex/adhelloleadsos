@@ -515,6 +515,7 @@ app.use('/', memberAppRoutes);
 // Contractor business portal (/p/:token) — appointments, form leads, package requests
 app.use('/', contractorPortalRoutes);
 app.use('/', reviewPublicRoutes);
+app.use('/', require('./routes/customerReferralPublic'));
 // White-label logo, Home Screen icons and manifest (no session)
 app.use('/', whiteLabelRoutes);
 

@@ -507,7 +507,9 @@ async function notifyMemberFormLead({ network, member, baseUrl, leadName, formNa
   const app = memberPortalLink(baseUrl, network, member);
   const leadsUrl = `${app}/referrals`;
   const who = String(leadName || 'New lead').trim().slice(0, 80);
-  const kind = source === 'agency' ? 'Your agency sent a lead' : 'New website lead';
+  const kind = source === 'agency'
+    ? 'Your agency sent a lead'
+    : (source === 'customer_referral' ? 'New customer referral' : 'New website lead');
   const memberLeadRequests = require('./memberLeadRequests');
   const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(network, member)
     .catch(() => false);
@@ -521,7 +523,7 @@ async function notifyMemberFormLead({ network, member, baseUrl, leadName, formNa
   const detail = [formName, preview].filter(Boolean).join(' — ').slice(0, 160);
   const sms = `${brandView(network).appName}: ${kind} — ${who}${detail ? ` (${detail})` : ''}. Open: ${leadsUrl}`;
   recordMemberActivity(network, member, {
-    kind: source === 'agency' ? 'agency' : 'form',
+    kind: source === 'agency' ? 'agency' : (source === 'customer_referral' ? 'customer_referral' : 'form'),
     title: kind,
     body: detail ? `${who} · ${detail}` : who,
     href: leadsUrl,
@@ -834,6 +836,7 @@ async function notifyJobSharedWithTeammate(opts) {
 async function sendReviewReferralReward({ network, member, ask }) {
   if (!network || !member || !ask) return { ok: false, error: 'missing' };
   const reviewReferralReward = require('./reviewReferralReward');
+  const customerReferralLinks = require('./customerReferralLinks');
   if (!reviewReferralReward.isPaidMember(member)) {
     return { ok: false, error: 'Referral rewards are on the monthly plan. Upgrade to unlock them.' };
   }
@@ -843,10 +846,24 @@ async function sendReviewReferralReward({ network, member, ask }) {
   }
   if (!ask.phone && !ask.email) return { ok: false, error: 'No phone or email on this review request.' };
   const company = member.companyName || brandView(network).appName;
+  let referralLink = '';
+  if (ask.customerId) {
+    const minted = await customerReferralLinks.ensureAdvocateLink({
+      networkId: network.id,
+      memberId: member.id,
+      customerId: ask.customerId,
+      name: ask.name,
+      phone: ask.phone,
+      email: ask.email,
+      askId: ask.id,
+    }).catch(() => null);
+    if (minted && minted.ok) referralLink = minted.url;
+  }
   const message = reviewReferralReward.buildCustomerMessage(settings, {
     name: ask.name || 'there',
     company,
     stars: ask.rating || 5,
+    referralLink,
   });
   const integrationEnv = await networkIntegrationEnv(network);
   const ready = ghlMessaging.messagingReady(integrationEnv);

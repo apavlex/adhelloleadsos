@@ -17,9 +17,169 @@
       upgradeIcon: 'send',
     }) %>
     <% } else { %>
-    <p class="ma-page-sub">It goes to the network member for that trade in the customer's area, and they get a text right away. When they close the job, you earn credits on your ads account.</p>
+    <%
+      const _view = typeof sendView !== 'undefined' ? sendView : 'lead';
+      const _dash = typeof referralDash !== 'undefined' && referralDash ? referralDash : { totalAdvocates: 0, totalReferrals: 0, totalClicks: 0, awaitingRewardCount: 0, top: [], all: [], awaitingReward: [], rewarded: [] };
+      const _awaiting = Array.isArray(_dash.awaitingReward) ? _dash.awaitingReward : [];
+      const _rewarded = Array.isArray(_dash.rewarded) ? _dash.rewarded : [];
+      const _custs = typeof customers !== 'undefined' && Array.isArray(customers) ? customers : [];
+      const _picked = typeof pickedAdvocate !== 'undefined' && pickedAdvocate ? pickedAdvocate : null;
+      const _pickId = typeof pickCustomerId !== 'undefined' ? pickCustomerId : '';
+    %>
+    <nav class="ma-seg ma-seg--3" aria-label="Send referral options">
+      <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Lead</a>
+      <a href="<%= base %>/send?view=link" class="<%= _view === 'link' ? 'is-on' : '' %>">Link</a>
+      <a href="<%= base %>/send?view=board" class="<%= _view === 'board' ? 'is-on' : '' %>">Board<% if (_view !== 'board' && (_dash.awaitingRewardCount || 0) > 0) { %> (<%= _dash.awaitingRewardCount %>)<% } %></a>
+    </nav>
 
     <%- include('_flash') %>
+
+    <% if (_view === 'board') { %>
+    <p class="ma-page-sub">See who brought you leads — reward the customers who shared their unique links.</p>
+
+    <div class="ma-refdash__stats" aria-label="Referral summary">
+      <div class="ma-refdash__stat">
+        <span class="ma-refdash__stat-label">Referrals</span>
+        <strong class="ma-refdash__stat-pill ma-refdash__stat-pill--refs"><%= _dash.totalReferrals %> referrals</strong>
+      </div>
+      <div class="ma-refdash__stat">
+        <span class="ma-refdash__stat-label">To reward</span>
+        <strong class="ma-refdash__stat-pill ma-refdash__stat-pill--pos"><%= _dash.awaitingRewardCount || 0 %> waiting</strong>
+      </div>
+    </div>
+
+    <% if (_picked && _picked.url) { %>
+    <section class="ma-card ma-refdash__share" aria-label="Share a referral link">
+      <h2 class="ma-refdash__share-title">Share a unique link</h2>
+      <p class="ma-hint" style="margin-top:0">For <strong><%= _picked.name || 'customer' %></strong> — copy or text their personal link.</p>
+      <label class="ma-label" for="maRefLinkUrl">Their unique referral link</label>
+      <div class="ma-link-box">
+        <code id="maRefLinkUrl"><%= _picked.url %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= _picked.url %>"><%- icons.copy %> Copy</button>
+      </div>
+      <div class="ma-refdash__share-row">
+        <% if (_picked.phone) { %>
+        <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || _picked.url) %>"><%- icons.sms %> Text link</a>
+        <% } %>
+        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/send?view=link<%= _picked.customerId ? ('&customer=' + encodeURIComponent(_picked.customerId)) : '' %>">Change customer</a>
+      </div>
+    </section>
+    <% } else { %>
+    <p class="ma-hint" style="margin-top:0">Pick a customer on the <a href="<%= base %>/send?view=link">Link</a> tab to copy their unique URL.</p>
+    <% } %>
+
+    <section class="ma-card ma-refdash__rewards" aria-label="Reward customers">
+      <div class="ma-section__head" style="margin:0 0 10px">
+        <h2 style="font-size:15px;margin:0">Reward customers</h2>
+      </div>
+      <% if (!_awaiting.length) { %>
+      <p class="ma-hint" style="margin:0">No open referrals waiting on a thank-you. When a friend uses someone’s unique link, they show up here so you can mark the reward paid.</p>
+      <% } else { %>
+      <% _awaiting.forEach(function (row) { %>
+      <article class="ma-refdash__reward-row">
+        <div class="ma-refdash__who" style="min-width:0">
+          <span class="ma-refdash__avatar" aria-hidden="true"><%= String(row.advocateName || 'C').charAt(0).toUpperCase() %></span>
+          <span>
+            <strong><%= row.advocateName || 'Customer' %></strong>
+            <small>Brought <strong><%= row.name || 'a friend' %></strong><% if (row.phone) { %> · <%= row.phone %><% } %></small>
+          </span>
+        </div>
+        <div class="ma-refdash__reward-actions">
+          <% if (row.leadCustomerId) { %>
+          <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/customers/c/<%= encodeURIComponent(row.leadCustomerId) %>">Lead</a>
+          <% } %>
+          <% if (row.advocatePhone) { %>
+          <a class="ma-btn ma-btn--sm ma-btn--soft" href="sms:<%= String(row.advocatePhone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent('Thanks for the referral — your reward is on the way!') %>"><%- icons.sms %></a>
+          <% } %>
+          <form method="post" action="<%= base %>/send/referral/<%= encodeURIComponent(row.code) %>/<%= encodeURIComponent(row.conversionId) %>">
+            <input type="hidden" name="action" value="rewarded">
+            <button type="submit" class="ma-btn ma-btn--sm">Mark rewarded</button>
+          </form>
+        </div>
+      </article>
+      <% }); %>
+      <% } %>
+      <% if (_rewarded.length) { %>
+      <p class="ma-hint" style="margin:14px 0 6px">Recently rewarded</p>
+      <% _rewarded.slice(0, 5).forEach(function (row) { %>
+      <p class="ma-card__meta" style="margin:0 0 6px"><strong><%= row.advocateName %></strong> · brought <%= row.name || 'a friend' %></p>
+      <% }); %>
+      <% } %>
+    </section>
+
+    <section class="ma-card ma-refdash__board" aria-label="Top referrers">
+      <div class="ma-section__head" style="margin:0 0 10px">
+        <h2 style="font-size:15px;margin:0">Top referrers</h2>
+      </div>
+      <% if (!_dash.top.length) { %>
+      <p class="ma-hint" style="margin:0">No unique links yet. Open <strong>Link</strong>, pick a happy customer, and share their URL — or confirm a 4–5★ review to text them one automatically.</p>
+      <% } else { %>
+      <div class="ma-refdash__table" role="table">
+        <div class="ma-refdash__thead" role="row">
+          <span role="columnheader">#</span>
+          <span role="columnheader">Name</span>
+          <span role="columnheader">Refs</span>
+        </div>
+        <% _dash.top.forEach(function (row) { %>
+        <a class="ma-refdash__row" role="row" href="<%= base %>/send?view=link&customer=<%= encodeURIComponent(row.customerId) %>">
+          <span class="ma-refdash__rank" aria-label="Position <%= row.rank %>"><%= row.rank %></span>
+          <span class="ma-refdash__who">
+            <span class="ma-refdash__avatar" aria-hidden="true"><%= row.initial %></span>
+            <span>
+              <strong><%= row.name %></strong>
+              <% if (row.email || row.phone) { %><small><%= row.email || row.phone %></small><% } %>
+            </span>
+          </span>
+          <span class="ma-refdash__count"><%= row.referrals %></span>
+        </a>
+        <% }); %>
+      </div>
+      <% } %>
+    </section>
+
+    <% } else if (_view === 'link') { %>
+    <p class="ma-page-sub">Give a top customer their own tracked link. When a friend fills it out, you see who brought them.</p>
+
+    <form method="get" action="<%= base %>/send" class="ma-card" autocomplete="off">
+      <input type="hidden" name="view" value="link">
+      <div class="ma-field">
+        <label class="ma-label" for="sdRefCustomer">Customer</label>
+        <select id="sdRefCustomer" name="customer" class="ma-select" required>
+          <option value="">Pick a customer…</option>
+          <% _custs.forEach(function (c) { %>
+          <option value="<%= c.id %>" <%= _pickId === c.id ? 'selected' : '' %>><%= c.name || 'Customer' %><%= c.phone ? ' · ' + c.phone : '' %></option>
+          <% }); %>
+        </select>
+        <p class="ma-hint">Usually someone who left a great review. <a href="<%= base %>/customers">Manage customers</a></p>
+      </div>
+      <button type="submit" class="ma-btn ma-btn--block"><%- icons.share %> Get unique link</button>
+    </form>
+
+    <% if (_picked && _picked.url) { %>
+    <section class="ma-card ma-refdash__share" style="margin-top:12px" aria-label="Unique referral link">
+      <h2 class="ma-refdash__share-title">Unique link ready</h2>
+      <p class="ma-hint" style="margin-top:0">For <strong><%= _picked.name || 'customer' %></strong>. Share by text, copy, or Messages.</p>
+      <label class="ma-label" for="maRefLinkUrl2">Their unique referral link</label>
+      <div class="ma-link-box">
+        <code id="maRefLinkUrl2"><%= _picked.url %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= _picked.url %>"><%- icons.copy %> Copy</button>
+      </div>
+      <div class="ma-refdash__share-row">
+        <% if (_picked.phone) { %>
+        <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || ('Share this link: ' + _picked.url)) %>"><%- icons.sms %> Text link</a>
+        <% } %>
+        <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/send?view=board&customer=<%= encodeURIComponent(_picked.customerId) %>">See board</a>
+      </div>
+      <p class="ma-hint" style="margin-bottom:0">Clicks: <strong><%= _picked.clicks || 0 %></strong> · Referrals: <strong><%= _picked.referrals || 0 %></strong></p>
+    </section>
+    <% } else if (_pickId) { %>
+    <p class="ma-flash ma-flash--err">Could not build a link for that customer. Try another contact.</p>
+    <% } else if (!_custs.length) { %>
+    <div class="ma-card ma-empty"><%- icons.customers %><p>Add a customer first, then come back to create their unique link.</p></div>
+    <% } %>
+
+    <% } else { %>
+    <p class="ma-page-sub">It goes to the network member for that trade in the customer's area, and they get a text right away. When they close the job, you earn credits on your ads account.</p>
 
     <% const fv = formValues || {}; %>
     <form method="post" action="<%= base %>/send" class="ma-card" autocomplete="off">
@@ -70,6 +230,7 @@
       </label>
       <button type="submit" class="ma-btn ma-btn--block" <%= member.status !== 'active' ? 'disabled' : '' %>><%- icons.send %> Send referral</button>
     </form>
+    <% } %>
     <% } %>
   </main>
   <%- include('_tabbar') %>
