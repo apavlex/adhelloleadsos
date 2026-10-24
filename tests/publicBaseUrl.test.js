@@ -78,6 +78,10 @@ describe('publicBaseUrl', () => {
     );
     assert.equal(getNetworkFlooringJoinUrl('Flooring'), 'https://reviews.adhello.io/join/flooring/flooring');
     assert.equal(getReviewPageUrl('brightline-electric'), 'https://reviews.adhello.io/rv/brightline-electric');
+    assert.equal(
+      require('../lib/publicBaseUrl').getBusinessVcardUrl('brightline-electric'),
+      'https://reviews.adhello.io/c/brightline-electric.vcf',
+    );
     process.env.REVIEW_PUBLIC_BASE_URL = 'https://reviews.adhello.io/';
     assert.equal(getReviewPageUrl('acme'), 'https://reviews.adhello.io/rv/acme');
     process.env.BASE_URL = prev.base;
