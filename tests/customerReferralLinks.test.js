@@ -127,6 +127,14 @@ describe('customer referral unique links', () => {
     const head = fs.readFileSync(path.join(__dirname, '../views/member_app/_head.ejs'), 'utf8');
     assert.match(head, /\.ma-refdash__row\{display:grid!important/);
     assert.match(head, /a\.ma-refdash__who\{display:flex!important/);
+    assert.match(head, /\.ma-refdash__share-row\{display:flex!important/);
+    assert.match(send, /aria-label="Share actions"/);
+    assert.match(css, /\.ma-refdash__share-row\s*>\s*\.ma-btn/);
+    // Copy / Text / Change sit in one equal-width row (not Copy alone in the link box).
+    const shareAt = send.indexOf('aria-label="Share a referral link"');
+    const shareChunk = shareAt > -1 ? send.slice(shareAt, shareAt + 1200) : '';
+    assert.match(shareChunk, /ma-refdash__share-row[\s\S]*data-ma-copy/);
+    assert.doesNotMatch(shareChunk, /ma-link-box[\s\S]*data-ma-copy[\s\S]*ma-refdash__share-row/);
     assert.match(route, /SEND_VIEWS/);
     assert.match(route, /customerReferralLinks/);
     assert.match(route, /send\/referral\/:code\/:conversionId/);
