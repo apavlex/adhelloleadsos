@@ -1514,7 +1514,16 @@ router.get('/m/:token/quote/:id/photos/:photoId', withMember(async (req, res, ct
   return res.send(photo.buffer);
 }));
 
-const SEND_VIEWS = new Set(['lead', 'link', 'board']);
+/** Accepted ?view= values. Canonical internals: lead · link · board. */
+const SEND_VIEWS = new Set(['lead', 'link', 'board', 'request', 'analytics']);
+/** Map public aliases (request/analytics) onto lead / link / board. */
+function normalizeSendView(raw) {
+  const v = String(raw || '').trim();
+  if (v === 'request' || v === 'link') return 'link';
+  if (v === 'analytics' || v === 'board') return 'board';
+  if (v === 'lead') return 'lead';
+  return 'lead';
+}
 
 async function renderSend(req, res, ctx, flash, formValues, status) {
   // Flooring partners request material quotes; free-app uses Join; partners keep Send.
@@ -1527,7 +1536,7 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
   }
   const customerReferralLinks = require('../services/customerReferralLinks');
   const q = (req && req.query) || {};
-  const sendView = SEND_VIEWS.has(String(q.view || '')) ? String(q.view) : 'lead';
+  const sendView = normalizeSendView(q.view);
   const pickCustomerId = String(q.customer || '').trim();
   const [directory, customers, advocates] = await Promise.all([
     directoryFor(ctx.network, ctx.member),
@@ -1592,10 +1601,17 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
     referralsLocked: false,
     upgradeHref: '/signup',
     sendView,
+    // All customers (not just review-givers) for Request typeahead — live filter in the browser.
     customers: customers
       .filter((c) => c && !c.isQuoteRequest)
-      .slice(0, 200)
-      .map((c) => ({ id: c.id, name: c.name, phone: c.phone || '', email: c.email || '' })),
+      .slice(0, 1000)
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone || '',
+        email: c.email || '',
+        address: c.address || '',
+      })),
     pickCustomerId,
     pickedAdvocate,
     referralDash,
@@ -1604,7 +1620,7 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
 
 router.get('/m/:token/send', withMember((req, res, ctx) => {
   const q = req.query || {};
-  if (SEND_VIEWS.has(String(q.view || '')) && String(q.view) !== 'lead') {
+  if (normalizeSendView(q.view) !== 'lead') {
     return renderSend(req, res, ctx);
   }
   const formValues = {

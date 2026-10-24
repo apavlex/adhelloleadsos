@@ -100,16 +100,21 @@ describe('customer referral unique links', () => {
     assert.ok(dash2.rewarded.some((r) => r.conversionId === conv.conversion.id));
   });
 
-  it('Send page exposes Lead / Link / Board tabs and simple board UI', () => {
+  it('Send page exposes Send link / Request / Analytics tabs and simple board UI', () => {
     const send = fs.readFileSync(path.join(__dirname, '../views/member_app/send.ejs'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const publicRoute = fs.readFileSync(path.join(__dirname, '../routes/customerReferralPublic.js'), 'utf8');
-    assert.match(send, /view=link/);
-    assert.match(send, /view=board/);
+    assert.match(send, />Send link</);
+    assert.match(send, /view=request/);
+    assert.match(send, /view=analytics/);
+    assert.match(send, />Request</);
+    assert.match(send, />Analytics/);
     assert.match(send, /Request a referral/);
+    assert.match(send, /Send a link/);
     assert.match(send, /earn a giveaway or your reward/);
-    assert.match(send, /Search by name or phone/);
+    assert.match(send, /Type a name or phone|Search any customer/);
+    assert.match(send, /results update as you type/);
     assert.match(send, /data-ma-customer-pick/);
     assert.match(send, /data-ma-pick-mode="saved"/);
     assert.match(send, /Top referrers/);
@@ -117,10 +122,16 @@ describe('customer referral unique links', () => {
     assert.match(send, /Mark rewarded/);
     assert.match(send, /Their unique referral link/);
     assert.match(send, /ma-refdash__stats/);
+    assert.match(send, /See analytics/);
     // Rows are divs (not one giant underlined <a>) so layout can’t collapse.
     assert.match(send, /class="ma-refdash__row"/);
     assert.match(send, /class="ma-refdash__who"/);
     assert.doesNotMatch(send, /<a class="ma-refdash__row"/);
+    assert.match(send, /aria-label="Send referral options"/);
+    assert.match(send, />Send link</);
+    assert.match(send, />Request</);
+    assert.match(send, />Analytics/);
+    assert.doesNotMatch(send, />Board</);
     assert.match(css, /\.ma-refdash__board/);
     assert.match(css, /\.ma-refdash__reward-row/);
     assert.match(css, /\.ma-refdash__row\s*\{[^}]*display:\s*grid\s*!important/);
@@ -128,15 +139,18 @@ describe('customer referral unique links', () => {
     assert.match(head, /\.ma-refdash__row\{display:grid!important/);
     assert.match(head, /a\.ma-refdash__who\{display:flex!important/);
     assert.match(route, /SEND_VIEWS/);
+    assert.match(route, /normalizeSendView/);
     assert.match(route, /customerReferralLinks/);
     assert.match(route, /send\/referral\/:code\/:conversionId/);
     assert.match(route, /cust_ref_rewarded/);
+    assert.match(route, /All customers \(not just review-givers\)/);
     assert.match(publicRoute, /\/rf\/:code/);
     assert.match(publicRoute, /source: 'customer_referral'/);
     const js = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
     assert.match(js, /data-ma-pick-mode/);
     assert.match(js, /name="customer"/);
     assert.match(js, /savedOnly/);
+    assert.match(js, /limit:\s*80/);
     const tabbar = fs.readFileSync(path.join(__dirname, '../views/member_app/_tabbar.ejs'), 'utf8');
     assert.match(tabbar, /label: 'Referrals'/);
     assert.doesNotMatch(tabbar, /id: 'send', label: 'Send'/);

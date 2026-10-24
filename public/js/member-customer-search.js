@@ -38,7 +38,8 @@
       }
     }
 
-    if (qDigits.length >= 3 && phone && phone.indexOf(qDigits) !== -1) {
+    // Match from the first digit typed so phone search feels instant.
+    if (qDigits.length >= 1 && phone && phone.indexOf(qDigits) !== -1) {
       score = Math.max(score, phone.indexOf(qDigits) === 0 || phone.slice(-qDigits.length) === qDigits ? 700 : 500);
     }
 
