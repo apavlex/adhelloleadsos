@@ -330,19 +330,42 @@ function buildDashboard(advocates) {
   };
 }
 
-function shareSmsText({ company, name, url, reward }) {
+/** Default SMS when texting a customer their unique referral link. */
+const DEFAULT_SHARE_SCRIPT =
+  'Hi {{name}} — thanks again! Here’s your personal referral link for {{company}}. Share it with a friend to earn {{reward}}: {{referral_link}}';
+
+function cleanShareScript(raw) {
+  return String(raw == null ? '' : raw).replace(/\r\n/g, '\n').trim().slice(0, 500);
+}
+
+function shareScriptFromMember(member) {
+  return cleanShareScript(member && member.referralShareScript) || DEFAULT_SHARE_SCRIPT;
+}
+
+function fillShareScript(template, { company, name, url, reward } = {}) {
   const who = clean(name, 60) || 'there';
   const co = clean(company, 80) || 'us';
   const link = clean(url, 200);
-  const prize = clean(reward, 80);
-  const earn = prize
-    ? `Share it with a friend to earn ${prize}`
-    : 'Share it with a friend to earn a giveaway or your reward';
-  return `Hi ${who} — thanks again! Here’s your personal referral link for ${co}. ${earn}: ${link}`;
+  const prize = clean(reward, 80) || 'a giveaway or your reward';
+  let out = (cleanShareScript(template) || DEFAULT_SHARE_SCRIPT)
+    .replace(/\{\{\s*name\s*\}\}/gi, who)
+    .replace(/\{\{\s*company\s*\}\}/gi, co)
+    .replace(/\{\{\s*reward\s*\}\}/gi, prize)
+    .replace(/\{\{\s*referral_link\s*\}\}/gi, link)
+    .replace(/\{\{\s*link\s*\}\}/gi, link);
+  if (link && !out.includes(link)) {
+    out = `${out.replace(/\s+$/, '')} ${link}`.trim();
+  }
+  return out.slice(0, 500);
+}
+
+function shareSmsText({ company, name, url, reward, script }) {
+  return fillShareScript(script || DEFAULT_SHARE_SCRIPT, { company, name, url, reward });
 }
 
 module.exports = {
   CODE_RE,
+  DEFAULT_SHARE_SCRIPT,
   isCode,
   publicUrl,
   getByCode,
@@ -357,5 +380,8 @@ module.exports = {
   confirmedCount,
   pendingCount,
   shareSmsText,
+  shareScriptFromMember,
+  fillShareScript,
+  cleanShareScript,
   normalizeAdvocate,
 };

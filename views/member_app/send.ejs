@@ -39,8 +39,10 @@
           address: c.address || '',
         };
       });
+      const _title = (_view === 'link' || _view === 'board') ? 'Request a referral' : 'Send a referral';
+      const _setupOpen = typeof referralSetupOpen !== 'undefined' && referralSetupOpen;
     %>
-    <h1 class="ma-page-title"><%= (_view === 'link' || _view === 'board') ? 'Request a referral' : 'Send a referral' %></h1>
+    <h1 class="ma-page-title"><%= _title %></h1>
     <nav class="ma-seg ma-seg--3" aria-label="Send referral options">
       <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Send</a>
       <a href="<%= base %>/send?view=request" class="<%= _view === 'link' ? 'is-on' : '' %>">Request</a>
@@ -49,8 +51,7 @@
 
     <%- include('_flash') %>
 
-    <% if (_view === 'board') { %>
-    <p class="ma-page-sub">See who brought you leads — clicks, referrals, and rewards for customers who shared their unique links.</p>
+    <% if (_view === 'board') { %>    <p class="ma-page-sub">See who brought you leads — clicks, referrals, and rewards for customers who shared their unique links.</p>
 
     <div class="ma-refdash__stats" aria-label="Referral summary">
       <div class="ma-refdash__stat">
@@ -153,7 +154,7 @@
     </section>
 
     <% } else if (_view === 'link') { %>
-    <p class="ma-page-sub">Your customer shares their unique link so a friend can reach you — and they earn a giveaway or your reward when that referral comes through.</p>
+    <p class="ma-page-sub">Each customer gets a unique tracked referral URL. They share it with friends — you see every click and referral, and they can earn a giveaway or your reward when someone comes through.</p>
 
     <% if (!_custs.length) { %>
     <div class="ma-card ma-empty"><%- icons.customers %><p>Add a customer first, then come back to request a referral with their unique link.</p></div>
@@ -218,6 +219,13 @@
     <% } else if (_pickId) { %>
     <p class="ma-flash ma-flash--err">Could not build a link for that customer. Try another contact.</p>
     <% } %>
+
+    <details class="ma-fold" id="maRefScript" <%= _setupOpen ? 'open' : '' %>>
+      <summary>SMS script <span class="ma-fold__hint">unique link text &amp; reward</span></summary>
+      <div class="ma-fold__body">
+        <%- include('_referral_setup') %>
+      </div>
+    </details>
 
     <% } else { %>
     <p class="ma-page-sub">It goes to the network member for that trade in the customer's area, and they get a text right away. When they close the job, you earn credits on your ads account.</p>

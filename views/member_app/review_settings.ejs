@@ -10,75 +10,17 @@
       topSettings: { href: base + '/review/settings', label: 'Review settings', on: true }
     }) %>
     <h1 class="ma-page-title">Review settings</h1>
-    <p class="ma-page-sub">Logo, review links, referral reward after 4–5★, and the photo shown when your link is shared.</p>
+    <p class="ma-page-sub">Logo, review links, and the photo shown when your link is shared.</p>
 
     <%- include('_flash') %>
 
     <% const _needLinks = !linkCount; %>
     <% const _hasLogo = typeof hasCustomLogo !== 'undefined' && hasCustomLogo; %>
-    <% const _rw = typeof rewardSettings !== 'undefined' && rewardSettings ? rewardSettings : { enabled: false, minStars: 4, rewardType: 'gift_card', rewardLabel: '', rewardScript: '' }; %>
-    <% const _rwScript = _rw.rewardScript || (typeof rewardDefaultScript !== 'undefined' ? rewardDefaultScript : ''); %>
 
     <section class="ma-card" id="maReviewReward">
-      <h2 style="font-size:16px;margin:0 0 6px">Referral reward after a great review</h2>
-      <p class="ma-hint" style="margin-top:0">When a customer taps 4–5★ on a tracked review request, we notify you. You confirm the public review, then we text them your offer for referring a friend. Monthly plan only.</p>
-      <% if (typeof rewardLocked !== 'undefined' && rewardLocked) { %>
-      <%- include('_upgrade_gate', {
-        upgradeTitle: 'Referral rewards & customer referrals',
-        upgradeBody: 'Confirm great reviews and text customers a gift/discount for referring a friend — included on the monthly plan with network referrals.',
-        upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
-        upgradeIcon: 'referrals',
-      }) %>
-      <% } else { %>
-      <form method="post" action="<%= base %>/review/reward" autocomplete="off" data-ma-loading="Saving…" id="maReviewRewardForm">
-        <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
-          <input type="hidden" name="rewardEnabled" value="0">
-          <input type="checkbox" name="rewardEnabled" value="1" id="rvRewardEnabled" <%= _rw.enabled ? 'checked' : '' %> style="margin-top:3px">
-          <span><strong>Offer a referral reward</strong> after I confirm their review</span>
-        </label>
-        <div id="maReviewRewardSetup" <%= _rw.enabled ? '' : 'hidden' %>>
-          <div class="ma-field">
-            <label class="ma-label" for="rvRewardMin">Minimum stars</label>
-            <select id="rvRewardMin" name="rewardMinStars" class="ma-input">
-              <option value="4" <%= Number(_rw.minStars) === 5 ? '' : 'selected' %>>4 or 5 ★</option>
-              <option value="5" <%= Number(_rw.minStars) === 5 ? 'selected' : '' %>>5 ★ only</option>
-            </select>
-          </div>
-          <div class="ma-field">
-            <label class="ma-label" for="rvRewardType">Reward type</label>
-            <select id="rvRewardType" name="rewardType" class="ma-input">
-              <option value="gift_card" <%= _rw.rewardType === 'gift_card' ? 'selected' : '' %>>Gift card</option>
-              <option value="discount" <%= _rw.rewardType === 'discount' ? 'selected' : '' %>>Discount</option>
-              <option value="prize" <%= _rw.rewardType === 'prize' ? 'selected' : '' %>>Prize / giveaway</option>
-              <option value="custom" <%= _rw.rewardType === 'custom' ? 'selected' : '' %>>Custom</option>
-            </select>
-          </div>
-          <div class="ma-field">
-            <label class="ma-label" for="rvRewardLabel">What they get</label>
-            <input id="rvRewardLabel" name="rewardLabel" class="ma-input" value="<%= _rw.rewardLabel || '' %>" placeholder="e.g. $25 Amazon gift card" maxlength="80">
-            <p class="ma-hint">Shown in your confirm notification and in the customer offer text.</p>
-          </div>
-          <div class="ma-field">
-            <label class="ma-label" for="rvRewardScript">Offer message</label>
-            <textarea id="rvRewardScript" name="rewardScript" class="ma-textarea" rows="4" maxlength="500"><%= _rwScript %></textarea>
-            <p class="ma-hint">Placeholders: <code>{{name}}</code>, <code>{{company}}</code>, <code>{{stars}}</code>, <code>{{reward}}</code>, <code>{{referral_link}}</code>.</p>
-          </div>
-        </div>
-        <button type="submit" class="ma-btn ma-btn--block" style="margin-top:4px">Save reward settings</button>
-      </form>
-      <script>
-      (function () {
-        var box = document.getElementById('rvRewardEnabled');
-        var setup = document.getElementById('maReviewRewardSetup');
-        if (!box || !setup) return;
-        function sync() {
-          setup.hidden = !box.checked;
-        }
-        box.addEventListener('change', sync);
-        sync();
-      })();
-      </script>
-      <% } %>
+      <h2 style="font-size:16px;margin:0 0 6px">Referral SMS &amp; reward</h2>
+      <p class="ma-hint" style="margin-top:0">Edit the unique-link SMS script and reward offer under Referrals → <strong>Request</strong> (SMS script fold).</p>
+      <a class="ma-btn ma-btn--block ma-btn--soft" href="<%= base %>/send?view=request&amp;setup=1"><%- icons.send %> Open SMS script &amp; reward</a>
     </section>
 
     <section class="ma-card" id="maReviewLogo">

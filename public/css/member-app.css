@@ -904,6 +904,8 @@ html[data-ma-theme="dark"] .ma-pill--sent, html[data-ma-theme="dark"] .ma-pill--
 .ma-seg button.is-on { background: var(--acc); color: var(--on); }
 .ma-seg--2 { grid-template-columns: 1fr 1fr; }
 .ma-seg--3 { grid-template-columns: repeat(3, 1fr); }
+.ma-seg--4 { grid-template-columns: repeat(4, 1fr); }
+.ma-seg--4 a { font-size: 13px; padding-left: 6px; padding-right: 6px; }
 
 /* Customers tab */
 .ma-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 16px 0 4px; }

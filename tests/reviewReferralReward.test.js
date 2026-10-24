@@ -21,13 +21,15 @@ describe('review referral reward settings UI', () => {
     const fs = require('fs');
     const path = require('path');
     const view = fs.readFileSync(
-      path.join(__dirname, '../views/member_app/review_settings.ejs'),
+      path.join(__dirname, '../views/member_app/_referral_setup.ejs'),
       'utf8'
     );
     assert.match(view, /id="maReviewRewardSetup"/);
     assert.match(view, /maReviewRewardSetup" <%= _rw\.enabled \? '' : 'hidden' %>/);
     assert.match(view, /id="rvRewardEnabled"/);
     assert.match(view, /setup\.hidden = !box\.checked/);
+    assert.match(view, /SMS request script/);
+    assert.match(view, /referralShareScript/);
   });
 });
 
