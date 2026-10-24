@@ -92,6 +92,11 @@ describe('customer referral unique links', () => {
     const publicRoute = fs.readFileSync(path.join(__dirname, '../routes/customerReferralPublic.js'), 'utf8');
     assert.match(send, /view=link/);
     assert.match(send, /view=board/);
+    assert.match(send, /Request a referral/);
+    assert.match(send, /earn a giveaway or your reward/);
+    assert.match(send, /Search by name or phone/);
+    assert.match(send, /data-ma-customer-pick/);
+    assert.match(send, /data-ma-pick-mode="saved"/);
     assert.match(send, /Top referrers/);
     assert.match(send, /Reward customers/);
     assert.match(send, /Mark rewarded/);
@@ -105,6 +110,10 @@ describe('customer referral unique links', () => {
     assert.match(route, /cust_ref_rewarded/);
     assert.match(publicRoute, /\/rf\/:code/);
     assert.match(publicRoute, /source: 'customer_referral'/);
+    const js = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
+    assert.match(js, /data-ma-pick-mode/);
+    assert.match(js, /name="customer"/);
+    assert.match(js, /savedOnly/);
   });
 });
 

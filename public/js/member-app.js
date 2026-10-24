@@ -1390,14 +1390,14 @@
     }
   }
 
-  /** Typeahead: search customers as you type (review ask form). */
+  /** Typeahead: search customers as you type (review ask + Send → Link). */
   function initCustomerPick(root) {
     if (!root || root.getAttribute('data-ma-ready') === '1') return;
     var searchApi = window.maCustomerSearch;
     if (!searchApi || !searchApi.searchCustomers) return;
 
     var input = root.querySelector('input[role="combobox"], input[type="search"], input.ma-input');
-    var hidden = root.querySelector('input[type="hidden"][name="customerId"]');
+    var hidden = root.querySelector('input[type="hidden"][name="customerId"], input[type="hidden"][name="customer"]');
     var list = root.querySelector('[role="listbox"]');
     var dataEl = root.querySelector('script[type="application/json"]');
     var searchWrap = root.querySelector('[data-ma-ask-search]');
@@ -1407,6 +1407,8 @@
     var selectedAvatar = root.querySelector('[data-ma-ask-selected-avatar]');
     var clearBtn = root.querySelector('[data-ma-ask-clear]');
     var manualWrap = document.querySelector('[data-ma-ask-manual]');
+    var savedOnly = root.getAttribute('data-ma-pick-mode') === 'saved'
+      || root.getAttribute('data-ma-saved-only') === '1';
     if (!input || !hidden || !list || !dataEl) return;
 
     var customers = [];
@@ -1445,7 +1447,9 @@
       var picked = !!String(hidden.value || '').trim();
       if (searchWrap) searchWrap.hidden = picked;
       if (selectedWrap) selectedWrap.hidden = !picked;
-      if (manualWrap) manualWrap.hidden = picked;
+      if (manualWrap && !savedOnly) manualWrap.hidden = picked;
+      var submit = root.closest('form') && root.closest('form').querySelector('[data-ma-needs-customer]');
+      if (submit) submit.disabled = !picked;
     }
 
     function showSelected(c) {
@@ -1462,7 +1466,7 @@
       hidden.value = '';
       active = -1;
       input.value = '';
-      if (!keepManual) {
+      if (!keepManual && !savedOnly) {
         if (name) name.value = '';
         if (phone) phone.value = '';
         if (email) email.value = '';
@@ -1485,14 +1489,20 @@
       var q = String(query || '').trim();
       shown = searchApi.searchCustomers(customers, q, { limit: 40 });
       var html = '';
-      html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-id="" data-idx="-1">' +
-        (q ? 'Use “' + esc(q) + '” as a new person' : 'Or enter a new person below…') + '</li>';
+      if (!savedOnly) {
+        html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-id="" data-idx="-1">' +
+          (q ? 'Use “' + esc(q) + '” as a new person' : 'Or enter a new person below…') + '</li>';
+      }
       shown.forEach(function (c, i) {
         html += '<li class="ma-typeahead__item" role="option" data-id="' + esc(c.id) + '" data-idx="' + i + '">' +
           esc(labelFor(c)) + '</li>';
       });
       if (q && !shown.length) {
-        html += '<li class="ma-typeahead__empty" role="presentation">No saved matches — enter them as new below</li>';
+        html += '<li class="ma-typeahead__empty" role="presentation">' +
+          (savedOnly ? 'No matches — try another name or phone' : 'No saved matches — enter them as new below') +
+          '</li>';
+      } else if (!q && savedOnly && !shown.length) {
+        html += '<li class="ma-typeahead__empty" role="presentation">No customers yet</li>';
       }
       list.innerHTML = html;
       openList();
@@ -1512,6 +1522,7 @@
       var id = el.getAttribute('data-id') || '';
       var idx = parseInt(el.getAttribute('data-idx'), 10);
       if (!id) {
+        if (savedOnly) return;
         var typed = String(input.value || '').trim();
         clearPick({ keepManual: true });
         if (typed && name) name.value = typed;

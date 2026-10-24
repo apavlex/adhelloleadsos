@@ -318,11 +318,15 @@ function buildDashboard(advocates) {
   };
 }
 
-function shareSmsText({ company, name, url }) {
+function shareSmsText({ company, name, url, reward }) {
   const who = clean(name, 60) || 'there';
   const co = clean(company, 80) || 'us';
   const link = clean(url, 200);
-  return `Hi ${who} — thanks again! Here’s your personal referral link for ${co}. Share it with a friend: ${link}`;
+  const prize = clean(reward, 80);
+  const earn = prize
+    ? `Share it with a friend to earn ${prize}`
+    : 'Share it with a friend to earn a giveaway or your reward';
+  return `Hi ${who} — thanks again! Here’s your personal referral link for ${co}. ${earn}: ${link}`;
 }
 
 module.exports = {
