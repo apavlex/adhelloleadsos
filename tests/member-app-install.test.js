@@ -262,6 +262,10 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /function buildLiveKeywordHint/);
     assert.match(js, /function stripReviewUrlsFromText/);
     assert.match(js, /function placeReviewLinkAtEnd/);
+    assert.match(js, /function readAskPhone/);
+    assert.match(js, /function smsDigits/);
+    assert.match(js, /sms:' \+ encodeURIComponent\(digits\) \+ '&body='/);
+    assert.match(js, /promptForAskPhone/);
     assert.match(js, /getElementById\('rvSmsScript'\)/);
     assert.match(js, /navigator\.share\(data\)/);
     assert.match(js, /Hard rule: no \{\{review_link\}\}/);

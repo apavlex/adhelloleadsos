@@ -1338,6 +1338,58 @@
     void fold;
   }
 
+  /** Digits/+ only for sms: URLs — never pass an email into Messages To:. */
+  function smsDigits(phone) {
+    var raw = String(phone || '').trim();
+    if (!raw || raw.indexOf('@') !== -1) return '';
+    return raw.replace(/[^\d+]/g, '');
+  }
+
+  function readAskPhone() {
+    var el = document.getElementById('rvAskPhone');
+    return smsDigits(el && el.value != null ? el.value : '');
+  }
+
+  function readAskName() {
+    var nameEl = document.getElementById('rvAskName');
+    if (nameEl && String(nameEl.value || '').trim()) return String(nameEl.value).trim();
+    var selected = document.querySelector('[data-ma-ask-selected-name]');
+    if (selected && String(selected.textContent || '').trim()) {
+      return String(selected.textContent).replace(/\s+/g, ' ').trim();
+    }
+    return '';
+  }
+
+  function readAskEmail() {
+    var el = document.getElementById('rvAskEmail');
+    return el && el.value != null ? String(el.value).trim() : '';
+  }
+
+  function promptForAskPhone() {
+    var fold = document.getElementById('maAskForm');
+    if (fold) fold.open = true;
+    var phone = document.getElementById('rvAskPhone');
+    var manual = document.querySelector('[data-ma-ask-manual]');
+    if (manual) manual.hidden = false;
+    if (phone) {
+      phone.classList.add('ma-input--unset');
+      try { phone.focus(); } catch (e) { /* ignore */ }
+      try { phone.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e2) { /* ignore */ }
+    }
+    var hint = document.getElementById('rvAskPhoneHint');
+    if (!hint && phone && phone.parentNode) {
+      hint = document.createElement('p');
+      hint.id = 'rvAskPhoneHint';
+      hint.className = 'ma-flash ma-flash--err';
+      hint.style.margin = '8px 0 0';
+      phone.parentNode.appendChild(hint);
+    }
+    if (hint) {
+      hint.style.display = '';
+      hint.textContent = 'Add their mobile number so Messages opens that SMS thread (email alone won’t show text history).';
+    }
+  }
+
   function requestReviewFromPhone(btn) {
     syncShareKeywordPayload();
     var payload = readRequestReviewPayload(btn);
@@ -1349,12 +1401,20 @@
     var liveScript = scriptEl ? String(scriptEl.value || '').trim() : '';
     var sourceScript = liveScript || String(payload.script || '');
     var kw = readLiveKeywordFields(payload);
+    var askPhone = readAskPhone();
+    var askName = readAskName() || 'there';
     var text = '';
     var hasKw = !!(kw.jobTitle || kw.city || kw.keywords || buildLiveKeywordHint(kw));
 
     // Don't open Messages with empty "your project / your area" — make them set defaults.
     if (scriptNeedsKeywords(sourceScript) && !hasKw) {
       promptForKeywordDefaults();
+      return;
+    }
+
+    // Customer/email filled but no mobile — don’t open Messages with an email To:.
+    if (!askPhone && (readAskEmail() || readAskName() || document.getElementById('rvAskCustomerId') && document.getElementById('rvAskCustomerId').value)) {
+      promptForAskPhone();
       return;
     }
 
@@ -1366,7 +1426,7 @@
 
     if (liveScript) {
       text = fillLiveReviewScript(liveScript, {
-        name: 'there',
+        name: askName,
         company: company,
         url: reviewUrl,
         jobTitle: kw.jobTitle,
@@ -1376,7 +1436,7 @@
     } else {
       // Server shareSmsText should already be filled; re-fill any leftover tags.
       text = fillLiveReviewScript(String(payload.text || '').trim() || String(payload.script || ''), {
-        name: 'there',
+        name: askName,
         company: company,
         url: reviewUrl,
         jobTitle: kw.jobTitle,
@@ -1415,11 +1475,20 @@
       btn.innerHTML = originalHtml;
     }
 
-    function openSms(body) {
+    function openSms(body, phone) {
       var msg = String(body || '');
-      var href = isIOS
-        ? 'sms:&body=' + encodeURIComponent(msg)
-        : 'sms:?body=' + encodeURIComponent(msg);
+      var digits = smsDigits(phone);
+      var href;
+      if (digits) {
+        // Recipient in the sms: URL so iOS/Android open that contact’s SMS history.
+        href = isIOS
+          ? 'sms:' + encodeURIComponent(digits) + '&body=' + encodeURIComponent(msg)
+          : 'sms:' + encodeURIComponent(digits) + '?body=' + encodeURIComponent(msg);
+      } else {
+        href = isIOS
+          ? 'sms:&body=' + encodeURIComponent(msg)
+          : 'sms:?body=' + encodeURIComponent(msg);
+      }
       window.location.href = href;
       // Keep the loading label briefly — Messages is taking over.
       setTimeout(restore, 1200);
@@ -1434,6 +1503,11 @@
 
     function shareText(body, vcardFile) {
       var msg = String(body || '');
+      // Phone known → open SMS to that number (thread history). File share can't set To:.
+      if (askPhone) {
+        openSms((vcardFile || attachVcard) ? textWithVcardUrl(msg) : msg, askPhone);
+        return;
+      }
       if (navigator.share) {
         var data = { title: title, text: msg };
         if (vcardFile) {
@@ -1450,20 +1524,27 @@
           var fallback = vcardFile ? textWithVcardUrl(msg) : msg;
           if (navigator.share) {
             navigator.share({ title: title, text: fallback }).then(restore).catch(function () {
-              openSms(fallback);
+              openSms(fallback, askPhone);
             });
             return;
           }
-          openSms(fallback);
+          openSms(fallback, askPhone);
         });
         return;
       }
-      openSms(vcardFile ? textWithVcardUrl(msg) : msg);
+      openSms(vcardFile ? textWithVcardUrl(msg) : msg, askPhone);
+    }
+
+    // With a mobile number, always open Messages to that phone (SMS history).
+    // sms: can't attach a .vcf file — put the vCard URL in the body when Attach is on.
+    if (askPhone) {
+      if (attachVcard && vcardUrl) text = textWithVcardUrl(text);
+      openSms(text, askPhone);
+      return;
     }
 
     if (attachVcard && vcardUrl && typeof fetch === 'function' && navigator.share) {
-      // Prefer a real .vcf File so Messages can show a contact card on iOS.
-      // Text keeps only the review URL (last) so the OG image can unfurl.
+      // No recipient yet — Share can still attach a real .vcf contact file.
       fetch(vcardUrl, { credentials: 'omit' }).then(function (res) {
         if (!res || !res.ok) throw new Error('vcard fetch failed');
         return res.blob();
