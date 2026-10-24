@@ -100,18 +100,18 @@ describe('customer referral unique links', () => {
     assert.ok(dash2.rewarded.some((r) => r.conversionId === conv.conversion.id));
   });
 
-  it('Send page exposes Send link / Request / Analytics tabs and simple board UI', () => {
+  it('Send page exposes Send / Request / Analytics tabs and simple board UI', () => {
     const send = fs.readFileSync(path.join(__dirname, '../views/member_app/send.ejs'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const publicRoute = fs.readFileSync(path.join(__dirname, '../routes/customerReferralPublic.js'), 'utf8');
-    assert.match(send, />Send link</);
+    assert.match(send, />Send</);
     assert.match(send, /view=request/);
     assert.match(send, /view=analytics/);
     assert.match(send, />Request</);
     assert.match(send, />Analytics/);
     assert.match(send, /Request a referral/);
-    assert.match(send, /Send a link/);
+    assert.match(send, /Send a referral/);
     assert.match(send, /earn a giveaway or your reward/);
     assert.match(send, /Type a name or phone|Search any customer/);
     assert.match(send, /results update as you type/);
@@ -128,7 +128,8 @@ describe('customer referral unique links', () => {
     assert.match(send, /class="ma-refdash__who"/);
     assert.doesNotMatch(send, /<a class="ma-refdash__row"/);
     assert.match(send, /aria-label="Send referral options"/);
-    assert.match(send, />Send link</);
+    assert.match(send, />Send</);
+    assert.doesNotMatch(send, />Send link</);
     assert.match(send, />Request</);
     assert.match(send, />Analytics/);
     assert.doesNotMatch(send, />Board</);

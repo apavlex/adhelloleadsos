@@ -3,7 +3,7 @@
 <head>
   <%
     const _viewHead = typeof sendView !== 'undefined' ? sendView : 'lead';
-    const _pageTitle = (_viewHead === 'link' || _viewHead === 'board') ? 'Request a referral' : 'Send a link';
+    const _pageTitle = (_viewHead === 'link' || _viewHead === 'board') ? 'Request a referral' : 'Send a referral';
   %>
   <%- include('_head', { pageTitle: _pageTitle }) %>
 </head>
@@ -11,7 +11,7 @@
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Referrals' }) %>
     <% if (typeof referralsLocked !== 'undefined' && referralsLocked) { %>
-    <h1 class="ma-page-title">Send a link</h1>
+    <h1 class="ma-page-title">Send a referral</h1>
     <p class="ma-page-sub">Pass jobs to trusted partners in the network.</p>
     <%- include('_flash') %>
     <%- include('_upgrade_gate', {
@@ -40,9 +40,9 @@
         };
       });
     %>
-    <h1 class="ma-page-title"><%= (_view === 'link' || _view === 'board') ? 'Request a referral' : 'Send a link' %></h1>
+    <h1 class="ma-page-title"><%= (_view === 'link' || _view === 'board') ? 'Request a referral' : 'Send a referral' %></h1>
     <nav class="ma-seg ma-seg--3" aria-label="Send referral options">
-      <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Send link</a>
+      <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Send</a>
       <a href="<%= base %>/send?view=request" class="<%= _view === 'link' ? 'is-on' : '' %>">Request</a>
       <a href="<%= base %>/send?view=analytics" class="<%= _view === 'board' ? 'is-on' : '' %>">Analytics<% if (_view !== 'board' && (_dash.awaitingRewardCount || 0) > 0) { %> (<%= _dash.awaitingRewardCount %>)<% } %></a>
     </nav>

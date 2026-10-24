@@ -1514,7 +1514,7 @@ router.get('/m/:token/quote/:id/photos/:photoId', withMember(async (req, res, ct
   return res.send(photo.buffer);
 }));
 
-/** Accepted ?view= values. Canonical internals: lead · link · board. */
+/** Accepted ?view= values. Canonical internals: lead (Send) · link/request · board/analytics. */
 const SEND_VIEWS = new Set(['lead', 'link', 'board', 'request', 'analytics']);
 /** Map public aliases (request/analytics) onto lead / link / board. */
 function normalizeSendView(raw) {
