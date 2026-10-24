@@ -22,6 +22,15 @@
   // Tab mode (Reviews page) skips the fold; legacy fold auto-opens for upgrade/focus/new.
   const _grTab = typeof googleReviewsTabMode !== 'undefined' && googleReviewsTabMode;
   const _grOpen = _grFocus || _grLocked || (_grPaid && _grSummary.newCount > 0);
+  const _pageStats = typeof reviewPageStats !== 'undefined' && reviewPageStats
+    ? reviewPageStats
+    : { views: 0, clicks: 0, stars: {}, totalStars: 0, feedback: [] };
+  const _pageViews = Number(_pageStats.views || 0) || 0;
+  const _pageClicks = Number(_pageStats.clicks || 0) || 0;
+  const _pageStars = _pageStats.stars && typeof _pageStats.stars === 'object' ? _pageStats.stars : {};
+  const _pageTotalStars = Number(_pageStats.totalStars || 0) || 0;
+  const _pageFeedback = Array.isArray(_pageStats.feedback) ? _pageStats.feedback : [];
+  const _showCombinedStats = _grTab || _grSummary.placeRating != null || _grSummary.total;
 %>
 <% if (!_grTab) { %>
 <details class="ma-fold" id="maGoogleReviews" <%= _grOpen ? 'open' : '' %>>
@@ -40,6 +49,25 @@
 <section id="maGoogleReviews" class="ma-gr-tab" aria-label="Google and Yelp reviews">
 <% } %>
     <% if (_grLocked) { %>
+    <% if (_grTab) { %>
+    <div class="ma-card ma-card--flush" style="margin-bottom:10px" aria-label="Review results">
+      <p class="ma-hint" style="margin-top:0"><%= _pageViews %> visits · <%= _pageClicks %> clicks from your request page</p>
+      <div class="ma-kpis" style="margin-bottom:10px">
+        <div class="ma-kpi"><strong><%= _pageViews %></strong><span>Page visits</span></div>
+        <div class="ma-kpi"><strong><%= _pageClicks %></strong><span>Went to review</span></div>
+        <div class="ma-kpi"><strong><%= _pageFeedback.length %></strong><span>Private notes</span></div>
+      </div>
+      <div class="ma-bars">
+        <% [5, 4, 3, 2, 1].forEach(function (s) { const n = _pageStars[s] || 0; %>
+        <div class="ma-bar">
+          <span><%= s %> ★</span>
+          <span class="ma-bar__track"><span class="ma-bar__fill" style="width: <%= _pageTotalStars ? Math.round((n / _pageTotalStars) * 100) : 0 %>%"></span></span>
+          <span style="text-align:right"><%= n %></span>
+        </div>
+        <% }); %>
+      </div>
+    </div>
+    <% } %>
     <%- include('_upgrade_gate', {
       upgradeTitle: 'See Google & Yelp reviews & reply with AI',
       upgradeBody: 'On the monthly plan we pull your Google and Yelp reviews with Outscraper, notify you when a new one lands, and draft a reply you can copy into Google or Yelp.',
@@ -47,17 +75,47 @@
       upgradeIcon: 'review',
     }) %>
     <% } else { %>
-    <div class="ma-card ma-card--flush" style="margin-bottom:10px">
+    <div class="ma-card ma-card--flush" style="margin-bottom:10px"<%= _grTab ? ' aria-label="Review results"' : '' %>>
       <p class="ma-hint" style="margin-top:0">We sync from your <strong>Google</strong> and <strong>Yelp</strong> links under Review → Settings (request sites). New reviews ping your bell — then draft an AI reply and copy it back to that site.</p>
       <% if (_grSummary.placeName) { %>
       <p class="ma-gr-place">For <strong><%= _grSummary.placeName %></strong></p>
       <% } %>
-      <% if (_grSummary.placeRating != null || _grSummary.total) { %>
-      <div class="ma-kpis" style="margin-bottom:10px">
+      <% if (_showCombinedStats) { %>
+      <div class="ma-kpis" style="margin-bottom:10px" aria-label="Review stats">
+        <% if (_grTab) { %>
+        <div class="ma-kpi"><strong><%= _pageViews %></strong><span>Page visits</span></div>
+        <div class="ma-kpi"><strong><%= _pageClicks %></strong><span>Went to review</span></div>
+        <div class="ma-kpi"><strong><%= _pageFeedback.length %></strong><span>Private notes</span></div>
+        <% } %>
         <div class="ma-kpi"><strong><%= _grSummary.total %></strong><span>In inbox</span></div>
         <div class="ma-kpi"><strong><%= _grSummary.newCount %></strong><span>New</span></div>
         <div class="ma-kpi"><strong><% if (_grSummary.placeRating != null) { %><%= Number(_grSummary.placeRating).toFixed(1) %>★<% } else { %>—<% } %></strong><span>Rating</span></div>
       </div>
+      <% if (_grTab) { %>
+      <div class="ma-bars" style="margin-bottom:12px">
+        <% [5, 4, 3, 2, 1].forEach(function (s) { const n = _pageStars[s] || 0; %>
+        <div class="ma-bar">
+          <span><%= s %> ★</span>
+          <span class="ma-bar__track"><span class="ma-bar__fill" style="width: <%= _pageTotalStars ? Math.round((n / _pageTotalStars) * 100) : 0 %>%"></span></span>
+          <span style="text-align:right"><%= n %></span>
+        </div>
+        <% }); %>
+      </div>
+      <% if (_pageFeedback.length) { %>
+      <div class="ma-section__head" style="margin:0 0 8px"><h2 style="font-size:15px;margin:0">Private feedback</h2></div>
+      <% _pageFeedback.forEach(function (f) { %>
+      <div class="ma-card ma-card--flush" style="margin-bottom:8px;border:1px solid var(--line)">
+        <div class="ma-card__row">
+          <div style="min-width:0">
+            <p class="ma-card__title"><%= f.name || 'Customer' %> · <%= '★'.repeat(f.rating || 0) %></p>
+            <p class="ma-card__meta"><% if (f.phone) { %><a href="tel:<%= String(f.phone).replace(/[^0-9+]/g, '') %>" style="color:var(--acc);font-weight:700;text-decoration:none"><%= f.phone %></a> · <% } %><%= f.email ? f.email + ' · ' : '' %><%= f.when %></p>
+          </div>
+        </div>
+        <p class="ma-card__note"><%= f.message %></p>
+      </div>
+      <% }); %>
+      <% } %>
+      <% } %>
       <% } %>
       <% if (!_grOut) { %>
       <p class="ma-flash ma-flash--err" style="margin:0 0 10px">AdHello Outscraper isn’t ready yet. Try again shortly or contact support.</p>
