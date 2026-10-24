@@ -5,6 +5,7 @@
  */
 
 const { chatCompletion, parseLlmJson } = require('./llmClient');
+const { getBusinessVcardUrl } = require('../lib/publicBaseUrl');
 
 const DEFAULT_SMS_SCRIPT =
   'Hi {{name}} — thanks for choosing {{company}}! When you have a minute, leave a quick review — mentioning {{keywords}} helps neighbors find us: {{review_link}}';
@@ -227,6 +228,40 @@ function maybeEnsureReviewLink(message, reviewLink, script) {
   return ensureReviewLink(message, reviewLink);
 }
 
+function memberAttachVcard(member) {
+  return !!(member && member.reviewAttachVcard);
+}
+
+function memberVcardUrl(member) {
+  return getBusinessVcardUrl(member && member.reviewSlug) || '';
+}
+
+/**
+ * Append the business vCard URL when the owner opted in.
+ * Keeps the review link last (own paragraph) so iMessage can still unfurl it.
+ */
+function maybeAttachVcardUrl(message, vcardUrl, { attach = false, reviewLink = '' } = {}) {
+  if (!attach) return String(message || '').trim();
+  const url = String(vcardUrl || '').trim();
+  if (!url) return String(message || '').trim();
+  let out = String(message || '').trim();
+  if (out.includes(url)) return out;
+  const link = String(reviewLink || '').trim();
+  if (link && out === link) return `${url}\n\n${link}`;
+  if (link && out.endsWith(`\n\n${link}`)) {
+    const without = out.slice(0, -(link.length + 2)).replace(/\s+$/, '');
+    if (!without) return `${url}\n\n${link}`;
+    return `${without}\n\n${url}\n\n${link}`;
+  }
+  if (link && out.endsWith(`\n${link}`)) {
+    const without = out.slice(0, -(link.length + 1)).replace(/\s+$/, '');
+    if (!without) return `${url}\n\n${link}`;
+    return `${without}\n\n${url}\n\n${link}`;
+  }
+  if (!out) return url;
+  return `${out}\n\n${url}`;
+}
+
 function memberSmsScript(member) {
   return cleanScript(member && member.reviewSmsScript) || DEFAULT_SMS_SCRIPT;
 }
@@ -268,10 +303,17 @@ async function buildReviewSms({
   });
 
   const wantsLink = scriptWantsReviewLink(baseScript);
+  const vcardUrl = memberVcardUrl(member);
+  const attachVcard = memberAttachVcard(member);
+  const finishSms = (draft) => maybeAttachVcardUrl(
+    maybeEnsureReviewLink(draft, reviewLink, baseScript),
+    vcardUrl,
+    { attach: attachVcard, reviewLink: wantsLink ? reviewLink : '' },
+  ).slice(0, MAX_SMS);
 
   if (!useAi) {
     return {
-      message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
+      message: finishSms(filled),
       provider: 'script',
       script: baseScript,
       keywords: keywordFields.keywords,
@@ -284,6 +326,9 @@ async function buildReviewSms({
   const keywordRule = keywordFields.keywords
     ? `- When natural, invite them to mention this project/location in their Google review (helps local search): "${keywordFields.keywords}". Do not invent other project details.`
     : '- Do not invent project titles, cities, or SEO keywords.';
+  const vcardRule = attachVcard && vcardUrl
+    ? `- Do not invent a contact-card link; a vCard URL is appended after you write.`
+    : '';
 
   const ai = await chatCompletion({
     messages: [
@@ -297,6 +342,7 @@ Rules:
 - Warm, grateful, human. No spammy hype, no markdown, no emojis unless the script already has them.
 ${linkRule}
 ${keywordRule}
+${vcardRule}
 - Use the customer's first name when natural.
 - Stay faithful to the saved script; do not invent discounts, ratings, or claims not in the script.`,
       },
@@ -321,7 +367,7 @@ ${keywordRule}
 
   if (!ai.content || ai.error) {
     return {
-      message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
+      message: finishSms(filled),
       provider: 'fallback',
       script: baseScript,
       keywords: keywordFields.keywords,
@@ -332,7 +378,7 @@ ${keywordRule}
   const personalized = String((parsed && parsed.message) || '').trim();
   if (!personalized) {
     return {
-      message: maybeEnsureReviewLink(filled, reviewLink, baseScript).slice(0, MAX_SMS),
+      message: finishSms(filled),
       provider: 'fallback',
       script: baseScript,
       keywords: keywordFields.keywords,
@@ -340,7 +386,7 @@ ${keywordRule}
   }
 
   return {
-    message: maybeEnsureReviewLink(personalized, reviewLink, baseScript).slice(0, MAX_SMS),
+    message: finishSms(personalized),
     provider: ai.provider || 'ai',
     script: baseScript,
     keywords: keywordFields.keywords,
@@ -467,10 +513,20 @@ ${keywordRule}
 }
 
 /** Prompt an agency can paste into GHL CRM Workflow AI for automated post-job review SMS. */
-function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript }) {
+function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript, attachVcard, vcardUrl }) {
   const company = String(companyName || 'the business').trim();
   const link = String(reviewLink || '').trim();
   const script = cleanScript(smsScript) || DEFAULT_SMS_SCRIPT;
+  const card = String(vcardUrl || '').trim();
+  const filled = fillPlaceholders(script, {
+    name: '{{contact.first_name}}',
+    company,
+    reviewLink: link || '{{custom_values.review_link}}',
+  });
+  const smsExample = maybeAttachVcardUrl(filled, card, {
+    attach: !!attachVcard && !!card,
+    reviewLink: scriptWantsReviewLink(script) ? (link || '') : '',
+  });
   return [
     `Build a GHL CRM workflow that texts happy customers a review request for ${company}.`,
     '',
@@ -480,19 +536,18 @@ function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript }) {
     scriptWantsReviewLink(script)
       ? 'SMS script (personalize {{contact.first_name}} in GHL CRM; keep the review link exact):'
       : 'SMS script (personalize {{contact.first_name}} in GHL CRM; do not add a review link):',
-    fillPlaceholders(script, {
-      name: '{{contact.first_name}}',
-      company,
-      reviewLink: link || '{{custom_values.review_link}}',
-    }),
+    smsExample,
     '',
     'Rules:',
     scriptWantsReviewLink(script)
       ? '- Include the review link exactly as written in the script.'
       : '- Do not add a review URL; use the script as saved.',
+    attachVcard && card
+      ? `- Include this contact-card (vCard) URL so they can save the business: ${card}`
+      : '',
     '- Skip contacts who opted out of SMS.',
     '- Send once per contact (add a tag like “review-asked” after send).',
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 module.exports = {
@@ -512,6 +567,9 @@ module.exports = {
   placeReviewLinkAtEnd,
   ensureReviewLink,
   maybeEnsureReviewLink,
+  maybeAttachVcardUrl,
+  memberAttachVcard,
+  memberVcardUrl,
   memberSmsScript,
   memberEmailScript,
   memberEmailSubject,

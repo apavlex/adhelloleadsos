@@ -65,6 +65,8 @@
         const _kwShare = typeof keywordDefaults !== 'undefined' && keywordDefaults
           ? keywordDefaults
           : { jobTitle: '', city: '', keywords: '' };
+        const _attachVcard = typeof attachVcard !== 'undefined' && !!attachVcard;
+        const _vcardUrl = typeof vcardUrl !== 'undefined' ? String(vcardUrl || '') : '';
         const _sharePayload = {
           // Only expose the review URL when the script asks for it — keeps stale
           // clients from attaching a Messages preview the author did not want.
@@ -77,6 +79,8 @@
           jobTitle: (typeof keywordJobTitle !== 'undefined' && keywordJobTitle) || _kwShare.jobTitle || '',
           city: (typeof keywordCity !== 'undefined' && keywordCity) || _kwShare.city || '',
           keywords: (typeof keywordHint !== 'undefined' && keywordHint) || _kwShare.keywords || '',
+          attachVcard: _attachVcard,
+          vcardUrl: _vcardUrl,
         };
       %>
       <script type="application/json" id="maRequestReviewPayload"><%- JSON.stringify(_sharePayload).replace(/</g, '\\u003c') %></script>
@@ -297,6 +301,14 @@
             <label class="ma-label" for="rvSmsScript">Review request text</label>
             <textarea id="rvSmsScript" name="smsScript" class="ma-textarea" rows="4" maxlength="800" required><%= _script %></textarea>
           </div>
+          <%
+            const _attachChecked = typeof attachVcard !== 'undefined' && !!attachVcard;
+            const _vcardLink = typeof vcardUrl !== 'undefined' ? String(vcardUrl || '') : '';
+          %>
+          <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
+            <input type="checkbox" name="attachVcard" value="1" id="rvAttachVcard" <%= _attachChecked ? 'checked' : '' %> style="margin-top:3px"<%= _vcardLink ? '' : ' disabled' %>>
+            <span><strong>Attach contact card</strong> — add your vCard link so they can save your business on their phone<%= _vcardLink ? '' : ' (add a review page slug / profile first)' %></span>
+          </label>
           <div class="ma-actions" style="margin:0 0 10px;flex-wrap:wrap">
             <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" id="rvInsertKeywords"
               data-snippet="<%= _kwSnippet.replace(/"/g, '&quot;') %>">Insert project keywords</button>

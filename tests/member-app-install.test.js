@@ -283,10 +283,17 @@ describe('member app install modal and tab bar', () => {
     assert.match(review, /even before Save/);
     assert.match(review, /ma-script-link__url/);
     assert.match(review, /ma-script-save/);
+    assert.match(review, /id="rvAttachVcard"/);
+    assert.match(review, /Attach contact card/);
+    assert.match(review, /name="attachVcard"/);
+    assert.match(js, /function maybeAttachVcardUrl/);
+    assert.match(js, /rvAttachVcard/);
     assert.match(css, /\.ma-script-link\s*\{/);
     assert.match(css, /\.ma-script-save\s*\{[^}]*margin-bottom:\s*28px/s);
     assert.match(route, /do not force-append the review URL/);
     assert.match(route, /scriptWantsReviewLink\(smsScript\) \? reviewUrl : ''/);
+    assert.match(route, /reviewAttachVcard/);
+    assert.match(route, /maybeAttachVcardUrl/);
     assert.doesNotMatch(route, /shareSmsText = reviewRequestScript\.ensureReviewLink/);
     assert.match(review, /ma-qr__ask/);
     assert.match(review, /icons\.sms/);

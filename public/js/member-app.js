@@ -1208,6 +1208,33 @@
   }
 
   /**
+   * Append the business vCard URL when the owner checked Attach contact card.
+   * Keeps the review link last so iMessage can still unfurl the preview image.
+   */
+  function maybeAttachVcardUrl(message, vcardUrl, opts) {
+    var attach = !!(opts && opts.attach);
+    if (!attach) return String(message || '').trim();
+    var url = String(vcardUrl || '').trim();
+    if (!url) return String(message || '').trim();
+    var out = String(message || '').trim();
+    if (out.indexOf(url) !== -1) return out;
+    var link = String((opts && opts.reviewLink) || '').trim();
+    if (link && out === link) return url + '\n\n' + link;
+    if (link && out.slice(-(link.length + 2)) === ('\n\n' + link)) {
+      var without = out.slice(0, -(link.length + 2)).replace(/\s+$/, '');
+      if (!without) return url + '\n\n' + link;
+      return without + '\n\n' + url + '\n\n' + link;
+    }
+    if (link && out.slice(-(link.length + 1)) === ('\n' + link)) {
+      var without2 = out.slice(0, -(link.length + 1)).replace(/\s+$/, '');
+      if (!without2) return url + '\n\n' + link;
+      return without2 + '\n\n' + url + '\n\n' + link;
+    }
+    if (!out) return url;
+    return out + '\n\n' + url;
+  }
+
+  /**
    * Request a review from this phone.
    * Uses the live SMS script textarea when present (so removing {{review_link}}
    * takes effect immediately). If the script has no link placeholder/URL, strip
@@ -1247,6 +1274,8 @@
       data.keywords = kw.keywords || buildLiveKeywordHint(kw);
       var scriptEl = document.getElementById('rvSmsScript');
       if (scriptEl) data.script = String(scriptEl.value || '');
+      var attachEl = document.getElementById('rvAttachVcard');
+      if (attachEl) data.attachVcard = !!attachEl.checked;
       el.textContent = JSON.stringify(data);
     } catch (e) { /* ignore */ }
   }
@@ -1333,6 +1362,15 @@
       // Link last → iMessage shows the review preview image.
       text = placeReviewLinkAtEnd(text, reviewUrl);
     }
+
+    // Live checkbox (even before Save) — append business vCard URL after the script.
+    var attachEl = document.getElementById('rvAttachVcard');
+    var attachVcard = attachEl ? !!attachEl.checked : !!payload.attachVcard;
+    var vcardUrl = String(payload.vcardUrl || '').trim();
+    text = maybeAttachVcardUrl(text, vcardUrl, {
+      attach: attachVcard,
+      reviewLink: scriptWantsReviewLink(sourceScript) ? reviewUrl : '',
+    });
 
     if (!text) {
       // Empty script — share a short note with NO forced URL.
