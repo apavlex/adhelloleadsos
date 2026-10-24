@@ -163,7 +163,7 @@ function buildChecklist({
   const total = steps.length;
   const allDone = doneCount >= total;
   const dismissed = !!meta.dismissedAt;
-  const firstTime = isNewFirstTimeMember(member, meta);
+  const firstTime = isNewFirstTimeMember(member);
   // New first-time openers only — not long-time flooring/free partners.
   const show = !dismissed && !allDone && firstTime;
 
