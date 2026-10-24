@@ -3152,7 +3152,8 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   const reviewLinkForShare = reviewRequestScript.scriptWantsReviewLink(smsScript) ? reviewUrl : '';
   const vcardUrl = getBusinessVcardUrl(member.reviewSlug);
   const attachVcard = reviewRequestScript.memberAttachVcard(member);
-  // Order: filled script → review link (own paragraph) → optional vCard URL.
+  // Filled script + review link last; vCard URL sits above the review link when
+  // Attach is on (text fallback). Request-a-review prefers a .vcf File instead.
   const shareSmsText = reviewRequestScript.maybeAttachVcardUrl(
     reviewLinkForShare
       ? reviewRequestScript.maybeEnsureReviewLink(
@@ -3176,7 +3177,7 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
         keywords: keywordCtx.keywords,
       }),
     vcardUrl,
-    { attach: attachVcard },
+    { attach: attachVcard, reviewLink: reviewLinkForShare },
   );
   const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
     companyName: member.companyName,

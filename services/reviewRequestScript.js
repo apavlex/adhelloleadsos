@@ -237,16 +237,28 @@ function memberVcardUrl(member) {
 }
 
 /**
- * Append the business vCard URL when the owner opted in.
- * Call after the review link is placed so order is: script → review link → vCard.
- * (Review link stays immediately under the script so iMessage can unfurl the image.)
+ * Append the business vCard URL when the owner opted in (text-only / SMS fallback).
+ * Prefer sharing a .vcf File from the client; when we must put the URL in the
+ * body, keep the review link last so iMessage can still unfurl the OG image.
  */
-function maybeAttachVcardUrl(message, vcardUrl, { attach = false } = {}) {
+function maybeAttachVcardUrl(message, vcardUrl, { attach = false, reviewLink = '' } = {}) {
   if (!attach) return String(message || '').trim();
   const url = String(vcardUrl || '').trim();
   if (!url) return String(message || '').trim();
-  const out = String(message || '').trim();
+  let out = String(message || '').trim();
   if (out.includes(url)) return out;
+  const link = String(reviewLink || '').trim();
+  if (link && out === link) return `${url}\n\n${link}`;
+  if (link && out.endsWith(`\n\n${link}`)) {
+    const without = out.slice(0, -(link.length + 2)).replace(/\s+$/, '');
+    if (!without) return `${url}\n\n${link}`;
+    return `${without}\n\n${url}\n\n${link}`;
+  }
+  if (link && out.endsWith(`\n${link}`)) {
+    const without = out.slice(0, -(link.length + 1)).replace(/\s+$/, '');
+    if (!without) return `${url}\n\n${link}`;
+    return `${without}\n\n${url}\n\n${link}`;
+  }
   if (!out) return url;
   return `${out}\n\n${url}`;
 }
@@ -297,7 +309,7 @@ async function buildReviewSms({
   const finishSms = (draft) => maybeAttachVcardUrl(
     maybeEnsureReviewLink(draft, reviewLink, baseScript),
     vcardUrl,
-    { attach: attachVcard },
+    { attach: attachVcard, reviewLink: wantsLink ? reviewLink : '' },
   ).slice(0, MAX_SMS);
 
   if (!useAi) {
@@ -517,6 +529,7 @@ function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript, atta
     : filled;
   const smsExample = maybeAttachVcardUrl(withLink, card, {
     attach: !!attachVcard && !!card,
+    reviewLink: scriptWantsReviewLink(script) ? (link || '') : '',
   });
   return [
     `Build a GHL CRM workflow that texts happy customers a review request for ${company}.`,

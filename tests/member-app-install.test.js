@@ -254,6 +254,7 @@ describe('member app install modal and tab bar', () => {
     const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     const review = fs.readFileSync(path.join(root, 'views/member_app/review.ejs'), 'utf8');
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
+    const reviewPublicRoute = fs.readFileSync(path.join(root, 'routes/reviewPublic.js'), 'utf8');
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     const pkg = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
     assert.match(js, /function requestReviewFromPhone/);
@@ -268,7 +269,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /\\{\\{\\s\*keywords\\s\*\\}\\}/);
     assert.match(js, /readLiveKeywordFields/);
     assert.match(js, /the work we did/);
-    assert.match(js, /Review link directly under the script/);
+    assert.match(js, /Review link last → iMessage can unfurl the OG image/);
     assert.match(js, /syncShareKeywordPayload/);
     assert.match(js, /scriptNeedsKeywords/);
     assert.match(js, /promptForKeywordDefaults/);
@@ -279,7 +280,10 @@ describe('member app install modal and tab bar', () => {
     // vCard may be shared as a File (contact card); never the old OG image file path.
     assert.doesNotMatch(js, /data\.files\s*=\s*\[file\]/);
     assert.match(js, /text\/vcard/);
+    assert.match(js, /makeVcardFile/);
     assert.match(js, /data\.files\s*=\s*\[vcardFile\]/);
+    assert.match(reviewPublicRoute, /noindex kills unfurls/);
+    assert.match(reviewPublicRoute, /removeHeader\('X-Robots-Tag'\)/);
     assert.match(js, /review_link is ONLY substituted when the placeholder/);
     assert.doesNotMatch(review, /image:\s*_shareImage/);
     assert.match(review, /only inserted when the script includes/);

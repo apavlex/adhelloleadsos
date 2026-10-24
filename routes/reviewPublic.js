@@ -108,8 +108,10 @@ async function renderPage(res, page, { rating, thanks, error, formValues, imageI
   );
   const logoUrl = reviewShareImage.requestPageLogoUrl(page.member, page.brand);
   const keywordHint = trackedAsk ? await resolveKeywordHintForAsk(trackedAsk) : '';
-  res.setHeader('Cache-Control', 'private, no-store');
-  res.setHeader('X-Robots-Tag', 'noindex');
+  // Public + indexable so iMessage/SMS can load og:image (X-Robots-Tag: noindex kills unfurls).
+  // HTML meta already sets index,follow; do not override with a noindex response header.
+  res.setHeader('Cache-Control', 'public, max-age=120');
+  res.removeHeader('X-Robots-Tag');
   return res.status(status || 200).render('review_public', {
     ...page,
     logoUrl,

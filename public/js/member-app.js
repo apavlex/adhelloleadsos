@@ -1208,8 +1208,8 @@
   }
 
   /**
-   * Append the business vCard URL after the review link when Attach is checked.
-   * Order: script → review link → vCard (so the review image can unfurl).
+   * Text-only fallback: put the vCard URL above the review link so the review
+   * URL stays last (iMessage unfurls the last link’s OG image).
    */
   function maybeAttachVcardUrl(message, vcardUrl, opts) {
     var attach = !!(opts && opts.attach);
@@ -1218,6 +1218,18 @@
     if (!url) return String(message || '').trim();
     var out = String(message || '').trim();
     if (out.indexOf(url) !== -1) return out;
+    var link = String((opts && opts.reviewLink) || '').trim();
+    if (link && out === link) return url + '\n\n' + link;
+    if (link && out.slice(-(link.length + 2)) === ('\n\n' + link)) {
+      var without = out.slice(0, -(link.length + 2)).replace(/\s+$/, '');
+      if (!without) return url + '\n\n' + link;
+      return without + '\n\n' + url + '\n\n' + link;
+    }
+    if (link && out.slice(-(link.length + 1)) === ('\n' + link)) {
+      var without2 = out.slice(0, -(link.length + 1)).replace(/\s+$/, '');
+      if (!without2) return url + '\n\n' + link;
+      return without2 + '\n\n' + url + '\n\n' + link;
+    }
     if (!out) return url;
     return out + '\n\n' + url;
   }
@@ -1233,15 +1245,32 @@
     return (stem || 'contact') + '.vcf';
   }
 
+  function makeVcardFile(blob, company) {
+    var name = vcardFilename(company);
+    var types = ['text/vcard', 'text/x-vcard', 'text/plain'];
+    var i;
+    for (i = 0; i < types.length; i++) {
+      try {
+        var file = new File([blob], name, { type: types[i] });
+        if (!navigator.canShare) return file;
+        if (navigator.canShare({ files: [file] })) return file;
+      } catch (e) { /* try next type */ }
+    }
+    try {
+      return new File([blob], name, { type: 'text/vcard' });
+    } catch (e2) {
+      return null;
+    }
+  }
+
   /**
    * Request a review from this phone.
    * Uses the live SMS script textarea when present (so removing {{review_link}}
    * takes effect immediately). If the script has no link placeholder/URL, strip
    * every review URL before share so Messages cannot show a preview image.
-   * When the script wants a link, place it right under the script (own paragraph)
-   * so iMessage can show the preview image; optional vCard follows after that.
-   * When Attach contact card is on, prefer sharing the .vcf as a File so iOS
-   * Messages can show a real contact card (falls back to the .vcf URL in text).
+   * When the script wants a link, put it last so iMessage can unfurl the image.
+   * Attach contact card: share a real .vcf File (contact bubble on iOS) and keep
+   * only the review URL in the text; fall back to a .vcf URL above the review link.
    */
   function readLiveKeywordFields(payload) {
     function val(id) {
@@ -1360,7 +1389,7 @@
     if (!scriptWantsReviewLink(sourceScript)) {
       text = stripReviewUrlsFromText(text, reviewUrl);
     } else if (reviewUrl) {
-      // Review link directly under the script → iMessage can unfurl the image.
+      // Review link last → iMessage can unfurl the OG image.
       text = placeReviewLinkAtEnd(text, reviewUrl);
     }
 
@@ -1368,6 +1397,7 @@
     var attachEl = document.getElementById('rvAttachVcard');
     var attachVcard = attachEl ? !!attachEl.checked : !!payload.attachVcard;
     var vcardUrl = String(payload.vcardUrl || '').trim();
+    var reviewLinkForAttach = scriptWantsReviewLink(sourceScript) ? reviewUrl : '';
 
     if (!text) {
       // Empty script — share a short note with NO forced URL.
@@ -1395,27 +1425,30 @@
       setTimeout(restore, 1200);
     }
 
+    function textWithVcardUrl(body) {
+      return maybeAttachVcardUrl(body, vcardUrl, {
+        attach: true,
+        reviewLink: reviewLinkForAttach,
+      });
+    }
+
     function shareText(body, vcardFile) {
       var msg = String(body || '');
       if (navigator.share) {
         var data = { title: title, text: msg };
         if (vcardFile) {
           try {
-            if (!navigator.canShare || navigator.canShare({ files: [vcardFile] })) {
-              data.files = [vcardFile];
-            }
-          } catch (e) { /* ignore — fall back to text-only */ }
+            data.files = [vcardFile];
+          } catch (e) { /* ignore */ }
         }
         navigator.share(data).then(restore).catch(function (err) {
           if (err && err.name === 'AbortError') {
             restore();
             return;
           }
-          // File share rejected — retry with vCard URL in the SMS body.
-          var fallback = vcardFile
-            ? maybeAttachVcardUrl(msg, vcardUrl, { attach: true })
-            : msg;
-          if (vcardFile && navigator.share) {
+          // File share rejected — put the .vcf URL in the body (review link stays last).
+          var fallback = vcardFile ? textWithVcardUrl(msg) : msg;
+          if (navigator.share) {
             navigator.share({ title: title, text: fallback }).then(restore).catch(function () {
               openSms(fallback);
             });
@@ -1425,25 +1458,27 @@
         });
         return;
       }
-      openSms(msg);
+      openSms(vcardFile ? textWithVcardUrl(msg) : msg);
     }
 
     if (attachVcard && vcardUrl && typeof fetch === 'function' && navigator.share) {
       // Prefer a real .vcf File so Messages can show a contact card on iOS.
+      // Text keeps only the review URL (last) so the OG image can unfurl.
       fetch(vcardUrl, { credentials: 'omit' }).then(function (res) {
         if (!res || !res.ok) throw new Error('vcard fetch failed');
         return res.blob();
       }).then(function (blob) {
-        var file = new File([blob], vcardFilename(company), { type: 'text/vcard' });
+        var file = makeVcardFile(blob, company);
+        if (!file) throw new Error('vcard file unsupported');
         shareText(text, file);
       }).catch(function () {
-        shareText(maybeAttachVcardUrl(text, vcardUrl, { attach: true }), null);
+        shareText(textWithVcardUrl(text), null);
       });
       return;
     }
 
     if (attachVcard && vcardUrl) {
-      text = maybeAttachVcardUrl(text, vcardUrl, { attach: true });
+      text = textWithVcardUrl(text);
     }
     shareText(text, null);
   }

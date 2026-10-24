@@ -94,7 +94,7 @@
       >
         <%- icons.sms %> Request a review
       </button>
-      <p class="ma-hint ma-qr__ask-hint">Uses your SMS script (keywords filled from defaults above). The review link is placed at the end so Messages can show the preview image.</p>
+      <p class="ma-hint ma-qr__ask-hint">Uses your SMS script (keywords filled from defaults above). The review link is last so Messages can show the preview image. With Attach on, iPhone Share sends your contact card as a file when possible.</p>
       <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:14px">
       <div class="ma-link-box">
         <code id="rvLink"><%= reviewUrl %></code>
@@ -307,7 +307,7 @@
           %>
           <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
             <input type="checkbox" name="attachVcard" value="1" id="rvAttachVcard" <%= _attachChecked ? 'checked' : '' %> style="margin-top:3px"<%= _vcardLink ? '' : ' disabled' %>>
-            <span><strong>Attach contact card</strong> — after your review link, add the vCard (iPhone Share sends it as a contact when possible)<%= _vcardLink ? '' : ' (add a review page slug / profile first)' %></span>
+            <span><strong>Attach contact card</strong> — iPhone Share sends your .vcf as a contact (falls back to the vCard link above the review link)<%= _vcardLink ? '' : ' (add a review page slug / profile first)' %></span>
           </label>
           <div class="ma-actions" style="margin:0 0 10px;flex-wrap:wrap">
             <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" id="rvInsertKeywords"
