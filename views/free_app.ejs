@@ -561,10 +561,10 @@
         <h1>Get more reviews for your business!</h1>
         <% if (_flooring) { %>
         <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>The fastest, easiest review request — right when the client is happy. Automated follow-up, no chasing. No timed trial.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>The fastest, easiest review request — right when the client is happy. Automated follow-up. No timed trial.</p>
         <% } else { %>
         <p class="fa-card-trial">30-day free trial · no credit card</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>The fastest, easiest review request — right when the client is happy. Automated follow-up, so no chasing or awkward asks.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>The fastest, easiest review request — right when the client is happy. Automated follow-up.</p>
         <% } %>
 
         <ul class="fa-benefits fa-benefits--primary" aria-label="Main feature">
@@ -577,25 +577,10 @@
             </span>
             <div>
               <strong>Fastest, easiest review request</strong>
-              <span>Ask by <strong>SMS</strong> or <strong>QR</strong> the moment they’re happy with the results. <strong>Automated follow-up</strong> — no chasing or awkward requests.</span>
+              <span>Ask by <strong>SMS</strong> or <strong>QR</strong> the moment they’re happy with the results. <strong>Automated follow-up</strong> so you don’t have to chase.</span>
             </div>
           </li>
         </ul>
-
-        <figure class="fa-quote">
-          <img
-            src="/images/reviews-flooring-owner-testimonial.jpg?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"
-            alt="Flooring business owner"
-            width="136"
-            height="136"
-            loading="lazy"
-            decoding="async"
-          />
-          <figcaption>
-            <blockquote>“So easy — ask when they’re happy, follow-up is automatic. No awkward chasing.”</blockquote>
-            <cite>Marcus · Flooring business owner</cite>
-          </figcaption>
-        </figure>
 
         <div class="fa-extras">
           <p class="fa-extras__label">Extras included</p>
@@ -627,7 +612,22 @@
             </li>
           </ul>
         </div>
-        <div class="fa-perks"><span>Ask when they’re happy</span><span>Auto follow-up</span><span>No awkward chasing</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
+        <div class="fa-perks"><span>Ask when they’re happy</span><span>Auto follow-up</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
+
+        <figure class="fa-quote">
+          <img
+            src="/images/reviews-flooring-owner-testimonial.jpg?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"
+            alt="Flooring business owner"
+            width="136"
+            height="136"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>
+            <blockquote>“So easy — ask when they’re happy. No awkward chasing for the review.”</blockquote>
+            <cite>Marcus · Flooring business owner</cite>
+          </figcaption>
+        </figure>
 
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
@@ -737,7 +737,7 @@
           <p class="fa-faq__title">More info</p>
           <details>
             <summary>How do I get more reviews?</summary>
-            <p class="fa-faq__body">Reviews offers the <strong>fastest and easiest request</strong> — by <strong>SMS</strong> or <strong>QR</strong> — right when the client is happy with the results. It <strong>automates follow-up</strong> so there’s no chasing or awkward requests. Keep customers, jobs &amp; CRM on your Home Screen. No App Store.</p>
+            <p class="fa-faq__body">Reviews offers the <strong>fastest and easiest request</strong> — by <strong>SMS</strong> or <strong>QR</strong> — right when the client is happy with the results. It <strong>automates follow-up</strong> so you don’t have to chase. Keep customers, jobs &amp; CRM on your Home Screen. No App Store.</p>
           </details>
           <details>
             <summary>What extras are included?</summary>
