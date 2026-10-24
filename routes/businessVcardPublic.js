@@ -15,6 +15,22 @@ const reviewShareImage = require('../services/reviewShareImage');
 const router = express.Router();
 
 /**
+ * Resize App branding / business logo for the contact card.
+ * Use contain (not cover/attention) so logos aren’t face-cropped like avatars.
+ */
+async function prepareBrandingPhoto(buffer) {
+  if (!buffer || !buffer.length) return null;
+  const sharp = require('sharp');
+  const px = reviewShareImage.PUBLIC_PAGE_LOGO_PX || 192;
+  const out = await sharp(buffer)
+    .rotate()
+    .resize(px, px, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 1 } })
+    .jpeg({ quality: 85, mozjpeg: true })
+    .toBuffer();
+  return { contentType: 'image/jpeg', buffer: out, rev: new Date().toISOString() };
+}
+
+/**
  * App branding logo for the contact photo (embedded — iOS ignores PHOTO URLs).
  * Prefer Workspace white-label / App branding, then network brand logo, then
  * request-page business logo. Never the personal profile selfie.
@@ -24,24 +40,34 @@ async function brandingPhotoForMember(member, network) {
     if (network && network.ownerWorkspaceId) {
       const wl = await whiteLabel.getLogo(network.ownerWorkspaceId);
       if (wl && wl.buffer && wl.buffer.length) {
-        const prepared = await reviewShareImage.compressPublicPageLogo(wl.buffer);
-        if (prepared && prepared.buffer) return prepared;
+        const prepared = await prepareBrandingPhoto(wl.buffer);
+        if (prepared && prepared.buffer) {
+          const ws = await dbService.getWorkspace(network.ownerWorkspaceId).catch(() => null);
+          const logoVersion = ws && ws.whiteLabel && ws.whiteLabel.logoVersion;
+          if (logoVersion) prepared.rev = String(logoVersion);
+          return prepared;
+        }
       }
     }
     if (network && network.id) {
       const brandLogo = await store.getBrandImage(network.id, 'logo');
       if (brandLogo && brandLogo.buffer && brandLogo.buffer.length) {
-        const prepared = await reviewShareImage.compressPublicPageLogo(brandLogo.buffer);
-        if (prepared && prepared.buffer) return prepared;
+        const prepared = await prepareBrandingPhoto(brandLogo.buffer);
+        if (prepared && prepared.buffer) {
+          if (brandLogo.updatedAt) prepared.rev = String(brandLogo.updatedAt);
+          return prepared;
+        }
       }
     }
     if (member && member.reviewLogoUpdatedAt && network) {
-      const pageLogo = await reviewShareImage.getPublicPageLogoBuffer(
-        network.id,
-        member.id,
-        'logo',
-      );
-      if (pageLogo && pageLogo.buffer) return pageLogo;
+      const src = await store.getReviewLogo(network.id, member.id);
+      if (src && src.buffer && src.buffer.length) {
+        const prepared = await prepareBrandingPhoto(src.buffer);
+        if (prepared && prepared.buffer) {
+          prepared.rev = String(member.reviewLogoUpdatedAt);
+          return prepared;
+        }
+      }
     }
   } catch (err) {
     console.warn('[business-vcard] branding photo skipped:', err.message);
@@ -112,6 +138,7 @@ router.get('/c/:slugVcf', async (req, res) => {
     if (photo && photo.buffer) {
       extras.photoBuffer = photo.buffer;
       extras.photoContentType = photo.contentType || 'image/jpeg';
+      if (photo.rev) extras.photoRev = photo.rev;
     }
     const card = businessVcard.vcardFromMember(loaded.member, extras);
     if (!card) {
@@ -120,8 +147,8 @@ router.get('/c/:slugVcf', async (req, res) => {
     }
     res.setHeader('Content-Type', 'text/vcard; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${card.filename}"`);
-    // Short cache so branding / phone edits show up quickly on the next share.
-    res.setHeader('Cache-Control', 'public, max-age=60');
+    // No cache — logo / phone edits must show on the next share (phones keep old contacts until re-saved).
+    res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     // Allow the member app (different subdomain) to fetch and share as a File.
     res.setHeader('Access-Control-Allow-Origin', '*');

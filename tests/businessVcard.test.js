@@ -29,11 +29,12 @@ describe('businessVcard', () => {
     assert.match(body, /\r\nORG:Acme Floors\r\n/);
     assert.match(body, /\r\nTITLE:John Cody\r\n/);
     assert.match(body, /\r\nTEL;TYPE=WORK,VOICE:\+15551234567\r\n/);
-    assert.match(body, /\r\nTEL;TYPE=CELL,VOICE:\+15551234567\r\n/);
+    assert.doesNotMatch(body, /TEL;TYPE=CELL/);
     assert.match(body, /\r\nEMAIL;TYPE=INTERNET:hi@acme\.example\r\n/);
     assert.match(body, /\r\nURL;TYPE=WORK:https:\/\/acmefloors\.example\r\n/);
     assert.match(body, /\r\nURL:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\r\n/);
     assert.match(body, /\r\nPHOTO;VALUE=URI;TYPE=JPEG:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\/logo\.png\?v=1\r\n/);
+    assert.match(body, /\r\nLOGO;VALUE=URI;TYPE=JPEG:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\/logo\.png\?v=1\r\n/);
     assert.match(body, /\r\nNOTE:Contact: John Cody\r\n/);
     assert.match(body, /\r\nEND:VCARD\r\n$/);
     assert.equal(businessVcard.usablePhone('N/A'), '');
@@ -49,8 +50,13 @@ describe('businessVcard', () => {
       org: 'Acme Floors',
       photoBuffer: tinyJpeg,
       photoContentType: 'image/jpeg',
+      uid: 'adhello-biz-acme-floors',
+      rev: '20261024T120000Z',
     });
     assert.match(withEmbed, /PHOTO;ENCODING=b;TYPE=JPEG:/);
+    assert.match(withEmbed, /LOGO;ENCODING=b;TYPE=JPEG:/);
+    assert.match(withEmbed, /UID:adhello-biz-acme-floors/);
+    assert.match(withEmbed, /REV:20261024T120000Z/);
     assert.doesNotMatch(withEmbed, /PHOTO;VALUE=URI/);
     assert.match(businessVcard.foldVcardLine('A'.repeat(80)), /\r\n /);
 
@@ -81,10 +87,12 @@ describe('businessVcard', () => {
     assert.equal(card.filename, 'Camas-Flooring.vcf');
     assert.match(card.body, /FN:Camas Flooring/);
     assert.match(card.body, /TEL;TYPE=WORK,VOICE:3605551212/);
-    assert.match(card.body, /TEL;TYPE=CELL,VOICE:3605551212/);
+    assert.doesNotMatch(card.body, /TEL;TYPE=CELL/);
     assert.match(card.body, /URL;TYPE=WORK:https:\/\/camasflooring\.example/);
     assert.match(card.body, /PHOTO;VALUE=URI.*logo\.png/);
-    // URI fallback prefers business logo over personal profile photo.
+    assert.match(card.body, /UID:adhello-biz-camas-flooring/);
+    assert.match(card.body, /REV:20260101T000000Z/);
+    // URI fallback is business logo only — never personal Profile photo / avatar.
     const logoOnly = businessVcard.photoUriForMember({
       reviewSlug: 'camas-flooring',
       reviewLogoUpdatedAt: '2026-02-01T00:00:00.000Z',
@@ -92,6 +100,13 @@ describe('businessVcard', () => {
     });
     assert.match(logoOnly, /\/rv\/camas-flooring\/logo\.png/);
     assert.doesNotMatch(logoOnly, /avatar/);
+    assert.equal(
+      businessVcard.photoUriForMember({
+        reviewSlug: 'camas-flooring',
+        profilePhotoUpdatedAt: '2026-03-01T00:00:00.000Z',
+      }),
+      '',
+    );
     // Embedded branding logo wins over URI.
     const embedded = businessVcard.vcardFromMember(
       {
@@ -102,6 +117,7 @@ describe('businessVcard', () => {
       { photoBuffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]), photoContentType: 'image/jpeg' },
     );
     assert.match(embedded.body, /PHOTO;ENCODING=b;TYPE=JPEG:/);
+    assert.match(embedded.body, /LOGO;ENCODING=b;TYPE=JPEG:/);
     assert.doesNotMatch(embedded.body, /PHOTO;VALUE=URI/);
     assert.equal(businessVcard.vcardFromMember({ companyName: 'No slug' }), null);
     // Lead phone fills in when the member profile phone is empty.
@@ -129,11 +145,13 @@ describe('businessVcard', () => {
     assert.match(route, /Content-Disposition/);
     assert.match(route, /leadExtrasForMember/);
     assert.match(route, /brandingPhotoForMember/);
-    assert.match(route, /compressPublicPageLogo|photoBuffer/);
+    assert.match(route, /prepareBrandingPhoto|photoBuffer/);
+    assert.match(route, /no-store/);
     assert.match(server, /businessVcardPublic/);
     assert.match(profile, /vcardUrl/);
     assert.match(profile, /Contact card \(vCard\)/);
     assert.match(profile, /App branding/);
+    assert.match(profile, /not your Profile photo|Contact photo preview/);
     assert.match(profile, /vcardHasPhone|No phone on this card/);
     assert.match(profile, /data-ma-copy=/);
     assert.match(memberApp, /vcardUrl/);
