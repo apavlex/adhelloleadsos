@@ -123,24 +123,24 @@
       <% if (!_dash.top.length) { %>
       <p class="ma-hint" style="margin:0">No unique links yet. Open <strong>Link</strong>, pick a happy customer, and share their URL — or confirm a 4–5★ review to text them one automatically.</p>
       <% } else { %>
-      <div class="ma-refdash__table" role="table">
-        <div class="ma-refdash__thead" role="row">
-          <span role="columnheader">#</span>
-          <span role="columnheader">Name</span>
-          <span role="columnheader">Refs</span>
+      <div class="ma-refdash__table" role="list">
+        <div class="ma-refdash__thead" aria-hidden="true">
+          <span>#</span>
+          <span>Name</span>
+          <span>Refs</span>
         </div>
         <% _dash.top.forEach(function (row) { %>
-        <a class="ma-refdash__row" role="row" href="<%= base %>/send?view=link&customer=<%= encodeURIComponent(row.customerId) %>">
+        <div class="ma-refdash__row" role="listitem">
           <span class="ma-refdash__rank" aria-label="Position <%= row.rank %>"><%= row.rank %></span>
-          <span class="ma-refdash__who">
+          <a class="ma-refdash__who" href="<%= base %>/send?view=link&customer=<%= encodeURIComponent(row.customerId) %>">
             <span class="ma-refdash__avatar" aria-hidden="true"><%= row.initial %></span>
-            <span>
+            <span class="ma-refdash__who-text">
               <strong><%= row.name %></strong>
-              <% if (row.email || row.phone) { %><small><%= row.email || row.phone %></small><% } %>
+              <% if (row.meta) { %><small><%= row.meta %></small><% } %>
             </span>
-          </span>
+          </a>
           <span class="ma-refdash__count"><%= row.referrals %></span>
-        </a>
+        </div>
         <% }); %>
       </div>
       <% } %>

@@ -285,20 +285,32 @@ function buildDashboard(advocates) {
     if (diff) return diff;
     return Date.parse(b.updatedAt || 0) - Date.parse(a.updatedAt || 0);
   });
-  const ranked = list.map((a, i) => ({
-    rank: i + 1,
-    code: a.code,
-    customerId: a.customerId,
-    name: a.name || 'Customer',
-    email: a.email || '',
-    phone: a.phone || '',
-    url: publicUrl(a.code),
-    referrals: referralCount(a),
-    confirmed: confirmedCount(a),
-    pending: pendingCount(a),
-    clicks: a.clicks || 0,
-    initial: String(a.name || 'C').trim().charAt(0).toUpperCase() || 'C',
-  }));
+  const ranked = list.map((a, i) => {
+    const rawName = clean(a.name, 120);
+    const phone = clean(a.phone, 40);
+    const email = clean(a.email, 120);
+    const nameLooksPhone = !rawName || /^\+?\d[\d\s().-]{5,}$/.test(rawName);
+    const displayName = nameLooksPhone ? (phone || email || 'Customer') : rawName;
+    const initialSrc = nameLooksPhone ? 'C' : displayName;
+    const meta = nameLooksPhone
+      ? (email && email !== displayName ? email : '')
+      : (phone || email || '');
+    return {
+      rank: i + 1,
+      code: a.code,
+      customerId: a.customerId,
+      name: displayName,
+      email,
+      phone,
+      meta,
+      url: publicUrl(a.code),
+      referrals: referralCount(a),
+      confirmed: confirmedCount(a),
+      pending: pendingCount(a),
+      clicks: a.clicks || 0,
+      initial: String(initialSrc || 'C').trim().charAt(0).toUpperCase() || 'C',
+    };
+  });
   const totalReferrals = ranked.reduce((n, r) => n + r.referrals, 0);
   const totalClicks = ranked.reduce((n, r) => n + r.clicks, 0);
   const recent = listRecentConversions(list, { limit: 40 });
