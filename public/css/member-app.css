@@ -2949,3 +2949,19 @@ a.ma-refdash__row:active { background: color-mix(in srgb, var(--acc) 10%, var(--
   font-size: 12px;
   font-weight: 800;
 }
+
+.ma-refdash__rewards { margin-top: 12px; }
+.ma-refdash__reward-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.ma-refdash__reward-row:first-of-type { border-top: 0; padding-top: 0; }
+.ma-refdash__reward-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.ma-refdash__reward-actions form { margin: 0; }

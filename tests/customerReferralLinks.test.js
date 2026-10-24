@@ -67,11 +67,22 @@ describe('customer referral unique links', () => {
     const dash = links.buildDashboard(list);
     assert.equal(dash.totalAdvocates, 2);
     assert.equal(dash.totalReferrals, 4);
+    assert.equal(dash.awaitingRewardCount, 4);
     assert.equal(dash.top[0].name, 'Sam Woo');
     assert.equal(dash.top[0].referrals, 3);
     assert.equal(dash.top[0].rank, 1);
     assert.equal(dash.top[1].name, 'Alex Kim');
     assert.equal(dash.top[1].clicks, 2);
+
+    const rewarded = await links.markConversionStatus(
+      minted.advocate.code,
+      conv.conversion.id,
+      'rewarded',
+    );
+    assert.equal(rewarded.ok, true);
+    const dash2 = links.buildDashboard(await links.listForMember('n2', 'm2'));
+    assert.equal(dash2.awaitingRewardCount, 3);
+    assert.ok(dash2.rewarded.some((r) => r.conversionId === conv.conversion.id));
   });
 
   it('Send page exposes Lead / Link / Board tabs and simple board UI', () => {
@@ -82,11 +93,16 @@ describe('customer referral unique links', () => {
     assert.match(send, /view=link/);
     assert.match(send, /view=board/);
     assert.match(send, /Top referrers/);
+    assert.match(send, /Reward customers/);
+    assert.match(send, /Mark rewarded/);
     assert.match(send, /Their unique referral link/);
     assert.match(send, /ma-refdash__stats/);
     assert.match(css, /\.ma-refdash__board/);
+    assert.match(css, /\.ma-refdash__reward-row/);
     assert.match(route, /SEND_VIEWS/);
     assert.match(route, /customerReferralLinks/);
+    assert.match(route, /send\/referral\/:code\/:conversionId/);
+    assert.match(route, /cust_ref_rewarded/);
     assert.match(publicRoute, /\/rf\/:code/);
     assert.match(publicRoute, /source: 'customer_referral'/);
   });

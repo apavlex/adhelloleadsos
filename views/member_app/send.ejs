@@ -19,7 +19,9 @@
     <% } else { %>
     <%
       const _view = typeof sendView !== 'undefined' ? sendView : 'lead';
-      const _dash = typeof referralDash !== 'undefined' && referralDash ? referralDash : { totalAdvocates: 0, totalReferrals: 0, totalClicks: 0, top: [], all: [] };
+      const _dash = typeof referralDash !== 'undefined' && referralDash ? referralDash : { totalAdvocates: 0, totalReferrals: 0, totalClicks: 0, awaitingRewardCount: 0, top: [], all: [], awaitingReward: [], rewarded: [] };
+      const _awaiting = Array.isArray(_dash.awaitingReward) ? _dash.awaitingReward : [];
+      const _rewarded = Array.isArray(_dash.rewarded) ? _dash.rewarded : [];
       const _custs = typeof customers !== 'undefined' && Array.isArray(customers) ? customers : [];
       const _picked = typeof pickedAdvocate !== 'undefined' && pickedAdvocate ? pickedAdvocate : null;
       const _pickId = typeof pickCustomerId !== 'undefined' ? pickCustomerId : '';
@@ -27,13 +29,13 @@
     <nav class="ma-seg ma-seg--3" aria-label="Send referral options">
       <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Lead</a>
       <a href="<%= base %>/send?view=link" class="<%= _view === 'link' ? 'is-on' : '' %>">Link</a>
-      <a href="<%= base %>/send?view=board" class="<%= _view === 'board' ? 'is-on' : '' %>">Board</a>
+      <a href="<%= base %>/send?view=board" class="<%= _view === 'board' ? 'is-on' : '' %>">Board<% if (_view !== 'board' && (_dash.awaitingRewardCount || 0) > 0) { %> (<%= _dash.awaitingRewardCount %>)<% } %></a>
     </nav>
 
     <%- include('_flash') %>
 
     <% if (_view === 'board') { %>
-    <p class="ma-page-sub">See who is bringing you the most referrals from their unique links.</p>
+    <p class="ma-page-sub">See who brought you leads — reward the customers who shared their unique links.</p>
 
     <div class="ma-refdash__stats" aria-label="Referral summary">
       <div class="ma-refdash__stat">
@@ -41,8 +43,8 @@
         <strong class="ma-refdash__stat-pill ma-refdash__stat-pill--refs"><%= _dash.totalReferrals %> referrals</strong>
       </div>
       <div class="ma-refdash__stat">
-        <span class="ma-refdash__stat-label">Advocates</span>
-        <strong class="ma-refdash__stat-pill ma-refdash__stat-pill--pos"><%= _dash.totalAdvocates %> with links</strong>
+        <span class="ma-refdash__stat-label">To reward</span>
+        <strong class="ma-refdash__stat-pill ma-refdash__stat-pill--pos"><%= _dash.awaitingRewardCount || 0 %> waiting</strong>
       </div>
     </div>
 
@@ -65,6 +67,45 @@
     <% } else { %>
     <p class="ma-hint" style="margin-top:0">Pick a customer on the <a href="<%= base %>/send?view=link">Link</a> tab to copy their unique URL.</p>
     <% } %>
+
+    <section class="ma-card ma-refdash__rewards" aria-label="Reward customers">
+      <div class="ma-section__head" style="margin:0 0 10px">
+        <h2 style="font-size:15px;margin:0">Reward customers</h2>
+      </div>
+      <% if (!_awaiting.length) { %>
+      <p class="ma-hint" style="margin:0">No open referrals waiting on a thank-you. When a friend uses someone’s unique link, they show up here so you can mark the reward paid.</p>
+      <% } else { %>
+      <% _awaiting.forEach(function (row) { %>
+      <article class="ma-refdash__reward-row">
+        <div class="ma-refdash__who" style="min-width:0">
+          <span class="ma-refdash__avatar" aria-hidden="true"><%= String(row.advocateName || 'C').charAt(0).toUpperCase() %></span>
+          <span>
+            <strong><%= row.advocateName || 'Customer' %></strong>
+            <small>Brought <strong><%= row.name || 'a friend' %></strong><% if (row.phone) { %> · <%= row.phone %><% } %></small>
+          </span>
+        </div>
+        <div class="ma-refdash__reward-actions">
+          <% if (row.leadCustomerId) { %>
+          <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/customers/c/<%= encodeURIComponent(row.leadCustomerId) %>">Lead</a>
+          <% } %>
+          <% if (row.advocatePhone) { %>
+          <a class="ma-btn ma-btn--sm ma-btn--soft" href="sms:<%= String(row.advocatePhone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent('Thanks for the referral — your reward is on the way!') %>"><%- icons.sms %></a>
+          <% } %>
+          <form method="post" action="<%= base %>/send/referral/<%= encodeURIComponent(row.code) %>/<%= encodeURIComponent(row.conversionId) %>">
+            <input type="hidden" name="action" value="rewarded">
+            <button type="submit" class="ma-btn ma-btn--sm">Mark rewarded</button>
+          </form>
+        </div>
+      </article>
+      <% }); %>
+      <% } %>
+      <% if (_rewarded.length) { %>
+      <p class="ma-hint" style="margin:14px 0 6px">Recently rewarded</p>
+      <% _rewarded.slice(0, 5).forEach(function (row) { %>
+      <p class="ma-card__meta" style="margin:0 0 6px"><strong><%= row.advocateName %></strong> · brought <%= row.name || 'a friend' %></p>
+      <% }); %>
+      <% } %>
+    </section>
 
     <section class="ma-card ma-refdash__board" aria-label="Top referrers">
       <div class="ma-section__head" style="margin:0 0 10px">

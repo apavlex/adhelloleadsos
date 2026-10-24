@@ -230,6 +230,8 @@ const OK_MESSAGES = {
   share_existing: 'They’re already on your network — contact and projects are on their book.',
   lead_referred: 'Sent to your partner — they got the lead details and a text/email.',
   lead_referred_pool: 'Sent to the network pool — eligible partners can claim it.',
+  cust_ref_rewarded: 'Marked rewarded — that customer earned their referral thank-you.',
+  cust_ref_confirmed: 'Referral confirmed — ready to reward the customer who sent them.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
@@ -1642,6 +1644,34 @@ router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
   });
   if (!result.ok) return renderSend(req, res, ctx, { error: result.error }, body, 400);
   return res.redirect(303, `${ctx.base}?ok=${result.referral.status === 'sent' ? 'sent' : 'matched'}`);
+}));
+
+/** Mark a customer-referral conversion confirmed or rewarded (Send → Board). */
+router.post('/m/:token/send/referral/:code/:conversionId', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isFlooringOffer(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/quote`);
+  }
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/join`);
+  }
+  const customerReferralLinks = require('../services/customerReferralLinks');
+  const code = String(req.params.code || '').trim().toLowerCase();
+  const conversionId = String(req.params.conversionId || '').trim();
+  const action = String((req.body && req.body.action) || '').trim();
+  const status = action === 'rewarded' ? 'rewarded' : (action === 'confirmed' ? 'confirmed' : '');
+  if (!customerReferralLinks.isCode(code) || !conversionId || !status) {
+    return res.redirect(303, `${ctx.base}/send?view=board&errmsg=${encodeURIComponent('Could not update that referral.')}`);
+  }
+  const advocate = await customerReferralLinks.getByCode(code);
+  if (!advocate || advocate.networkId !== ctx.network.id || advocate.memberId !== ctx.member.id) {
+    return res.redirect(303, `${ctx.base}/send?view=board&errmsg=${encodeURIComponent('Referral link not found.')}`);
+  }
+  const result = await customerReferralLinks.markConversionStatus(code, conversionId, status);
+  if (!result.ok) {
+    return res.redirect(303, `${ctx.base}/send?view=board&errmsg=${encodeURIComponent('Could not update that referral.')}`);
+  }
+  const ok = status === 'rewarded' ? 'cust_ref_rewarded' : 'cust_ref_confirmed';
+  return res.redirect(303, `${ctx.base}/send?view=board&ok=${ok}`);
 }));
 
 // ── Customers (the member's own jobs and schedule) ───────────────────────────

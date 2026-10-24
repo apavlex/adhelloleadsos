@@ -248,6 +248,34 @@ function referralCount(advocate) {
 }
 
 /**
+ * Flat recent conversions across advocates (newest first) for Board reward actions.
+ */
+function listRecentConversions(advocates, { limit = 40 } = {}) {
+  const rows = [];
+  for (const a of Array.isArray(advocates) ? advocates : []) {
+    for (const c of a.conversions || []) {
+      rows.push({
+        code: a.code,
+        advocateCustomerId: a.customerId,
+        advocateName: a.name || 'Customer',
+        advocatePhone: a.phone || '',
+        conversionId: c.id,
+        name: c.name || 'Friend',
+        phone: c.phone || '',
+        email: c.email || '',
+        note: c.note || '',
+        leadCustomerId: c.leadCustomerId || '',
+        status: c.status || 'pending',
+        createdAt: c.createdAt || '',
+        rewardedAt: c.rewardedAt || '',
+      });
+    }
+  }
+  rows.sort((x, y) => Date.parse(y.createdAt || 0) - Date.parse(x.createdAt || 0));
+  return rows.slice(0, limit);
+}
+
+/**
  * Leaderboard + summary for the business Send → Board tab.
  */
 function buildDashboard(advocates) {
@@ -273,13 +301,20 @@ function buildDashboard(advocates) {
   }));
   const totalReferrals = ranked.reduce((n, r) => n + r.referrals, 0);
   const totalClicks = ranked.reduce((n, r) => n + r.clicks, 0);
+  const recent = listRecentConversions(list, { limit: 40 });
+  const awaitingReward = recent.filter((r) => r.status === 'pending' || r.status === 'confirmed');
+  const rewarded = recent.filter((r) => r.status === 'rewarded').slice(0, 10);
   const top = ranked.slice(0, 10);
   return {
     totalAdvocates: ranked.length,
     totalReferrals,
     totalClicks,
+    awaitingRewardCount: awaitingReward.length,
     top,
     all: ranked,
+    awaitingReward,
+    rewarded,
+    recent,
   };
 }
 
@@ -301,6 +336,7 @@ module.exports = {
   markConversionStatus,
   listForMember,
   buildDashboard,
+  listRecentConversions,
   referralCount,
   confirmedCount,
   pendingCount,
