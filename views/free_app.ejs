@@ -87,11 +87,11 @@
     .fa-brand img { width: 2.5rem; height: 2.5rem; border-radius: 0.7rem; flex-shrink: 0; }
     .fa-brand strong {
       display: block;
-      font-size: 1.05rem;
-      font-weight: 800;
-      letter-spacing: -0.02em;
+      font-size: 1.125rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
       color: var(--fa-ink);
-      line-height: 1.15;
+      line-height: 1.1;
     }
     .fa-brand span {
       display: block;
@@ -100,42 +100,42 @@
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--fa-muted-soft);
-      margin-top: 0.1rem;
+      margin-top: 0.15rem;
     }
     .fa-card h1 {
       margin: 0;
-      font-weight: 800;
-      font-size: 1.5rem;
-      line-height: 1.2;
-      letter-spacing: -0.025em;
+      font-weight: 900;
+      font-size: clamp(1.85rem, 7.2vw, 2.35rem);
+      line-height: 1.08;
+      letter-spacing: -0.04em;
       color: var(--fa-ink);
     }
     .fa-card-trial {
-      margin: 0.4rem 0 0;
-      font-size: 0.8rem;
+      margin: 0.55rem 0 0;
+      font-size: 0.875rem;
       font-weight: 600;
       line-height: 1.35;
       color: var(--fa-muted-soft);
     }
     .fa-card-lead {
-      margin: 0.65rem 0 0;
-      font-size: 0.925rem;
-      line-height: 1.5;
+      margin: 0.75rem 0 0;
+      font-size: 1rem;
+      line-height: 1.45;
       color: var(--fa-muted);
     }
     .fa-benefits {
       list-style: none;
-      margin: 1.1rem 0 0;
+      margin: 1.25rem 0 0;
       padding: 0;
       display: grid;
-      gap: 0.65rem;
+      gap: 0.7rem;
     }
     .fa-benefits li {
       display: flex;
       align-items: flex-start;
-      gap: 0.65rem;
-      padding: 0.7rem 0.75rem;
-      border-radius: 0.75rem;
+      gap: 0.7rem;
+      padding: 0.8rem 0.85rem;
+      border-radius: 0.9rem;
       background: rgba(250, 204, 21, 0.12);
       border: 1px solid rgba(250, 204, 21, 0.28);
     }
@@ -161,15 +161,16 @@
     }
     .fa-benefits strong {
       display: block;
-      font-size: 13px;
-      font-weight: 800;
+      font-size: 0.95rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
       color: var(--fa-ink);
-      line-height: 1.25;
+      line-height: 1.2;
     }
     .fa-benefits span {
       display: block;
-      margin-top: 0.15rem;
-      font-size: 12px;
+      margin-top: 0.2rem;
+      font-size: 0.8125rem;
       line-height: 1.4;
       color: var(--fa-muted);
       font-weight: 500;
@@ -178,11 +179,11 @@
     .fa-field label {
       display: block;
       font-size: 11px;
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--fa-muted-soft);
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.4rem;
     }
     .fa-field label .opt {
       font-weight: 600;
@@ -287,7 +288,7 @@
     .fa-terms-details li + li { margin-top: 0.25rem; }
     .fa-btn {
       width: 100%;
-      height: 3.5rem;
+      height: 3.6rem;
       margin-top: 2.75rem;
       display: flex;
       align-items: center;
@@ -297,7 +298,8 @@
       background: #facc15;
       color: #1f242e;
       font-weight: 900;
-      font-size: 16px;
+      font-size: 17px;
+      letter-spacing: -0.015em;
       box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
       cursor: pointer;
       transition: background 0.15s;
@@ -369,6 +371,7 @@
     @media (max-width: 639px) {
       .fa-main { padding: 1.25rem 1rem; align-items: stretch; }
       .fa-card { border-radius: 1.1rem; padding: 1.5rem 1.25rem; }
+      .fa-card h1 { font-size: clamp(1.9rem, 8.4vw, 2.2rem); }
       .fa-perks { gap: 0.35rem 0.85rem; }
     }
     @media (prefers-reduced-motion: no-preference) {
