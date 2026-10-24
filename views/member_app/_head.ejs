@@ -189,6 +189,22 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn{background:color-mix(in srgb,va
 .ma-cust-tools.ma-fold{margin:0 0 8px!important;border-radius:10px!important}
 .ma-cust-tools.ma-fold>summary{box-sizing:border-box!important;height:36px!important;min-height:36px!important;max-height:36px!important;padding:0 12px!important;font-size:13px!important;font-weight:800!important;line-height:1!important;gap:8px!important}
 .ma-cust-tools.ma-fold[open]>summary{height:auto!important;max-height:none!important;min-height:36px!important;padding:8px 12px!important}
+/* Referrals Board — critical so a stale SW CSS never collapses Top referrers into one link line */
+.ma-refdash__stats{display:grid!important;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 14px}
+.ma-refdash__stat{display:grid!important;gap:8px;justify-items:center;text-align:center;padding:14px 12px;border:1px solid var(--line,#e2e8f0);border-radius:16px;background:var(--card,#fff)}
+.ma-refdash__stat-label{font-size:12px;font-weight:700;color:var(--muted,#64748b)}
+.ma-refdash__stat-pill{display:inline-flex;align-items:center;justify-content:center;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;text-transform:uppercase;background:color-mix(in srgb,var(--acc,#2563eb) 22%,var(--card,#fff))}
+.ma-refdash__table{display:grid!important;gap:4px}
+.ma-refdash__thead,.ma-refdash__row{display:grid!important;grid-template-columns:36px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 4px;width:100%;box-sizing:border-box}
+.ma-refdash__thead{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted,#64748b);border-bottom:1px solid var(--line,#e2e8f0);padding-bottom:10px}
+.ma-refdash__row{padding:10px 6px;border-radius:12px}
+.ma-refdash__rank{width:28px;height:28px;border-radius:999px;background:var(--ink,#0f172a);color:var(--bg,#fff);display:inline-flex!important;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+a.ma-refdash__who{display:flex!important;align-items:center;gap:10px;min-width:0;text-decoration:none;color:inherit}
+.ma-refdash__who-text{display:grid!important;gap:2px;min-width:0}
+.ma-refdash__who-text strong{display:block;font-size:14px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ma-refdash__who-text small{display:block;font-size:12px;color:var(--muted,#64748b);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ma-refdash__avatar{width:34px;height:34px;border-radius:999px;background:color-mix(in srgb,var(--acc,#2563eb) 24%,var(--card,#fff));display:inline-flex!important;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
+.ma-refdash__count{display:inline-flex!important;min-width:2rem;justify-content:center;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--acc,#2563eb) 18%,var(--card,#fff));font-size:12px;font-weight:800}
 /* Nav progress — critical so a tap on a slow customer page shows feedback immediately */
 #maNavLoading{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:0;transition:opacity 120ms ease;background:rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;width:100vw;height:100vh;height:100dvh}
 #maNavLoading.is-on{opacity:1}

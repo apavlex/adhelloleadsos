@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('_head', { pageTitle: 'Send a referral' }) %>
+  <%
+    const _viewHead = typeof sendView !== 'undefined' ? sendView : 'lead';
+    const _pageTitle = (_viewHead === 'link' || _viewHead === 'board') ? 'Request a referral' : 'Send a referral';
+  %>
+  <%- include('_head', { pageTitle: _pageTitle }) %>
 </head>
 <body>
   <main class="ma-shell">
-    <%- include('_top', { topTitle: 'Send' }) %>
-    <h1 class="ma-page-title">Send a referral</h1>
+    <%- include('_top', { topTitle: 'Referrals' }) %>
     <% if (typeof referralsLocked !== 'undefined' && referralsLocked) { %>
+    <h1 class="ma-page-title">Send a referral</h1>
     <p class="ma-page-sub">Pass jobs to trusted partners in the network.</p>
     <%- include('_flash') %>
     <%- include('_upgrade_gate', {
@@ -25,7 +29,12 @@
       const _custs = typeof customers !== 'undefined' && Array.isArray(customers) ? customers : [];
       const _picked = typeof pickedAdvocate !== 'undefined' && pickedAdvocate ? pickedAdvocate : null;
       const _pickId = typeof pickCustomerId !== 'undefined' ? pickCustomerId : '';
+      const _pickCust = _pickId ? (_custs.find(function (c) { return c.id === _pickId; }) || (_picked ? { id: _picked.customerId, name: _picked.name, phone: _picked.phone, email: _picked.email } : null)) : null;
+      const _custPayload = _custs.map(function (c) {
+        return { id: c.id, name: c.name || '', phone: c.phone || '', email: c.email || '' };
+      });
     %>
+    <h1 class="ma-page-title"><%= (_view === 'link' || _view === 'board') ? 'Request a referral' : 'Send a referral' %></h1>
     <nav class="ma-seg ma-seg--3" aria-label="Send referral options">
       <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Lead</a>
       <a href="<%= base %>/send?view=link" class="<%= _view === 'link' ? 'is-on' : '' %>">Link</a>
@@ -114,51 +123,79 @@
       <% if (!_dash.top.length) { %>
       <p class="ma-hint" style="margin:0">No unique links yet. Open <strong>Link</strong>, pick a happy customer, and share their URL — or confirm a 4–5★ review to text them one automatically.</p>
       <% } else { %>
-      <div class="ma-refdash__table" role="table">
-        <div class="ma-refdash__thead" role="row">
-          <span role="columnheader">#</span>
-          <span role="columnheader">Name</span>
-          <span role="columnheader">Refs</span>
+      <div class="ma-refdash__table" role="list">
+        <div class="ma-refdash__thead" aria-hidden="true">
+          <span>#</span>
+          <span>Name</span>
+          <span>Refs</span>
         </div>
         <% _dash.top.forEach(function (row) { %>
-        <a class="ma-refdash__row" role="row" href="<%= base %>/send?view=link&customer=<%= encodeURIComponent(row.customerId) %>">
+        <div class="ma-refdash__row" role="listitem">
           <span class="ma-refdash__rank" aria-label="Position <%= row.rank %>"><%= row.rank %></span>
-          <span class="ma-refdash__who">
+          <a class="ma-refdash__who" href="<%= base %>/send?view=link&customer=<%= encodeURIComponent(row.customerId) %>">
             <span class="ma-refdash__avatar" aria-hidden="true"><%= row.initial %></span>
-            <span>
+            <span class="ma-refdash__who-text">
               <strong><%= row.name %></strong>
-              <% if (row.email || row.phone) { %><small><%= row.email || row.phone %></small><% } %>
+              <% if (row.meta) { %><small><%= row.meta %></small><% } %>
             </span>
-          </span>
+          </a>
           <span class="ma-refdash__count"><%= row.referrals %></span>
-        </a>
+        </div>
         <% }); %>
       </div>
       <% } %>
     </section>
 
     <% } else if (_view === 'link') { %>
-    <p class="ma-page-sub">Give a top customer their own tracked link. When a friend fills it out, you see who brought them.</p>
+    <p class="ma-page-sub">Your customer shares their unique link so a friend can reach you — and they earn a giveaway or your reward when that referral comes through.</p>
 
-    <form method="get" action="<%= base %>/send" class="ma-card" autocomplete="off">
+    <% if (!_custs.length) { %>
+    <div class="ma-card ma-empty"><%- icons.customers %><p>Add a customer first, then come back to request a referral with their unique link.</p></div>
+    <% } else { %>
+    <form method="get" action="<%= base %>/send" class="ma-card" autocomplete="off" id="maRefLinkForm">
       <input type="hidden" name="view" value="link">
-      <div class="ma-field">
-        <label class="ma-label" for="sdRefCustomer">Customer</label>
-        <select id="sdRefCustomer" name="customer" class="ma-select" required>
-          <option value="">Pick a customer…</option>
-          <% _custs.forEach(function (c) { %>
-          <option value="<%= c.id %>" <%= _pickId === c.id ? 'selected' : '' %>><%= c.name || 'Customer' %><%= c.phone ? ' · ' + c.phone : '' %></option>
-          <% }); %>
-        </select>
-        <p class="ma-hint">Usually someone who left a great review. <a href="<%= base %>/customers">Manage customers</a></p>
+      <div class="ma-field" data-ma-customer-pick data-ma-pick-mode="saved">
+        <input type="hidden" name="customer" id="sdRefCustomerId" value="<%= _pickCust ? _pickCust.id : '' %>" required>
+        <div data-ma-ask-search <%= _pickCust ? 'hidden' : '' %>>
+          <label class="ma-label" for="sdRefCustomer">Customer</label>
+          <div class="ma-typeahead">
+            <input
+              id="sdRefCustomer"
+              type="text"
+              inputmode="search"
+              class="ma-input"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded="false"
+              aria-controls="sdRefCustomerList"
+              placeholder="Search by name or phone…"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              value=""
+            >
+            <ul id="sdRefCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
+          </div>
+          <p class="ma-hint">Usually someone who left a great review. <a href="<%= base %>/customers">Manage customers</a></p>
+        </div>
+        <div class="ma-ask-selected" data-ma-ask-selected <%= _pickCust ? '' : 'hidden' %>>
+          <span class="ma-ask-selected__avatar" aria-hidden="true" data-ma-ask-selected-avatar><%= _pickCust && _pickCust.name ? String(_pickCust.name).charAt(0).toUpperCase() : '?' %></span>
+          <span class="ma-ask-selected__body">
+            <strong data-ma-ask-selected-name><%= _pickCust ? (_pickCust.name || 'Customer') : '' %></strong>
+            <span data-ma-ask-selected-meta><%= _pickCust ? (_pickCust.phone || _pickCust.email || 'Saved customer') : '' %></span>
+          </span>
+          <button type="button" class="ma-btn ma-btn--sm ma-btn--ghost" data-ma-ask-clear>Change</button>
+        </div>
+        <script type="application/json" id="sdRefCustomerData"><%- JSON.stringify(_custPayload).replace(/</g, '\\u003c') %></script>
       </div>
-      <button type="submit" class="ma-btn ma-btn--block"><%- icons.share %> Get unique link</button>
+      <button type="submit" class="ma-btn ma-btn--block" data-ma-needs-customer <%= _pickCust ? '' : 'disabled' %>><%- icons.share %> Get unique link</button>
     </form>
+    <% } %>
 
     <% if (_picked && _picked.url) { %>
     <section class="ma-card ma-refdash__share" style="margin-top:12px" aria-label="Unique referral link">
       <h2 class="ma-refdash__share-title">Unique link ready</h2>
-      <p class="ma-hint" style="margin-top:0">For <strong><%= _picked.name || 'customer' %></strong>. Share by text, copy, or Messages.</p>
+      <p class="ma-hint" style="margin-top:0">For <strong><%= _picked.name || 'customer' %></strong>. They share this to earn a giveaway or your reward — you see who they bring.</p>
       <label class="ma-label" for="maRefLinkUrl2">Their unique referral link</label>
       <div class="ma-link-box">
         <code id="maRefLinkUrl2"><%= _picked.url %></code>
@@ -174,8 +211,6 @@
     </section>
     <% } else if (_pickId) { %>
     <p class="ma-flash ma-flash--err">Could not build a link for that customer. Try another contact.</p>
-    <% } else if (!_custs.length) { %>
-    <div class="ma-card ma-empty"><%- icons.customers %><p>Add a customer first, then come back to create their unique link.</p></div>
     <% } %>
 
     <% } else { %>

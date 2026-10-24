@@ -71,8 +71,23 @@ describe('customer referral unique links', () => {
     assert.equal(dash.top[0].name, 'Sam Woo');
     assert.equal(dash.top[0].referrals, 3);
     assert.equal(dash.top[0].rank, 1);
+    assert.equal(dash.top[0].initial, 'S');
     assert.equal(dash.top[1].name, 'Alex Kim');
     assert.equal(dash.top[1].clicks, 2);
+
+    const phoneOnly = await links.ensureAdvocateLink({
+      networkId: 'n2',
+      memberId: 'm2',
+      customerId: 'custphone04',
+      name: '+19077956646',
+      phone: '+19077956646',
+    });
+    assert.equal(phoneOnly.ok, true);
+    const dashPhone = links.buildDashboard(await links.listForMember('n2', 'm2'));
+    const phoneRow = dashPhone.all.find((r) => r.customerId === 'custphone04');
+    assert.ok(phoneRow);
+    assert.equal(phoneRow.initial, 'C');
+    assert.equal(phoneRow.name, '+19077956646');
 
     const rewarded = await links.markConversionStatus(
       minted.advocate.code,
@@ -92,19 +107,39 @@ describe('customer referral unique links', () => {
     const publicRoute = fs.readFileSync(path.join(__dirname, '../routes/customerReferralPublic.js'), 'utf8');
     assert.match(send, /view=link/);
     assert.match(send, /view=board/);
+    assert.match(send, /Request a referral/);
+    assert.match(send, /earn a giveaway or your reward/);
+    assert.match(send, /Search by name or phone/);
+    assert.match(send, /data-ma-customer-pick/);
+    assert.match(send, /data-ma-pick-mode="saved"/);
     assert.match(send, /Top referrers/);
     assert.match(send, /Reward customers/);
     assert.match(send, /Mark rewarded/);
     assert.match(send, /Their unique referral link/);
     assert.match(send, /ma-refdash__stats/);
+    // Rows are divs (not one giant underlined <a>) so layout can’t collapse.
+    assert.match(send, /class="ma-refdash__row"/);
+    assert.match(send, /class="ma-refdash__who"/);
+    assert.doesNotMatch(send, /<a class="ma-refdash__row"/);
     assert.match(css, /\.ma-refdash__board/);
     assert.match(css, /\.ma-refdash__reward-row/);
+    assert.match(css, /\.ma-refdash__row\s*\{[^}]*display:\s*grid\s*!important/);
+    const head = fs.readFileSync(path.join(__dirname, '../views/member_app/_head.ejs'), 'utf8');
+    assert.match(head, /\.ma-refdash__row\{display:grid!important/);
+    assert.match(head, /a\.ma-refdash__who\{display:flex!important/);
     assert.match(route, /SEND_VIEWS/);
     assert.match(route, /customerReferralLinks/);
     assert.match(route, /send\/referral\/:code\/:conversionId/);
     assert.match(route, /cust_ref_rewarded/);
     assert.match(publicRoute, /\/rf\/:code/);
     assert.match(publicRoute, /source: 'customer_referral'/);
+    const js = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
+    assert.match(js, /data-ma-pick-mode/);
+    assert.match(js, /name="customer"/);
+    assert.match(js, /savedOnly/);
+    const tabbar = fs.readFileSync(path.join(__dirname, '../views/member_app/_tabbar.ejs'), 'utf8');
+    assert.match(tabbar, /label: 'Referrals'/);
+    assert.doesNotMatch(tabbar, /id: 'send', label: 'Send'/);
   });
 });
 

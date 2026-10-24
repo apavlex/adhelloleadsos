@@ -1561,6 +1561,7 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
             company: ctx.member.companyName,
             name: cust.name,
             url: minted.url,
+            reward: reviewReferralReward.settingsFromMember(ctx.member).rewardLabel,
           }),
         };
       }
@@ -1580,6 +1581,7 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
         company: ctx.member.companyName,
         name: top.name,
         url: top.url,
+        reward: reviewReferralReward.settingsFromMember(ctx.member).rewardLabel,
       }),
     };
   }
