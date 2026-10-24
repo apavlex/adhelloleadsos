@@ -41,6 +41,14 @@ describe('customerSearch', () => {
     assert.ok(ranked.every((c) => digits(c.phone).includes('503438') || norm(c.name).includes('503438')));
   });
 
+  it('matches from the first character or digit typed', () => {
+    const byLetter = searchCustomers(customers, 'b');
+    assert.ok(byLetter.some((c) => c.id === '5'));
+    const byDigit = searchCustomers(customers, '5');
+    assert.ok(byDigit.length >= 1);
+    assert.ok(byDigit.every((c) => digits(c.phone).includes('5') || norm(c.name).includes('5')));
+  });
+
   it('matches email local-part / domain fragments', () => {
     const ranked = searchCustomers(customers, 'builders');
     assert.equal(ranked[0].id, '5');

@@ -31,20 +31,26 @@
       const _pickId = typeof pickCustomerId !== 'undefined' ? pickCustomerId : '';
       const _pickCust = _pickId ? (_custs.find(function (c) { return c.id === _pickId; }) || (_picked ? { id: _picked.customerId, name: _picked.name, phone: _picked.phone, email: _picked.email } : null)) : null;
       const _custPayload = _custs.map(function (c) {
-        return { id: c.id, name: c.name || '', phone: c.phone || '', email: c.email || '' };
+        return {
+          id: c.id,
+          name: c.name || '',
+          phone: c.phone || '',
+          email: c.email || '',
+          address: c.address || '',
+        };
       });
     %>
     <h1 class="ma-page-title"><%= (_view === 'link' || _view === 'board') ? 'Request a referral' : 'Send a referral' %></h1>
     <nav class="ma-seg ma-seg--3" aria-label="Send referral options">
-      <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Lead</a>
-      <a href="<%= base %>/send?view=link" class="<%= _view === 'link' ? 'is-on' : '' %>">Link</a>
-      <a href="<%= base %>/send?view=board" class="<%= _view === 'board' ? 'is-on' : '' %>">Board<% if (_view !== 'board' && (_dash.awaitingRewardCount || 0) > 0) { %> (<%= _dash.awaitingRewardCount %>)<% } %></a>
+      <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Send</a>
+      <a href="<%= base %>/send?view=request" class="<%= _view === 'link' ? 'is-on' : '' %>">Request</a>
+      <a href="<%= base %>/send?view=analytics" class="<%= _view === 'board' ? 'is-on' : '' %>">Analytics<% if (_view !== 'board' && (_dash.awaitingRewardCount || 0) > 0) { %> (<%= _dash.awaitingRewardCount %>)<% } %></a>
     </nav>
 
     <%- include('_flash') %>
 
     <% if (_view === 'board') { %>
-    <p class="ma-page-sub">See who brought you leads — reward the customers who shared their unique links.</p>
+    <p class="ma-page-sub">See who brought you leads — clicks, referrals, and rewards for customers who shared their unique links.</p>
 
     <div class="ma-refdash__stats" aria-label="Referral summary">
       <div class="ma-refdash__stat">
@@ -70,11 +76,11 @@
         <% if (_picked.phone) { %>
         <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || _picked.url) %>"><%- icons.sms %> Text link</a>
         <% } %>
-        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/send?view=link<%= _picked.customerId ? ('&customer=' + encodeURIComponent(_picked.customerId)) : '' %>">Change customer</a>
+        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/send?view=request<%= _picked.customerId ? ('&customer=' + encodeURIComponent(_picked.customerId)) : '' %>">Change customer</a>
       </div>
     </section>
     <% } else { %>
-    <p class="ma-hint" style="margin-top:0">Pick a customer on the <a href="<%= base %>/send?view=link">Link</a> tab to copy their unique URL.</p>
+    <p class="ma-hint" style="margin-top:0">Pick a customer on the <a href="<%= base %>/send?view=request">Request</a> tab to copy their unique URL.</p>
     <% } %>
 
     <section class="ma-card ma-refdash__rewards" aria-label="Reward customers">
@@ -121,7 +127,7 @@
         <h2 style="font-size:15px;margin:0">Top referrers</h2>
       </div>
       <% if (!_dash.top.length) { %>
-      <p class="ma-hint" style="margin:0">No unique links yet. Open <strong>Link</strong>, pick a happy customer, and share their URL — or confirm a 4–5★ review to text them one automatically.</p>
+      <p class="ma-hint" style="margin:0">No unique links yet. Open <strong>Request</strong>, pick any customer, and share their URL — or confirm a 4–5★ review to text them one automatically.</p>
       <% } else { %>
       <div class="ma-refdash__table" role="list">
         <div class="ma-refdash__thead" aria-hidden="true">
@@ -132,7 +138,7 @@
         <% _dash.top.forEach(function (row) { %>
         <div class="ma-refdash__row" role="listitem">
           <span class="ma-refdash__rank" aria-label="Position <%= row.rank %>"><%= row.rank %></span>
-          <a class="ma-refdash__who" href="<%= base %>/send?view=link&customer=<%= encodeURIComponent(row.customerId) %>">
+          <a class="ma-refdash__who" href="<%= base %>/send?view=request&customer=<%= encodeURIComponent(row.customerId) %>">
             <span class="ma-refdash__avatar" aria-hidden="true"><%= row.initial %></span>
             <span class="ma-refdash__who-text">
               <strong><%= row.name %></strong>
@@ -153,7 +159,7 @@
     <div class="ma-card ma-empty"><%- icons.customers %><p>Add a customer first, then come back to request a referral with their unique link.</p></div>
     <% } else { %>
     <form method="get" action="<%= base %>/send" class="ma-card" autocomplete="off" id="maRefLinkForm">
-      <input type="hidden" name="view" value="link">
+      <input type="hidden" name="view" value="request">
       <div class="ma-field" data-ma-customer-pick data-ma-pick-mode="saved">
         <input type="hidden" name="customer" id="sdRefCustomerId" value="<%= _pickCust ? _pickCust.id : '' %>" required>
         <div data-ma-ask-search <%= _pickCust ? 'hidden' : '' %>>
@@ -168,7 +174,7 @@
               aria-autocomplete="list"
               aria-expanded="false"
               aria-controls="sdRefCustomerList"
-              placeholder="Search by name or phone…"
+              placeholder="Type a name or phone…"
               autocomplete="off"
               autocorrect="off"
               spellcheck="false"
@@ -176,7 +182,7 @@
             >
             <ul id="sdRefCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
           </div>
-          <p class="ma-hint">Usually someone who left a great review. <a href="<%= base %>/customers">Manage customers</a></p>
+          <p class="ma-hint">Search any customer — results update as you type. <a href="<%= base %>/customers">Manage customers</a></p>
         </div>
         <div class="ma-ask-selected" data-ma-ask-selected <%= _pickCust ? '' : 'hidden' %>>
           <span class="ma-ask-selected__avatar" aria-hidden="true" data-ma-ask-selected-avatar><%= _pickCust && _pickCust.name ? String(_pickCust.name).charAt(0).toUpperCase() : '?' %></span>
@@ -205,7 +211,7 @@
         <% if (_picked.phone) { %>
         <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || ('Share this link: ' + _picked.url)) %>"><%- icons.sms %> Text link</a>
         <% } %>
-        <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/send?view=board&customer=<%= encodeURIComponent(_picked.customerId) %>">See board</a>
+        <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/send?view=analytics&customer=<%= encodeURIComponent(_picked.customerId) %>">See analytics</a>
       </div>
       <p class="ma-hint" style="margin-bottom:0">Clicks: <strong><%= _picked.clicks || 0 %></strong> · Referrals: <strong><%= _picked.referrals || 0 %></strong></p>
     </section>

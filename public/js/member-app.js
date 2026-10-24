@@ -1487,7 +1487,8 @@
 
     function render(query) {
       var q = String(query || '').trim();
-      shown = searchApi.searchCustomers(customers, q, { limit: 40 });
+      // Any typed characters filter the full customer list; empty query shows everyone (capped).
+      shown = searchApi.searchCustomers(customers, q, { limit: 80 });
       var html = '';
       if (!savedOnly) {
         html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-id="" data-idx="-1">' +
@@ -1505,7 +1506,7 @@
         html += '<li class="ma-typeahead__empty" role="presentation">No customers yet</li>';
       }
       list.innerHTML = html;
-      openList();
+      if (q || savedOnly || shown.length || !savedOnly) openList();
       setActive(-1);
     }
 
