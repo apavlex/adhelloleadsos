@@ -1390,11 +1390,18 @@
     }
   }
 
-  /** Typeahead: search customers as you type (review ask + Send → Link). */
+  /** Typeahead: search customers as you type (review ask + Referrals → Request). */
   function initCustomerPick(root) {
     if (!root || root.getAttribute('data-ma-ready') === '1') return;
     var searchApi = window.maCustomerSearch;
-    if (!searchApi || !searchApi.searchCustomers) return;
+    if (!searchApi || !searchApi.searchCustomers) {
+      // Defer scripts can race on soft navigations — retry once shortly.
+      if (!root.getAttribute('data-ma-pick-retry')) {
+        root.setAttribute('data-ma-pick-retry', '1');
+        setTimeout(function () { initCustomerPick(root); }, 50);
+      }
+      return;
+    }
 
     var input = root.querySelector('input[role="combobox"], input[type="search"], input.ma-input');
     var hidden = root.querySelector('input[type="hidden"][name="customerId"], input[type="hidden"][name="customer"]');
@@ -1413,7 +1420,7 @@
 
     var customers = [];
     try { customers = JSON.parse(dataEl.textContent || '[]'); } catch (e) { customers = []; }
-    if (!Array.isArray(customers) || !customers.length) return;
+    if (!Array.isArray(customers)) customers = [];
 
     var name = document.getElementById('rvAskName');
     var phone = document.getElementById('rvAskPhone');
@@ -1476,19 +1483,23 @@
 
     function closeList() {
       list.hidden = true;
+      list.setAttribute('hidden', '');
       input.setAttribute('aria-expanded', 'false');
       active = -1;
     }
 
     function openList() {
       list.hidden = false;
+      list.removeAttribute('hidden');
       input.setAttribute('aria-expanded', 'true');
     }
 
     function render(query) {
       var q = String(query || '').trim();
       // Any typed characters filter the full customer list; empty query shows everyone (capped).
-      shown = searchApi.searchCustomers(customers, q, { limit: 80 });
+      shown = customers.length
+        ? searchApi.searchCustomers(customers, q, { limit: 80 })
+        : [];
       var html = '';
       if (!savedOnly) {
         html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-id="" data-idx="-1">' +
@@ -1498,7 +1509,9 @@
         html += '<li class="ma-typeahead__item" role="option" data-id="' + esc(c.id) + '" data-idx="' + i + '">' +
           esc(labelFor(c)) + '</li>';
       });
-      if (q && !shown.length) {
+      if (!customers.length) {
+        html += '<li class="ma-typeahead__empty" role="presentation">No customers yet — add some under Customers</li>';
+      } else if (q && !shown.length) {
         html += '<li class="ma-typeahead__empty" role="presentation">' +
           (savedOnly ? 'No matches — try another name or phone' : 'No saved matches — enter them as new below') +
           '</li>';
@@ -1506,7 +1519,8 @@
         html += '<li class="ma-typeahead__empty" role="presentation">No customers yet</li>';
       }
       list.innerHTML = html;
-      if (q || savedOnly || shown.length || !savedOnly) openList();
+      // Always show the panel once the field is active / typed into.
+      openList();
       setActive(-1);
     }
 
