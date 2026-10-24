@@ -90,8 +90,11 @@
           <input id="maContact" name="contactName" class="ma-input" value="<%= _fv.contactName || '' %>" maxlength="120" autocapitalize="words" autocomplete="name">
         </div>
         <div class="ma-field">
-          <label class="ma-label" for="maPhone">Phone</label>
-          <input id="maPhone" name="phone" type="tel" inputmode="tel" class="ma-input" value="<%= _fv.phone || '' %>" maxlength="40" autocomplete="tel">
+          <label class="ma-label" for="maPhone">Phone <span class="ma-label__hint">(saved on your contact card)</span></label>
+          <input id="maPhone" name="phone" type="tel" inputmode="tel" class="ma-input<%= (_fv.phone || '').trim() ? '' : ' ma-input--unset' %>" value="<%= _fv.phone || '' %>" maxlength="40" autocomplete="tel" placeholder="Business mobile or main line">
+          <% if (!(String(_fv.phone || '').trim())) { %>
+          <p class="ma-flash ma-flash--err" style="margin:8px 0 0">Add a phone and tap Save details — without it, customers who save your contact card get email only.</p>
+          <% } %>
         </div>
         <div class="ma-field">
           <label class="ma-label" for="maEmail">Email</label>
@@ -105,12 +108,15 @@
     <section class="ma-card" aria-label="Contact card">
       <h2 style="font-size:16px;margin:0 0 6px">Contact card (vCard)</h2>
       <p class="ma-hint" style="margin-top:0">One link customers can tap to save your business to their phone. Uses your <strong>profile photo / logo</strong>, business name, phone, email, website, and review page. The link stays the same as long as your review page slug does.</p>
+      <% if (typeof vcardHasPhone !== 'undefined' && !vcardHasPhone) { %>
+      <p class="ma-flash ma-flash--err" style="margin:0 0 10px">No phone on this card yet — save a Phone under Your details above, then preview again.</p>
+      <% } %>
       <label class="ma-label" for="maVcardUrl">Your vCard link</label>
       <div class="ma-link-box">
         <code id="maVcardUrl"><%= vcardUrl %></code>
         <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= vcardUrl %>"><%- icons.copy %> Copy</button>
       </div>
-      <p class="ma-hint" style="margin-bottom:0">Open to preview: <a href="<%= vcardUrl %>" rel="noopener"><%= vcardUrl.replace(/^https?:\/\//, '') %></a></p>
+      <p class="ma-hint" style="margin-bottom:0">Open to preview: <a href="<%= vcardUrl %>?t=<%= Date.now() %>" rel="noopener"><%= vcardUrl.replace(/^https?:\/\//, '') %></a></p>
     </section>
     <% } %>
 

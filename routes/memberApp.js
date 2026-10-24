@@ -1022,6 +1022,7 @@ async function renderProfile(req, res, ctx, flash, formValues, status) {
   };
   const workspaceBrand = await ownerWorkspaceBrandForProfile({ ...ctx, member });
   const vcard = businessVcard.vcardFromMember(member);
+  const vcardPhone = businessVcard.usablePhone(fv.phone || member.phone);
   return render(res, 'profile', { ...ctx, member }, {
     active: 'profile',
     formValues: fv,
@@ -1029,6 +1030,7 @@ async function renderProfile(req, res, ctx, flash, formValues, status) {
     workspaceBrand,
     canEditWorkspaceBrand: !!workspaceBrand,
     vcardUrl: vcard ? vcard.url : '',
+    vcardHasPhone: !!vcardPhone,
   }, status);
 }
 
