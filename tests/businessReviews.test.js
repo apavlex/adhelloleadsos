@@ -280,6 +280,13 @@ describe('businessReviews', () => {
     assert.match(review, /googleReviewsTabMode:\s*true/);
     assert.match(review, /Show your QR/);
     assert.match(review, /Google & Yelp reviews/);
+    // Results analytics live on the Reviews tab (above Google/Yelp inbox).
+    assert.match(review, /aria-label="Review results"/);
+    assert.match(review, /Page visits/);
+    assert.match(review, /Went to review/);
+    assert.match(review, /Private notes/);
+    assert.ok(review.indexOf('aria-label="Review results"') < review.indexOf('_google_reviews'));
+    assert.doesNotMatch(review, /<summary>Results/);
     assert.match(review, /id="maAutoFollowUp"/);
     assert.match(review, /Automated follow-ups/);
     assert.match(review, /Automated follow-ups are on the monthly plan/);
