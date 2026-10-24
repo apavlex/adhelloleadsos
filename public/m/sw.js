@@ -1,5 +1,5 @@
 /* Reviews / member PWA — scoped to /m/ so workspace Agency OS pushes stay separate. */
-const CACHE_VERSION = 'adhello-member-sw-v1';
+const CACHE_VERSION = 'adhello-member-sw-v2';
 
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting());

@@ -1598,6 +1598,27 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn:hover {
   background: var(--card);
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
 }
+/* Inline (not absolute) so results aren't clipped by .ma-shell scroll / iOS keyboard */
+[data-ma-customer-pick] .ma-typeahead { overflow: visible; }
+[data-ma-customer-pick] .ma-typeahead__list {
+  position: static;
+  left: auto;
+  right: auto;
+  top: auto;
+  margin: 8px 0 0;
+  max-height: min(240px, 40vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  box-shadow: none;
+}
+[data-ma-customer-pick] .ma-field,
+form.ma-card[data-ma-customer-pick],
+form.ma-card:has([data-ma-customer-pick]) {
+  overflow: visible;
+}
 .ma-typeahead__item {
   display: block;
   width: 100%;

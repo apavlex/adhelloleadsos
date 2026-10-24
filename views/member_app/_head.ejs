@@ -165,6 +165,11 @@ html[data-ma-theme="dark"] .ma-tags__suggest-btn{background:color-mix(in srgb,va
 .ma-tags .ma-typeahead__list{position:static!important;left:auto;right:auto;top:auto;margin:10px 0 0;max-height:min(240px,40vh);box-shadow:none}
 .ma-share-mate-pick .ma-typeahead{position:relative;overflow:visible}
 .ma-share-mate-pick .ma-typeahead__list{position:static!important;left:auto;right:auto;top:auto;margin:10px 0 0;max-height:min(240px,40vh);overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;box-shadow:none}
+/* Customer pick (Request referral / review ask) — inline so .ma-shell + keyboard can't clip results */
+[data-ma-customer-pick] .ma-typeahead{position:relative;overflow:visible}
+[data-ma-customer-pick] .ma-typeahead__list{position:static!important;left:auto;right:auto;top:auto;margin:8px 0 0;max-height:min(240px,40vh);overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;box-shadow:none;display:block}
+[data-ma-customer-pick] .ma-typeahead__list[hidden]{display:none!important}
+form.ma-card:has([data-ma-customer-pick]){overflow:visible}
 .ma-input::placeholder,.ma-textarea::placeholder{color:var(--muted);opacity:1}
 /* Field mics — critical so stale SW CSS can't show stop/spin as random squares */
 .ma-voice-btn,.alex-voice-btn.ma-voice-btn{position:relative;display:inline-flex!important;align-items:center;justify-content:center;width:36px!important;height:36px!important;margin:0;padding:0;border:1.5px solid var(--line,#e2e8f0);border-radius:999px!important;background:var(--card,#fff);color:var(--ink,#0f172a);cursor:pointer;flex:0 0 36px;-webkit-appearance:none;appearance:none;box-sizing:border-box}

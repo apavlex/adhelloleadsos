@@ -88,9 +88,15 @@ describe('customerSearch', () => {
     assert.match(app, /searchApi\.searchCustomers/);
     assert.match(app, /data-ma-ask-selected/);
     assert.match(app, /syncMode/);
+    assert.match(app, /removeAttribute\('hidden'\)/);
     assert.match(css, /\.ma-typeahead__list/);
+    assert.match(css, /\[data-ma-customer-pick\]\s*\.ma-typeahead__list/);
+    assert.match(css, /position:\s*static/);
     assert.match(css, /\.ma-typeahead__item--new/);
     assert.match(css, /\.ma-ask-selected/);
+    const head = fs.readFileSync(path.join(__dirname, '../views/member_app/_head.ejs'), 'utf8');
+    assert.match(head, /\[data-ma-customer-pick\]\s*\.ma-typeahead__list/);
+    assert.match(head, /position:static!important/);
     // Customer page Review opens the ask form with customer=id (selected), not send-on-tap.
     const customer = fs.readFileSync(path.join(__dirname, '../views/member_app/customer.ejs'), 'utf8');
     assert.match(customer, /\/review\?ask=1&amp;customer=/);
