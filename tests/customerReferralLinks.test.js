@@ -114,6 +114,9 @@ describe('customer referral unique links', () => {
     assert.match(js, /data-ma-pick-mode/);
     assert.match(js, /name="customer"/);
     assert.match(js, /savedOnly/);
+    const tabbar = fs.readFileSync(path.join(__dirname, '../views/member_app/_tabbar.ejs'), 'utf8');
+    assert.match(tabbar, /label: 'Referrals'/);
+    assert.doesNotMatch(tabbar, /id: 'send', label: 'Send'/);
   });
 });
 
