@@ -53,8 +53,9 @@ function filenameStem(name, fallback) {
 }
 
 /**
- * Fallback PHOTO URI when we cannot embed bytes (rare). Prefer App branding
- * logo embedded as base64 — iOS Contacts ignores most PHOTO;VALUE=URI links.
+ * Fallback PHOTO URI when we cannot embed bytes (rare). Business mark only —
+ * never the personal Profile photo / avatar (phones often fetch URI images).
+ * Prefer App branding logo embedded as base64 (see brandingPhotoForMember).
  * @param {object} member
  * @returns {string}
  */
@@ -62,14 +63,9 @@ function photoUriForMember(member) {
   if (!member || !member.reviewSlug) return '';
   const base = getReviewPublicBaseUrl();
   const slug = encodeURIComponent(member.reviewSlug);
-  // Request-page / review logo (business mark) before personal profile photo.
   if (member.reviewLogoUpdatedAt) {
     const v = encodeURIComponent(String(member.reviewLogoUpdatedAt));
     return `${base}/rv/${slug}/logo.png?v=${v}`;
-  }
-  if (member.profilePhotoUpdatedAt) {
-    const v = encodeURIComponent(String(member.profilePhotoUpdatedAt));
-    return `${base}/rv/${slug}/avatar.png?v=${v}`;
   }
   return '';
 }
@@ -88,20 +84,27 @@ function foldVcardLine(line) {
 }
 
 /**
- * Embed a JPEG/PNG buffer as PHOTO so iOS shows it on the contact card.
+ * Embed a JPEG/PNG buffer as PHOTO / LOGO so phones show the business mark.
  * Remote PHOTO;VALUE=URI is usually ignored when saving from Messages/Safari.
+ * @param {string} prop PHOTO | LOGO
  * @param {Buffer|Uint8Array} buffer
  * @param {string} [contentType]
- * @returns {string} full PHOTO property line (may include folded CRLF)
+ * @returns {string} full property line (may include folded CRLF)
  */
-function photoLineFromBuffer(buffer, contentType) {
+function imageLineFromBuffer(prop, buffer, contentType) {
   if (!buffer || !buffer.length) return '';
   // Keep contact cards small — skip huge embeds (caller should resize first).
   if (buffer.length > 180_000) return '';
+  const name = prop === 'LOGO' ? 'LOGO' : 'PHOTO';
   const ct = String(contentType || 'image/jpeg').toLowerCase();
   const type = ct.includes('png') ? 'PNG' : 'JPEG';
   const b64 = Buffer.from(buffer).toString('base64');
-  return foldVcardLine(`PHOTO;ENCODING=b;TYPE=${type}:${b64}`);
+  return foldVcardLine(`${name};ENCODING=b;TYPE=${type}:${b64}`);
+}
+
+/** @deprecated use imageLineFromBuffer('PHOTO', …) */
+function photoLineFromBuffer(buffer, contentType) {
+  return imageLineFromBuffer('PHOTO', buffer, contentType);
 }
 
 /**
@@ -157,9 +160,11 @@ function nameParts(contactName, companyName, { asCompany = false } = {}) {
  * @param {string} [opts.email]
  * @param {string} [opts.website] business website
  * @param {string} [opts.reviewUrl] public review request page
- * @param {string} [opts.photoUrl] HTTPS image URI (fallback only)
+ * @param {string} [opts.photoUrl] HTTPS image URI (fallback only; business logo)
  * @param {Buffer|Uint8Array} [opts.photoBuffer] embedded photo (preferred; App branding logo)
  * @param {string} [opts.photoContentType]
+ * @param {string} [opts.uid] stable UID (slug-based)
+ * @param {string} [opts.rev] REV timestamp (ISO or YYYYMMDDTHHMMSSZ) — bump when logo changes
  * @param {boolean} [opts.asCompany] iOS company contact (X-ABShowAs:COMPANY)
  * @returns {string}
  */
@@ -174,6 +179,8 @@ function buildVcard(opts = {}) {
   const contact = cleanText(opts.contactName, 120);
   const asCompany = opts.asCompany !== false && !!org;
   const { family, given } = nameParts(opts.contactName, fn, { asCompany });
+  const uid = cleanText(opts.uid, 200);
+  const rev = cleanText(opts.rev, 40).replace(/[^\dTZ]/gi, '').slice(0, 20);
 
   const lines = [
     'BEGIN:VCARD',
@@ -181,13 +188,15 @@ function buildVcard(opts = {}) {
     `FN:${escapeVcardValue(fn)}`,
     `N:${escapeVcardValue(family)};${escapeVcardValue(given)};;;`,
   ];
+  if (uid) lines.push(`UID:${escapeVcardValue(uid)}`);
+  if (rev) lines.push(`REV:${rev}`);
   if (asCompany) lines.push('X-ABShowAs:COMPANY');
   if (org) lines.push(`ORG:${escapeVcardValue(org)}`);
   if (contact) lines.push(`TITLE:${escapeVcardValue(contact)}`);
-  // WORK first — this is the business profile number customers should save.
+  // WORK only — CELL with the same digits makes phones merge into a personal
+  // contact and keep that person’s selfie instead of the business logo.
   if (phone) {
     lines.push(`TEL;TYPE=WORK,VOICE:${escapeVcardValue(phone)}`);
-    lines.push(`TEL;TYPE=CELL,VOICE:${escapeVcardValue(phone)}`);
   }
   if (email) lines.push(`EMAIL;TYPE=INTERNET:${escapeVcardValue(email)}`);
   if (website && /^https?:\/\//i.test(website)) {
@@ -196,11 +205,14 @@ function buildVcard(opts = {}) {
   if (reviewUrl && /^https?:\/\//i.test(reviewUrl) && reviewUrl !== website) {
     lines.push(`URL:${escapeVcardValue(reviewUrl)}`);
   }
-  const embedded = photoLineFromBuffer(opts.photoBuffer, opts.photoContentType);
-  if (embedded) {
-    lines.push(embedded);
+  const embeddedPhoto = imageLineFromBuffer('PHOTO', opts.photoBuffer, opts.photoContentType);
+  const embeddedLogo = imageLineFromBuffer('LOGO', opts.photoBuffer, opts.photoContentType);
+  if (embeddedPhoto) {
+    lines.push(embeddedPhoto);
+    if (embeddedLogo) lines.push(embeddedLogo);
   } else if (photoUrl && /^https:\/\//i.test(photoUrl)) {
     lines.push(`PHOTO;VALUE=URI;TYPE=JPEG:${escapeVcardValue(photoUrl)}`);
+    lines.push(`LOGO;VALUE=URI;TYPE=JPEG:${escapeVcardValue(photoUrl)}`);
   }
   if (contact) {
     lines.push(`NOTE:${escapeVcardValue(`Contact: ${contact}`)}`);
@@ -224,6 +236,20 @@ function vcardFromMember(member, extras) {
     || cleanText(extras && extras.email, 200)
     || '';
   const photoBuffer = extras && extras.photoBuffer ? extras.photoBuffer : null;
+  const slug = String(member.reviewSlug || '').trim().toLowerCase();
+  const revRaw = (extras && extras.photoRev)
+    || member.reviewLogoUpdatedAt
+    || member.updatedAt
+    || '';
+  let rev = '';
+  if (revRaw) {
+    const d = new Date(revRaw);
+    if (!Number.isNaN(d.getTime())) {
+      rev = d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+    } else {
+      rev = cleanText(String(revRaw), 40).replace(/[^\dTZ]/gi, '').slice(0, 20);
+    }
+  }
   const body = buildVcard({
     fn: company,
     org: company,
@@ -235,6 +261,8 @@ function vcardFromMember(member, extras) {
     photoUrl: photoBuffer ? '' : photoUriForMember(member),
     photoBuffer,
     photoContentType: extras && extras.photoContentType,
+    uid: slug ? `adhello-biz-${slug}` : '',
+    rev,
     asCompany: true,
   });
   return {
@@ -249,6 +277,7 @@ module.exports = {
   filenameStem,
   usablePhone,
   foldVcardLine,
+  imageLineFromBuffer,
   photoLineFromBuffer,
   getBusinessVcardUrl,
   photoUriForMember,
