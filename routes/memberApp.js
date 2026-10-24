@@ -1177,12 +1177,26 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     };
   }
   const memberAppOnboarding = require('../services/memberAppOnboarding');
-  const setupChecklist = memberAppOnboarding.buildChecklist({
+  let setupChecklist = memberAppOnboarding.buildChecklist({
     member: ctx.member,
     network: ctx.network,
     base: ctx.base,
     networkHeroUrl: (ctx.brand && ctx.brand.heroUrl) || (ctx.network.brand && ctx.network.brand.heroUrl) || '',
   });
+  // First Home open for a new member — stamp so we only treat them as first-time openers.
+  if (setupChecklist.show && !(ctx.member.setupChecklist && ctx.member.setupChecklist.firstOpenedAt)) {
+    try {
+      const stamped = memberAppOnboarding.markFirstOpened(ctx.member.setupChecklist);
+      await store.saveMember(ctx.network.id, { ...ctx.member, setupChecklist: stamped });
+      ctx.member = { ...ctx.member, setupChecklist: stamped };
+      setupChecklist = memberAppOnboarding.buildChecklist({
+        member: ctx.member,
+        network: ctx.network,
+        base: ctx.base,
+        networkHeroUrl: (ctx.brand && ctx.brand.heroUrl) || (ctx.network.brand && ctx.network.brand.heroUrl) || '',
+      });
+    } catch (_) { /* non-blocking */ }
+  }
   render(res, 'home', ctx, {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     // Leads → customers → referrals (hero shows open jobs as projects).

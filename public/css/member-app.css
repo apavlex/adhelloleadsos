@@ -2496,12 +2496,21 @@ html[data-ma-theme="dark"] .ma-appt {
   cursor: pointer;
 }
 .ma-onboard__done-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 10px;
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--muted);
+  color: var(--acc-ink);
+  text-decoration: none;
+  border-radius: 999px;
+  background: var(--acc-soft);
 }
+.ma-onboard__done-label:active { opacity: 0.8; }
 .ma-onboard__hero-form { position: absolute; width: 0; height: 0; overflow: hidden; }
 html[data-ma-theme="dark"] .ma-onboard__card { box-shadow: none; border-color: transparent; }
 

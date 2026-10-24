@@ -249,7 +249,11 @@ function normalizeMember(raw) {
       ['profile', 'review_links', 'banner', 'notifications', 'home_screen'].forEach((id) => {
         if (markedIn[id]) marked[id] = cleanText(markedIn[id], 40);
       });
-      return { dismissedAt: cleanText(raw.dismissedAt, 40), marked };
+      return {
+        dismissedAt: cleanText(raw.dismissedAt, 40),
+        firstOpenedAt: cleanText(raw.firstOpenedAt, 40),
+        marked,
+      };
     })(),
     joinedAt: m.joinedAt || new Date().toISOString(),
     updatedAt: m.updatedAt || m.joinedAt || new Date().toISOString(),
