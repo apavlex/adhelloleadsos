@@ -53,8 +53,8 @@ function filenameStem(name, fallback) {
 }
 
 /**
- * Absolute HTTPS URI for PHOTO — same image as Profile / request-page logo:
- * profile photo → custom review logo → (none; initials on the page).
+ * Fallback PHOTO URI when we cannot embed bytes (rare). Prefer App branding
+ * logo embedded as base64 — iOS Contacts ignores most PHOTO;VALUE=URI links.
  * @param {object} member
  * @returns {string}
  */
@@ -62,15 +62,46 @@ function photoUriForMember(member) {
   if (!member || !member.reviewSlug) return '';
   const base = getReviewPublicBaseUrl();
   const slug = encodeURIComponent(member.reviewSlug);
-  if (member.profilePhotoUpdatedAt) {
-    const v = encodeURIComponent(String(member.profilePhotoUpdatedAt));
-    return `${base}/rv/${slug}/avatar.png?v=${v}`;
-  }
+  // Request-page / review logo (business mark) before personal profile photo.
   if (member.reviewLogoUpdatedAt) {
     const v = encodeURIComponent(String(member.reviewLogoUpdatedAt));
     return `${base}/rv/${slug}/logo.png?v=${v}`;
   }
+  if (member.profilePhotoUpdatedAt) {
+    const v = encodeURIComponent(String(member.profilePhotoUpdatedAt));
+    return `${base}/rv/${slug}/avatar.png?v=${v}`;
+  }
   return '';
+}
+
+/** vCard 3.0 soft line fold (75 octets; continuation lines start with a space). */
+function foldVcardLine(line) {
+  const raw = String(line || '');
+  if (raw.length <= 75) return raw;
+  let out = raw.slice(0, 75);
+  let rest = raw.slice(75);
+  while (rest.length) {
+    out += `\r\n ${rest.slice(0, 74)}`;
+    rest = rest.slice(74);
+  }
+  return out;
+}
+
+/**
+ * Embed a JPEG/PNG buffer as PHOTO so iOS shows it on the contact card.
+ * Remote PHOTO;VALUE=URI is usually ignored when saving from Messages/Safari.
+ * @param {Buffer|Uint8Array} buffer
+ * @param {string} [contentType]
+ * @returns {string} full PHOTO property line (may include folded CRLF)
+ */
+function photoLineFromBuffer(buffer, contentType) {
+  if (!buffer || !buffer.length) return '';
+  // Keep contact cards small — skip huge embeds (caller should resize first).
+  if (buffer.length > 180_000) return '';
+  const ct = String(contentType || 'image/jpeg').toLowerCase();
+  const type = ct.includes('png') ? 'PNG' : 'JPEG';
+  const b64 = Buffer.from(buffer).toString('base64');
+  return foldVcardLine(`PHOTO;ENCODING=b;TYPE=${type}:${b64}`);
 }
 
 /**
@@ -126,7 +157,9 @@ function nameParts(contactName, companyName, { asCompany = false } = {}) {
  * @param {string} [opts.email]
  * @param {string} [opts.website] business website
  * @param {string} [opts.reviewUrl] public review request page
- * @param {string} [opts.photoUrl] HTTPS image URI (profile logo)
+ * @param {string} [opts.photoUrl] HTTPS image URI (fallback only)
+ * @param {Buffer|Uint8Array} [opts.photoBuffer] embedded photo (preferred; App branding logo)
+ * @param {string} [opts.photoContentType]
  * @param {boolean} [opts.asCompany] iOS company contact (X-ABShowAs:COMPANY)
  * @returns {string}
  */
@@ -163,7 +196,10 @@ function buildVcard(opts = {}) {
   if (reviewUrl && /^https?:\/\//i.test(reviewUrl) && reviewUrl !== website) {
     lines.push(`URL:${escapeVcardValue(reviewUrl)}`);
   }
-  if (photoUrl && /^https:\/\//i.test(photoUrl)) {
+  const embedded = photoLineFromBuffer(opts.photoBuffer, opts.photoContentType);
+  if (embedded) {
+    lines.push(embedded);
+  } else if (photoUrl && /^https:\/\//i.test(photoUrl)) {
     lines.push(`PHOTO;VALUE=URI;TYPE=JPEG:${escapeVcardValue(photoUrl)}`);
   }
   if (contact) {
@@ -176,8 +212,7 @@ function buildVcard(opts = {}) {
 /**
  * Build vCard + download filename from a network member record.
  * @param {object} member
- * @param {{ website?: string, phone?: string, email?: string }} [extras]
- *   optional CRM-lead overrides when the member profile field is empty
+ * @param {{ website?: string, phone?: string, email?: string, photoBuffer?: Buffer, photoContentType?: string }} [extras]
  * @returns {{ body: string, filename: string, url: string } | null}
  */
 function vcardFromMember(member, extras) {
@@ -188,6 +223,7 @@ function vcardFromMember(member, extras) {
   const email = cleanText(member.email, 200)
     || cleanText(extras && extras.email, 200)
     || '';
+  const photoBuffer = extras && extras.photoBuffer ? extras.photoBuffer : null;
   const body = buildVcard({
     fn: company,
     org: company,
@@ -196,7 +232,9 @@ function vcardFromMember(member, extras) {
     email,
     website: websiteFromMember(member, leadWebsite),
     reviewUrl: getReviewPageUrl(member.reviewSlug),
-    photoUrl: photoUriForMember(member),
+    photoUrl: photoBuffer ? '' : photoUriForMember(member),
+    photoBuffer,
+    photoContentType: extras && extras.photoContentType,
     asCompany: true,
   });
   return {
@@ -210,6 +248,8 @@ module.exports = {
   escapeVcardValue,
   filenameStem,
   usablePhone,
+  foldVcardLine,
+  photoLineFromBuffer,
   getBusinessVcardUrl,
   photoUriForMember,
   websiteFromMember,

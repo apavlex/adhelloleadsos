@@ -9,8 +9,45 @@ const express = require('express');
 const store = require('../services/networkStore');
 const dbService = require('../services/database');
 const businessVcard = require('../services/businessVcard');
+const whiteLabel = require('../services/whiteLabel');
+const reviewShareImage = require('../services/reviewShareImage');
 
 const router = express.Router();
+
+/**
+ * App branding logo for the contact photo (embedded — iOS ignores PHOTO URLs).
+ * Prefer Workspace white-label / App branding, then network brand logo, then
+ * request-page business logo. Never the personal profile selfie.
+ */
+async function brandingPhotoForMember(member, network) {
+  try {
+    if (network && network.ownerWorkspaceId) {
+      const wl = await whiteLabel.getLogo(network.ownerWorkspaceId);
+      if (wl && wl.buffer && wl.buffer.length) {
+        const prepared = await reviewShareImage.compressPublicPageLogo(wl.buffer);
+        if (prepared && prepared.buffer) return prepared;
+      }
+    }
+    if (network && network.id) {
+      const brandLogo = await store.getBrandImage(network.id, 'logo');
+      if (brandLogo && brandLogo.buffer && brandLogo.buffer.length) {
+        const prepared = await reviewShareImage.compressPublicPageLogo(brandLogo.buffer);
+        if (prepared && prepared.buffer) return prepared;
+      }
+    }
+    if (member && member.reviewLogoUpdatedAt && network) {
+      const pageLogo = await reviewShareImage.getPublicPageLogoBuffer(
+        network.id,
+        member.id,
+        'logo',
+      );
+      if (pageLogo && pageLogo.buffer) return pageLogo;
+    }
+  } catch (err) {
+    console.warn('[business-vcard] branding photo skipped:', err.message);
+  }
+  return null;
+}
 
 async function loadMemberByReviewSlug(slug) {
   const clean = String(slug || '')
@@ -71,6 +108,11 @@ router.get('/c/:slugVcf', async (req, res) => {
       return res.status(404).type('text/plain').send('Contact card not found.');
     }
     const extras = await leadExtrasForMember(loaded.member, loaded.network);
+    const photo = await brandingPhotoForMember(loaded.member, loaded.network);
+    if (photo && photo.buffer) {
+      extras.photoBuffer = photo.buffer;
+      extras.photoContentType = photo.contentType || 'image/jpeg';
+    }
     const card = businessVcard.vcardFromMember(loaded.member, extras);
     if (!card) {
       res.setHeader('X-Robots-Tag', 'noindex');
@@ -78,7 +120,7 @@ router.get('/c/:slugVcf', async (req, res) => {
     }
     res.setHeader('Content-Type', 'text/vcard; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${card.filename}"`);
-    // Short cache so profile phone edits show up quickly on the next share.
+    // Short cache so branding / phone edits show up quickly on the next share.
     res.setHeader('Cache-Control', 'public, max-age=60');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     // Allow the member app (different subdomain) to fetch and share as a File.
