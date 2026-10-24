@@ -1600,13 +1600,14 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
   }
   const rewardSettings = reviewReferralReward.settingsFromMember(ctx.member);
   const resolvedFlash = flash || flashFromQuery(req);
-  const flashOk = String((resolvedFlash && resolvedFlash.ok) || '').trim();
+  const okKey = String(q.ok || '').trim();
   const referralSetupOpen =
     rawView === 'script'
     || rawView === 'setup'
     || String(q.setup || '') === '1'
-    || flashOk === 'share_script_saved'
-    || flashOk === 'reward_saved';
+    || okKey === 'share_script_saved'
+    || okKey === 'reward_saved'
+    || Boolean(resolvedFlash && resolvedFlash.error && String(q.setup || '') === '1');
   return render(res, 'send', ctx, {
     directory,
     flash: resolvedFlash,
