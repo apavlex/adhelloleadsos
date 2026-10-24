@@ -262,13 +262,13 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /function stripReviewUrlsFromText/);
     assert.match(js, /function placeReviewLinkAtEnd/);
     assert.match(js, /getElementById\('rvSmsScript'\)/);
-    assert.match(js, /navigator\.share\(\{ title: title, text: text \}\)/);
+    assert.match(js, /navigator\.share\(data\)/);
     assert.match(js, /Hard rule: no \{\{review_link\}\}/);
     // Request-a-review must substitute {{keywords}} (never leave the raw tag in Messages).
     assert.match(js, /\\{\\{\\s\*keywords\\s\*\\}\\}/);
     assert.match(js, /readLiveKeywordFields/);
     assert.match(js, /the work we did/);
-    assert.match(js, /Link last → iMessage shows the review preview image/);
+    assert.match(js, /Review link directly under the script/);
     assert.match(js, /syncShareKeywordPayload/);
     assert.match(js, /scriptNeedsKeywords/);
     assert.match(js, /promptForKeywordDefaults/);
@@ -276,7 +276,10 @@ describe('member app install modal and tab bar', () => {
     assert.doesNotMatch(js, /data\.url\s*=\s*payload\.url/);
     assert.doesNotMatch(js, /navigator\.share\(\{ title: title, text: text, url:/);
     assert.doesNotMatch(js, /shareWithFile/);
+    // vCard may be shared as a File (contact card); never the old OG image file path.
     assert.doesNotMatch(js, /data\.files\s*=\s*\[file\]/);
+    assert.match(js, /text\/vcard/);
+    assert.match(js, /data\.files\s*=\s*\[vcardFile\]/);
     assert.match(js, /review_link is ONLY substituted when the placeholder/);
     assert.doesNotMatch(review, /image:\s*_shareImage/);
     assert.match(review, /only inserted when the script includes/);

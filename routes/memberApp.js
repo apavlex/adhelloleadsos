@@ -3152,17 +3152,31 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   const reviewLinkForShare = reviewRequestScript.scriptWantsReviewLink(smsScript) ? reviewUrl : '';
   const vcardUrl = getBusinessVcardUrl(member.reviewSlug);
   const attachVcard = reviewRequestScript.memberAttachVcard(member);
+  // Order: filled script → review link (own paragraph) → optional vCard URL.
   const shareSmsText = reviewRequestScript.maybeAttachVcardUrl(
-    reviewRequestScript.fillPlaceholders(smsScript, {
-      name: defaults.name || 'there',
-      company: member.companyName,
-      reviewLink: reviewLinkForShare,
-      jobTitle: keywordCtx.jobTitle,
-      city: keywordCtx.city,
-      keywords: keywordCtx.keywords,
-    }),
+    reviewLinkForShare
+      ? reviewRequestScript.maybeEnsureReviewLink(
+        reviewRequestScript.fillPlaceholders(smsScript, {
+          name: defaults.name || 'there',
+          company: member.companyName,
+          reviewLink: reviewLinkForShare,
+          jobTitle: keywordCtx.jobTitle,
+          city: keywordCtx.city,
+          keywords: keywordCtx.keywords,
+        }),
+        reviewLinkForShare,
+        smsScript,
+      )
+      : reviewRequestScript.fillPlaceholders(smsScript, {
+        name: defaults.name || 'there',
+        company: member.companyName,
+        reviewLink: '',
+        jobTitle: keywordCtx.jobTitle,
+        city: keywordCtx.city,
+        keywords: keywordCtx.keywords,
+      }),
     vcardUrl,
-    { attach: attachVcard, reviewLink: reviewLinkForShare },
+    { attach: attachVcard },
   );
   const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
     companyName: member.companyName,

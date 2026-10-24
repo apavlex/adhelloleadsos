@@ -307,7 +307,7 @@
           %>
           <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
             <input type="checkbox" name="attachVcard" value="1" id="rvAttachVcard" <%= _attachChecked ? 'checked' : '' %> style="margin-top:3px"<%= _vcardLink ? '' : ' disabled' %>>
-            <span><strong>Attach contact card</strong> — add your vCard link so they can save your business on their phone<%= _vcardLink ? '' : ' (add a review page slug / profile first)' %></span>
+            <span><strong>Attach contact card</strong> — after your review link, add the vCard (iPhone Share sends it as a contact when possible)<%= _vcardLink ? '' : ' (add a review page slug / profile first)' %></span>
           </label>
           <div class="ma-actions" style="margin:0 0 10px;flex-wrap:wrap">
             <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" id="rvInsertKeywords"
