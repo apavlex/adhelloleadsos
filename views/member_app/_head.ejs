@@ -246,6 +246,11 @@ a.ma-refdash__who{display:flex!important;align-items:center;gap:10px;min-width:0
 .ma-refdash__who-text small{display:block;font-size:12px;color:var(--muted,#64748b);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ma-refdash__avatar{width:34px;height:34px;border-radius:999px;background:color-mix(in srgb,var(--acc,#2563eb) 24%,var(--card,#fff));display:inline-flex!important;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0}
 .ma-refdash__count{display:inline-flex!important;min-width:2rem;justify-content:center;padding:4px 10px;border-radius:999px;background:color-mix(in srgb,var(--acc,#2563eb) 18%,var(--card,#fff));font-size:12px;font-weight:800}
+.ma-refdash__share-row{display:flex!important;flex-wrap:nowrap;align-items:stretch;gap:8px;margin-top:12px;width:100%}
+.ma-refdash__share-row>.ma-btn,.ma-refdash__share-row>a.ma-btn{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;margin:0}
+.ma-refdash__reward-actions{display:flex!important;flex-wrap:nowrap;gap:8px;align-items:stretch;width:100%}
+.ma-refdash__reward-actions form{margin:0;flex:1 1 0;min-width:0;display:flex}
+.ma-refdash__reward-actions>.ma-btn,.ma-refdash__reward-actions>a.ma-btn,.ma-refdash__reward-actions form .ma-btn{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;width:100%}
 /* Nav progress — critical so a tap on a slow customer page shows feedback immediately */
 #maNavLoading{position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:0;transition:opacity 120ms ease;background:rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;width:100vw;height:100vh;height:100dvh}
 #maNavLoading.is-on{opacity:1}
