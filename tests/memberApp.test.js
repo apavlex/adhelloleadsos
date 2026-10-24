@@ -474,9 +474,8 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(settingsHtml, /Thumbtack profile/);
     assert.match(settingsHtml, /Default preview image/);
     assert.match(settingsHtml, /Request page profile/);
-    assert.match(settingsHtml, /Referral reward after a great review/);
-    assert.match(settingsHtml, /name="rewardLabel"/);
-    assert.match(settingsHtml, /action="[^"]*\/review\/reward"/);
+    assert.match(settingsHtml, /Referral SMS|Open Script/);
+    assert.match(settingsHtml, /send\?view=script/);
     assert.match(settingsHtml, /Profile photo|Profile &amp; settings|Profile & settings/);
     assert.match(settingsHtml, /\/rv\/camas-flooring\/avatar\.png/);
     assert.match(settingsHtml, /\/rv\/camas-flooring\/og\.jpg/);

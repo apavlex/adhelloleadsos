@@ -3,7 +3,9 @@
 <head>
   <%
     const _viewHead = typeof sendView !== 'undefined' ? sendView : 'lead';
-    const _pageTitle = (_viewHead === 'link' || _viewHead === 'board') ? 'Request a referral' : 'Send a referral';
+    const _pageTitle = (_viewHead === 'script')
+      ? 'Referral script'
+      : ((_viewHead === 'link' || _viewHead === 'board') ? 'Request a referral' : 'Send a referral');
   %>
   <%- include('_head', { pageTitle: _pageTitle }) %>
 </head>
@@ -39,18 +41,25 @@
           address: c.address || '',
         };
       });
+      const _title = _view === 'script'
+        ? 'Script & reward'
+        : ((_view === 'link' || _view === 'board') ? 'Request a referral' : 'Send a referral');
     %>
-    <h1 class="ma-page-title"><%= (_view === 'link' || _view === 'board') ? 'Request a referral' : 'Send a referral' %></h1>
-    <nav class="ma-seg ma-seg--3" aria-label="Send referral options">
+    <h1 class="ma-page-title"><%= _title %></h1>
+    <nav class="ma-seg ma-seg--4" aria-label="Send referral options">
       <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Send</a>
       <a href="<%= base %>/send?view=request" class="<%= _view === 'link' ? 'is-on' : '' %>">Request</a>
       <a href="<%= base %>/send?view=analytics" class="<%= _view === 'board' ? 'is-on' : '' %>">Analytics<% if (_view !== 'board' && (_dash.awaitingRewardCount || 0) > 0) { %> (<%= _dash.awaitingRewardCount %>)<% } %></a>
+      <a href="<%= base %>/send?view=script" class="<%= _view === 'script' ? 'is-on' : '' %>">Script</a>
     </nav>
 
     <%- include('_flash') %>
 
-    <% if (_view === 'board') { %>
-    <p class="ma-page-sub">See who brought you leads — clicks, referrals, and rewards for customers who shared their unique links.</p>
+    <% if (_view === 'script') { %>
+    <p class="ma-page-sub">Edit the text customers get with their unique link, and set the reward they earn when a friend comes through.</p>
+    <%- include('_referral_setup') %>
+
+    <% } else if (_view === 'board') { %>    <p class="ma-page-sub">See who brought you leads — clicks, referrals, and rewards for customers who shared their unique links.</p>
 
     <div class="ma-refdash__stats" aria-label="Referral summary">
       <div class="ma-refdash__stat">

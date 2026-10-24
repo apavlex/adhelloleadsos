@@ -215,6 +215,11 @@ function normalizeMember(raw) {
      * Lazy-require to avoid networkStore ↔ freeAppSignup circular load.
      */
     reviewReward: require('./reviewReferralReward').normalizeSettings(m.reviewReward),
+    /**
+     * SMS when texting a customer their unique /rf/ referral link (Request tab).
+     * Placeholders: {{name}}, {{company}}, {{reward}}, {{referral_link}}.
+     */
+    referralShareScript: cleanText(m.referralShareScript, 500),
     /** ISO stamp when a custom default OG/share image was saved (empty = use generated default). */
     reviewShareImageUpdatedAt: cleanText(m.reviewShareImageUpdatedAt, 40),
     /** ISO stamp when a custom logo for the public review request page was saved. */

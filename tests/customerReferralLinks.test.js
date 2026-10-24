@@ -100,16 +100,21 @@ describe('customer referral unique links', () => {
     assert.ok(dash2.rewarded.some((r) => r.conversionId === conv.conversion.id));
   });
 
-  it('Send page exposes Send / Request / Analytics tabs and simple board UI', () => {
+  it('Send page exposes Send / Request / Analytics / Script tabs and simple board UI', () => {
     const send = fs.readFileSync(path.join(__dirname, '../views/member_app/send.ejs'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const publicRoute = fs.readFileSync(path.join(__dirname, '../routes/customerReferralPublic.js'), 'utf8');
+    const setup = fs.readFileSync(path.join(__dirname, '../views/member_app/_referral_setup.ejs'), 'utf8');
     assert.match(send, />Send</);
     assert.match(send, /view=request/);
     assert.match(send, /view=analytics/);
+    assert.match(send, /view=script/);
     assert.match(send, />Request</);
     assert.match(send, />Analytics/);
+    assert.match(send, />Script</);
+    assert.match(send, /ma-seg--4/);
+    assert.match(send, /_referral_setup/);
     assert.match(send, /Request a referral/);
     assert.match(send, /Send a referral/);
     assert.match(send, /earn a giveaway or your reward/);
@@ -133,6 +138,11 @@ describe('customer referral unique links', () => {
     assert.match(send, />Request</);
     assert.match(send, />Analytics/);
     assert.doesNotMatch(send, />Board</);
+    assert.match(setup, /SMS request script/);
+    assert.match(setup, /referralShareScript/);
+    assert.match(setup, /Referral reward/);
+    assert.match(setup, /name="rewardLabel"/);
+    assert.match(css, /\.ma-seg--4/);
     assert.match(css, /\.ma-refdash__board/);
     assert.match(css, /\.ma-refdash__reward-row/);
     assert.match(css, /\.ma-refdash__row\s*\{[^}]*display:\s*grid\s*!important/);
@@ -141,12 +151,18 @@ describe('customer referral unique links', () => {
     assert.match(head, /a\.ma-refdash__who\{display:flex!important/);
     assert.match(route, /SEND_VIEWS/);
     assert.match(route, /normalizeSendView/);
+    assert.match(route, /send\/setup/);
+    assert.match(route, /share_script_saved/);
     assert.match(route, /customerReferralLinks/);
     assert.match(route, /send\/referral\/:code\/:conversionId/);
     assert.match(route, /cust_ref_rewarded/);
     assert.match(route, /All customers \(not just review-givers\)/);
     assert.match(publicRoute, /\/rf\/:code/);
     assert.match(publicRoute, /source: 'customer_referral'/);
+    const svc = fs.readFileSync(path.join(__dirname, '../services/customerReferralLinks.js'), 'utf8');
+    assert.match(svc, /DEFAULT_SHARE_SCRIPT/);
+    assert.match(svc, /fillShareScript/);
+    assert.match(svc, /\{\{\s*referral_link\s*\}\}/);
     const js = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
     assert.match(js, /data-ma-pick-mode/);
     assert.match(js, /name="customer"/);
@@ -155,6 +171,29 @@ describe('customer referral unique links', () => {
     const tabbar = fs.readFileSync(path.join(__dirname, '../views/member_app/_tabbar.ejs'), 'utf8');
     assert.match(tabbar, /label: 'Referrals'/);
     assert.doesNotMatch(tabbar, /id: 'send', label: 'Send'/);
+  });
+
+  it('fills custom SMS share scripts with placeholders', () => {
+    const text = links.fillShareScript(
+      'Hey {{name}} from {{company}} — {{reward}} → {{referral_link}}',
+      {
+        name: 'John Cody',
+        company: 'TPR Flooring',
+        reward: '$25 gift card',
+        url: 'https://reviews.adhello.io/rf/abc123',
+      },
+    );
+    assert.match(text, /Hey John Cody from TPR Flooring/);
+    assert.match(text, /\$25 gift card/);
+    assert.match(text, /\/rf\/abc123/);
+    const def = links.shareSmsText({
+      name: 'Sam',
+      company: 'Acme',
+      url: 'https://reviews.adhello.io/rf/x',
+      reward: '',
+    });
+    assert.match(def, /Hi Sam/);
+    assert.match(def, /giveaway or your reward/);
   });
 });
 
