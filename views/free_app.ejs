@@ -417,10 +417,10 @@
         <h1>Grow reviews &amp; referrals for your business!</h1>
         <% if (_flooring) { %>
         <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
-        <p class="fa-card-lead">Built for flooring partners — reviews, jobs, and referrals on your phone. No timed trial. Leads are <strong>exclusive to one partner per territory</strong> — not shared like HomeAdvisor or Thumbtack. <strong>Pay-per-performance</strong>: commission only on leads you approve.</p>
+        <p class="fa-card-lead">Built for flooring partners — get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request, plus jobs and referrals on your phone. No timed trial. Leads are <strong>exclusive to one partner per territory</strong> — not shared like HomeAdvisor or Thumbtack. <strong>Pay-per-performance</strong>: commission only on leads you approve.</p>
         <% } else { %>
         <p class="fa-card-trial">30-day free trial · no credit card</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Grow with <strong>pay-per-performance leads</strong> and a referral network. We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple contractors. Here, leads are <strong>exclusive to one partner for the territory</strong>. You only pay commission on leads you approve. Plus reviews and jobs on your phone.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Get reviews <strong>right after the job</strong> with an <strong>SMS or QR code</strong> request. Grow with <strong>pay-per-performance leads</strong> and a referral network. We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple contractors. Here, leads are <strong>exclusive to one partner for the territory</strong>. You only pay commission on leads you approve.</p>
         <% } %>
 
         <ul class="fa-benefits" aria-label="What you get">
@@ -432,8 +432,8 @@
               </svg>
             </span>
             <div>
-              <strong>Reviews &amp; CRM</strong>
-              <span>Ask for reviews on Google, your website, and other sites when the job wraps — and keep customers, jobs &amp; CRM on your Home Screen. No App Store.</span>
+              <strong>Get reviews right after the job</strong>
+              <span>Send an <strong>SMS</strong> or show a <strong>QR code</strong> the moment the job is complete — customers leave a Google review while they’re still happy. Keep customers, jobs &amp; CRM on your Home Screen. No App Store.</span>
             </div>
           </li>
           <li>
@@ -462,7 +462,7 @@
             </div>
           </li>
         </ul>
-        <div class="fa-perks"><span>Exclusive territory</span><span>Pay per performance</span><span>Referrals</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
+        <div class="fa-perks"><span>SMS &amp; QR review asks</span><span>Exclusive territory</span><span>Pay per performance</span><span>Referrals</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
 
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
