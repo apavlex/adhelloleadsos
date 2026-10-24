@@ -14,6 +14,7 @@ const store = require('./networkStore');
 const ghlMessaging = require('./ghlMessaging');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const reviewRequestScript = require('./reviewRequestScript');
+const freeAppSignup = require('./freeAppSignup');
 const { brandView } = require('./networkBrand');
 const { getReviewPageUrl } = require('../lib/publicBaseUrl');
 
@@ -285,6 +286,10 @@ async function sendReminderForAsk(ask) {
   const member = network ? await store.getMember(network.id, ask.memberId) : null;
   if (!network || !member || member.status !== 'active') {
     return { ok: false, error: 'member_unavailable' };
+  }
+  // Automated follow-up SMS is a monthly-plan feature (free app: QR / share only).
+  if (freeAppSignup.isAppFreeMember(member)) {
+    return { ok: false, error: 'plan_required' };
   }
   if (!member.reviewSlug) return { ok: false, error: 'no_review_slug' };
 

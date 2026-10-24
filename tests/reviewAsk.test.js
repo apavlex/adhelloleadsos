@@ -12,6 +12,13 @@ const { getReviewPageUrl } = require('../lib/publicBaseUrl');
 const reviewPage = require('../services/reviewPage');
 
 describe('review ask tracking + 48h reminder', () => {
+  it('gates automated reminder SMS to monthly-plan members', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../services/reviewAsk.js'), 'utf8');
+    assert.match(src, /freeAppSignup\.isAppFreeMember\(member\)/);
+    assert.match(src, /plan_required/);
+    assert.match(src, /monthly-plan feature/);
+  });
+
   it('builds tracked review URLs with ask id', () => {
     const url = getReviewPageUrl('camas-flooring', { askId: 'abc12345def', imageId: 'img1' });
     assert.match(url, /\/rv\/camas-flooring\?/);
