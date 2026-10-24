@@ -215,7 +215,7 @@ const OK_MESSAGES = {
   customers_synced: 'Customers synced with your CRM.',
   crm_sync_upgrade: 'CRM sync is on the monthly plan. Upgrade to activate it.',
   referrals_upgrade: 'Referrals are on the monthly plan. Upgrade to start getting referrals for your business.',
-  review_send_upgrade: 'Texting and emailing review requests needs a GHL CRM account on the monthly plan. Use Share or QR for free, or upgrade to send via GHL CRM.',
+  review_send_upgrade: 'Texting and emailing review requests (plus automated ~48h follow-up) needs a GHL CRM account on the monthly plan. Use Share or QR for free, or upgrade to send via GHL CRM.',
   google_reviews_upgrade: 'Google review inbox (Outscraper sync + AI replies) is on the monthly plan.',
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
   closed: 'Lead marked closed.',

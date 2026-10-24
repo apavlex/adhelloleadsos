@@ -444,6 +444,12 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(reviewHtml, /Request a review/);
     assert.match(reviewHtml, /review\/preview/);
     assert.ok(!/target="_blank"[^>]*>Preview/.test(reviewHtml));
+    // Paid members see automated follow-ups as included (not the free upgrade gate).
+    assert.match(reviewHtml, /id="maAutoFollowUp"/);
+    assert.match(reviewHtml, /Automated follow-ups/);
+    assert.match(reviewHtml, /Included on your plan/);
+    assert.match(reviewHtml, /one reminder SMS/);
+    assert.doesNotMatch(reviewHtml, /Automated follow-ups are on the monthly plan/);
 
     const previewTab = await fetch(`${base}/m/${token}/review/preview`);
     assert.equal(previewTab.status, 200);
