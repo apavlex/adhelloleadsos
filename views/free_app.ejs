@@ -139,9 +139,6 @@
       background: rgba(250, 204, 21, 0.12);
       border: 1px solid rgba(250, 204, 21, 0.28);
     }
-    .fa-benefits--primary {
-      margin-top: 1.25rem;
-    }
     .fa-benefits--primary li {
       padding: 1rem 0.95rem;
       background: rgba(250, 204, 21, 0.18);
@@ -564,11 +561,26 @@
         <h1>Get more reviews for your business!</h1>
         <% if (_flooring) { %>
         <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>The fastest, easiest review request — right when the client is happy. Automated follow-up — <strong>no awkward chasing for the review</strong>. No timed trial.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>The fastest, easiest review request — right when the client is happy. Automated follow-up. No timed trial.</p>
         <% } else { %>
         <p class="fa-card-trial">30-day free trial · no credit card</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>The fastest, easiest review request — right when the client is happy. Automated follow-up — <strong>no awkward chasing for the review</strong>.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>The fastest, easiest review request — right when the client is happy. Automated follow-up.</p>
         <% } %>
+
+        <ul class="fa-benefits fa-benefits--primary" aria-label="Main feature">
+          <li>
+            <span class="fa-benefits__ico" aria-hidden="true">
+              <%# Heroicons solid: star %>
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z"/>
+              </svg>
+            </span>
+            <div>
+              <strong>Fastest, easiest review request</strong>
+              <span>Ask by <strong>SMS</strong> or <strong>QR</strong> the moment they’re happy with the results. <strong>Automated follow-up</strong> so you don’t have to chase.</span>
+            </div>
+          </li>
+        </ul>
 
         <div class="fa-extras">
           <p class="fa-extras__label">Extras included</p>
@@ -600,22 +612,7 @@
             </li>
           </ul>
         </div>
-        <div class="fa-perks"><span>Ask when they’re happy</span><span>Auto follow-up</span><span>No awkward chasing for the review</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
-
-        <ul class="fa-benefits fa-benefits--primary" aria-label="Main feature">
-          <li>
-            <span class="fa-benefits__ico" aria-hidden="true">
-              <%# Heroicons solid: star %>
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z"/>
-              </svg>
-            </span>
-            <div>
-              <strong>Fastest, easiest review request</strong>
-              <span>Ask by <strong>SMS</strong> or <strong>QR</strong> the moment they’re happy with the results. <strong>Automated follow-up</strong> — <strong>no awkward chasing for the review</strong>.</span>
-            </div>
-          </li>
-        </ul>
+        <div class="fa-perks"><span>Ask when they’re happy</span><span>Auto follow-up</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
 
         <figure class="fa-quote">
           <img
@@ -740,7 +737,7 @@
           <p class="fa-faq__title">More info</p>
           <details>
             <summary>How do I get more reviews?</summary>
-            <p class="fa-faq__body">Reviews offers the <strong>fastest and easiest request</strong> — by <strong>SMS</strong> or <strong>QR</strong> — right when the client is happy with the results. It <strong>automates follow-up</strong> so there’s <strong>no awkward chasing for the review</strong>. Keep customers, jobs &amp; CRM on your Home Screen. No App Store.</p>
+            <p class="fa-faq__body">Reviews offers the <strong>fastest and easiest request</strong> — by <strong>SMS</strong> or <strong>QR</strong> — right when the client is happy with the results. It <strong>automates follow-up</strong> so you don’t have to chase. Keep customers, jobs &amp; CRM on your Home Screen. No App Store.</p>
           </details>
           <details>
             <summary>What extras are included?</summary>
