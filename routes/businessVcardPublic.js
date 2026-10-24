@@ -27,14 +27,32 @@ async function loadMemberByReviewSlug(slug) {
   return { member, network };
 }
 
-async function leadWebsiteForMember(member, network) {
-  if (!member || !member.leadKey || !network || !network.ownerWorkspaceId) return '';
+/** Website / phone / email from the linked CRM lead when the member profile is thin. */
+async function leadExtrasForMember(member, network) {
+  const empty = { website: '', phone: '', email: '' };
+  if (!member || !member.leadKey || !network || !network.ownerWorkspaceId) return empty;
   try {
     const lead = await dbService.getLead(member.leadKey, network.ownerWorkspaceId);
-    const site = lead && (lead.website || lead.url || '');
-    return String(site || '').trim().slice(0, 400);
+    if (!lead) return empty;
+    const site = lead.website || lead.url || '';
+    const phone = lead.phone || lead.mobile || lead.phoneNumber || '';
+    const email = lead.email || '';
+    // Named contacts on the lead (owner / primary) as a last-resort phone.
+    let contactPhone = '';
+    const people = Array.isArray(lead.contacts) ? lead.contacts : [];
+    for (const person of people) {
+      if (person && person.phone && businessVcard.usablePhone(person.phone)) {
+        contactPhone = person.phone;
+        break;
+      }
+    }
+    return {
+      website: String(site || '').trim().slice(0, 400),
+      phone: String(phone || contactPhone || '').trim().slice(0, 40),
+      email: String(email || '').trim().slice(0, 200),
+    };
   } catch {
-    return '';
+    return empty;
   }
 }
 
@@ -52,15 +70,16 @@ router.get('/c/:slugVcf', async (req, res) => {
       res.setHeader('X-Robots-Tag', 'noindex');
       return res.status(404).type('text/plain').send('Contact card not found.');
     }
-    const website = await leadWebsiteForMember(loaded.member, loaded.network);
-    const card = businessVcard.vcardFromMember(loaded.member, { website });
+    const extras = await leadExtrasForMember(loaded.member, loaded.network);
+    const card = businessVcard.vcardFromMember(loaded.member, extras);
     if (!card) {
       res.setHeader('X-Robots-Tag', 'noindex');
       return res.status(404).type('text/plain').send('Contact card not found.');
     }
     res.setHeader('Content-Type', 'text/vcard; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${card.filename}"`);
-    res.setHeader('Cache-Control', 'public, max-age=300');
+    // Short cache so profile phone edits show up quickly on the next share.
+    res.setHeader('Cache-Control', 'public, max-age=60');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
     // Allow the member app (different subdomain) to fetch and share as a File.
     res.setHeader('Access-Control-Allow-Origin', '*');

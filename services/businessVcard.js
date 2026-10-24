@@ -29,6 +29,15 @@ function cleanText(value, max) {
     .slice(0, max);
 }
 
+/** Profile/lead phone usable on a contact card (rejects empty / N/A / email-like). */
+function usablePhone(value) {
+  const raw = cleanText(value, 40);
+  if (!raw || /^n\/?a$/i.test(raw) || raw.indexOf('@') !== -1) return '';
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length < 7) return '';
+  return raw;
+}
+
 /** Safe ASCII filename stem from a business name. */
 function filenameStem(name, fallback) {
   const raw = cleanText(name, 80) || cleanText(fallback, 80) || 'contact';
@@ -90,9 +99,13 @@ function websiteFromMember(member, leadWebsite) {
 
 /**
  * Split "First Last" → { family, given } for the N property.
- * Business-only contacts use empty family + company as given.
+ * Business cards prefer empty N (company via FN/ORG + X-ABShowAs) so iOS
+ * doesn’t put the owner’s first name in the First Name field.
  */
-function nameParts(contactName, companyName) {
+function nameParts(contactName, companyName, { asCompany = false } = {}) {
+  if (asCompany) {
+    return { family: '', given: '' };
+  }
   const contact = cleanText(contactName, 120);
   if (contact) {
     const parts = contact.split(/\s+/).filter(Boolean);
@@ -108,24 +121,26 @@ function nameParts(contactName, companyName) {
  * @param {object} opts
  * @param {string} [opts.fn] display name
  * @param {string} [opts.org] organization
- * @param {string} [opts.contactName] person name (for N + NOTE)
+ * @param {string} [opts.contactName] person name (for TITLE + NOTE)
  * @param {string} [opts.phone]
  * @param {string} [opts.email]
  * @param {string} [opts.website] business website
  * @param {string} [opts.reviewUrl] public review request page
  * @param {string} [opts.photoUrl] HTTPS image URI (profile logo)
+ * @param {boolean} [opts.asCompany] iOS company contact (X-ABShowAs:COMPANY)
  * @returns {string}
  */
 function buildVcard(opts = {}) {
   const org = cleanText(opts.org, 160);
   const fn = cleanText(opts.fn, 160) || org || cleanText(opts.contactName, 120) || 'Business';
-  const phone = cleanText(opts.phone, 40);
+  const phone = usablePhone(opts.phone);
   const email = cleanText(opts.email, 200);
   const website = cleanText(opts.website, 400);
   const reviewUrl = cleanText(opts.reviewUrl || opts.url, 400);
   const photoUrl = cleanText(opts.photoUrl, 600);
   const contact = cleanText(opts.contactName, 120);
-  const { family, given } = nameParts(opts.contactName, fn);
+  const asCompany = opts.asCompany !== false && !!org;
+  const { family, given } = nameParts(opts.contactName, fn, { asCompany });
 
   const lines = [
     'BEGIN:VCARD',
@@ -133,9 +148,14 @@ function buildVcard(opts = {}) {
     `FN:${escapeVcardValue(fn)}`,
     `N:${escapeVcardValue(family)};${escapeVcardValue(given)};;;`,
   ];
+  if (asCompany) lines.push('X-ABShowAs:COMPANY');
   if (org) lines.push(`ORG:${escapeVcardValue(org)}`);
   if (contact) lines.push(`TITLE:${escapeVcardValue(contact)}`);
-  if (phone) lines.push(`TEL;TYPE=CELL,VOICE:${escapeVcardValue(phone)}`);
+  // WORK first — this is the business profile number customers should save.
+  if (phone) {
+    lines.push(`TEL;TYPE=WORK,VOICE:${escapeVcardValue(phone)}`);
+    lines.push(`TEL;TYPE=CELL,VOICE:${escapeVcardValue(phone)}`);
+  }
   if (email) lines.push(`EMAIL;TYPE=INTERNET:${escapeVcardValue(email)}`);
   if (website && /^https?:\/\//i.test(website)) {
     lines.push(`URL;TYPE=WORK:${escapeVcardValue(website)}`);
@@ -156,22 +176,28 @@ function buildVcard(opts = {}) {
 /**
  * Build vCard + download filename from a network member record.
  * @param {object} member
- * @param {{ website?: string }} [extras] optional lead website override
+ * @param {{ website?: string, phone?: string, email?: string }} [extras]
+ *   optional CRM-lead overrides when the member profile field is empty
  * @returns {{ body: string, filename: string, url: string } | null}
  */
 function vcardFromMember(member, extras) {
   if (!member || !member.reviewSlug) return null;
   const company = cleanText(member.companyName, 160) || 'Business';
   const leadWebsite = extras && extras.website ? extras.website : '';
+  const phone = usablePhone(member.phone) || usablePhone(extras && extras.phone) || '';
+  const email = cleanText(member.email, 200)
+    || cleanText(extras && extras.email, 200)
+    || '';
   const body = buildVcard({
     fn: company,
     org: company,
     contactName: member.contactName,
-    phone: member.phone,
-    email: member.email,
+    phone,
+    email,
     website: websiteFromMember(member, leadWebsite),
     reviewUrl: getReviewPageUrl(member.reviewSlug),
     photoUrl: photoUriForMember(member),
+    asCompany: true,
   });
   return {
     body,
@@ -183,6 +209,7 @@ function vcardFromMember(member, extras) {
 module.exports = {
   escapeVcardValue,
   filenameStem,
+  usablePhone,
   getBusinessVcardUrl,
   photoUriForMember,
   websiteFromMember,

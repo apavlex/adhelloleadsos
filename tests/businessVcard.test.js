@@ -23,9 +23,12 @@ describe('businessVcard', () => {
     assert.match(body, /^BEGIN:VCARD\r\n/);
     assert.match(body, /\r\nVERSION:3\.0\r\n/);
     assert.match(body, /\r\nFN:Acme Floors\r\n/);
-    assert.match(body, /\r\nN:Cody;John;;;\r\n/);
+    // Company card: empty N so iOS doesn’t put the owner in First Name.
+    assert.match(body, /\r\nN:;;;;\r\n/);
+    assert.match(body, /\r\nX-ABShowAs:COMPANY\r\n/);
     assert.match(body, /\r\nORG:Acme Floors\r\n/);
     assert.match(body, /\r\nTITLE:John Cody\r\n/);
+    assert.match(body, /\r\nTEL;TYPE=WORK,VOICE:\+15551234567\r\n/);
     assert.match(body, /\r\nTEL;TYPE=CELL,VOICE:\+15551234567\r\n/);
     assert.match(body, /\r\nEMAIL;TYPE=INTERNET:hi@acme\.example\r\n/);
     assert.match(body, /\r\nURL;TYPE=WORK:https:\/\/acmefloors\.example\r\n/);
@@ -33,6 +36,9 @@ describe('businessVcard', () => {
     assert.match(body, /\r\nPHOTO;VALUE=URI;TYPE=JPEG:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\/avatar\.png\?v=1\r\n/);
     assert.match(body, /\r\nNOTE:Contact: John Cody\r\n/);
     assert.match(body, /\r\nEND:VCARD\r\n$/);
+    assert.equal(businessVcard.usablePhone('N/A'), '');
+    assert.equal(businessVcard.usablePhone('alex@adhello.io'), '');
+    assert.equal(businessVcard.usablePhone('(360) 555-1212'), '(360) 555-1212');
 
     assert.equal(businessVcard.escapeVcardValue('A;B,C\\D\nE'), 'A\\;B\\,C\\\\D\\nE');
     const escaped = businessVcard.buildVcard({
@@ -60,6 +66,7 @@ describe('businessVcard', () => {
     assert.equal(card.url, 'https://reviews.adhello.io/c/camas-flooring.vcf');
     assert.equal(card.filename, 'Camas-Flooring.vcf');
     assert.match(card.body, /FN:Camas Flooring/);
+    assert.match(card.body, /TEL;TYPE=WORK,VOICE:3605551212/);
     assert.match(card.body, /TEL;TYPE=CELL,VOICE:3605551212/);
     assert.match(card.body, /URL;TYPE=WORK:https:\/\/camasflooring\.example/);
     assert.match(card.body, /PHOTO;VALUE=URI.*avatar\.png/);
@@ -70,6 +77,19 @@ describe('businessVcard', () => {
     });
     assert.match(logoOnly, /\/rv\/camas-flooring\/logo\.png/);
     assert.equal(businessVcard.vcardFromMember({ companyName: 'No slug' }), null);
+    // Lead phone fills in when the member profile phone is empty.
+    const fromLead = businessVcard.vcardFromMember(
+      {
+        reviewSlug: 'camas-flooring',
+        companyName: 'Camas Flooring',
+        contactName: 'Pat',
+        phone: '',
+        email: '',
+      },
+      { phone: '3605559999', email: 'office@camas.example' },
+    );
+    assert.match(fromLead.body, /TEL;TYPE=WORK,VOICE:3605559999/);
+    assert.match(fromLead.body, /EMAIL;TYPE=INTERNET:office@camas\.example/);
   });
 
   it('wires public route and Profile copy UI', () => {
@@ -80,12 +100,15 @@ describe('businessVcard', () => {
     assert.match(route, /\/c\/:slugVcf/);
     assert.match(route, /text\/vcard; charset=utf-8/);
     assert.match(route, /Content-Disposition/);
+    assert.match(route, /leadExtrasForMember/);
     assert.match(server, /businessVcardPublic/);
     assert.match(profile, /vcardUrl/);
     assert.match(profile, /Contact card \(vCard\)/);
+    assert.match(profile, /vcardHasPhone|No phone on this card/);
     assert.match(profile, /data-ma-copy=/);
     assert.match(memberApp, /vcardUrl/);
     assert.match(memberApp, /businessVcard/);
+    assert.match(memberApp, /vcardHasPhone/);
   });
 
   it('serves /c/:slug.vcf with vcard headers', async () => {
