@@ -242,12 +242,20 @@
 
       document.querySelectorAll('.br-draft-btn').forEach(function (btn) {
         btn.addEventListener('click', async function () {
+          if (btn.getAttribute('aria-busy') === 'true') return;
           var id = btn.getAttribute('data-review-id');
           var box = btn.closest('[data-reply-box]');
           var ta = box && box.querySelector('.br-draft-text');
           var st = box && box.querySelector('.br-draft-status');
           var copyBtn = box && box.querySelector('.br-copy-btn');
+          var label = btn.textContent;
+          btn.setAttribute('aria-busy', 'true');
           btn.disabled = true;
+          btn.textContent = 'Generating…';
+          if (ta) {
+            ta.readOnly = true;
+            ta.setAttribute('aria-busy', 'true');
+          }
           if (st) st.textContent = 'Writing reply…';
           try {
             var res = await fetch('/business-reviews/reviews/' + encodeURIComponent(id) + '/draft-reply', {
@@ -264,7 +272,13 @@
           } catch (e) {
             if (st) st.textContent = e.message || 'AI draft failed';
           } finally {
+            btn.removeAttribute('aria-busy');
             btn.disabled = false;
+            btn.textContent = label;
+            if (ta) {
+              ta.readOnly = false;
+              ta.removeAttribute('aria-busy');
+            }
           }
         });
       });
