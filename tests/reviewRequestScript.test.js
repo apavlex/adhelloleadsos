@@ -150,6 +150,60 @@ test('buildReviewSms without AI does not force-append a removed review link', as
   assert.doesNotMatch(built.message, /leads\.adhello\.io|review_link|https?:\/\//i);
 });
 
+test('maybeAttachVcardUrl appends contact card and keeps review link last', () => {
+  const reviewLink = 'https://reviews.adhello.io/rv/brightline';
+  const vcard = 'https://reviews.adhello.io/c/brightline.vcf';
+  assert.equal(
+    review.maybeAttachVcardUrl('Thanks!', vcard, { attach: false }),
+    'Thanks!',
+  );
+  assert.equal(
+    review.maybeAttachVcardUrl('Thanks!', vcard, { attach: true }),
+    `Thanks!\n\n${vcard}`,
+  );
+  assert.equal(
+    review.maybeAttachVcardUrl(`Thanks!\n\n${reviewLink}`, vcard, {
+      attach: true,
+      reviewLink,
+    }),
+    `Thanks!\n\n${vcard}\n\n${reviewLink}`,
+  );
+});
+
+test('buildReviewSms appends vCard URL when reviewAttachVcard is on', async () => {
+  const built = await review.buildReviewSms({
+    member: {
+      companyName: 'Brightline Electric',
+      reviewSlug: 'brightline',
+      reviewAttachVcard: true,
+      reviewSmsScript: 'Hey {{name}}, leave {{company}} a review {{review_link}}',
+    },
+    customerName: 'Jamie Lee',
+    reviewLink: 'https://reviews.adhello.io/rv/brightline',
+    useAi: false,
+  });
+  assert.match(built.message, /https:\/\/reviews\.adhello\.io\/c\/brightline\.vcf/);
+  assert.match(
+    built.message,
+    /https:\/\/reviews\.adhello\.io\/c\/brightline\.vcf\n\nhttps:\/\/reviews\.adhello\.io\/rv\/brightline$/,
+  );
+});
+
+test('buildReviewSms omits vCard URL when attach is off', async () => {
+  const built = await review.buildReviewSms({
+    member: {
+      companyName: 'Brightline Electric',
+      reviewSlug: 'brightline',
+      reviewAttachVcard: false,
+      reviewSmsScript: 'Hey {{name}}, leave a review {{review_link}}',
+    },
+    customerName: 'Jamie',
+    reviewLink: 'https://reviews.adhello.io/rv/brightline',
+    useAi: false,
+  });
+  assert.doesNotMatch(built.message, /\.vcf/);
+});
+
 test('buildGhlReviewWorkflowPrompt includes script and review link for Workflow AI', () => {
   const prompt = review.buildGhlReviewWorkflowPrompt({
     companyName: 'Brightline Electric',

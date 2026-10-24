@@ -200,6 +200,11 @@ function normalizeMember(raw) {
     /** Member-editable AI/GHL review-request SMS script ({{name}}, {{company}}, {{review_link}}). */
     reviewSmsScript: cleanText(m.reviewSmsScript, 800),
     /**
+     * When true, review-request SMS includes the business vCard URL
+     * (`/c/{reviewSlug}.vcf`) so the customer can save the contact.
+     */
+    reviewAttachVcard: m.reviewAttachVcard === true,
+    /**
      * Default project keywords for {{job}} / {{city}} / {{keywords}} when a
      * customer's latest job or address city is missing (e.g. "cabinet install" + "Camas").
      */

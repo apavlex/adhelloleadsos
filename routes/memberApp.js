@@ -59,7 +59,7 @@ const whiteLabel = require('../services/whiteLabel');
 const demoWorkspace = require('../services/demoWorkspace');
 const workspaceTeammatePush = require('../services/workspaceTeammatePush');
 const workspaceService = require('../services/workspaceService');
-const { getPublicBaseUrl, getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
+const { getPublicBaseUrl, getReviewPublicBaseUrl, getBusinessVcardUrl } = require('../lib/publicBaseUrl');
 const { ICONS } = require('../services/memberAppIcons');
 const voiceTranscription = require('../services/voiceTranscription');
 const memberVoiceCustomerParse = require('../services/memberVoiceCustomerParse');
@@ -3149,18 +3149,27 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   }
   // Use the saved script as-is — do not force-append the review URL.
   // fillPlaceholders only substitutes {{review_link}} when that placeholder exists.
-  const shareSmsText = reviewRequestScript.fillPlaceholders(smsScript, {
-    name: defaults.name || 'there',
-    company: member.companyName,
-    reviewLink: reviewRequestScript.scriptWantsReviewLink(smsScript) ? reviewUrl : '',
-    jobTitle: keywordCtx.jobTitle,
-    city: keywordCtx.city,
-    keywords: keywordCtx.keywords,
-  });
+  const reviewLinkForShare = reviewRequestScript.scriptWantsReviewLink(smsScript) ? reviewUrl : '';
+  const vcardUrl = getBusinessVcardUrl(member.reviewSlug);
+  const attachVcard = reviewRequestScript.memberAttachVcard(member);
+  const shareSmsText = reviewRequestScript.maybeAttachVcardUrl(
+    reviewRequestScript.fillPlaceholders(smsScript, {
+      name: defaults.name || 'there',
+      company: member.companyName,
+      reviewLink: reviewLinkForShare,
+      jobTitle: keywordCtx.jobTitle,
+      city: keywordCtx.city,
+      keywords: keywordCtx.keywords,
+    }),
+    vcardUrl,
+    { attach: attachVcard, reviewLink: reviewLinkForShare },
+  );
   const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
     companyName: member.companyName,
     reviewLink: reviewUrl,
     smsScript,
+    attachVcard,
+    vcardUrl,
   });
   // Request (QR/ask) vs Reviews (Google & Yelp inbox) — deep-links open Reviews.
   let reviewView = String(q.view || '').trim() === 'reviews' ? 'reviews' : 'request';
@@ -3182,6 +3191,8 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     formValues: defaults,
     smsScript,
     shareSmsText,
+    attachVcard,
+    vcardUrl,
     keywordHint: keywordCtx.keywordHint || '',
     keywordJobTitle: keywordCtx.jobTitle || '',
     keywordCity: keywordCtx.city || '',
@@ -3368,7 +3379,7 @@ router.post('/m/:token/review', form, withMember(async (req, res, ctx) => {
   return res.redirect(303, `${ctx.base}/review${toSettings ? '/settings' : ''}?ok=saved`);
 }));
 
-/** Save the AI/GHL review SMS script + default project keywords. */
+/** Save the AI/GHL review SMS script + default project keywords + vCard attach. */
 router.post('/m/:token/review/script', form, withMember(async (req, res, ctx) => {
   const member = await ensureReviewSetup(ctx);
   const body = req.body || {};
@@ -3376,6 +3387,7 @@ router.post('/m/:token/review/script', form, withMember(async (req, res, ctx) =>
   const saved = await store.saveMember(ctx.network.id, {
     ...member,
     reviewSmsScript: script || reviewRequestScript.DEFAULT_SMS_SCRIPT,
+    reviewAttachVcard: String(body.attachVcard || '') === '1',
     reviewKeywordJob: reviewRequestScript.cleanPhrase(body.keywordJob, 80),
     reviewKeywordCity: reviewRequestScript.cleanPhrase(body.keywordCity, 40),
     reviewKeywords: reviewRequestScript.cleanPhrase(body.keywords, 100),
