@@ -417,10 +417,10 @@
         <h1>Grow reviews &amp; referrals for your business!</h1>
         <% if (_flooring) { %>
         <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
-        <p class="fa-card-lead">Built for flooring partners — reviews, jobs, and referrals on your phone. No timed trial. Lead delivery stays <strong>pay-per-performance</strong>: commission only on leads you approve.</p>
+        <p class="fa-card-lead">Built for flooring partners — reviews, jobs, and referrals on your phone. No timed trial. Leads are <strong>exclusive to one partner per territory</strong> — not shared like HomeAdvisor or Thumbtack. <strong>Pay-per-performance</strong>: commission only on leads you approve.</p>
         <% } else { %>
         <p class="fa-card-trial">30-day free trial · no credit card</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Grow with <strong>pay-per-performance leads</strong> and a referral network — you only pay commission on leads you approve. Plus reviews and jobs on your phone.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong> — <% } %>Grow with <strong>pay-per-performance leads</strong> and a referral network. We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple contractors. Here, leads are <strong>exclusive to one partner for the territory</strong>. You only pay commission on leads you approve. Plus reviews and jobs on your phone.</p>
         <% } %>
 
         <ul class="fa-benefits" aria-label="What you get">
@@ -458,11 +458,11 @@
             </span>
             <div>
               <strong>Pay-per-performance leads</strong>
-              <span>Get leads through the app. Approve what you want — commission only on leads you accept. Decline the rest at no cost.</span>
+              <span>Not shared leads like HomeAdvisor or Thumbtack. Each lead is exclusive to one partner for the territory. Approve what you want — commission only on leads you accept. Decline the rest at no cost.</span>
             </div>
           </li>
         </ul>
-        <div class="fa-perks"><span>Pay per performance</span><span>Referrals</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
+        <div class="fa-perks"><span>Exclusive territory</span><span>Pay per performance</span><span>Referrals</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
 
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
