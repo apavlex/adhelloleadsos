@@ -188,7 +188,9 @@ describe('customer referral unique links', () => {
         url: 'https://reviews.adhello.io/rf/abc123',
       },
     );
-    assert.match(text, /Hey John Cody from TPR Flooring/);
+    // Greeting uses first name only (not "John Cody").
+    assert.match(text, /Hey John from TPR Flooring/);
+    assert.doesNotMatch(text, /John Cody/);
     assert.match(text, /\$25 gift card/);
     assert.match(text, /\/rf\/abc123/);
     const def = links.shareSmsText({
@@ -199,6 +201,9 @@ describe('customer referral unique links', () => {
     });
     assert.match(def, /Hi Sam/);
     assert.match(def, /giveaway or your reward/);
+    assert.equal(links.firstNameForSms('john cody'), 'john');
+    assert.equal(links.firstNameForSms('  Pat  '), 'Pat');
+    assert.equal(links.firstNameForSms(''), 'there');
   });
 });
 

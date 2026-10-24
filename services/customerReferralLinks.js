@@ -342,8 +342,14 @@ function shareScriptFromMember(member) {
   return cleanShareScript(member && member.referralShareScript) || DEFAULT_SHARE_SCRIPT;
 }
 
+/** First name only for SMS greetings (not full “first last”). */
+function firstNameForSms(name) {
+  const part = clean(name, 60).split(/\s+/)[0];
+  return part || 'there';
+}
+
 function fillShareScript(template, { company, name, url, reward } = {}) {
-  const who = clean(name, 60) || 'there';
+  const who = firstNameForSms(name);
   const co = clean(company, 80) || 'us';
   const link = clean(url, 200);
   const prize = clean(reward, 80) || 'a giveaway or your reward';
@@ -382,6 +388,7 @@ module.exports = {
   shareSmsText,
   shareScriptFromMember,
   fillShareScript,
+  firstNameForSms,
   cleanShareScript,
   normalizeAdvocate,
 };
