@@ -6,23 +6,43 @@
 <body>
   <main class="ma-shell">
     <%- include('_top', { topTitle: 'Review', topSettings: { href: base + '/review/settings', label: 'Review settings' } }) %>
-    <h1 class="ma-page-title">Show your QR</h1>
+    <%
+      const _reviewView = typeof reviewView !== 'undefined' && reviewView === 'reviews' ? 'reviews' : 'request';
+      const _grSummaryTab = typeof googleReviewsSummary !== 'undefined' && googleReviewsSummary
+        ? googleReviewsSummary
+        : { newCount: 0, total: 0 };
+      const _grNew = Number(_grSummaryTab.newCount || 0) || 0;
+      const _msg = typeof messaging !== 'undefined' && messaging ? messaging : { configured: false, smsReady: false, emailReady: false };
+      const _fv = typeof formValues !== 'undefined' && formValues ? formValues : { phone: '', email: '', name: '', channel: 'auto', useAi: true };
+      const _script = typeof smsScript !== 'undefined' ? smsScript : '';
+      const _needLinks = !linkCount;
+      const _askOpen = typeof askShare !== 'undefined' && askShare;
+      const _sendLocked = typeof reviewSendLocked !== 'undefined' && reviewSendLocked;
+      const _followUpLocked = _sendLocked;
+    %>
+    <h1 class="ma-page-title"><%= _reviewView === 'reviews' ? 'Google & Yelp reviews' : 'Show your QR' %></h1>
+    <nav class="ma-seg ma-seg--2" aria-label="Review sections">
+      <a href="<%= base %>/review" class="<%= _reviewView === 'request' ? 'is-on' : '' %>">Request</a>
+      <a href="<%= base %>/review?view=reviews" class="<%= _reviewView === 'reviews' ? 'is-on' : '' %>">Reviews<% if (_grNew > 0 && _reviewView !== 'reviews') { %> (<%= _grNew %>)<% } %></a>
+    </nav>
+    <% if (_reviewView === 'reviews') { %>
+    <p class="ma-page-sub">Synced Google and Yelp reviews — reply with AI, then paste back on the site.</p>
+    <% } else { %>
     <p class="ma-page-sub">Let the customer scan to leave a review — or text them a link below.</p>
+    <% } %>
 
     <%- include('_flash') %>
-
-    <% const _msg = typeof messaging !== 'undefined' && messaging ? messaging : { configured: false, smsReady: false, emailReady: false }; %>
-    <% const _fv = typeof formValues !== 'undefined' && formValues ? formValues : { phone: '', email: '', name: '', channel: 'auto', useAi: true }; %>
-    <% const _script = typeof smsScript !== 'undefined' ? smsScript : ''; %>
-    <% const _needLinks = !linkCount; %>
-    <% const _askOpen = typeof askShare !== 'undefined' && askShare; %>
 
     <% if (!(typeof rewardLocked !== 'undefined' && rewardLocked)) { %>
     <%- include('_review_reward_confirm', {
       pendingRewards: typeof pendingRewards !== 'undefined' ? pendingRewards : [],
-      rewardReturnTo: base + '/review',
+      rewardReturnTo: base + '/review' + (_reviewView === 'reviews' ? '?view=reviews' : ''),
     }) %>
     <% } %>
+
+    <% if (_reviewView === 'reviews') { %>
+    <%- include('_google_reviews', { googleReviewsTabMode: true }) %>
+    <% } else { %>
 
     <section class="ma-card ma-qr" style="margin-top:4px" aria-label="Share and QR code">
       <% if (_needLinks) { %>
@@ -73,8 +93,6 @@
       </div>
     </section>
 
-    <% const _sendLocked = typeof reviewSendLocked !== 'undefined' && reviewSendLocked; %>
-    <% const _followUpLocked = _sendLocked; %>
     <details class="ma-fold" id="maAutoFollowUp" <%= _followUpLocked ? 'open' : '' %>>
       <summary>
         Automated follow-ups
@@ -95,8 +113,6 @@
         <% } %>
       </div>
     </details>
-
-    <%- include('_google_reviews') %>
 
     <% /* Only open when ?ask=1 (customer deep-link). Default Review landing stays on QR. */ %>
     <details class="ma-fold" id="maAskForm" <%= !_sendLocked && _askOpen ? 'open' : '' %>>
@@ -390,13 +406,14 @@
         <% } %>
       </div>
     </details>
+    <% } %>
   </main>
   <%- include('_tabbar') %>
   <script>
   document.addEventListener('DOMContentLoaded', function () {
     var name = document.getElementById('rvAskName');
     var phone = document.getElementById('rvAskPhone');
-    <% if (_askOpen) { %>
+    <% if (_reviewView === 'request' && _askOpen) { %>
     var form = document.getElementById('maAskForm');
     if (form) form.scrollIntoView({ behavior: 'smooth', block: 'start' });
     var focusEl = (phone && !phone.disabled && !phone.value) ? phone : name;

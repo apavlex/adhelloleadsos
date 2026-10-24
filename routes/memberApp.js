@@ -3084,6 +3084,9 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     reviewLink: reviewUrl,
     smsScript,
   });
+  // Request (QR/ask) vs Reviews (Google & Yelp inbox) — deep-links open Reviews.
+  let reviewView = String(q.view || '').trim() === 'reviews' ? 'reviews' : 'request';
+  if (googleReviews.googleReviewFocusId) reviewView = 'reviews';
   return render(res, 'review', { ...ctx, member }, reviewPageLocals(member, {
     stats,
     totalStars,
@@ -3114,6 +3117,7 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
     flash: flash || flashFromQuery(req),
+    reviewView,
     ...googleReviews,
   }, ctx.brand), status);
 }

@@ -272,16 +272,23 @@ describe('businessReviews', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const svc = fs.readFileSync(path.join(__dirname, '../services/businessReviews.js'), 'utf8');
     assert.match(review, /_google_reviews/);
-    // QR / request-review stay primary; automated follow-ups + Google inbox are folds below.
-    assert.ok(review.indexOf('ma-qr') < review.indexOf('_google_reviews'));
+    // Request | Reviews tabs (like Referrals); Google & Yelp live on the Reviews tab.
+    assert.match(review, /ma-seg ma-seg--2/);
+    assert.match(review, /Review sections/);
+    assert.match(review, />Request</);
+    assert.match(review, /view=reviews/);
+    assert.match(review, /googleReviewsTabMode:\s*true/);
     assert.match(review, /Show your QR/);
+    assert.match(review, /Google & Yelp reviews/);
     assert.match(review, /id="maAutoFollowUp"/);
     assert.match(review, /Automated follow-ups/);
     assert.match(review, /Automated follow-ups are on the monthly plan/);
     assert.match(review, /monthly plan/);
-    assert.ok(review.indexOf('maAutoFollowUp') < review.indexOf('_google_reviews'));
+    assert.match(review, /ma-qr/);
     const join = fs.readFileSync(path.join(__dirname, '../views/member_app/join.ejs'), 'utf8');
     assert.match(join, /Automated ~48h follow-up/);
+    assert.match(partial, /googleReviewsTabMode/);
+    assert.match(partial, /ma-gr-tab/);
     assert.match(partial, /Generate with AI/);
     assert.match(partial, /Generating…/);
     assert.match(partial, /aria-busy/);
@@ -296,6 +303,9 @@ describe('businessReviews', () => {
     assert.match(partial, /Yelp request-site link/);
     assert.match(partial, /request sites/);
     assert.doesNotMatch(partial, /id="maGrQuery"/);
+    assert.match(route, /reviewView/);
+    assert.match(route, /=== 'reviews'/);
+    assert.match(route, /googleReviewFocusId/);
     assert.match(route, /google-reviews\/sync/);
     assert.match(route, /resolveQueryFromMember\(member\)/);
     assert.match(route, /resolveYelpQueryFromMember\(member\)/);
