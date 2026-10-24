@@ -1515,14 +1515,13 @@ router.get('/m/:token/quote/:id/photos/:photoId', withMember(async (req, res, ct
   return res.send(photo.buffer);
 }));
 
-/** Accepted ?view= values. Canonical: lead · link/request · board/analytics · script. */
-const SEND_VIEWS = new Set(['lead', 'link', 'board', 'request', 'analytics', 'script']);
-/** Map public aliases onto lead / link / board / script. */
+/** Accepted ?view= values. Canonical: lead · link/request · board/analytics. */
+const SEND_VIEWS = new Set(['lead', 'link', 'board', 'request', 'analytics', 'script', 'setup']);
+/** Map public aliases onto lead / link / board. Legacy script/setup → Request. */
 function normalizeSendView(raw) {
   const v = String(raw || '').trim();
-  if (v === 'request' || v === 'link') return 'link';
+  if (v === 'request' || v === 'link' || v === 'script' || v === 'setup') return 'link';
   if (v === 'analytics' || v === 'board') return 'board';
-  if (v === 'script' || v === 'setup') return 'script';
   if (v === 'lead') return 'lead';
   return 'lead';
 }
@@ -1538,7 +1537,8 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
   }
   const customerReferralLinks = require('../services/customerReferralLinks');
   const q = (req && req.query) || {};
-  const sendView = normalizeSendView(q.view);
+  const rawView = String(q.view || '').trim();
+  const sendView = normalizeSendView(rawView);
   const pickCustomerId = String(q.customer || '').trim();
   const [directory, customers, advocates] = await Promise.all([
     directoryFor(ctx.network, ctx.member),
@@ -1599,13 +1599,22 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
     };
   }
   const rewardSettings = reviewReferralReward.settingsFromMember(ctx.member);
+  const resolvedFlash = flash || flashFromQuery(req);
+  const flashOk = String((resolvedFlash && resolvedFlash.ok) || '').trim();
+  const referralSetupOpen =
+    rawView === 'script'
+    || rawView === 'setup'
+    || String(q.setup || '') === '1'
+    || flashOk === 'share_script_saved'
+    || flashOk === 'reward_saved';
   return render(res, 'send', ctx, {
     directory,
-    flash: flash || flashFromQuery(req),
+    flash: resolvedFlash,
     formValues: formValues || {},
     referralsLocked: false,
     upgradeHref: '/signup',
     sendView,
+    referralSetupOpen: sendView === 'link' && referralSetupOpen,
     // All customers (not just review-givers) for Request typeahead — live filter in the browser.
     customers: customers
       .filter((c) => c && !c.isQuoteRequest)
@@ -1675,7 +1684,7 @@ router.post('/m/:token/send', form, withMember(async (req, res, ctx) => {
   return res.redirect(303, `${ctx.base}?ok=${result.referral.status === 'sent' ? 'sent' : 'matched'}`);
 }));
 
-/** Save SMS request script and/or referral reward (Referrals → Script). */
+/** Save SMS request script and/or referral reward (Referrals → Request fold). */
 router.post('/m/:token/send/setup', form, withMember(async (req, res, ctx) => {
   if (freeAppSignup.isFlooringOffer(ctx.member)) {
     return res.redirect(303, `${ctx.base}/quote`);
@@ -1687,27 +1696,30 @@ router.post('/m/:token/send/setup', form, withMember(async (req, res, ctx) => {
   const body = req.body || {};
   const section = String(body.section || '').trim();
   const member = await ensureReviewSetup(ctx);
+  const requestQuery = { ...(req.query || {}), view: 'request', setup: '1' };
   if (section === 'share_script') {
     const script = customerReferralLinks.cleanShareScript(body.referralShareScript);
     if (!script) {
+      req.query = requestQuery;
       return renderSend(req, res, { ...ctx, member }, {
         error: 'Add an SMS script before saving.',
       }, body, 400);
     }
     await store.saveMember(ctx.network.id, { ...member, referralShareScript: script });
-    return res.redirect(303, `${ctx.base}/send?view=script&ok=share_script_saved`);
+    return res.redirect(303, `${ctx.base}/send?view=request&ok=share_script_saved`);
   }
   if (section === 'reward') {
     const reward = reviewReferralReward.settingsFromBody(body);
     if (reward.enabled && !reward.rewardLabel) {
+      req.query = requestQuery;
       return renderSend(req, res, { ...ctx, member }, {
         error: 'Add what they get (e.g. “$25 gift card”) before turning the reward on.',
       }, body, 400);
     }
     await store.saveMember(ctx.network.id, { ...member, reviewReward: reward });
-    return res.redirect(303, `${ctx.base}/send?view=script&ok=reward_saved`);
+    return res.redirect(303, `${ctx.base}/send?view=request&ok=reward_saved`);
   }
-  return res.redirect(303, `${ctx.base}/send?view=script`);
+  return res.redirect(303, `${ctx.base}/send?view=request&setup=1`);
 }));
 
 /** Mark a customer-referral conversion confirmed or rewarded (Send → Board). */
@@ -3378,10 +3390,10 @@ router.post('/m/:token/review/reward', form, withMember(async (req, res, ctx) =>
   const member = await ensureReviewSetup(ctx);
   const reward = reviewReferralReward.settingsFromBody(req.body || {});
   if (reward.enabled && !reward.rewardLabel) {
-    return res.redirect(303, `${ctx.base}/send?view=script&errmsg=${encodeURIComponent('Add what they get (e.g. “$25 gift card”) before turning the reward on.')}`);
+    return res.redirect(303, `${ctx.base}/send?view=request&setup=1&errmsg=${encodeURIComponent('Add what they get (e.g. “$25 gift card”) before turning the reward on.')}`);
   }
   await store.saveMember(ctx.network.id, { ...member, reviewReward: reward });
-  return res.redirect(303, `${ctx.base}/send?view=script&ok=reward_saved`);
+  return res.redirect(303, `${ctx.base}/send?view=request&ok=reward_saved`);
 }));
 
 function rewardReturnPath(ctx, body, ask) {

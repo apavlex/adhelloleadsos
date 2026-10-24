@@ -1163,8 +1163,8 @@ test('free app_free members cannot send GHL review SMS/email', async () => {
     assert.doesNotMatch(blocked.headers.get('location') || '', /ask=1/);
 
     const settingsHtml = await (await fetch(`${base}/review/settings`)).text();
-    assert.match(settingsHtml, /Referral SMS|Open Script/);
-    assert.match(settingsHtml, /send\?view=script/);
+    assert.match(settingsHtml, /Referral SMS|Open SMS script/);
+    assert.match(settingsHtml, /send\?view=request/);
     assert.doesNotMatch(settingsHtml, /action="[^"]*\/review\/reward"/);
 
     const rewardBlocked = await fetch(`${base}/review/reward`, {

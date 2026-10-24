@@ -100,7 +100,7 @@ describe('customer referral unique links', () => {
     assert.ok(dash2.rewarded.some((r) => r.conversionId === conv.conversion.id));
   });
 
-  it('Send page exposes Send / Request / Analytics / Script tabs and simple board UI', () => {
+  it('Send page exposes Send / Request / Analytics and SMS script fold on Request', () => {
     const send = fs.readFileSync(path.join(__dirname, '../views/member_app/send.ejs'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
@@ -109,15 +109,18 @@ describe('customer referral unique links', () => {
     assert.match(send, />Send</);
     assert.match(send, /view=request/);
     assert.match(send, /view=analytics/);
-    assert.match(send, /view=script/);
     assert.match(send, />Request</);
     assert.match(send, />Analytics/);
-    assert.match(send, />Script</);
-    assert.match(send, /ma-seg--4/);
+    assert.doesNotMatch(send, />Script</);
+    assert.doesNotMatch(send, /ma-seg--4/);
+    assert.match(send, /ma-seg--3/);
+    assert.match(send, /ma-fold/);
+    assert.match(send, /id="maRefScript"/);
+    assert.match(send, /SMS script/);
     assert.match(send, /_referral_setup/);
     assert.match(send, /Request a referral/);
     assert.match(send, /Send a referral/);
-    assert.match(send, /earn a giveaway or your reward/);
+    assert.match(send, /unique tracked referral URL|earn a giveaway or your reward/);
     assert.match(send, /Type a name or phone|Search any customer/);
     assert.match(send, /results update as you type/);
     assert.match(send, /data-ma-customer-pick/);
@@ -138,11 +141,11 @@ describe('customer referral unique links', () => {
     assert.match(send, />Request</);
     assert.match(send, />Analytics/);
     assert.doesNotMatch(send, />Board</);
-    assert.match(setup, /SMS request script/);
+    assert.match(setup, /SMS request script|unique referral link/);
     assert.match(setup, /referralShareScript/);
     assert.match(setup, /Referral reward/);
     assert.match(setup, /name="rewardLabel"/);
-    assert.match(css, /\.ma-seg--4/);
+    assert.match(css, /\.ma-fold/);
     assert.match(css, /\.ma-refdash__board/);
     assert.match(css, /\.ma-refdash__reward-row/);
     assert.match(css, /\.ma-refdash__row\s*\{[^}]*display:\s*grid\s*!important/);
@@ -153,6 +156,8 @@ describe('customer referral unique links', () => {
     assert.match(route, /normalizeSendView/);
     assert.match(route, /send\/setup/);
     assert.match(route, /share_script_saved/);
+    assert.match(route, /view=request/);
+    assert.match(route, /referralSetupOpen/);
     assert.match(route, /customerReferralLinks/);
     assert.match(route, /send\/referral\/:code\/:conversionId/);
     assert.match(route, /cust_ref_rewarded/);
