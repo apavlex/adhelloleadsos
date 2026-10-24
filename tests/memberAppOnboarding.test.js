@@ -104,6 +104,36 @@ test('dismiss hides the checklist', () => {
   assert.equal(list.dismissed, true);
 });
 
+test('checklist only shows for new first-time members', () => {
+  const fresh = {
+    id: 'm_new',
+    companyName: 'Acme',
+    contactName: 'Pat',
+    phone: '555',
+    reviewLinks: {},
+    joinedAt: new Date().toISOString(),
+    plan: 'app_free',
+    setupChecklist: { dismissedAt: '', marked: {} },
+  };
+  assert.equal(
+    memberAppOnboarding.buildChecklist({ member: fresh, network: { id: 'n1' }, base: '/m/tok' }).show,
+    true,
+  );
+
+  const oldJoin = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+  const veteran = { ...fresh, id: 'm_old', joinedAt: oldJoin, plan: 'app_flooring' };
+  assert.equal(
+    memberAppOnboarding.buildChecklist({ member: veteran, network: { id: 'n1' }, base: '/m/tok' }).show,
+    false,
+  );
+
+  const noJoin = { ...fresh, id: 'm_none', joinedAt: '' };
+  assert.equal(
+    memberAppOnboarding.buildChecklist({ member: noJoin, network: { id: 'n1' }, base: '/m/tok' }).show,
+    false,
+  );
+});
+
 test('Home and routes expose the setup checklist', () => {
   const home = fs.readFileSync(path.join(__dirname, '../views/member_app/home.ejs'), 'utf8');
   const partial = fs.readFileSync(path.join(__dirname, '../views/member_app/_onboarding.ejs'), 'utf8');
@@ -116,12 +146,16 @@ test('Home and routes expose the setup checklist', () => {
   assert.match(partial, /data-ma-onboard-step/);
   assert.match(partial, /data-ma-onboard-action="notifications"/);
   assert.match(partial, /data-ma-install-open/);
+  assert.match(partial, /data-ma-onboard-done/);
+  assert.match(partial, /data-ma-onboard-progress/);
   assert.match(service, /Fill out your profile/);
   assert.match(service, /Add review links/);
   assert.match(service, /banner image/i);
   assert.match(service, /phone alerts/i);
   assert.match(service, /Home Screen/);
+  assert.match(service, /isNewFirstTimeMember|firstOpenedAt|SHOW_DAYS/);
   assert.match(route, /setupChecklist/);
+  assert.match(route, /markFirstOpened/);
   assert.match(route, /\/setup\/step/);
   assert.match(route, /\/setup\/dismiss/);
   assert.match(css, /\.ma-onboard__/);

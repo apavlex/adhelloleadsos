@@ -1,4 +1,4 @@
-<%# Reviews-app setup checklist — Home after signup. Expects `setupChecklist`. %>
+<%# Reviews-app setup checklist — Home for first-time openers only. Expects `setupChecklist`. %>
 <% const _sc = typeof setupChecklist !== 'undefined' && setupChecklist ? setupChecklist : null; %>
 <% if (_sc && _sc.show && _sc.steps && _sc.steps.length) { %>
 <section class="ma-section ma-onboard" id="maOnboarding" aria-label="Get set up" data-ma-onboard>
@@ -7,14 +7,14 @@
       <div class="min-w-0">
         <p class="ma-onboard__eyebrow">Get set up</p>
         <h2 class="ma-onboard__title">Finish your Reviews app</h2>
-        <p class="ma-onboard__progress"><%= _sc.doneCount %> of <%= _sc.total %> done</p>
+        <p class="ma-onboard__progress" data-ma-onboard-progress><%= _sc.doneCount %> of <%= _sc.total %> done</p>
       </div>
       <form method="post" action="<%= base %>/setup/dismiss" class="ma-onboard__dismiss-form">
         <button type="submit" class="ma-onboard__dismiss" aria-label="Hide setup checklist">Not now</button>
       </form>
     </div>
     <div class="ma-onboard__bar" aria-hidden="true">
-      <span class="ma-onboard__bar-fill" style="width:<%= Math.round((_sc.doneCount / _sc.total) * 100) %>%"></span>
+      <span class="ma-onboard__bar-fill" data-ma-onboard-bar style="width:<%= Math.round((_sc.doneCount / _sc.total) * 100) %>%"></span>
     </div>
     <ol class="ma-onboard__list">
       <% _sc.steps.forEach(function (step, i) { %>
@@ -25,7 +25,7 @@
           <p class="ma-onboard__step-hint"><%= step.hint %></p>
         </div>
         <% if (step.done) { %>
-        <span class="ma-onboard__done-label">Done</span>
+        <a class="ma-onboard__done-label" href="<%= step.href %>" data-ma-onboard-done>Done</a>
         <% } else if (step.action === 'notifications') { %>
         <button type="button" class="ma-btn ma-btn--soft ma-onboard__cta" data-ma-onboard-action="notifications"><%= step.cta %></button>
         <% } else if (step.action === 'install') { %>
@@ -49,30 +49,53 @@
   if (!root || root.getAttribute('data-ma-onboard-ready')) return;
   root.setAttribute('data-ma-onboard-ready', '1');
   var base = <%- JSON.stringify(typeof base !== 'undefined' ? base : '') %>;
+  var total = <%= Number(_sc.total) || 5 %>;
 
   function postStep(stepId) {
-    if (!base || !stepId) return Promise.resolve();
+    if (!base || !stepId) return Promise.resolve({ ok: false });
     return fetch(base + '/setup/step', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       credentials: 'same-origin',
       body: JSON.stringify({ step: stepId }),
-    }).catch(function () {});
+    }).then(function (res) {
+      return res.json().then(function (data) {
+        return { ok: res.ok && data && data.success !== false, data: data };
+      }).catch(function () { return { ok: res.ok }; });
+    }).catch(function () { return { ok: false }; });
+  }
+
+  function refreshProgress() {
+    var done = root.querySelectorAll('.ma-onboard__item.is-done').length;
+    var label = root.querySelector('[data-ma-onboard-progress]');
+    var bar = root.querySelector('[data-ma-onboard-bar]');
+    if (label) label.textContent = done + ' of ' + total + ' done';
+    if (bar) bar.style.width = Math.round((done / total) * 100) + '%';
   }
 
   function markLocal(stepId) {
     var item = root.querySelector('[data-ma-onboard-step="' + stepId + '"]');
-    if (!item || item.classList.contains('is-done')) return;
+    if (!item || item.classList.contains('is-done')) {
+      refreshProgress();
+      return;
+    }
     item.classList.add('is-done');
     var check = item.querySelector('.ma-onboard__check');
     if (check) check.textContent = '✓';
     var cta = item.querySelector('.ma-onboard__cta');
     if (cta) {
-      var done = document.createElement('span');
+      var href = cta.getAttribute('href') || base + '/';
+      if (stepId === 'review_links') href = base + '/review/settings';
+      if (stepId === 'profile') href = base + '/profile';
+      if (stepId === 'banner') href = base + '/#ma-onboarding-banner';
+      var done = document.createElement('a');
       done.className = 'ma-onboard__done-label';
+      done.setAttribute('data-ma-onboard-done', '');
+      done.href = href;
       done.textContent = 'Done';
       cta.replaceWith(done);
     }
+    refreshProgress();
   }
 
   var heroInput = document.getElementById('maOnboardHeroInput');
@@ -87,6 +110,9 @@
 
   root.querySelectorAll('[data-ma-onboard-action="notifications"]').forEach(function (btn) {
     btn.addEventListener('click', function () {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.textContent = 'Turning on…';
       var nudge = document.getElementById('maPushNudge');
       var enable = nudge && nudge.querySelector('[data-ma-push-nudge-enable]');
       if (enable) {
@@ -94,30 +120,35 @@
         enable.click();
       } else if (window.AdHelloMemberPush && typeof window.AdHelloMemberPush.enable === 'function') {
         window.AdHelloMemberPush.enable();
+      } else {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.textContent = 'Turn on alerts';
       }
     });
   });
 
   // Push subscribe route marks the step server-side; refresh UI when permission lands.
   window.addEventListener('ma-push-enabled', function () {
-    markLocal('notifications');
+    postStep('notifications').then(function () { markLocal('notifications'); });
   });
 
   window.addEventListener('ma-install-closed', function (ev) {
     if (ev && ev.detail && ev.detail.persist) {
-      postStep('home_screen').then(function () { markLocal('home_screen'); });
+      postStep('home_screen').then(function (r) {
+        if (r && r.ok) markLocal('home_screen');
+      });
     }
   });
 
+  // Already running as installed PWA — count Home Screen step as done.
   var standalone =
     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
     window.navigator.standalone === true;
   if (standalone) {
-    postStep('home_screen').then(function () { markLocal('home_screen'); });
-  }
-
-  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-    postStep('notifications').then(function () { markLocal('notifications'); });
+    postStep('home_screen').then(function (r) {
+      if (r && r.ok) markLocal('home_screen');
+    });
   }
 })();
 </script>

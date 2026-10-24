@@ -52,7 +52,8 @@ const STEPS = [
   },
 ];
 
-const SHOW_DAYS = 45;
+/** Only show the Home setup card to members who joined recently (first-time users). */
+const SHOW_DAYS = 14;
 
 function normalizeMeta(raw) {
   const m = raw && typeof raw === 'object' ? raw : {};
@@ -63,8 +64,17 @@ function normalizeMeta(raw) {
   });
   return {
     dismissedAt: String(m.dismissedAt || '').trim().slice(0, 40),
+    firstOpenedAt: String(m.firstOpenedAt || '').trim().slice(0, 40),
     marked: outMarked,
   };
+}
+
+function isNewFirstTimeMember(member) {
+  const joinedMs = Date.parse((member && member.joinedAt) || '') || 0;
+  if (!joinedMs) return false;
+  const ageDays = (Date.now() - joinedMs) / (24 * 60 * 60 * 1000);
+  // Only recent signups / first-time openers — hide from long-time partners.
+  return ageDays <= SHOW_DAYS;
 }
 
 function profileComplete(member) {
@@ -153,11 +163,9 @@ function buildChecklist({
   const total = steps.length;
   const allDone = doneCount >= total;
   const dismissed = !!meta.dismissedAt;
-  const joinedMs = Date.parse((member && member.joinedAt) || '') || 0;
-  const ageDays = joinedMs ? (Date.now() - joinedMs) / (24 * 60 * 60 * 1000) : 0;
-  const withinWindow = !joinedMs || ageDays <= SHOW_DAYS;
-  const isFree = isFreemiumMember(member);
-  const show = !dismissed && !allDone && (isFree || withinWindow);
+  const firstTime = isNewFirstTimeMember(member, meta);
+  // New first-time openers only — not long-time flooring/free partners.
+  const show = !dismissed && !allDone && firstTime;
 
   return {
     show,
@@ -169,7 +177,15 @@ function buildChecklist({
     steps,
     meta,
     next: steps.find((s) => !s.done) || null,
+    firstTime,
   };
+}
+
+/** Stamp first Home open so we can tell first-time openers from returning users. */
+function markFirstOpened(metaIn) {
+  const meta = normalizeMeta(metaIn);
+  if (!meta.firstOpenedAt) meta.firstOpenedAt = new Date().toISOString();
+  return meta;
 }
 
 function markStep(metaIn, stepId) {
@@ -193,7 +209,9 @@ module.exports = {
   profileComplete,
   reviewLinksComplete,
   bannerComplete,
+  isNewFirstTimeMember,
   buildChecklist,
+  markFirstOpened,
   markStep,
   dismiss,
 };
