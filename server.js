@@ -69,6 +69,7 @@ const networkPublicRoutes = require('./routes/networkPublic');
 const memberAppRoutes = require('./routes/memberApp');
 const contractorPortalRoutes = require('./routes/contractorPortal');
 const reviewPublicRoutes = require('./routes/reviewPublic');
+const businessVcardPublicRoutes = require('./routes/businessVcardPublic');
 const whiteLabelRoutes = require('./routes/whiteLabel');
 const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
@@ -515,6 +516,7 @@ app.use('/', memberAppRoutes);
 // Contractor business portal (/p/:token) — appointments, form leads, package requests
 app.use('/', contractorPortalRoutes);
 app.use('/', reviewPublicRoutes);
+app.use('/', businessVcardPublicRoutes);
 app.use('/', require('./routes/customerReferralPublic'));
 // White-label logo, Home Screen icons and manifest (no session)
 app.use('/', whiteLabelRoutes);

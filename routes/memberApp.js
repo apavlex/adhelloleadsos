@@ -1012,20 +1012,23 @@ async function ownerWorkspaceBrandForProfile(ctx) {
 }
 
 async function renderProfile(req, res, ctx, flash, formValues, status) {
-  const member = ctx.member;
+  const businessVcard = require('../services/businessVcard');
+  const member = await ensureReviewSetup(ctx);
   const fv = formValues || {
     companyName: member.companyName || '',
     contactName: member.contactName || '',
     phone: member.phone || '',
     email: member.email || '',
   };
-  const workspaceBrand = await ownerWorkspaceBrandForProfile(ctx);
-  return render(res, 'profile', ctx, {
+  const workspaceBrand = await ownerWorkspaceBrandForProfile({ ...ctx, member });
+  const vcard = businessVcard.vcardFromMember(member);
+  return render(res, 'profile', { ...ctx, member }, {
     active: 'profile',
     formValues: fv,
     flash: flash || flashFromQuery(req),
     workspaceBrand,
     canEditWorkspaceBrand: !!workspaceBrand,
+    vcardUrl: vcard ? vcard.url : '',
   }, status);
 }
 

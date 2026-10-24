@@ -101,6 +101,19 @@
       </form>
     </section>
 
+    <% if (typeof vcardUrl !== 'undefined' && vcardUrl) { %>
+    <section class="ma-card" aria-label="Contact card">
+      <h2 style="font-size:16px;margin:0 0 6px">Contact card (vCard)</h2>
+      <p class="ma-hint" style="margin-top:0">One link customers can tap to save your business to their phone. Stays the same as long as your review page slug does — built from your name, phone, email, and photo above.</p>
+      <label class="ma-label" for="maVcardUrl">Your vCard link</label>
+      <div class="ma-link-box">
+        <code id="maVcardUrl"><%= vcardUrl %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= vcardUrl %>"><%- icons.copy %> Copy</button>
+      </div>
+      <p class="ma-hint" style="margin-bottom:0">Open to preview: <a href="<%= vcardUrl %>" rel="noopener"><%= vcardUrl.replace(/^https?:\/\//, '') %></a></p>
+    </section>
+    <% } %>
+
     <section class="ma-card" aria-label="Appearance">
       <h2 style="font-size:16px;margin:0 0 6px">Appearance</h2>
       <p class="ma-hint" style="margin-top:0">Light or dark for this device. Workspace → White label light/dark wins again the next time appearance is saved there. Labels under Call / Text / Review / Map follow this.</p>
