@@ -19,9 +19,11 @@
   const _grHasGoogleSite = !!_grRequestLink;
   const _grHasYelpSite = !!_yelpRequestLink;
   const _grHasAnySite = _grHasGoogleSite || _grHasYelpSite;
-  // Keep QR landing primary: only auto-open for upgrade gate, focus deep-link, or new reviews.
+  // Tab mode (Reviews page) skips the fold; legacy fold auto-opens for upgrade/focus/new.
+  const _grTab = typeof googleReviewsTabMode !== 'undefined' && googleReviewsTabMode;
   const _grOpen = _grFocus || _grLocked || (_grPaid && _grSummary.newCount > 0);
 %>
+<% if (!_grTab) { %>
 <details class="ma-fold" id="maGoogleReviews" <%= _grOpen ? 'open' : '' %>>
   <summary>
     Google &amp; Yelp reviews
@@ -34,6 +36,9 @@
     </span>
   </summary>
   <div class="ma-fold__body">
+<% } else { %>
+<section id="maGoogleReviews" class="ma-gr-tab" aria-label="Google and Yelp reviews">
+<% } %>
     <% if (_grLocked) { %>
     <%- include('_upgrade_gate', {
       upgradeTitle: 'See Google & Yelp reviews & reply with AI',
@@ -280,5 +285,9 @@
     })();
     </script>
     <% } %>
+<% if (!_grTab) { %>
   </div>
 </details>
+<% } else { %>
+</section>
+<% } %>
