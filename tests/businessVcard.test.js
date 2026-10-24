@@ -18,7 +18,7 @@ describe('businessVcard', () => {
       email: 'hi@acme.example',
       website: 'https://acmefloors.example',
       reviewUrl: 'https://reviews.adhello.io/rv/acme-floors',
-      photoUrl: 'https://reviews.adhello.io/rv/acme-floors/avatar.png?v=1',
+      photoUrl: 'https://reviews.adhello.io/rv/acme-floors/logo.png?v=1',
     });
     assert.match(body, /^BEGIN:VCARD\r\n/);
     assert.match(body, /\r\nVERSION:3\.0\r\n/);
@@ -33,12 +33,26 @@ describe('businessVcard', () => {
     assert.match(body, /\r\nEMAIL;TYPE=INTERNET:hi@acme\.example\r\n/);
     assert.match(body, /\r\nURL;TYPE=WORK:https:\/\/acmefloors\.example\r\n/);
     assert.match(body, /\r\nURL:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\r\n/);
-    assert.match(body, /\r\nPHOTO;VALUE=URI;TYPE=JPEG:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\/avatar\.png\?v=1\r\n/);
+    assert.match(body, /\r\nPHOTO;VALUE=URI;TYPE=JPEG:https:\/\/reviews\.adhello\.io\/rv\/acme-floors\/logo\.png\?v=1\r\n/);
     assert.match(body, /\r\nNOTE:Contact: John Cody\r\n/);
     assert.match(body, /\r\nEND:VCARD\r\n$/);
     assert.equal(businessVcard.usablePhone('N/A'), '');
     assert.equal(businessVcard.usablePhone('alex@adhello.io'), '');
     assert.equal(businessVcard.usablePhone('(360) 555-1212'), '(360) 555-1212');
+    // Embedded App branding logo (what iOS actually shows on the contact).
+    const tinyJpeg = Buffer.from(
+      '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigD//2Q==',
+      'base64',
+    );
+    const withEmbed = businessVcard.buildVcard({
+      fn: 'Acme Floors',
+      org: 'Acme Floors',
+      photoBuffer: tinyJpeg,
+      photoContentType: 'image/jpeg',
+    });
+    assert.match(withEmbed, /PHOTO;ENCODING=b;TYPE=JPEG:/);
+    assert.doesNotMatch(withEmbed, /PHOTO;VALUE=URI/);
+    assert.match(businessVcard.foldVcardLine('A'.repeat(80)), /\r\n /);
 
     assert.equal(businessVcard.escapeVcardValue('A;B,C\\D\nE'), 'A\\;B\\,C\\\\D\\nE');
     const escaped = businessVcard.buildVcard({
@@ -59,7 +73,7 @@ describe('businessVcard', () => {
       contactName: 'Pat Lee',
       phone: '3605551212',
       email: 'pat@example.com',
-      profilePhotoUpdatedAt: '2026-01-01T00:00:00.000Z',
+      reviewLogoUpdatedAt: '2026-01-01T00:00:00.000Z',
       reviewLinks: { other: [{ label: 'Website', url: 'https://camasflooring.example' }] },
     });
     assert.ok(card);
@@ -69,13 +83,26 @@ describe('businessVcard', () => {
     assert.match(card.body, /TEL;TYPE=WORK,VOICE:3605551212/);
     assert.match(card.body, /TEL;TYPE=CELL,VOICE:3605551212/);
     assert.match(card.body, /URL;TYPE=WORK:https:\/\/camasflooring\.example/);
-    assert.match(card.body, /PHOTO;VALUE=URI.*avatar\.png/);
-    // Falls back to request-page logo when no profile photo.
+    assert.match(card.body, /PHOTO;VALUE=URI.*logo\.png/);
+    // URI fallback prefers business logo over personal profile photo.
     const logoOnly = businessVcard.photoUriForMember({
       reviewSlug: 'camas-flooring',
       reviewLogoUpdatedAt: '2026-02-01T00:00:00.000Z',
+      profilePhotoUpdatedAt: '2026-03-01T00:00:00.000Z',
     });
     assert.match(logoOnly, /\/rv\/camas-flooring\/logo\.png/);
+    assert.doesNotMatch(logoOnly, /avatar/);
+    // Embedded branding logo wins over URI.
+    const embedded = businessVcard.vcardFromMember(
+      {
+        reviewSlug: 'camas-flooring',
+        companyName: 'Camas Flooring',
+        reviewLogoUpdatedAt: '2026-01-01T00:00:00.000Z',
+      },
+      { photoBuffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]), photoContentType: 'image/jpeg' },
+    );
+    assert.match(embedded.body, /PHOTO;ENCODING=b;TYPE=JPEG:/);
+    assert.doesNotMatch(embedded.body, /PHOTO;VALUE=URI/);
     assert.equal(businessVcard.vcardFromMember({ companyName: 'No slug' }), null);
     // Lead phone fills in when the member profile phone is empty.
     const fromLead = businessVcard.vcardFromMember(
@@ -101,9 +128,12 @@ describe('businessVcard', () => {
     assert.match(route, /text\/vcard; charset=utf-8/);
     assert.match(route, /Content-Disposition/);
     assert.match(route, /leadExtrasForMember/);
+    assert.match(route, /brandingPhotoForMember/);
+    assert.match(route, /compressPublicPageLogo|photoBuffer/);
     assert.match(server, /businessVcardPublic/);
     assert.match(profile, /vcardUrl/);
     assert.match(profile, /Contact card \(vCard\)/);
+    assert.match(profile, /App branding/);
     assert.match(profile, /vcardHasPhone|No phone on this card/);
     assert.match(profile, /data-ma-copy=/);
     assert.match(memberApp, /vcardUrl/);
