@@ -339,7 +339,7 @@
     .fa-terms-details ul { margin: 0.35rem 0 0; padding-left: 1.1rem; }
     .fa-terms-details li + li { margin-top: 0.25rem; }
     .fa-faq {
-      margin-top: 1.15rem;
+      margin-top: 1.75rem;
       display: grid;
       gap: 0.5rem;
     }
@@ -583,26 +583,6 @@
         </div>
         <div class="fa-perks"><span>SMS &amp; QR reviews</span><span>No App Store</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
 
-        <section class="fa-faq" aria-label="FAQ">
-          <p class="fa-faq__title">More info</p>
-          <details>
-            <summary>How do I get more reviews?</summary>
-            <p class="fa-faq__body">Send an <strong>SMS</strong> or show a <strong>QR code</strong> the moment the job is complete — customers leave a Google review while they’re still happy. Keep customers, jobs &amp; CRM on your Home Screen. No App Store.</p>
-          </details>
-          <details>
-            <summary>What extras are included?</summary>
-            <p class="fa-faq__body">Reviews are the focus. Included extras: a <strong>word-of-mouth system</strong> that automatically asks your <strong>top customers</strong> for referrals, plus <strong>pay-per-performance leads</strong> like Google Service Ads across <strong>Google, Meta, Yelp</strong>, and more — direct to your website &amp; CRM, exclusive for your territory (not shared with other local companies). You can decline work that doesn’t match.</p>
-          </details>
-          <details>
-            <summary>How are leads different from HomeAdvisor?</summary>
-            <p class="fa-faq__body">We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple local companies. Here, leads are <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner for the territory</strong> — never shared with other local companies.</p>
-          </details>
-          <details>
-            <summary>Is this like Google Service Ads?</summary>
-            <p class="fa-faq__body"><strong>Yes — just like Google Service Ads</strong>, but across our network including <strong>Google, Meta, Yelp</strong>, and more. Pay-per-performance on the leads you take.</p>
-          </details>
-        </section>
-
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
             <% errors.forEach(function (e) { %><li><%= e %></li><% }) %>
@@ -706,6 +686,26 @@
             }
           })();
         </script>
+
+        <section class="fa-faq" aria-label="FAQ">
+          <p class="fa-faq__title">More info</p>
+          <details>
+            <summary>How do I get more reviews?</summary>
+            <p class="fa-faq__body">Send an <strong>SMS</strong> or show a <strong>QR code</strong> the moment the job is complete — customers leave a Google review while they’re still happy. Keep customers, jobs &amp; CRM on your Home Screen. No App Store.</p>
+          </details>
+          <details>
+            <summary>What extras are included?</summary>
+            <p class="fa-faq__body">Reviews are the focus. Included extras: a <strong>word-of-mouth system</strong> that automatically asks your <strong>top customers</strong> for referrals, plus <strong>pay-per-performance leads</strong> like Google Service Ads across <strong>Google, Meta, Yelp</strong>, and more — direct to your website &amp; CRM, exclusive for your territory (not shared with other local companies). You can decline work that doesn’t match.</p>
+          </details>
+          <details>
+            <summary>How are leads different from HomeAdvisor?</summary>
+            <p class="fa-faq__body">We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple local companies. Here, leads are <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner for the territory</strong> — never shared with other local companies.</p>
+          </details>
+          <details>
+            <summary>Is this like Google Service Ads?</summary>
+            <p class="fa-faq__body"><strong>Yes — just like Google Service Ads</strong>, but across our network including <strong>Google, Meta, Yelp</strong>, and more. Pay-per-performance on the leads you take.</p>
+          </details>
+        </section>
 
         <p class="fa-foot">Already in a network? <a class="underline" href="<%= _login %>">Get your link</a>. Need leads + CRM? <a class="underline" href="<%= _trial %>">Start Agency OS trial</a>.</p>
       <% } %>
