@@ -7,7 +7,7 @@
  */
 
 const DEFAULT_SCRIPT =
-  'Thanks for the {{stars}}★ review, {{name}}! If you refer a friend or family member who books with {{company}}, you get {{reward}}. Reply with their name and number and we’ll take care of them.';
+  'Thanks for the {{stars}}★ review, {{name}}! Share your personal link — when a friend books with {{company}}, you get {{reward}}: {{referral_link}}';
 
 const REWARD_TYPES = new Set(['gift_card', 'discount', 'prize', 'custom']);
 
@@ -57,22 +57,30 @@ function qualifies(settings, rating, member) {
   return !!(s.enabled && s.rewardLabel && r >= s.minStars && r <= 5);
 }
 
-function fillScript(template, { name, company, stars, reward }) {
+function fillScript(template, { name, company, stars, reward, referralLink }) {
   const src = clean(template, 500) || DEFAULT_SCRIPT;
-  return src
+  const link = clean(referralLink, 200);
+  let out = src
     .replace(/\{\{\s*name\s*\}\}/gi, clean(name, 60) || 'there')
     .replace(/\{\{\s*company\s*\}\}/gi, clean(company, 80) || 'us')
     .replace(/\{\{\s*stars\s*\}\}/gi, String(stars || 5))
-    .replace(/\{\{\s*reward\s*\}\}/gi, clean(reward, 80) || 'a thank-you gift');
+    .replace(/\{\{\s*reward\s*\}\}/gi, clean(reward, 80) || 'a thank-you gift')
+    .replace(/\{\{\s*referral_link\s*\}\}/gi, link);
+  // If the script never mentioned the link, append it so the customer always gets one.
+  if (link && !out.includes(link)) {
+    out = `${out.replace(/\s+$/, '')} ${link}`.trim();
+  }
+  return out.slice(0, 500);
 }
 
-function buildCustomerMessage(settings, { name, company, stars }) {
+function buildCustomerMessage(settings, { name, company, stars, referralLink }) {
   const s = normalizeSettings(settings);
   return fillScript(s.rewardScript, {
     name,
     company,
     stars,
     reward: s.rewardLabel,
+    referralLink,
   });
 }
 
