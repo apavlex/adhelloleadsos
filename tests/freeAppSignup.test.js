@@ -429,7 +429,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
       const get = await fetch(`${base}/app`);
       assert.equal(get.status, 200);
       const html = await get.text();
-      assert.match(html, /Grow reviews &amp; referrals for your business!/);
+      assert.match(html, /Get more reviews for your business!/);
       assert.match(html, /30-day free trial/);
       assert.match(html, /action="\/app"/);
       assert.match(html, /Text me my trial link/);
@@ -620,7 +620,8 @@ describe('freeAppSignup', { concurrency: false }, () => {
     assert.match(route, /router\.(get|post)\('\/join\/:slug'/);
     assert.match(view, /_flooring/);
     assert.match(view, /buy material from us/i);
-    assert.match(view, /Grow reviews &amp; referrals for your business!/);
+    assert.match(view, /Get more reviews for your business!/);
+    assert.match(view, /Extras included/);
     assert.match(view, /fa-card-trial/);
     assert.match(view, /30-day free trial/);
     assert.match(view, /Text me my trial link/);

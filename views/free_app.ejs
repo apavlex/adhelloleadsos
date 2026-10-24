@@ -30,7 +30,7 @@
   <meta name="twitter:description" content="<%= _ogDesc %>">
   <meta name="twitter:image" content="<%= _ogImage %>">
   <% } %>
-  <title>Grow reviews &amp; referrals for your business · AdHello</title>
+  <title>Get more reviews for your business · AdHello</title>
   <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
   <link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
   <%- include('partials/tailwind_css', { twVariant: 'standalone' }) %>
@@ -138,6 +138,50 @@
       border-radius: 0.9rem;
       background: rgba(250, 204, 21, 0.12);
       border: 1px solid rgba(250, 204, 21, 0.28);
+    }
+    .fa-benefits--primary li {
+      padding: 1rem 0.95rem;
+      background: rgba(250, 204, 21, 0.18);
+      border-color: rgba(234, 179, 8, 0.45);
+    }
+    .fa-benefits--primary li > div > strong {
+      font-size: 1.05rem;
+    }
+    .fa-extras {
+      margin-top: 1.15rem;
+    }
+    .fa-extras__label {
+      margin: 0 0 0.45rem;
+      font-size: 0.7rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--fa-muted-soft);
+    }
+    .fa-extras .fa-benefits {
+      margin-top: 0;
+      gap: 0.5rem;
+    }
+    .fa-extras .fa-benefits li {
+      padding: 0.65rem 0.75rem;
+      background: rgba(31, 36, 46, 0.03);
+      border-color: var(--fa-line);
+    }
+    .fa-extras .fa-benefits__ico {
+      width: 2rem;
+      height: 2rem;
+      color: var(--fa-muted);
+    }
+    .fa-extras .fa-benefits__ico svg {
+      width: 1.75rem;
+      height: 1.75rem;
+    }
+    .fa-extras .fa-benefits li > div > strong {
+      font-size: 0.875rem;
+      font-weight: 800;
+    }
+    .fa-extras .fa-benefits span {
+      font-size: 0.75rem;
     }
     .fa-benefits__ico {
       width: 2.6rem;
@@ -483,16 +527,16 @@
         <p class="fa-foot" style="margin-top:1.5rem">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="underline" href="<%= _trial %>">Start a free trial</a>.</p>
         <% } %>
       <% } else { %>
-        <h1>Grow reviews &amp; referrals for your business!</h1>
+        <h1>Get more reviews for your business!</h1>
         <% if (_flooring) { %>
         <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>Reviews, referrals &amp; exclusive leads on your phone — no timed trial.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>Ask for reviews by SMS or QR right after every job — on your phone. No timed trial.</p>
         <% } else { %>
         <p class="fa-card-trial">30-day free trial · no credit card</p>
-        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>Get more reviews after every job. Exclusive leads for your territory.</p>
+        <p class="fa-card-lead"><% if (_joinName) { %>You’re joining <strong><%= _joinName %></strong>. <% } %>Ask for reviews by SMS or QR right after every job.</p>
         <% } %>
 
-        <ul class="fa-benefits" aria-label="What you get">
+        <ul class="fa-benefits fa-benefits--primary" aria-label="Main feature">
           <li>
             <span class="fa-benefits__ico" aria-hidden="true">
               <%# Heroicons solid: star %>
@@ -502,36 +546,42 @@
             </span>
             <div>
               <strong>Get reviews right after the job</strong>
-              <span>SMS or QR the moment the job wraps.</span>
-            </div>
-          </li>
-          <li>
-            <span class="fa-benefits__ico" aria-hidden="true">
-              <%# Heroicons solid: user-group %>
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z"/>
-                <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z"/>
-              </svg>
-            </span>
-            <div>
-              <strong>Word-of-mouth system</strong>
-              <span>Automated asks to your top customers — spread the word for your business.</span>
-            </div>
-          </li>
-          <li>
-            <span class="fa-benefits__ico" aria-hidden="true">
-              <%# Heroicons solid: chart-bar %>
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z"/>
-              </svg>
-            </span>
-            <div>
-              <strong>Pay-per-performance leads</strong>
-              <span>Like Google Service Ads — across Google, Meta, Yelp &amp; more.</span>
+              <span>Send an <strong>SMS</strong> or show a <strong>QR code</strong> the moment the job wraps — customers leave a Google review while they’re still happy.</span>
             </div>
           </li>
         </ul>
-        <div class="fa-perks"><span>SMS &amp; QR reviews</span><span>Exclusive territory</span><span>Not shared leads</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
+
+        <div class="fa-extras">
+          <p class="fa-extras__label">Extras included</p>
+          <ul class="fa-benefits" aria-label="Extras">
+            <li>
+              <span class="fa-benefits__ico" aria-hidden="true">
+                <%# Heroicons solid: user-group %>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 0 1-.372.568A12.696 12.696 0 0 1 12 21.75c-2.305 0-4.47-.612-6.337-1.684a.75.75 0 0 1-.372-.568 6.787 6.787 0 0 1 1.019-4.38Z"/>
+                  <path d="M5.082 14.254a8.287 8.287 0 0 0-1.308 5.135 9.687 9.687 0 0 1-1.764-.44l-.115-.04a.563.563 0 0 1-.373-.487l-.01-.121a3.75 3.75 0 0 1 3.57-4.047ZM20.226 19.389a8.287 8.287 0 0 0-1.308-5.135 3.75 3.75 0 0 1 3.57 4.047l-.01.121a.563.563 0 0 1-.373.486l-.115.04c-.567.2-1.156.349-1.764.441Z"/>
+                </svg>
+              </span>
+              <div>
+                <strong>Word-of-mouth system</strong>
+                <span>Automated asks to your top customers.</span>
+              </div>
+            </li>
+            <li>
+              <span class="fa-benefits__ico" aria-hidden="true">
+                <%# Heroicons solid: chart-bar %>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75ZM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 0 1-1.875-1.875V8.625ZM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 0 1 3 19.875v-6.75Z"/>
+                </svg>
+              </span>
+              <div>
+                <strong>Pay-per-performance leads</strong>
+                <span>Like Google Service Ads — Google, Meta, Yelp &amp; more.</span>
+              </div>
+            </li>
+          </ul>
+        </div>
+        <div class="fa-perks"><span>SMS &amp; QR reviews</span><span>No App Store</span><span><%= _flooring ? 'Material partners' : '30-day free trial' %></span></div>
 
         <section class="fa-faq" aria-label="FAQ">
           <p class="fa-faq__title">More info</p>
@@ -540,20 +590,16 @@
             <p class="fa-faq__body">Send an <strong>SMS</strong> or show a <strong>QR code</strong> the moment the job is complete — customers leave a Google review while they’re still happy. Keep customers, jobs &amp; CRM on your Home Screen. No App Store.</p>
           </details>
           <details>
+            <summary>What extras are included?</summary>
+            <p class="fa-faq__body">Reviews are the focus. Included extras: a <strong>word-of-mouth system</strong> that automatically asks your <strong>top customers</strong> for referrals, plus <strong>pay-per-performance leads</strong> like Google Service Ads across <strong>Google, Meta, Yelp</strong>, and more — direct to your website &amp; CRM, exclusive for your territory (not shared with other local companies). You can decline work that doesn’t match.</p>
+          </details>
+          <details>
             <summary>How are leads different from HomeAdvisor?</summary>
             <p class="fa-faq__body">We’re <strong>not like HomeAdvisor or Thumbtack</strong> — they share the same lead with multiple local companies. Here, leads are <strong>direct requests to your website and CRM</strong>, <strong>exclusive to one partner for the territory</strong> — never shared with other local companies.</p>
           </details>
           <details>
             <summary>Is this like Google Service Ads?</summary>
             <p class="fa-faq__body"><strong>Yes — just like Google Service Ads</strong>, but across our network including <strong>Google, Meta, Yelp</strong>, and more. Pay-per-performance on the leads you take.</p>
-          </details>
-          <details>
-            <summary>Can I decline work that doesn’t fit?</summary>
-            <p class="fa-faq__body">Yes. You can <strong>decline work that doesn’t match your business</strong>. Declining unfit work does not create a commission obligation. You pay commission on the leads you take.</p>
-          </details>
-          <details>
-            <summary>How do referrals work?</summary>
-            <p class="fa-faq__body">It’s an <strong>automated system</strong> that requests referrals from your <strong>top customers</strong> after great jobs. You can also send and receive referrals with partners in your area — grow with partners, not strangers. Closed jobs can credit your ads account.</p>
           </details>
         </section>
 
