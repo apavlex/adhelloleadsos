@@ -622,6 +622,9 @@ describe('freeAppSignup', { concurrency: false }, () => {
     assert.match(view, /buy material from us/i);
     assert.match(view, /Get more reviews for your business!/);
     assert.match(view, /Extras included/);
+    assert.match(view, /reviews-flooring-owner-testimonial\.jpg/);
+    assert.match(view, /Flooring business owner/);
+    assert.ok(fs.existsSync(path.join(__dirname, '../public/images/reviews-flooring-owner-testimonial.jpg')));
     assert.match(view, /fa-card-trial/);
     assert.match(view, /30-day free trial/);
     assert.match(view, /Text me my trial link/);

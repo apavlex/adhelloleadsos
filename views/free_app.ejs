@@ -147,6 +147,37 @@
     .fa-benefits--primary li > div > strong {
       font-size: 1.05rem;
     }
+    .fa-quote {
+      margin-top: 1.15rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+    }
+    .fa-quote img {
+      width: 4.25rem;
+      height: 4.25rem;
+      border-radius: 999px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: rgba(31, 36, 46, 0.06);
+    }
+    .fa-quote blockquote {
+      margin: 0;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--fa-ink);
+    }
+    .fa-quote cite {
+      display: block;
+      margin-top: 0.4rem;
+      font-style: normal;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--fa-muted-soft);
+      line-height: 1.35;
+    }
     .fa-extras {
       margin-top: 1.15rem;
     }
@@ -550,6 +581,21 @@
             </div>
           </li>
         </ul>
+
+        <figure class="fa-quote">
+          <img
+            src="/images/reviews-flooring-owner-testimonial.jpg?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"
+            alt="Flooring business owner"
+            width="136"
+            height="136"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>
+            <blockquote>“So easy — I text or show a QR after the job and the reviews just show up.”</blockquote>
+            <cite>Marcus · Flooring business owner</cite>
+          </figcaption>
+        </figure>
 
         <div class="fa-extras">
           <p class="fa-extras__label">Extras included</p>
