@@ -467,7 +467,7 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(settingsHtml, /Your review links/);
     assert.match(settingsHtml, /Thumbtack profile/);
     assert.match(settingsHtml, /Default preview image/);
-    assert.match(settingsHtml, /Request page logo/);
+    assert.match(settingsHtml, /Request page profile/);
     assert.match(settingsHtml, /Referral reward after a great review/);
     assert.match(settingsHtml, /name="rewardLabel"/);
     assert.match(settingsHtml, /action="[^"]*\/review\/reward"/);
