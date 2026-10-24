@@ -115,6 +115,7 @@ describe('businessVcard', () => {
       assert.equal(res.status, 200);
       assert.match(res.headers.get('content-type') || '', /text\/vcard/);
       assert.match(res.headers.get('content-disposition') || '', /Acme-Floors\.vcf/);
+      assert.equal(res.headers.get('access-control-allow-origin'), '*');
       const text = await res.text();
       assert.match(text, /BEGIN:VCARD/);
       assert.match(text, /FN:Acme Floors/);

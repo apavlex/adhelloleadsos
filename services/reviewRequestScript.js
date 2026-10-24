@@ -237,8 +237,9 @@ function memberVcardUrl(member) {
 }
 
 /**
- * Append the business vCard URL when the owner opted in.
- * Keeps the review link last (own paragraph) so iMessage can still unfurl it.
+ * Append the business vCard URL when the owner opted in (text-only / SMS fallback).
+ * Prefer sharing a .vcf File from the client; when we must put the URL in the
+ * body, keep the review link last so iMessage can still unfurl the OG image.
  */
 function maybeAttachVcardUrl(message, vcardUrl, { attach = false, reviewLink = '' } = {}) {
   if (!attach) return String(message || '').trim();
@@ -523,7 +524,10 @@ function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript, atta
     company,
     reviewLink: link || '{{custom_values.review_link}}',
   });
-  const smsExample = maybeAttachVcardUrl(filled, card, {
+  const withLink = scriptWantsReviewLink(script)
+    ? maybeEnsureReviewLink(filled, link, script)
+    : filled;
+  const smsExample = maybeAttachVcardUrl(withLink, card, {
     attach: !!attachVcard && !!card,
     reviewLink: scriptWantsReviewLink(script) ? (link || '') : '',
   });

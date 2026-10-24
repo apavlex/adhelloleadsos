@@ -150,7 +150,7 @@ test('buildReviewSms without AI does not force-append a removed review link', as
   assert.doesNotMatch(built.message, /leads\.adhello\.io|review_link|https?:\/\//i);
 });
 
-test('maybeAttachVcardUrl appends contact card and keeps review link last', () => {
+test('maybeAttachVcardUrl keeps review link last for OG unfurl', () => {
   const reviewLink = 'https://reviews.adhello.io/rv/brightline';
   const vcard = 'https://reviews.adhello.io/c/brightline.vcf';
   assert.equal(
@@ -183,6 +183,7 @@ test('buildReviewSms appends vCard URL when reviewAttachVcard is on', async () =
     useAi: false,
   });
   assert.match(built.message, /https:\/\/reviews\.adhello\.io\/c\/brightline\.vcf/);
+  // Review link last so iMessage can unfurl the OG image.
   assert.match(
     built.message,
     /https:\/\/reviews\.adhello\.io\/c\/brightline\.vcf\n\nhttps:\/\/reviews\.adhello\.io\/rv\/brightline$/,

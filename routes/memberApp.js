@@ -3152,15 +3152,30 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
   const reviewLinkForShare = reviewRequestScript.scriptWantsReviewLink(smsScript) ? reviewUrl : '';
   const vcardUrl = getBusinessVcardUrl(member.reviewSlug);
   const attachVcard = reviewRequestScript.memberAttachVcard(member);
+  // Filled script + review link last; vCard URL sits above the review link when
+  // Attach is on (text fallback). Request-a-review prefers a .vcf File instead.
   const shareSmsText = reviewRequestScript.maybeAttachVcardUrl(
-    reviewRequestScript.fillPlaceholders(smsScript, {
-      name: defaults.name || 'there',
-      company: member.companyName,
-      reviewLink: reviewLinkForShare,
-      jobTitle: keywordCtx.jobTitle,
-      city: keywordCtx.city,
-      keywords: keywordCtx.keywords,
-    }),
+    reviewLinkForShare
+      ? reviewRequestScript.maybeEnsureReviewLink(
+        reviewRequestScript.fillPlaceholders(smsScript, {
+          name: defaults.name || 'there',
+          company: member.companyName,
+          reviewLink: reviewLinkForShare,
+          jobTitle: keywordCtx.jobTitle,
+          city: keywordCtx.city,
+          keywords: keywordCtx.keywords,
+        }),
+        reviewLinkForShare,
+        smsScript,
+      )
+      : reviewRequestScript.fillPlaceholders(smsScript, {
+        name: defaults.name || 'there',
+        company: member.companyName,
+        reviewLink: '',
+        jobTitle: keywordCtx.jobTitle,
+        city: keywordCtx.city,
+        keywords: keywordCtx.keywords,
+      }),
     vcardUrl,
     { attach: attachVcard, reviewLink: reviewLinkForShare },
   );

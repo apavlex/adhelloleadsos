@@ -62,6 +62,8 @@ router.get('/c/:slugVcf', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${card.filename}"`);
     res.setHeader('Cache-Control', 'public, max-age=300');
     res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    // Allow the member app (different subdomain) to fetch and share as a File.
+    res.setHeader('Access-Control-Allow-Origin', '*');
     return res.status(200).send(card.body);
   } catch (err) {
     console.error('[business-vcard]', err.message);

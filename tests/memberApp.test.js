@@ -491,9 +491,10 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     assert.match(ogHtml, /property="og:image"/);
     assert.match(ogHtml, /\/rv\/camas-flooring\/og\.jpg/);
     assert.match(ogHtml, /og:site_name" content="AdHello\.io"/);
-    // iMessage skips rich previews when the public page is noindex.
+    // iMessage skips rich previews when the public page is noindex (meta or header).
     assert.match(ogHtml, /name="robots" content="index, follow, max-image-preview:large"/);
     assert.doesNotMatch(ogHtml, /name="robots" content="noindex"/);
+    assert.doesNotMatch(String(ogPage.headers.get('x-robots-tag') || ''), /noindex/i);
     assert.match(ogHtml, /\/rv\/camas-flooring\/avatar\.png/);
     assert.ok(!/rv-initials/.test(ogHtml));
 
