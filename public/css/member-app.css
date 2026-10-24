@@ -731,6 +731,14 @@ html[data-ma-theme="dark"] .ma-tile, html[data-ma-theme="dark"] .ma-card, html[d
   font-size: 15px;
   line-height: 1.5;
 }
+.ma-gr-draft[aria-busy='true'] {
+  opacity: 0.72;
+  cursor: wait;
+}
+.ma-gr-msg--busy {
+  color: var(--acc-ink) !important;
+  font-weight: 800;
+}
 .ma-gr-link {
   margin: 6px 0 0;
   padding: 10px 12px;

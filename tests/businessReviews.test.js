@@ -276,6 +276,9 @@ describe('businessReviews', () => {
     assert.ok(review.indexOf('ma-qr') < review.indexOf('_google_reviews'));
     assert.match(review, /Show your QR/);
     assert.match(partial, /Generate with AI/);
+    assert.match(partial, /Generating…/);
+    assert.match(partial, /aria-busy/);
+    assert.match(partial, /Writing reply…/);
     assert.match(partial, /Copy reply/);
     assert.match(partial, /See Google &amp; Yelp reviews|See Google & Yelp reviews|Google &amp; Yelp reviews/);
     assert.match(partial, /AdHello/);

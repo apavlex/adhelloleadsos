@@ -134,7 +134,7 @@
             <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-gr-generate="<%= r.id %>">Generate with AI</button>
             <button type="button" class="ma-btn ma-btn--sm" data-gr-copy="<%= r.id %>" data-gr-platform="<%= _pasteWhere %>" <%= r.replyDraft ? '' : 'disabled' %>><%- icons.copy %> Copy reply</button>
           </div>
-          <p class="ma-hint" data-gr-msg style="margin:6px 0 0;min-height:1.1em"></p>
+          <p class="ma-hint" data-gr-msg role="status" aria-live="polite" style="margin:6px 0 0;min-height:1.1em"></p>
         </div>
       </div>
       <% }); %>
@@ -206,22 +206,51 @@
       });
       document.querySelectorAll('[data-gr-generate]').forEach(function (btn) {
         btn.addEventListener('click', async function () {
+          if (btn.getAttribute('aria-busy') === 'true') return;
           var id = btn.getAttribute('data-gr-generate');
           var box = btn.closest('[data-gr-reply]');
           var ta = box && box.querySelector('[data-gr-draft]');
           var msg = box && box.querySelector('[data-gr-msg]');
           var copy = box && box.querySelector('[data-gr-copy]');
+          var platform = (copy && copy.getAttribute('data-gr-platform')) || 'Google';
+          var label = btn.textContent;
+          btn.setAttribute('aria-busy', 'true');
           btn.disabled = true;
-          if (msg) msg.textContent = 'Writing reply…';
+          btn.textContent = 'Generating…';
+          if (ta) {
+            ta.readOnly = true;
+            ta.setAttribute('aria-busy', 'true');
+          }
+          if (msg) {
+            msg.textContent = 'Writing reply…';
+            msg.classList.add('ma-gr-msg--busy');
+            msg.removeAttribute('data-err');
+          }
           try {
             var data = await post('/review/google-reviews/' + encodeURIComponent(id) + '/draft-reply', {});
             if (ta) ta.value = data.reply || '';
             if (copy) copy.disabled = !data.reply;
-            if (msg) msg.textContent = 'Draft ready — copy and paste into Google.';
+            if (msg) {
+              msg.textContent = data.reply
+                ? ('Draft ready — copy and paste into ' + platform + '.')
+                : 'No draft returned — try again.';
+              msg.classList.remove('ma-gr-msg--busy');
+            }
           } catch (e) {
-            if (msg) msg.textContent = e.message || 'AI draft failed';
+            if (msg) {
+              msg.textContent = e.message || 'AI draft failed';
+              msg.classList.remove('ma-gr-msg--busy');
+              msg.setAttribute('data-err', '1');
+            }
+          } finally {
+            btn.removeAttribute('aria-busy');
+            btn.disabled = false;
+            btn.textContent = label;
+            if (ta) {
+              ta.readOnly = false;
+              ta.removeAttribute('aria-busy');
+            }
           }
-          btn.disabled = false;
         });
       });
       document.querySelectorAll('[data-gr-copy]').forEach(function (btn) {
