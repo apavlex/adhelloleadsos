@@ -134,7 +134,32 @@ summary.ma-settings-row::-webkit-details-marker,summary.ma-settings-row::marker{
 .ma-tab--fab .ma-tab__slot{display:none}
 .ma-tab--fab .ma-tab__fab{width:52px;height:52px;border-radius:999px;background:var(--acc);color:var(--on);display:inline-flex;align-items:center;justify-content:center;margin-top:-26px;margin-bottom:1px;position:relative;z-index:2;flex:0 0 52px}
 .ma-tab--fab .ma-tab__label{position:relative;z-index:3}
-.ma-shell{padding-bottom:calc(50px + 26px + 20px + env(safe-area-inset-bottom,0px))!important;scroll-padding-bottom:calc(50px + 26px + 20px + env(safe-area-inset-bottom,0px))!important}
+.ma-shell{max-width:480px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 14px) 18px calc(50px + 26px + 20px + env(safe-area-inset-bottom,0px))!important;scroll-padding-bottom:calc(50px + 26px + 20px + env(safe-area-inset-bottom,0px))!important;box-sizing:border-box}
+.ma-top{display:flex!important;flex-direction:row!important;align-items:center;justify-content:space-between;gap:12px;min-height:40px}
+.ma-top__brand{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;min-width:0}
+.ma-top__title{font-size:15px;font-weight:600;color:var(--muted,#6e6e73);margin:0}
+.ma-top__actions{display:flex!important;flex-direction:row!important;align-items:center;gap:4px;flex-shrink:0}
+.ma-iconbtn{display:inline-flex!important;align-items:center;justify-content:center;width:40px;height:40px;border:0;background:transparent;color:var(--acc);text-decoration:none;border-radius:10px;padding:0}
+.ma-iconbtn svg{width:22px;height:22px;display:block}
+.ma-page-title{font-size:24px;font-weight:800;margin:16px 0 4px;font-family:var(--font-display)}
+.ma-page-sub{color:var(--muted,#6e6e73);margin:0 0 14px;font-size:14px;line-height:1.4}
+.ma-seg{display:grid!important;grid-template-columns:1fr 1fr;gap:0;background:var(--card,#fff);border:1px solid var(--line,rgba(60,60,67,.12));border-radius:999px;padding:4px;margin-bottom:14px}
+.ma-seg--3{grid-template-columns:repeat(3,1fr)!important}
+.ma-seg a,.ma-seg button{display:flex!important;align-items:center;justify-content:center;min-height:36px;padding:8px 10px;border:0;border-radius:999px;background:transparent;color:var(--ink,#000);text-decoration:none;font:inherit;font-size:14px;font-weight:700;text-align:center}
+.ma-seg a.is-on,.ma-seg button.is-on{background:var(--acc);color:var(--on)}
+.ma-card{background:var(--card,#fff);border:1px solid var(--line,rgba(60,60,67,.12));border-radius:16px;padding:16px;margin:0 0 10px;box-sizing:border-box}
+.ma-btn{display:inline-flex!important;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 16px;border:0;border-radius:12px;background:var(--acc);color:var(--on);font:inherit;font-weight:800;text-decoration:none;box-sizing:border-box}
+.ma-btn--block{display:flex!important;width:100%}
+.ma-btn--soft{background:color-mix(in srgb,var(--acc) 16%,var(--card,#fff));color:var(--ink,#000)}
+.ma-btn--sm{min-height:36px;padding:6px 12px;font-size:13px;border-radius:10px}
+.ma-hint{color:var(--muted,#6e6e73);font-size:13px;line-height:1.4;margin:8px 0}
+.ma-link-box{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:12px;background:var(--bg,#f2f2f7);border:1px solid var(--line,rgba(60,60,67,.12));box-sizing:border-box}
+.ma-link-box code{flex:1 1 auto;min-width:0;font-size:12px;line-height:1.4;overflow-wrap:break-word;word-break:normal;white-space:pre-wrap}
+.ma-fold{margin:0 0 10px;border:1px solid var(--line,rgba(60,60,67,.12));border-radius:16px;background:var(--card,#fff);overflow:hidden}
+.ma-fold>summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ma-fold>summary::-webkit-details-marker{display:none}
+.ma-fold__hint{font-size:12px;font-weight:700;color:var(--muted,#6e6e73)}
+.ma-fold__body{padding:0 16px 16px}
 .ma-fold__body form.ma-card--flush{display:flex;flex-direction:column;gap:12px;overflow:visible}
 .ma-script-link{display:flex;flex-direction:column;gap:6px}
 .ma-script-link__url{display:block;font-size:12px;line-height:1.35;overflow-wrap:anywhere;word-break:break-all}

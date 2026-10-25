@@ -277,13 +277,14 @@ test('Reviews AI page explains ChatGPT, Muse, Grok, and GHL automation', async (
     const aiHtml = await aiTab.text();
     assert.match(aiHtml, /Ask with AI/);
     assert.match(aiHtml, /ChatGPT/);
-    assert.match(aiHtml, /Muse \(Meta AI\)/);
+    assert.match(aiHtml, /Muse/);
     assert.match(aiHtml, /Grok/);
     assert.match(aiHtml, /Preview a review ask/);
-    assert.match(aiHtml, /send_review_request|request_review/);
+    assert.match(aiHtml, /request_review|Open AI Connector/);
     assert.match(aiHtml, /Automate after jobs/);
     assert.match(aiHtml, /workspace\/ai-apps/);
-    assert.match(aiHtml, /Connector URL|ceo\/mcp/);
+    assert.match(aiHtml, /Connector URL|ceo\/mcp|Open AI Connector/);
+    assert.match(aiHtml, /ma-seg--3/);
     assert.match(aiHtml, /AI<\/a>/);
 
     const settingsTab = await fetch(`${base}/m/${token}/review/settings`);
