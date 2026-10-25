@@ -83,10 +83,26 @@ describe('member leads + referral notifications', () => {
     const pkgs = fs.readFileSync(path.join(root, 'services/appointmentPackages.js'), 'utf8');
     assert.match(notify, /const leadsUrl = `\$\{app\}\/referrals`/);
     assert.doesNotMatch(notify, /const leadsUrl = `\$\{app\}\/leads`/);
+    assert.match(notify, /pushMemberFormLeadAlert/);
+    assert.match(notify, /async function notifyMemberFormLead/);
     assert.match(pkgs, /notifyUrl = `\$\{memberUrl\}\/referrals`/);
     assert.match(pkgs, /attachFormLead/);
     assert.match(pkgs, /notifyContractorNewLead/);
     assert.match(pkgs, /notifyMemberFormLead/);
+  });
+
+  it('notifyMemberFormLead wires phone push alongside SMS/email and bell activity', () => {
+    const notify = fs.readFileSync(path.join(root, 'services/networkNotify.js'), 'utf8');
+    assert.match(notify, /async function pushMemberFormLeadAlert/);
+    assert.match(notify, /pushMemberFormLeadAlert\(\{[\s\S]*network, member, baseUrl/);
+    assert.match(notify, /sendMemberPush/);
+    assert.match(notify, /New website lead/);
+    // Locked-plan teasers still record activity + push before SMS.
+    const fn = notify.slice(notify.indexOf('async function notifyMemberFormLead'));
+    const activityIdx = fn.indexOf('recordMemberActivity');
+    const pushIdx = fn.indexOf('pushMemberFormLeadAlert');
+    const lockedIdx = fn.indexOf('if (!detailsAllowed)');
+    assert.ok(activityIdx > 0 && pushIdx > activityIdx && lockedIdx > pushIdx);
   });
 
   it('pushMemberReferralAlert sends a phone popup to the linked package subscription', async () => {
@@ -126,6 +142,48 @@ describe('member leads + referral notifications', () => {
     assert.match(sent[0].body.title, /New referral/i);
     assert.match(sent[0].body.url, /\/referrals/);
     assert.doesNotMatch(sent[0].body.url, /\/leads$/);
+  });
+
+  it('pushMemberFormLeadAlert sends a phone popup for website form leads', async () => {
+    const push = require('../services/pushNotifications');
+    const memberAppointmentLink = require('../services/memberAppointmentLink');
+    const networkNotify = require('../services/networkNotify');
+
+    push.saveMemberSubscription({
+      subscription: {
+        endpoint: 'https://push.example.com/send/member-form-1',
+        keys: { p256dh: 'p256dh-key', auth: 'auth-key' },
+      },
+      networkId: 'net_form',
+      memberId: 'm_form',
+    });
+
+    mock.method(memberAppointmentLink, 'findPackageForMember', async () => ({
+      id: 'pkg_form',
+      portalEnabled: true,
+      businessName: 'TPR Flooring',
+    }));
+
+    const sent = [];
+    mock.method(webpush, 'sendNotification', async (sub, body) => {
+      sent.push({ endpoint: sub.endpoint, body: JSON.parse(body) });
+    });
+
+    const result = await networkNotify.pushMemberFormLeadAlert({
+      network: { id: 'net_form', name: 'TPR', ownerWorkspaceId: 'ws_form' },
+      member: { id: 'm_form', companyName: 'TPR Flooring' },
+      baseUrl: 'https://reviews.adhello.io',
+      leadName: 'Jordan Homeowner',
+      formName: 'Website contact',
+      source: 'ghl',
+      preview: 'Need flooring quote',
+      detailsAllowed: true,
+    });
+
+    assert.equal(result.sent, 1);
+    assert.match(sent[0].body.title, /New website lead/i);
+    assert.match(sent[0].body.body, /Jordan Homeowner/);
+    assert.match(sent[0].body.url, /\/referrals/);
   });
 
   it('notifyReferralRecipient wires push alongside SMS/email', () => {

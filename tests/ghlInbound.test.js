@@ -231,6 +231,57 @@ test('appendInboundEvent dedupes by id and caps the list', () => {
   assert.equal(list[list.length - 1].id, 'e29');
 });
 
+test('ContactCreate attaches to the only portal package and returns contractorPackageId', async () => {
+  const appointmentPackages = require('../services/appointmentPackages');
+  const networkStore = require('../services/networkStore');
+  const networkNotify = require('../services/networkNotify');
+  const { mock } = require('node:test');
+
+  const pkg = await appointmentPackages.createPackage(WID, {
+    businessName: 'Solo Form Inbox',
+    trade: 'Flooring',
+    purchased: 3,
+    leadsPurchased: 10,
+  });
+  const network = await networkStore.getOrCreateNetworkForWorkspace(WID, {
+    name: 'Solo Net',
+    ownerEmail: 'owner@example.com',
+  });
+  await networkStore.saveMember(network.id, {
+    id: 'owner',
+    companyName: 'Solo Form Inbox',
+    email: 'owner@example.com',
+    status: 'active',
+  });
+
+  const pushed = [];
+  mock.method(networkNotify, 'notifyMemberFormLead', async (args) => {
+    pushed.push(args);
+    return { ok: true, channel: 'sms' };
+  });
+
+  const r = await ghlSync.processWebhook({
+    type: 'ContactCreate',
+    id: 'ghl_new_form_contact',
+    locationId: 'loc_x',
+    firstName: 'Casey',
+    lastName: 'Buyer',
+    name: 'Casey Buyer',
+    email: 'casey@buyers.test',
+    phone: '+15550003333',
+    source: 'Website',
+  }, { workspaceId: WID, lockWorkspace: true });
+
+  assert.equal(r.action, 'created');
+  assert.equal(r.contractorPackageId, pkg.id);
+  const packages = await appointmentPackages.listPackages(WID);
+  const updated = packages.find((p) => p.id === pkg.id);
+  assert.ok(updated);
+  assert.ok((updated.formLeads || []).some((f) => /Casey/i.test(f.name)));
+  assert.ok(pushed.length >= 1);
+  mock.restoreAll();
+});
+
 test('request_review workflow webhook previews without creating a lead', async () => {
   const store = require('../services/networkStore');
   const network = await store.getOrCreateNetworkForWorkspace(WID, { name: 'Inbound Review Net' });
