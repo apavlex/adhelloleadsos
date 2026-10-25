@@ -1005,6 +1005,45 @@
 
   initPhotoLightroomViewer();
 
+  function initQrViewer() {
+    var view = document.getElementById('maQrView');
+    if (!view) return;
+
+    function openQr() {
+      view.hidden = false;
+      document.documentElement.classList.add('ma-qr-view-open');
+      document.body.classList.add('ma-qr-view-open');
+      var closeBtn = view.querySelector('[data-ma-qr-close]');
+      if (closeBtn) closeBtn.focus();
+    }
+
+    function closeQr() {
+      view.hidden = true;
+      document.documentElement.classList.remove('ma-qr-view-open');
+      document.body.classList.remove('ma-qr-view-open');
+    }
+
+    document.addEventListener('click', function (e) {
+      if (e.target.closest('[data-ma-qr-open]')) {
+        e.preventDefault();
+        openQr();
+        return;
+      }
+      if (e.target.closest('[data-ma-qr-close]')) {
+        e.preventDefault();
+        closeQr();
+        return;
+      }
+      if (!view.hidden && e.target === view) closeQr();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !view.hidden) closeQr();
+    });
+  }
+
+  initQrViewer();
+
   document.addEventListener('click', function (event) {
     var openBtn = event.target.closest('[data-ma-install-open]');
     if (openBtn) {

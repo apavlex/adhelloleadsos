@@ -2144,7 +2144,70 @@ html[data-ma-theme="dark"] .ma-install-modal { background: rgba(0, 0, 0, 0.65); 
 }
 .ma-qr__ask svg { width: 22px; height: 22px; }
 .ma-qr__ask-hint { margin: 8px 0 0; text-align: center; }
-.ma-qr img { width: 220px; height: 220px; border-radius: 16px; background: #fff; padding: 10px; border: 1px solid var(--line); }
+.ma-qr img { width: 220px; height: 220px; border-radius: 16px; background: #fff; padding: 10px; border: 1px solid var(--line); display: block; }
+.ma-qr__thumb {
+  display: block; margin-top: 14px; padding: 0; border: 0; background: transparent;
+  border-radius: 16px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.ma-qr__thumb:active { transform: scale(0.98); }
+.ma-qr__thumb img { margin: 0; }
+.ma-qr__actions {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* Full-screen QR viewer — large scan surface + download to phone */
+.ma-qr-view {
+  position: fixed; inset: 0; z-index: 130;
+  display: flex; flex-direction: column;
+  background: #f2f2f7; color: var(--ink, #000);
+  padding: 0;
+  overflow: hidden;
+}
+.ma-qr-view[hidden] { display: none !important; }
+html.ma-qr-view-open, body.ma-qr-view-open { overflow: hidden; overscroll-behavior: none; }
+body.ma-qr-view-open .ma-tabbar { visibility: hidden; pointer-events: none; }
+.ma-qr-view__chrome {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  padding: max(10px, env(safe-area-inset-top, 0px)) 14px 10px;
+}
+.ma-qr-view__chrome h2 {
+  flex: 1; margin: 0; text-align: center;
+  font-size: 17px; font-weight: 800; letter-spacing: -0.02em;
+}
+.ma-qr-view__close, .ma-qr-view__spacer {
+  flex: 0 0 40px; width: 40px; height: 40px;
+}
+.ma-qr-view__close {
+  border: 0; border-radius: 999px; background: rgba(60, 60, 67, 0.1);
+  color: var(--ink, #000); font-size: 28px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.ma-qr-view__close:active { background: rgba(60, 60, 67, 0.18); }
+.ma-qr-view__stage {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 12px 24px; gap: 16px;
+}
+.ma-qr-view__img {
+  width: min(78vw, 320px); height: auto; aspect-ratio: 1;
+  background: #fff; border-radius: 24px; padding: 18px;
+  border: 1px solid var(--line, rgba(60, 60, 67, 0.12));
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+}
+.ma-qr-view__hint {
+  margin: 0; max-width: 280px; text-align: center;
+  color: var(--muted, #6e6e73); font-size: 14px; font-weight: 600; line-height: 1.35;
+}
+.ma-qr-view__actions {
+  flex: 0 0 auto;
+  display: grid; gap: 8px;
+  padding: 12px 18px max(18px, env(safe-area-inset-bottom, 0px));
+}
+.ma-qr-view__actions .ma-btn svg { width: 18px; height: 18px; }
 .ma-link-box { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 14px; background: var(--bg); border-radius: 14px; padding: 6px 6px 6px 12px; }
 .ma-link-box code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .ma-bars { display: grid; gap: 6px; }

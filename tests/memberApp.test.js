@@ -495,6 +495,12 @@ test('member app pages, manifest, send, enroll and the review page work end to e
     // Text + URL only — one OG link preview (attaching a file doubles the image).
     assert.doesNotMatch(reviewHtml, /"image":"[^"]*\/rv\/camas-flooring\/og\.jpg/);
     assert.match(reviewHtml, /ma-qr/);
+    assert.match(reviewHtml, /View and download QR/);
+    assert.match(reviewHtml, /id="maQrView"/);
+    assert.match(reviewHtml, /data-ma-qr-open/);
+    assert.match(reviewHtml, /Download to phone/);
+    assert.match(reviewHtml, /qr\.png\?download=1/);
+    assert.doesNotMatch(reviewHtml, />\s*Download QR\s*</);
     assert.match(reviewHtml, /review\/settings/);
     assert.match(reviewHtml, /aria-label="Review settings"/);
     assert.match(reviewHtml, /Show your QR/);
