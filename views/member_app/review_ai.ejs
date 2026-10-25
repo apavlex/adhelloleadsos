@@ -6,7 +6,7 @@
 <body>
   <main class="ma-shell">
     <%- include('_top', {
-      topTitle: 'Review',
+      topBack: { href: base + '/review/settings', label: 'Settings' },
       topSettings: { href: base + '/review/settings', label: 'Review settings' }
     }) %>
     <%
@@ -16,12 +16,7 @@
       const _examplePrompt = 'Preview a review ask for Jamie Lee at 555-0100, then send it if I say yes.';
       const _exampleStats = 'How are our Google review page stats looking this month?';
     %>
-    <h1 class="ma-page-title">Ask with AI</h1>
-    <nav class="ma-seg ma-seg--3" aria-label="Review sections">
-      <a href="<%= base %>/review">Request</a>
-      <a href="<%= base %>/review?view=reviews">Reviews</a>
-      <a href="<%= base %>/review/ai" class="is-on" aria-current="page">AI</a>
-    </nav>
+    <h1 class="ma-page-title">AI review settings</h1>
     <p class="ma-page-sub">Connect ChatGPT, Muse, or Grok once — then ask them to text a review request from your number.</p>
 
     <%- include('_flash') %>
@@ -111,6 +106,7 @@
 
     <p class="ma-hint" style="text-align:center;margin:4px 0 8px">
       Edit your SMS under <a href="<%= base %>/review">Request</a> ·
+      Results on <a href="<%= base %>/review?view=reviews">Reviews</a> ·
       Links in <a href="<%= base %>/review/settings">Settings</a>
     </p>
   </main>

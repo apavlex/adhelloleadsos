@@ -21,10 +21,9 @@
       const _followUpLocked = _sendLocked;
     %>
     <h1 class="ma-page-title"><%= _reviewView === 'reviews' ? 'Google & Yelp reviews' : 'Show your QR' %></h1>
-    <nav class="ma-seg ma-seg--3" aria-label="Review sections">
+    <nav class="ma-seg ma-seg--2" aria-label="Review sections">
       <a href="<%= base %>/review" class="<%= _reviewView === 'request' ? 'is-on' : '' %>">Request</a>
       <a href="<%= base %>/review?view=reviews" class="<%= _reviewView === 'reviews' ? 'is-on' : '' %>">Reviews<% if (_grNew > 0 && _reviewView !== 'reviews') { %> (<%= _grNew %>)<% } %></a>
-      <a href="<%= base %>/review/ai">AI</a>
     </nav>
     <% if (_reviewView === 'reviews') { %>
     <p class="ma-page-sub">Page visits, rating mix, and synced Google &amp; Yelp reviews — reply with AI, then paste back on the site.</p>
@@ -109,8 +108,8 @@
 
     <section class="ma-card" id="maAiReviews" aria-label="Ask with AI">
       <h2 style="font-size:16px;margin:0 0 6px">Ask with ChatGPT, Muse, or Grok</h2>
-      <p class="ma-hint" style="margin:0 0 12px">Connect once, then tell your AI: “Preview a review ask for Jamie at 555…” — it uses your SMS script and sends from your GHL number. Same page covers job-complete automation.</p>
-      <a class="ma-btn ma-btn--block ma-btn--soft" href="<%= base %>/review/ai"><%- icons.review %> Set up AI reviews</a>
+      <p class="ma-hint" style="margin:0 0 12px">Connect once, then tell your AI: “Preview a review ask for Jamie at 555…” — it uses your SMS script and sends from your GHL number.</p>
+      <a class="ma-btn ma-btn--block ma-btn--soft" href="<%= base %>/review/ai"><%- icons.review %> AI review settings</a>
     </section>
 
     <details class="ma-fold" id="maAutoFollowUp" <%= _followUpLocked ? 'open' : '' %>>

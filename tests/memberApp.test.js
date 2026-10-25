@@ -266,16 +266,20 @@ test('Reviews AI page explains ChatGPT, Muse, Grok, and GHL automation', async (
     const reviewTab = await fetch(`${base}/m/${token}/review`);
     assert.equal(reviewTab.status, 200);
     const reviewHtml = await reviewTab.text();
-    assert.match(reviewHtml, /ma-seg--3/);
+    assert.match(reviewHtml, /ma-seg ma-seg--2/);
+    assert.doesNotMatch(reviewHtml, /aria-label="Review sections"[^>]*>[\s\S]*ma-seg--3/);
     assert.match(reviewHtml, /href="[^"]*\/review\/ai"/);
     assert.match(reviewHtml, /id="maAiReviews"/);
     assert.match(reviewHtml, /Ask with ChatGPT, Muse, or Grok/);
-    assert.match(reviewHtml, /Set up AI reviews/);
+    assert.match(reviewHtml, /AI review settings/);
+    // Request | Reviews stay — AI is a settings page, not a third segment tab.
+    assert.match(reviewHtml, />Request</);
+    assert.match(reviewHtml, /view=reviews/);
 
     const aiTab = await fetch(`${base}/m/${token}/review/ai`);
     assert.equal(aiTab.status, 200);
     const aiHtml = await aiTab.text();
-    assert.match(aiHtml, /Ask with AI/);
+    assert.match(aiHtml, /AI review settings/);
     assert.match(aiHtml, /ChatGPT/);
     assert.match(aiHtml, /Muse/);
     assert.match(aiHtml, /Grok/);
@@ -284,13 +288,14 @@ test('Reviews AI page explains ChatGPT, Muse, Grok, and GHL automation', async (
     assert.match(aiHtml, /Automate after jobs/);
     assert.match(aiHtml, /workspace\/ai-apps/);
     assert.match(aiHtml, /Connector URL|ceo\/mcp|Open AI Connector/);
-    assert.match(aiHtml, /ma-seg--3/);
-    assert.match(aiHtml, /AI<\/a>/);
+    assert.match(aiHtml, /review\/settings/);
+    assert.match(aiHtml, /AI review settings/);
+    assert.doesNotMatch(aiHtml, /<nav class="ma-seg/);
 
     const settingsTab = await fetch(`${base}/m/${token}/review/settings`);
     assert.equal(settingsTab.status, 200);
     const settingsHtml = await settingsTab.text();
-    assert.match(settingsHtml, /AI review requests|Set up AI reviews/);
+    assert.match(settingsHtml, /AI review settings|Open AI review settings/);
     assert.match(settingsHtml, /review\/ai/);
 
     const alias = await fetch(`${base}/m/${token}/review?view=ai`, { redirect: 'manual' });

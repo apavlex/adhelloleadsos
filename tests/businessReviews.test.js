@@ -272,8 +272,8 @@ describe('businessReviews', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const svc = fs.readFileSync(path.join(__dirname, '../services/businessReviews.js'), 'utf8');
     assert.match(review, /_google_reviews/);
-    // Request | Reviews | AI tabs; Google & Yelp live on the Reviews tab.
-    assert.match(review, /ma-seg ma-seg--3/);
+    // Request | Reviews tabs (AI setup lives under Review settings, not a third segment).
+    assert.match(review, /ma-seg ma-seg--2/);
     assert.match(review, /Review sections/);
     assert.match(review, />Request</);
     assert.match(review, /view=reviews/);
