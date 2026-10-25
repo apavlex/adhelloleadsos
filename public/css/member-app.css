@@ -2158,11 +2158,15 @@ html[data-ma-theme="dark"] .ma-install-modal { background: rgba(0, 0, 0, 0.65); 
   margin-top: 12px;
 }
 
-/* Full-screen QR viewer — large scan surface + download to phone */
+/* Full-screen QR viewer — brand-tinted surface + download to phone */
 .ma-qr-view {
   position: fixed; inset: 0; z-index: 130;
   display: flex; flex-direction: column;
-  background: #f2f2f7; color: var(--ink, #000);
+  background:
+    radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--acc) 28%, transparent), transparent 58%),
+    radial-gradient(90% 50% at 100% 100%, color-mix(in srgb, var(--acc) 12%, transparent), transparent 55%),
+    var(--bg);
+  color: var(--ink);
   padding: 0;
   overflow: hidden;
 }
@@ -2176,17 +2180,23 @@ body.ma-qr-view-open .ma-tabbar { visibility: hidden; pointer-events: none; }
 }
 .ma-qr-view__chrome h2 {
   flex: 1; margin: 0; text-align: center;
+  font-family: var(--font-display);
   font-size: 17px; font-weight: 800; letter-spacing: -0.02em;
+  color: var(--ink);
 }
 .ma-qr-view__close, .ma-qr-view__spacer {
   flex: 0 0 40px; width: 40px; height: 40px;
 }
 .ma-qr-view__close {
-  border: 0; border-radius: 999px; background: rgba(60, 60, 67, 0.1);
-  color: var(--ink, #000); font-size: 28px; line-height: 1; cursor: pointer;
+  border: 0; border-radius: 999px;
+  background: var(--acc-soft);
+  color: var(--acc);
+  font-size: 28px; line-height: 1; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.ma-qr-view__close:active { background: rgba(60, 60, 67, 0.18); }
+.ma-qr-view__close:active {
+  background: color-mix(in srgb, var(--acc) 28%, var(--card));
+}
 .ma-qr-view__stage {
   flex: 1 1 auto; min-height: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -2194,20 +2204,34 @@ body.ma-qr-view-open .ma-tabbar { visibility: hidden; pointer-events: none; }
 }
 .ma-qr-view__img {
   width: min(78vw, 320px); height: auto; aspect-ratio: 1;
-  background: #fff; border-radius: 24px; padding: 18px;
-  border: 1px solid var(--line, rgba(60, 60, 67, 0.12));
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  background: var(--card);
+  border-radius: 24px; padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--acc) 22%, var(--line));
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--acc) 12%, transparent),
+    0 16px 44px color-mix(in srgb, var(--acc) 28%, transparent);
 }
 .ma-qr-view__hint {
   margin: 0; max-width: 280px; text-align: center;
-  color: var(--muted, #6e6e73); font-size: 14px; font-weight: 600; line-height: 1.35;
+  color: var(--muted); font-size: 14px; font-weight: 600; line-height: 1.35;
 }
 .ma-qr-view__actions {
   flex: 0 0 auto;
   display: grid; gap: 8px;
   padding: 12px 18px max(18px, env(safe-area-inset-bottom, 0px));
 }
+.ma-qr-view__actions .ma-btn {
+  background: var(--acc);
+  color: var(--on);
+}
+.ma-qr-view__actions .ma-btn--soft {
+  background: var(--acc-soft);
+  color: var(--ink);
+}
 .ma-qr-view__actions .ma-btn svg { width: 18px; height: 18px; }
+html[data-ma-theme="dark"] .ma-qr-view__img {
+  background: #fff; /* QR must stay high-contrast for scanning */
+}
 .ma-link-box { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 14px; background: var(--bg); border-radius: 14px; padding: 6px 6px 6px 12px; }
 .ma-link-box code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 .ma-bars { display: grid; gap: 6px; }
