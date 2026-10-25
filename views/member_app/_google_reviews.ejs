@@ -150,7 +150,7 @@
           <% } %>
         </div>
         <% if (!_grHasAnySite) { %>
-        <p class="ma-flash ma-flash--err" style="margin:0 0 8px">Add a Google and/or Yelp review link in <a href="<%= base %>/review/settings">Review settings</a> (request sites) first.</p>
+        <p class="ma-flash ma-flash--err" id="maGrNeedSitesNag" style="margin:0 0 8px">Add a Google and/or Yelp review link in <a href="<%= base %>/review/settings">Review settings</a> (request sites) first.</p>
         <% } else { %>
         <p class="ma-hint">Change links in <a href="<%= base %>/review/settings">Review settings</a> if the wrong business shows up.</p>
         <% } %>
@@ -218,7 +218,7 @@
 
     <script>
     (function () {
-      var base = <%= JSON.stringify(base) %>;
+      var base = <%- JSON.stringify(base) %>;
       var statusEl = document.getElementById('maGrStatus');
       function setStatus(msg, isErr) {
         if (!statusEl) return;
@@ -243,12 +243,30 @@
         if (!res.ok || data.success === false) throw new Error(data.error || 'Request failed');
         return data;
       }
+      var needSitesKey = 'ma-gr-need-sites-nag:' + base;
+      var needSitesNag = document.getElementById('maGrNeedSitesNag');
+      function hideNeedSitesNag(persist) {
+        if (!needSitesNag) return;
+        needSitesNag.hidden = true;
+        if (persist) {
+          try { localStorage.setItem(needSitesKey, '1'); } catch (e) {}
+        }
+      }
+      function restoreNeedSitesNagDismiss() {
+        if (!needSitesNag) return;
+        try {
+          if (localStorage.getItem(needSitesKey) === '1') needSitesNag.hidden = true;
+        } catch (e) {}
+      }
+      restoreNeedSitesNagDismiss();
       var saveBtn = document.getElementById('maGrSave');
       if (saveBtn) saveBtn.addEventListener('click', async function () {
         saveBtn.disabled = true;
         try {
           await post('/review/google-reviews/settings', payload());
           setStatus('Saved.');
+          // Hide the request-site nag after saving notify prefs; it returns when they open Review settings.
+          hideNeedSitesNag(true);
         } catch (e) { setStatus(e.message || 'Save failed', true); }
         saveBtn.disabled = false;
       });
@@ -344,7 +362,7 @@
           }
         });
       });
-      var focusId = <%= JSON.stringify(_grFocus) %>;
+      var focusId = <%- JSON.stringify(_grFocus) %>;
       if (focusId) {
         var node = document.getElementById('gr-' + focusId);
         if (node) setTimeout(function () { node.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 120);

@@ -3288,22 +3288,18 @@ router.post('/m/:token/review/google-reviews/settings', express.json(), withMemb
   const member = await ensureReviewSetup(ctx);
   const sid = businessReviews.memberStorageId(ctx.network.id, member.id);
   const body = req.body || {};
+  // Allow saving auto-sync / notify preference even before request-site links are set.
+  // Sync still requires Google and/or Yelp links under Review settings.
   const query = businessReviews.resolveQueryFromMember(member);
   const yelpQuery = businessReviews.resolveYelpQueryFromMember(member);
-  if (!query && !yelpQuery) {
-    return res.status(400).json({
-      success: false,
-      error: 'Add your Google and/or Yelp review link under Review → Settings (request sites) first.',
-      code: 'QUERY_REQUIRED',
-    });
-  }
-  const settings = businessReviews.saveSettings(sid, {
-    query,
-    yelpQuery,
+  const patch = {
     businessName: body.businessName != null ? body.businessName : member.companyName,
     autoSync: body.autoSync === undefined ? undefined : !!body.autoSync,
-  });
-  return res.json({ success: true, settings });
+  };
+  if (query) patch.query = query;
+  if (yelpQuery) patch.yelpQuery = yelpQuery;
+  const settings = businessReviews.saveSettings(sid, patch);
+  return res.json({ success: true, settings, needsRequestSites: !query && !yelpQuery });
 }));
 
 router.post('/m/:token/review/google-reviews/sync', express.json(), withMemberApi(async (req, res, ctx) => {
