@@ -21,9 +21,10 @@
       const _followUpLocked = _sendLocked;
     %>
     <h1 class="ma-page-title"><%= _reviewView === 'reviews' ? 'Google & Yelp reviews' : 'Show your QR' %></h1>
-    <nav class="ma-seg ma-seg--2" aria-label="Review sections">
+    <nav class="ma-seg ma-seg--3" aria-label="Review sections">
       <a href="<%= base %>/review" class="<%= _reviewView === 'request' ? 'is-on' : '' %>">Request</a>
       <a href="<%= base %>/review?view=reviews" class="<%= _reviewView === 'reviews' ? 'is-on' : '' %>">Reviews<% if (_grNew > 0 && _reviewView !== 'reviews') { %> (<%= _grNew %>)<% } %></a>
+      <a href="<%= base %>/review/ai">AI</a>
     </nav>
     <% if (_reviewView === 'reviews') { %>
     <p class="ma-page-sub">Page visits, rating mix, and synced Google &amp; Yelp reviews — reply with AI, then paste back on the site.</p>
@@ -104,6 +105,12 @@
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/review/preview">Preview</a>
       </div>
+    </section>
+
+    <section class="ma-card" id="maAiReviews" aria-label="Ask with AI">
+      <h2 style="font-size:16px;margin:0 0 6px">Ask with ChatGPT, Muse, or Grok</h2>
+      <p class="ma-hint" style="margin:0 0 12px">Connect once, then tell your AI: “Preview a review ask for Jamie at 555…” — it uses your SMS script and sends from your GHL number. Same page covers job-complete automation.</p>
+      <a class="ma-btn ma-btn--block ma-btn--soft" href="<%= base %>/review/ai"><%- icons.review %> Set up AI reviews</a>
     </section>
 
     <details class="ma-fold" id="maAutoFollowUp" <%= _followUpLocked ? 'open' : '' %>>
@@ -390,7 +397,7 @@
         </div>
         <% } %>
         <div class="ma-card ma-card--flush" style="margin-top:10px">
-          <p class="ma-hint" style="margin-top:0">Or let AdHello send the text: in a GHL workflow, add a <strong>Webhook</strong> action to your AdHello GHL webhook URL with Custom Data <code>event</code> = <code>request_review</code> (trigger on job won / “Request review” tag). Phone &amp; name come from the contact. Optional: wire Grok (Settings → AI Connector) and say “text Jamie at 555… for a review” — it uses <code>send_review_request</code>.</p>
+          <p class="ma-hint" style="margin-top:0">Prefer AdHello to send the SMS (or ChatGPT / Muse / Grok by voice)? See <a href="<%= base %>/review/ai"><strong>AI reviews</strong></a> — GHL webhook <code>event=request_review</code> and the <code>send_review_request</code> tool.</p>
         </div>
       </div>
     </details>

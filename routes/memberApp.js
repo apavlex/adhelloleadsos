@@ -7,6 +7,7 @@
  *   /m/:token            Home
  *   /m/:token/profile    profile photo + contact + settings hub
  *   /m/:token/review     QR / share + send review requests
+ *   /m/:token/review/ai  ChatGPT / Muse / Grok + GHL review automation
  *   /m/:token/review/settings  review links + default preview image
  *   /m/:token/customers  customers, jobs and schedule
  *   /m/:token/voice/transcribe  field speech-to-text (Reviews + paid apps)
@@ -3243,7 +3244,37 @@ async function renderReviewSettings(req, res, ctx, flash, status) {
   }, status);
 }
 
-router.get('/m/:token/review', withMember((req, res, ctx) => renderReview(req, res, ctx)));
+async function renderReviewAi(req, res, ctx, flash, status) {
+  const member = await ensureReviewSetup(ctx);
+  const { getMcpServerUrl } = require('../services/mcp/mcpConnection');
+  const reviewUrl = notify.reviewPageLink(member);
+  const smsScript = reviewRequestScript.memberSmsScript(member);
+  const vcardUrl = reviewRequestScript.memberVcardUrl(member);
+  const attachVcard = reviewRequestScript.memberAttachVcard(member);
+  const ghlWorkflowPrompt = reviewRequestScript.buildGhlReviewWorkflowPrompt({
+    companyName: member.companyName,
+    reviewLink: reviewUrl,
+    smsScript,
+    attachVcard,
+    vcardUrl,
+  });
+  return render(res, 'review_ai', { ...ctx, member }, {
+    ...reviewPageLocals(member, null, ctx.brand),
+    active: 'review',
+    mcpEndpoint: getMcpServerUrl(req),
+    aiConnectorHref: '/workspace/ai-apps',
+    ghlWorkflowPrompt,
+    flash: flash || flashFromQuery(req),
+  }, status);
+}
+
+router.get('/m/:token/review', withMember((req, res, ctx) => {
+  if (String(req.query.view || '').trim() === 'ai') {
+    return res.redirect(302, `${ctx.base}/review/ai`);
+  }
+  return renderReview(req, res, ctx);
+}));
+router.get('/m/:token/review/ai', withMember((req, res, ctx) => renderReviewAi(req, res, ctx)));
 router.get('/m/:token/review/settings', withMember((req, res, ctx) => renderReviewSettings(req, res, ctx)));
 
 router.post('/m/:token/review/google-reviews/settings', express.json(), withMemberApi(async (req, res, ctx) => {

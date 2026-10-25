@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'AI reviews' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', {
+      topTitle: 'Review',
+      topSettings: { href: base + '/review/settings', label: 'Review settings' }
+    }) %>
+    <%
+      const _mcp = typeof mcpEndpoint !== 'undefined' ? String(mcpEndpoint || '') : '';
+      const _company = (member && member.companyName) ? member.companyName : 'your business';
+      const _aiWorkspace = typeof aiConnectorHref !== 'undefined' ? aiConnectorHref : '/workspace/ai-apps';
+      const _examplePrompt = 'Preview a review ask for Jamie Lee at 555-0100, then send it if I say yes.';
+      const _exampleStats = 'How are our Google review page stats looking this month?';
+      const _ghlEvent = 'request_review';
+    %>
+    <h1 class="ma-page-title">Ask with AI</h1>
+    <nav class="ma-seg ma-seg--3" aria-label="Review sections">
+      <a href="<%= base %>/review">Request</a>
+      <a href="<%= base %>/review?view=reviews">Reviews</a>
+      <a href="<%= base %>/review/ai" class="is-on" aria-current="page">AI</a>
+    </nav>
+    <p class="ma-page-sub">Connect ChatGPT, Muse, or Grok once — then ask them to text customers a review request from your number, using your SMS script and link.</p>
+
+    <%- include('_flash') %>
+
+    <section class="ma-card" aria-label="How it works">
+      <h2 style="font-size:16px;margin:0 0 6px">How it works</h2>
+      <ol class="ma-hint" style="margin:0;padding-left:1.2em;line-height:1.45">
+        <li>Connect your AI to AdHello (MCP) — same connector as Workspace → AI Connector.</li>
+        <li>Say something like “Preview a review ask for Jamie at 555…” — it builds the SMS with <code>send_review_request</code>.</li>
+        <li>Approve the text; AdHello sends it from your GHL CRM number (script, review link, optional vCard).</li>
+      </ol>
+    </section>
+
+    <section class="ma-card" aria-label="Connector URL">
+      <h2 style="font-size:16px;margin:0 0 6px">Connector URL</h2>
+      <p class="ma-hint" style="margin-top:0">Paste this as the MCP / custom server URL in ChatGPT, Muse, or Grok. Tokens and Client IDs are created in Workspace.</p>
+      <% if (_mcp) { %>
+      <div class="ma-link-box">
+        <code id="rvAiMcpUrl"><%= _mcp %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= _mcp %>"><%- icons.copy %> Copy</button>
+      </div>
+      <% } else { %>
+      <p class="ma-flash ma-flash--err" style="margin:0">Connector URL isn’t available on this server yet (needs BASE_URL).</p>
+      <% } %>
+      <a class="ma-btn ma-btn--block ma-btn--soft" style="margin-top:12px" href="<%= _aiWorkspace %>" target="_blank" rel="noopener">Open AI Connector <span aria-hidden="true">↗</span></a>
+      <p class="ma-hint">Create an agent token named ChatGPT, Muse, or Grok — or a Client ID if the app asks for OAuth.</p>
+    </section>
+
+    <details class="ma-fold" id="maAiChatgpt" open>
+      <summary>ChatGPT <span class="ma-fold__hint">Custom GPT / connectors</span></summary>
+      <div class="ma-fold__body">
+        <div class="ma-card ma-card--flush">
+          <ol class="ma-hint" style="margin:0;padding-left:1.2em;line-height:1.45">
+            <li>In ChatGPT, open <strong>Settings → Connectors</strong> (or your Custom GPT → Actions / MCP) and add a custom server.</li>
+            <li>Server URL: the connector URL above. Sign in with AdHello when prompted, or paste an agent token.</li>
+            <li>In chat: “<%= _examplePrompt %>”</li>
+          </ol>
+        </div>
+      </div>
+    </details>
+
+    <details class="ma-fold" id="maAiMuse">
+      <summary>Muse (Meta AI) <span class="ma-fold__hint">MCP server</span></summary>
+      <div class="ma-fold__body">
+        <div class="ma-card ma-card--flush">
+          <ol class="ma-hint" style="margin:0;padding-left:1.2em;line-height:1.45">
+            <li>In Muse, add an MCP server with the connector URL.</li>
+            <li>If it asks for an OAuth Client ID, create one named <strong>Meta AI (Muse)</strong> under AI Connector → Client IDs, then Allow this workspace.</li>
+            <li>No OAuth screen? Create an agent token named <strong>Muse</strong>, copy the setup message, and paste it into the chat.</li>
+            <li>Ask Muse to preview then send a review request for a customer.</li>
+          </ol>
+        </div>
+      </div>
+    </details>
+
+    <details class="ma-fold" id="maAiGrok">
+      <summary>Grok <span class="ma-fold__hint">app or xAI API</span></summary>
+      <div class="ma-fold__body">
+        <div class="ma-card ma-card--flush">
+          <ol class="ma-hint" style="margin:0;padding-left:1.2em;line-height:1.45">
+            <li>In Grok, add a custom MCP server with the connector URL — or create an agent token named <strong>Grok</strong> and paste the setup message into chat.</li>
+            <li>Text or chat: “<%= _examplePrompt %>”</li>
+            <li>Optional: point a Grok webhook at the same job-complete events you send to AdHello so it can log or follow up after the review SMS goes out.</li>
+          </ol>
+        </div>
+      </div>
+    </details>
+
+    <section class="ma-card" aria-label="Things to say">
+      <h2 style="font-size:16px;margin:0 0 6px">Things to say</h2>
+      <p class="ma-hint" style="margin-top:0">Always preview first so you see the exact SMS before it sends for <%= _company %>.</p>
+      <div class="ma-link-box" style="margin-bottom:8px">
+        <code id="rvAiPrompt1" style="white-space:pre-wrap"><%= _examplePrompt %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvAiPrompt1"><%- icons.copy %> Copy</button>
+      </div>
+      <div class="ma-link-box">
+        <code id="rvAiPrompt2" style="white-space:pre-wrap"><%= _exampleStats %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvAiPrompt2"><%- icons.copy %> Copy</button>
+      </div>
+    </section>
+
+    <section class="ma-card" id="maAiGhlAuto" aria-label="Automate after jobs">
+      <h2 style="font-size:16px;margin:0 0 6px">Automate after jobs (GHL)</h2>
+      <p class="ma-hint" style="margin-top:0">No chat needed: when a job is won or you apply a “Request review” tag, GHL can ping AdHello and we text the customer with your Reviews script.</p>
+      <ol class="ma-hint" style="margin:0 0 10px;padding-left:1.2em;line-height:1.45">
+        <li>In Workspace → Integrations, copy your <strong>GHL webhook URL</strong>.</li>
+        <li>GHL → Automation → Workflow → trigger on job won / tag → action <strong>Webhook</strong>.</li>
+        <li>Custom Data: <code>event</code> = <code><%= _ghlEvent %></code>. Phone and name come from the contact.</li>
+        <li>Optional Custom Data: <code>preview</code>=true (dry run), <code>member</code> if several review pages exist.</li>
+      </ol>
+      <% if (typeof ghlWorkflowPrompt !== 'undefined' && ghlWorkflowPrompt) { %>
+      <p class="ma-hint" style="margin-top:0">Or paste this into GHL Workflow AI to build the flow:</p>
+      <div class="ma-link-box">
+        <code id="rvAiGhlPrompt" style="white-space:pre-wrap;font-size:12px;max-height:140px;overflow:auto"><%= ghlWorkflowPrompt %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvAiGhlPrompt"><%- icons.copy %> Copy for GHL CRM</button>
+      </div>
+      <% } %>
+    </section>
+
+    <p class="ma-hint" style="text-align:center;margin:8px 0 24px">
+      SMS uses your saved script under Request → <a href="<%= base %>/review">SMS script</a>.
+      Need links or logo? <a href="<%= base %>/review/settings">Review settings</a>.
+    </p>
+  </main>
+  <%- include('_tabbar', { active: 'review' }) %>
+</body>
+</html>
