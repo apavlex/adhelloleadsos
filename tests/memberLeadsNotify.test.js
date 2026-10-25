@@ -50,9 +50,13 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /maMarkLeadForm/);
     assert.match(page, /ma-titlebar__actions/);
     assert.match(page, /form="maMarkLeadForm"/);
-    assert.match(page, /ma-titlebar[\s\S]*Mark as lead/);
+    // Mark as lead sits in the titlebar actions (right of the name), not a row below.
+    assert.match(
+      page,
+      /ma-titlebar[\s\S]*?ma-titlebar__actions[\s\S]*?Mark as lead[\s\S]*?<\/div>\s*<\/div>/,
+    );
+    assert.doesNotMatch(page, /ma-titlebar__actions"[^>]*justify-content:flex-start/);
     assert.match(page, /mark-lead/);
-    assert.match(page, /unmark-lead/);
     assert.doesNotMatch(page, /for="cuName"[\s\S]*Mark as lead/);
     assert.match(referrals, /Mark as customer/);
     assert.match(referrals, /mark-customer/);
@@ -60,6 +64,7 @@ describe('member leads + referral notifications', () => {
     assert.match(customers, /Open Leads/);
     assert.match(customers, /showLeads/);
     assert.match(route, /customers\/c\/:id\/mark-customer/);
+    assert.match(route, /customers\/c\/:id\/unmark-lead/);
     assert.match(route, /leads\/:leadId\/to-customer/);
     assert.match(route, /marked_customer/);
     assert.match(route, /filter\(\(c\) => showLeads \|\| !c\.isLead\)/);
