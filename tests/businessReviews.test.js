@@ -272,11 +272,12 @@ describe('businessReviews', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const svc = fs.readFileSync(path.join(__dirname, '../services/businessReviews.js'), 'utf8');
     assert.match(review, /_google_reviews/);
-    // Request | Reviews tabs (like Referrals); Google & Yelp live on the Reviews tab.
-    assert.match(review, /ma-seg ma-seg--2/);
+    // Request | Reviews | AI tabs; Google & Yelp live on the Reviews tab.
+    assert.match(review, /ma-seg ma-seg--3/);
     assert.match(review, /Review sections/);
     assert.match(review, />Request</);
     assert.match(review, /view=reviews/);
+    assert.match(review, /review\/ai/);
     assert.match(review, /googleReviewsTabMode:\s*true/);
     assert.match(review, /Show your QR/);
     assert.match(review, /Google & Yelp reviews/);
@@ -297,6 +298,9 @@ describe('businessReviews', () => {
     assert.match(partial, /Went to review/);
     assert.match(partial, /Private notes/);
     assert.match(partial, /In inbox/);
+    assert.match(partial, /id="maSeoRankCta"/);
+    assert.match(partial, /Get Google Business Rank/);
+    assert.match(partial, /https:\/\/adhello\.io\/seo-rank/);
     assert.match(partial, /aria-label="Review results"/);
     assert.match(partial, /Generate with AI/);
     assert.match(partial, /Generating…/);
