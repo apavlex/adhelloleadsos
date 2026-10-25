@@ -183,7 +183,16 @@ test('new customer form includes speak-once mic only (no field mics)', async () 
     assert.match(js, /dirtyFields/);
     assert.match(js, /parseAbort/);
     assert.match(js, /Never clear a typed value|activeElement === input/);
-    assert.match(html, /id="cuPhone"[^>]*autocomplete="off"/);
+    assert.match(js, /guardPhoneTyping/);
+    // iOS Contact Autofill: sinks + text/numeric phone (not type=tel).
+    assert.match(html, /safari_tel_sink/);
+    assert.match(html, /id="cuPhone"[^>]*type="text"/);
+    assert.match(html, /id="cuPhone"[^>]*inputmode="numeric"/);
+    assert.match(html, /id="cuPhone"[^>]*autocomplete="nope"/);
+    assert.match(html, /data-ma-phone-guard="1"/);
+    // Voice capture stays outside the details form so it can’t reset fields.
+    assert.match(html, /id="maVoiceAddCustomer"/);
+    assert.doesNotMatch(html, /data-ma-voice-customer-form="1"[\s\S]*id="maVoiceAddCustomerCapture"/);
     assert.match(voice, /hideIfUnsupported/);
     assert.match(voice, /preventFocus/);
     assert.match(voice, /alex-voice-icon--stop/);

@@ -2980,6 +2980,63 @@
 
   window.__maAttachVoiceButtons = attachMaVoiceButtons;
 
+  /**
+   * iOS Contact Autofill can replace/erase digits in a phone field while you type
+   * (especially when Name matches a contact). Re-apply the key when that happens.
+   */
+  function guardPhoneTyping(input) {
+    if (!input || input.getAttribute('data-ma-phone-guard-ready') === '1') return;
+    input.setAttribute('data-ma-phone-guard-ready', '1');
+    var last = String(input.value || '');
+    var pending = null;
+
+    input.addEventListener('keydown', function (e) {
+      if (e.isComposing || e.key === 'Process') return;
+      if (e.ctrlKey || e.metaKey || e.altKey) {
+        pending = null;
+        return;
+      }
+      if (e.key === 'Backspace' || e.key === 'Delete') {
+        pending = { kind: 'delete' };
+        return;
+      }
+      if (e.key && e.key.length === 1) {
+        var start = input.selectionStart;
+        var end = input.selectionEnd;
+        var hasSel = typeof start === 'number' && typeof end === 'number' && end > start;
+        // Only guard plain append typing (caret at end, no selection).
+        var atEnd = typeof start === 'number' && start === String(input.value || '').length;
+        pending = { kind: 'insert', ch: e.key, guard: !hasSel && atEnd };
+        return;
+      }
+      pending = null;
+    });
+
+    input.addEventListener('input', function () {
+      var v = String(input.value || '');
+      if (pending && pending.kind === 'insert' && pending.guard) {
+        // Autofill wiped or replaced the field instead of appending the key.
+        var expected = last + pending.ch;
+        if (v !== expected && (v.length < expected.length || v.indexOf(last) !== 0)) {
+          var max = input.maxLength > 0 ? input.maxLength : 40;
+          if (expected.length <= max) {
+            input.value = expected;
+            v = expected;
+            try {
+              input.setSelectionRange(v.length, v.length);
+            } catch (_) { /* ignore */ }
+          }
+        }
+      }
+      last = String(input.value || '');
+      pending = null;
+    });
+
+    input.addEventListener('focus', function () {
+      last = String(input.value || '');
+    });
+  }
+
   /** Speak-once → parse → confirm → create on New customer. */
   function bootSpeakAddCustomer() {
     var form = document.querySelector('[data-ma-voice-customer-form="1"]');
@@ -2991,6 +3048,8 @@
     var preview = document.getElementById('maVoiceCustomerPreview');
     var warningEl = document.getElementById('maVoiceCustomerConfirmWarning');
     var createBtn = document.getElementById('maVoiceCustomerCreateBtn');
+    // Phone guard runs even when voice UI is absent (edit customer).
+    document.querySelectorAll('[data-ma-phone-guard="1"]').forEach(guardPhoneTyping);
     if (!form || !wrap || !btn || !capture) return;
 
     var parseUrl = voiceEndpoint().replace(/\/voice\/transcribe$/, '/voice/parse-customer');
