@@ -95,16 +95,34 @@
         <%- icons.sms %> Request a review
       </button>
       <p class="ma-hint ma-qr__ask-hint">Uses your SMS script. Pick a customer (or enter Mobile under Send review request) so Messages opens their phone thread. The review link is last for the preview image.</p>
-      <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" style="margin-top:14px">
+      <button type="button" class="ma-qr__thumb" data-ma-qr-open aria-label="View and download QR code">
+        <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" decoding="async">
+      </button>
       <div class="ma-link-box">
         <code id="rvLink"><%= reviewUrl %></code>
         <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= reviewUrl %>"><%- icons.copy %> Copy</button>
       </div>
-      <div class="ma-actions" style="justify-content:center;width:100%">
-        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= reviewPath %>/qr.png?download=1" download><%- icons.download %> Download QR</a>
-        <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/review/preview">Preview</a>
+      <div class="ma-actions ma-qr__actions">
+        <button type="button" class="ma-btn ma-btn--block ma-btn--soft" data-ma-qr-open><%- icons.download %> View and download QR</button>
+        <a class="ma-btn ma-btn--block ma-btn--ghost" href="<%= base %>/review/preview">Preview</a>
       </div>
     </section>
+
+    <div class="ma-qr-view" id="maQrView" hidden role="dialog" aria-modal="true" aria-labelledby="maQrViewTitle">
+      <div class="ma-qr-view__chrome">
+        <button type="button" class="ma-qr-view__close" data-ma-qr-close aria-label="Close">&times;</button>
+        <h2 id="maQrViewTitle">Your review QR</h2>
+        <span class="ma-qr-view__spacer" aria-hidden="true"></span>
+      </div>
+      <div class="ma-qr-view__stage">
+        <img class="ma-qr-view__img" src="<%= reviewPath %>/qr.png" alt="Full-screen QR code for your review page" width="320" height="320" decoding="async">
+        <p class="ma-qr-view__hint">Hold up for customers to scan, or download to your Photos / Files.</p>
+      </div>
+      <div class="ma-qr-view__actions">
+        <a class="ma-btn ma-btn--block" href="<%= reviewPath %>/qr.png?download=1" download="<%= (member.reviewSlug || 'review') %>-qr.png"><%- icons.download %> Download to phone</a>
+        <button type="button" class="ma-btn ma-btn--block ma-btn--soft" data-ma-qr-close>Done</button>
+      </div>
+    </div>
 
     <details class="ma-fold" id="maAutoFollowUp" <%= _followUpLocked ? 'open' : '' %>>
       <summary>

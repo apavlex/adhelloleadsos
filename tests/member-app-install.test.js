@@ -466,6 +466,12 @@ describe('member app install modal and tab bar', () => {
     assert.match(viewer, /data-ma-lr/);
     assert.match(viewer, /ma-lr__film/);
     assert.match(js, /function initPhotoLightroomViewer/);
+    assert.match(js, /function initQrViewer/);
+    assert.match(js, /data-ma-qr-open/);
+    assert.match(js, /ma-qr-view-open/);
+    assert.match(css, /\.ma-qr-view\s*\{[^}]*var\(--acc\)/s);
+    assert.match(css, /\.ma-qr-view__close\s*\{[^}]*var\(--acc-soft\)/s);
+    assert.match(css, /\.ma-qr-view__actions \.ma-btn\s*\{[^}]*var\(--acc\)/s);
     assert.match(js, /onLrTouchMove/);
     assert.match(css, /\.ma-lr\s*\{/);
     assert.match(css, /background:#0a0a0a/);
