@@ -106,6 +106,12 @@
       </div>
     </section>
 
+    <section class="ma-card" id="maAiReviews" aria-label="Ask with AI">
+      <h2 style="font-size:16px;margin:0 0 6px">Ask with ChatGPT, Muse, or Grok</h2>
+      <p class="ma-hint" style="margin:0 0 12px">Connect once, then tell your AI: “Preview a review ask for Jamie at 555…” — it uses your SMS script and sends from your GHL number.</p>
+      <a class="ma-btn ma-btn--block ma-btn--soft" href="<%= base %>/review/ai"><%- icons.review %> AI review settings</a>
+    </section>
+
     <details class="ma-fold" id="maAutoFollowUp" <%= _followUpLocked ? 'open' : '' %>>
       <summary>
         Automated follow-ups
@@ -389,6 +395,9 @@
           </div>
         </div>
         <% } %>
+        <div class="ma-card ma-card--flush" style="margin-top:10px">
+          <p class="ma-hint" style="margin-top:0">Prefer AdHello to send the SMS (or ChatGPT / Muse / Grok by voice)? See <a href="<%= base %>/review/ai"><strong>AI reviews</strong></a> — GHL webhook <code>event=request_review</code> and the <code>send_review_request</code> tool.</p>
+        </div>
       </div>
     </details>
 

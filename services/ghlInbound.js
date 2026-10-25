@@ -70,6 +70,7 @@ const EVENT_ALIASES = [
   [/^(call|inbound_?call|call_?completed|call_?status)$/, 'call'],
   [/^(sms|text|reply|message|customer_?replied|inbound_?sms|inbound_?message)$/, 'sms'],
   [/^(email|inbound_?email|email_?reply)$/, 'email'],
+  [/^(request_?review|review_?request|ask_?review|ask_?for_?review)$/, 'request_review'],
 ];
 
 function workflowMessage(body) {
@@ -389,6 +390,64 @@ function formLogMessage(parsed) {
 }
 
 /**
+ * Job-complete / “request review” Workflow webhook → send review SMS via AdHello (not a lead).
+ */
+async function handleRequestReviewWebhook(body, parsed, workspaceId) {
+  const store = require('./networkStore');
+  const reviewRequestAutomation = require('./reviewRequestAutomation');
+  const { getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
+  const cd = obj(body.customData);
+  const contact = parsed.contact || {};
+  const network = await store.getNetworkForWorkspace(workspaceId);
+  if (!network) {
+    return {
+      ok: false,
+      workspaceId,
+      action: 'request_review',
+      error: 'This workspace has no referral network / Reviews setup yet.',
+    };
+  }
+  const previewRaw = str(cd.preview || body.preview).toLowerCase();
+  const preview = previewRaw === '1' || previewRaw === 'true' || previewRaw === 'yes';
+  const name = str(
+    cd.customer_name || cd.customerName || cd.name
+      || contact.name
+      || [contact.firstName, contact.lastName].filter(Boolean).join(' '),
+  );
+  const result = await reviewRequestAutomation.requestReview({
+    network,
+    memberRef: str(cd.member || cd.member_name || cd.memberName || body.member),
+    customerId: str(cd.customer_id || cd.customerId),
+    customerName: name,
+    phone: str(cd.phone || contact.phone || body.phone),
+    email: str(cd.email || contact.email || body.email),
+    channel: str(cd.channel || body.channel) || 'auto',
+    useAi: !/^(0|false|no)$/i.test(str(cd.use_ai || cd.useAi || 'true')),
+    preview,
+    baseUrl: getReviewPublicBaseUrl(),
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      workspaceId,
+      action: 'request_review',
+      error: result.error,
+    };
+  }
+  return {
+    ok: true,
+    workspaceId,
+    action: 'request_review',
+    preview: !!result.preview,
+    channel: result.channel,
+    member: result.member,
+    customer: result.customer,
+    ask_id: result.ask_id || '',
+    message: result.message || '',
+  };
+}
+
+/**
  * Handle a GHL Workflow webhook (custom "Webhook" action).
  * @param {object} body
  * @param {{ workspaceId?: string }} [opts]
@@ -397,6 +456,11 @@ async function processWorkflowWebhook(body, opts = {}) {
   const parsed = parseGhlWorkflowPayload(body);
   if (!parsed) return { ok: true, ignored: true, reason: 'not_workflow_payload' };
   const wid = await resolveWorkspaceId(parsed.locationId, opts.workspaceId, opts.lockWorkspace);
+
+  if (parsed.kind === 'request_review') {
+    return handleRequestReviewWebhook(body, parsed, wid);
+  }
+
   const sourceByKind = {
     form: 'inbound_ghl_form',
     missed_call: 'inbound_ghl_call',
@@ -518,5 +582,6 @@ module.exports = {
   adAttribution,
   ensureLeadForContact,
   handleInboundCall,
+  handleRequestReviewWebhook,
   processWorkflowWebhook,
 };

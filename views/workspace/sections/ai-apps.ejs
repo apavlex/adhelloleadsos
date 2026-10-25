@@ -119,6 +119,13 @@
         <p class="text-sm font-bold text-brand-dark dark:text-white">With the xAI API</p>
         <p class="text-sm text-brand-dark dark:text-slate-100">Add a remote MCP tool with the server URL set to the connector URL and the authorization set to an agent token.</p>
       </div>
+      <div class="space-y-2 pt-3 border-t border-brand-border/30 dark:border-white/10">
+        <p class="text-sm font-bold text-brand-dark dark:text-white">Automate review texts from your phone</p>
+        <ol class="space-y-3 text-sm text-brand-dark dark:text-slate-100">
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">1</span><span>Text or chat Grok: <em>“Preview a review ask for Jamie at 555-0100”</em> — it calls <code class="<%= _aiCode %>">send_review_request</code> with <code class="<%= _aiCode %>">preview:true</code>, shows the SMS, then sends after you say yes (from your GHL number).</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">2</span><span>For job-complete automation without chatting: in GHL, Workflow → Webhook to your AdHello GHL URL with Custom Data <code class="<%= _aiCode %>">event</code> = <code class="<%= _aiCode %>">request_review</code>. AdHello sends the Reviews script. Optional: also POST that same payload to a Grok webhook so the bot can log or follow up.</span></li>
+        </ol>
+      </div>
     </div>
 
     <div id="aiPanel-agents" role="tabpanel" aria-labelledby="aiTab-agents" data-ai-panel="agents" class="space-y-4 hidden">
@@ -229,6 +236,8 @@
         'Find roofers in Vancouver, WA with fewer than 20 reviews and save them to a new folder.',
         'What referrals came in this week, and which members haven\u2019t accepted theirs yet?',
         'Send a referral to our HVAC member for Jane Smith in Camas. She agreed to be contacted.',
+        'Preview a review ask for Jamie Lee at 555-0100, then send it if I say yes.',
+        'How are our Google review page stats looking this month?',
         'Add a task to call Acme Plumbing tomorrow at 10am.',
         'Show me pending network applications and which seats they would fill.',
         'Move every lead tagged \u201chot\u201d to the Proposal stage and text them through Go High Level.',

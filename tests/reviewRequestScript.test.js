@@ -212,6 +212,7 @@ test('buildGhlReviewWorkflowPrompt includes script and review link for Workflow 
     smsScript: 'Hi {{name}} — review {{company}}: {{review_link}}',
   });
   assert.match(prompt, /GHL CRM workflow/i);
+  assert.match(prompt, /event = request_review/);
   assert.match(prompt, /https:\/\/app\.example\/rv\/brightline/);
   assert.match(prompt, /Brightline Electric/);
   assert.match(prompt, /\{\{contact\.first_name\}\}/);

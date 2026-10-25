@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('_head', { pageTitle: 'AI reviews' }) %>
+</head>
+<body>
+  <main class="ma-shell">
+    <%- include('_top', {
+      topBack: { href: base + '/review/settings', label: 'Settings' },
+      topSettings: { href: base + '/review/settings', label: 'Review settings' }
+    }) %>
+    <%
+      const _mcp = typeof mcpEndpoint !== 'undefined' ? String(mcpEndpoint || '') : '';
+      const _company = (member && member.companyName) ? member.companyName : 'your business';
+      const _aiWorkspace = typeof aiConnectorHref !== 'undefined' ? aiConnectorHref : '/workspace/ai-apps';
+      const _examplePrompt = 'Preview a review ask for Jamie Lee at 555-0100, then send it if I say yes.';
+      const _exampleStats = 'How are our Google review page stats looking this month?';
+    %>
+    <h1 class="ma-page-title">AI review settings</h1>
+    <p class="ma-page-sub">Connect ChatGPT, Muse, or Grok once — then ask them to text a review request from your number.</p>
+
+    <%- include('_flash') %>
+
+    <section class="ma-card" aria-label="How it works">
+      <h2 style="font-size:16px;margin:0 0 8px">How it works</h2>
+      <ol class="ma-hint" style="margin:0;padding-left:1.2em;line-height:1.5">
+        <li>Connect your AI in Workspace → <strong>AI Connector</strong> (same login as AdHello).</li>
+        <li>Say: “Preview a review ask for Jamie at 555…” — it drafts your SMS script.</li>
+        <li>Say yes — AdHello texts from your GHL number with your review link.</li>
+      </ol>
+    </section>
+
+    <section class="ma-card" aria-label="Connect your AI">
+      <h2 style="font-size:16px;margin:0 0 6px">Connect your AI</h2>
+      <p class="ma-hint" style="margin-top:0">Open AI Connector to create a token for ChatGPT, Muse, or Grok. Paste the connector URL below if the app asks for a server URL.</p>
+      <a class="ma-btn ma-btn--block" href="<%= _aiWorkspace %>" target="_blank" rel="noopener">Open AI Connector <span aria-hidden="true">↗</span></a>
+      <% if (_mcp) { %>
+      <p class="ma-hint" style="margin:12px 0 6px">Connector URL</p>
+      <div class="ma-link-box">
+        <code id="rvAiMcpUrl"><%= _mcp %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= _mcp %>"><%- icons.copy %> Copy</button>
+      </div>
+      <% } %>
+    </section>
+
+    <details class="ma-fold" id="maAiChatgpt">
+      <summary>ChatGPT <span class="ma-fold__hint">connectors</span></summary>
+      <div class="ma-fold__body">
+        <ol class="ma-hint" style="margin:0;padding-left:1.2em;line-height:1.5">
+          <li>Settings → Connectors (or Custom GPT → MCP) → add a custom server.</li>
+          <li>Paste the connector URL. Sign in to AdHello, or use an agent token named <strong>ChatGPT</strong>.</li>
+          <li>Ask it to preview a review ask, then send when you approve.</li>
+        </ol>
+      </div>
+    </details>
+
+    <details class="ma-fold" id="maAiMuse">
+      <summary>Muse <span class="ma-fold__hint">Meta AI</span></summary>
+      <div class="ma-fold__body">
+        <ol class="ma-hint" style="margin:0;padding-left:1.2em;line-height:1.5">
+          <li>Add an MCP server with the connector URL.</li>
+          <li>If it asks for a Client ID, create <strong>Meta AI (Muse)</strong> under AI Connector → Client IDs.</li>
+          <li>Or create an agent token named <strong>Muse</strong> and paste the setup message into chat.</li>
+        </ol>
+      </div>
+    </details>
+
+    <details class="ma-fold" id="maAiGrok">
+      <summary>Grok <span class="ma-fold__hint">xAI</span></summary>
+      <div class="ma-fold__body">
+        <ol class="ma-hint" style="margin:0;padding-left:1.2em;line-height:1.5">
+          <li>Add a custom MCP server with the connector URL — or an agent token named <strong>Grok</strong>.</li>
+          <li>Text or chat a review ask; approve the preview before it sends.</li>
+        </ol>
+      </div>
+    </details>
+
+    <section class="ma-card" aria-label="Things to say">
+      <h2 style="font-size:16px;margin:0 0 6px">Things to say</h2>
+      <p class="ma-hint" style="margin-top:0">Always preview first so you see the exact SMS for <%= _company %>.</p>
+      <div class="ma-link-box" style="margin-bottom:8px">
+        <code id="rvAiPrompt1" style="white-space:pre-wrap"><%= _examplePrompt %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvAiPrompt1"><%- icons.copy %> Copy</button>
+      </div>
+      <div class="ma-link-box">
+        <code id="rvAiPrompt2" style="white-space:pre-wrap"><%= _exampleStats %></code>
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy-from="rvAiPrompt2"><%- icons.copy %> Copy</button>
+      </div>
+    </section>
+
+    <section class="ma-card" id="maAiGhlAuto" aria-label="Automate after jobs">
+      <h2 style="font-size:16px;margin:0 0 6px">Automate after jobs</h2>
+      <p class="ma-hint" style="margin-top:0">When a job is won (or you tag “Request review”), GHL can ping AdHello and we text the customer — no chat needed.</p>
+      <ol class="ma-hint" style="margin:0 0 12px;padding-left:1.2em;line-height:1.5">
+        <li>Copy your GHL webhook URL from Workspace → Integrations.</li>
+        <li>GHL Workflow → Webhook action with Custom Data <code>event</code> = <code>request_review</code>.</li>
+      </ol>
+      <% if (typeof ghlWorkflowPrompt !== 'undefined' && ghlWorkflowPrompt) { %>
+      <div class="ma-link-box" style="flex-direction:column;align-items:stretch;gap:10px">
+        <code id="rvAiGhlPrompt" style="white-space:pre-wrap;font-size:12px;max-height:160px;overflow:auto;display:block"><%= ghlWorkflowPrompt %></code>
+        <button type="button" class="ma-btn ma-btn--soft ma-btn--block" data-ma-copy-from="rvAiGhlPrompt"><%- icons.copy %> Copy for GHL CRM</button>
+      </div>
+      <p class="ma-hint" style="margin:8px 0 0">Paste into GHL Workflow AI to build the flow.</p>
+      <% } %>
+    </section>
+
+    <p class="ma-hint" style="text-align:center;margin:4px 0 8px">
+      Edit your SMS under <a href="<%= base %>/review">Request</a> ·
+      Results on <a href="<%= base %>/review?view=reviews">Reviews</a> ·
+      Links in <a href="<%= base %>/review/settings">Settings</a>
+    </p>
+  </main>
+  <%- include('_tabbar') %>
+</body>
+</html>

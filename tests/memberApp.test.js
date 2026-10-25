@@ -252,6 +252,60 @@ test('a failed GHL sub-account is recorded on the member without throwing', asyn
   assert.match(networkMembers.ghlNotice(ok), /created/);
 });
 
+test('Reviews AI page explains ChatGPT, Muse, Grok, and GHL automation', async () => {
+  const { network, zone } = await setupNetwork();
+  const member = await addMember(network, zone, { title: 'AI Floors', trade: 'flooring' });
+  const withSlug = await store.ensureReviewSlug(network.id, member, 'ai-floors');
+  await store.saveMember(network.id, {
+    ...withSlug,
+    reviewLinks: { google: 'https://g.page/r/ai-floors/review', other: [] },
+  });
+  const token = createMemberPortalToken({ networkId: network.id, memberId: member.id });
+  const { server, base } = await startApp();
+  try {
+    const reviewTab = await fetch(`${base}/m/${token}/review`);
+    assert.equal(reviewTab.status, 200);
+    const reviewHtml = await reviewTab.text();
+    assert.match(reviewHtml, /ma-seg ma-seg--2/);
+    assert.doesNotMatch(reviewHtml, /aria-label="Review sections"[^>]*>[\s\S]*ma-seg--3/);
+    assert.match(reviewHtml, /href="[^"]*\/review\/ai"/);
+    assert.match(reviewHtml, /id="maAiReviews"/);
+    assert.match(reviewHtml, /Ask with ChatGPT, Muse, or Grok/);
+    assert.match(reviewHtml, /AI review settings/);
+    // Request | Reviews stay — AI is a settings page, not a third segment tab.
+    assert.match(reviewHtml, />Request</);
+    assert.match(reviewHtml, /view=reviews/);
+
+    const aiTab = await fetch(`${base}/m/${token}/review/ai`);
+    assert.equal(aiTab.status, 200);
+    const aiHtml = await aiTab.text();
+    assert.match(aiHtml, /AI review settings/);
+    assert.match(aiHtml, /ChatGPT/);
+    assert.match(aiHtml, /Muse/);
+    assert.match(aiHtml, /Grok/);
+    assert.match(aiHtml, /Preview a review ask/);
+    assert.match(aiHtml, /request_review|Open AI Connector/);
+    assert.match(aiHtml, /Automate after jobs/);
+    assert.match(aiHtml, /workspace\/ai-apps/);
+    assert.match(aiHtml, /Connector URL|ceo\/mcp|Open AI Connector/);
+    assert.match(aiHtml, /review\/settings/);
+    assert.match(aiHtml, /AI review settings/);
+    assert.doesNotMatch(aiHtml, /<nav class="ma-seg/);
+
+    const settingsTab = await fetch(`${base}/m/${token}/review/settings`);
+    assert.equal(settingsTab.status, 200);
+    const settingsHtml = await settingsTab.text();
+    assert.match(settingsHtml, /AI review settings|Open AI review settings/);
+    assert.match(settingsHtml, /review\/ai/);
+
+    const alias = await fetch(`${base}/m/${token}/review?view=ai`, { redirect: 'manual' });
+    assert.equal(alias.status, 302);
+    assert.match(String(alias.headers.get('location') || ''), /\/review\/ai$/);
+  } finally {
+    server.close();
+  }
+});
+
 test('member app pages, manifest, send, enroll and the review page work end to end', async () => {
   const { network, zone } = await setupNetwork();
   await store.saveNetwork({ ...network, brand: { appName: 'Discount Home Services', accent: '#f26b1d', statValue: 846429, statLabel: 'Homes serviced' } });
