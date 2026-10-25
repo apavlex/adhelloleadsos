@@ -1,7 +1,7 @@
 /**
- * Referral network tools for MCP clients (ChatGPT, Claude, Gemini) and the in-app chat:
+ * Referral network tools for MCP clients (ChatGPT, Claude, Gemini, Grok) and the in-app chat:
  * overview, members, referrals (send / update), trades-pool jobs (post / list),
- * applications, and review stats.
+ * applications, review stats, and review-request SMS.
  */
 const { z } = require('zod/v3');
 const { zodToJsonSchema } = require('zod-to-json-schema');
@@ -13,6 +13,7 @@ const trades = require('../networkTrades');
 const notify = require('../networkNotify');
 const networkReferrals = require('../networkReferrals');
 const networkMembers = require('../networkMembers');
+const reviewRequestAutomation = require('../reviewRequestAutomation');
 
 function toolError(message, code = 'NETWORK_ERROR') {
   const err = new Error(message);
@@ -450,6 +451,51 @@ async function getReviewStats(ctx, input) {
   return { members: rows };
 }
 
+/**
+ * Text (or email) a customer the member’s review-request script + link + optional vCard.
+ * Prefer preview:true first so the user can approve the exact SMS before it goes out.
+ */
+async function sendReviewRequest(ctx, input) {
+  const network = await requireNetwork(ctx);
+  const result = await reviewRequestAutomation.requestReview({
+    network,
+    memberRef: input.member,
+    customerId: input.customer_id,
+    customerName: input.customer_name || input.name,
+    phone: input.phone,
+    email: input.email,
+    channel: input.channel || 'auto',
+    useAi: input.use_ai !== false,
+    preview: input.preview === true,
+    baseUrl: baseUrl(ctx),
+  });
+  if (!result.ok) throw toolError(result.error, 'REVIEW_REQUEST_FAILED');
+  if (result.preview) {
+    return {
+      message: 'Preview only — show this text and get a yes before calling again with preview:false.',
+      preview: true,
+      channel: result.channel,
+      member: result.member,
+      customer: result.customer,
+      sms_body: result.message,
+      review_link: result.review_link,
+      vcard_url: result.vcard_url || '',
+      provider: result.provider || '',
+    };
+  }
+  const who = (result.customer && (result.customer.name || result.customer.phone || result.customer.email)) || 'the customer';
+  return {
+    message: `Review request sent via ${result.channel} to ${who}.`,
+    preview: false,
+    channel: result.channel,
+    member: result.member,
+    customer: result.customer,
+    sms_body: result.message,
+    review_link: result.review_link,
+    ask_id: result.ask_id || '',
+  };
+}
+
 /** A catalog trade by slug, name, or search keyword; plural/singular differences are tolerated. */
 function findCatalogTrade(catalog, value) {
   const wanted = normWords(value);
@@ -666,6 +712,26 @@ const NETWORK_TOOLS = [
     run: getReviewStats,
   },
   {
+    name: 'send_review_request',
+    description:
+      'Ask a customer for a review by SMS (or email fallback) using the member’s saved Reviews script, review link, and optional vCard. ' +
+      'Texts go out from the business’s Go High Level number. ' +
+      'Always call with preview:true first, show the exact SMS, and only send after the user says yes (preview:false or omit preview). ' +
+      'Pass a phone and/or a saved customer name; member defaults to the network owner’s review page when omitted.',
+    schema: z.object({
+      phone: z.string().optional().describe('Customer mobile number.'),
+      email: z.string().optional().describe('Customer email (used when SMS is not ready, or as a lookup key).'),
+      customer_name: z.string().optional().describe('Customer name for the script and for matching a saved customer.'),
+      name: z.string().optional().describe('Alias for customer_name.'),
+      customer_id: z.string().optional().describe('Saved customer id from the member app, if known.'),
+      member: z.string().optional().describe('Member id or company name whose review page / script to use.'),
+      channel: z.enum(['auto', 'sms', 'email']).optional().describe('Default auto: SMS when GHL SMS is ready, else email.'),
+      use_ai: z.boolean().optional().describe('false = use the saved script only (no AI rewrite). Default true.'),
+      preview: z.boolean().optional().describe('true = return the filled SMS without sending. Required before the first real send.'),
+    }),
+    run: sendReviewRequest,
+  },
+  {
     name: 'manage_network_trades',
     description:
       'See or change which trades have seats in the referral network. list: active and hidden trades. ' +
@@ -717,6 +783,7 @@ module.exports = {
     'post_pool_job',
     'update_referral',
     'approve_network_application',
+    'send_review_request',
   ],
   executeNetworkTool,
   openAiFunctionTools,

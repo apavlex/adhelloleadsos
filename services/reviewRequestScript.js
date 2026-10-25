@@ -535,7 +535,12 @@ function buildGhlReviewWorkflowPrompt({ companyName, reviewLink, smsScript, atta
     `Build a GHL CRM workflow that texts happy customers a review request for ${company}.`,
     '',
     'Trigger: when a job/opportunity is marked won/completed (or a “Request review” tag is applied).',
-    'Action: Send SMS from this location’s SMS number.',
+    '',
+    'Preferred action (AdHello sends the SMS with the saved Reviews script + link + vCard):',
+    'Webhook → your AdHello GHL webhook URL with Custom Data event = request_review.',
+    'Contact phone/name are taken from the GHL contact. Optional Custom Data: member, preview=true.',
+    '',
+    'Alternate action (GHL sends SMS itself): Send SMS from this location’s SMS number.',
     '',
     scriptWantsReviewLink(script)
       ? 'SMS script (personalize {{contact.first_name}} in GHL CRM; keep the review link exact):'

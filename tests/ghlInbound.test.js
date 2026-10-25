@@ -61,6 +61,8 @@ test('detectWorkflowEvent: customData.event wins, workflow name is the fallback'
   assert.equal(ghlInbound.detectWorkflowEvent({ ...base, customData: { event: 'missed call' } }), 'missed_call');
   assert.equal(ghlInbound.detectWorkflowEvent({ ...base, customData: { event: 'voicemail' } }), 'voicemail');
   assert.equal(ghlInbound.detectWorkflowEvent({ ...base, customData: { event: 'sms' }, message: { body: 'hi' } }), 'sms');
+  assert.equal(ghlInbound.detectWorkflowEvent({ ...base, customData: { event: 'request_review' } }), 'request_review');
+  assert.equal(ghlInbound.detectWorkflowEvent({ ...base, customData: { event: 'ask-review' } }), 'request_review');
   assert.equal(ghlInbound.detectWorkflowEvent({ ...base, workflow: { name: 'Missed call text back' } }), 'missed_call');
   assert.equal(ghlInbound.detectWorkflowEvent({ ...base, workflow: { name: 'Customer replied' }, message: { body: 'yes' } }), 'sms');
   assert.equal(ghlInbound.detectWorkflowEvent({ ...base, workflow: { name: 'Website form' } }), 'form');
@@ -227,4 +229,34 @@ test('appendInboundEvent dedupes by id and caps the list', () => {
   list = appendInboundEvent(list, { id: 'e29', type: 'sms', at: new Date().toISOString() });
   assert.equal(list.length, 20);
   assert.equal(list[list.length - 1].id, 'e29');
+});
+
+test('request_review workflow webhook previews without creating a lead', async () => {
+  const store = require('../services/networkStore');
+  const network = await store.getOrCreateNetworkForWorkspace(WID, { name: 'Inbound Review Net' });
+  await store.saveMember(network.id, {
+    id: 'owner',
+    companyName: 'Inbound Floors',
+    contactName: 'Owner',
+    status: 'active',
+    reviewSlug: 'inbound-floors',
+    reviewLinks: { google: 'https://g.page/r/demo/review' },
+  });
+  const before = (await dbService.getAllLeads(WID)).length;
+  const r = await ghlInbound.processWorkflowWebhook({
+    contact_id: 'ghl_review_1',
+    first_name: 'Jamie',
+    last_name: 'Lee',
+    phone: '+15550002222',
+    email: 'jamie@example.com',
+    location: { id: 'loc_x' },
+    workflow: { id: 'wf_review', name: 'Job complete → review' },
+    customData: { event: 'request_review', preview: 'true', use_ai: 'false' },
+  }, { workspaceId: WID });
+  assert.equal(r.action, 'request_review');
+  assert.equal(r.ok, true);
+  assert.equal(r.preview, true);
+  assert.match(r.message || '', /Inbound Floors|review/i);
+  const after = (await dbService.getAllLeads(WID)).length;
+  assert.equal(after, before);
 });

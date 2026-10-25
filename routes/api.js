@@ -376,7 +376,7 @@ router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
  * POST /api/webhooks/ghl
  * Go High Level ContactCreate / ContactUpdate + InboundMessage / OutboundMessage (SMS, Email, Call)
  * + EmailOpened / LinkClicked engagement events
- * + Workflow "Webhook" actions (form / FB lead form / call status / customer replied; customData.event).
+ * + Workflow "Webhook" actions (form / FB lead form / call status / customer replied / request_review; customData.event).
  * Auth: ?token=GHL_WEBHOOK_SECRET or x-ghl-webhook-token (or x-api-key / workspace ghlWebhookSecret).
  * Workspace is resolved from payload locationId when x-workspace-id is not set.
  */
