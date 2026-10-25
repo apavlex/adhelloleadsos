@@ -249,10 +249,11 @@ summary.ma-settings-row:active {
   -webkit-user-select: none; user-select: none;
 }
 .ma-iconbtn::before { content: ""; position: absolute; inset: 4px; border-radius: 999px; background: var(--acc-soft); transition: transform 0.12s ease; }
-.ma-iconbtn svg { position: relative; width: 20px; height: 20px; }
+.ma-iconbtn svg { position: relative; z-index: 1; width: 20px; height: 20px; }
 .ma-iconbtn:active::before { transform: scale(0.92); }
 .ma-iconbtn.is-on::before, .ma-iconbtn--fill::before { background: var(--acc); }
-.ma-iconbtn.is-on, .ma-iconbtn--fill { color: var(--on); }
+/* Keep filled icons on --on so critical CSS (.ma-iconbtn { color: var(--acc) }) can't hide the glyph on the blue circle. */
+.ma-iconbtn.is-on, .ma-iconbtn--fill, a.ma-iconbtn--fill, button.ma-iconbtn--fill { color: var(--on); }
 .ma-iconbtn:focus-visible { outline: 2px solid var(--acc); outline-offset: 0; }
 .ma-top__back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin-left: -8px; padding-right: 8px; color: var(--acc); text-decoration: none; font-size: 17px; font-weight: 500; min-width: 0; }
 .ma-top__back svg { width: 24px; height: 24px; flex-shrink: 0; }
