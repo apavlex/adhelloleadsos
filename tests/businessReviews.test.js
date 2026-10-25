@@ -315,7 +315,24 @@ describe('businessReviews', () => {
     assert.match(partial, /Google request-site link/);
     assert.match(partial, /Yelp request-site link/);
     assert.match(partial, /request sites/);
+    // Save auto-sync hides the request-site nag until Review settings is opened again.
+    assert.match(partial, /id="maGrNeedSitesNag"/);
+    assert.match(partial, /ma-gr-need-sites-nag:/);
+    assert.match(partial, /hideNeedSitesNag\(true\)/);
+    // Unescaped JSON in <script> — <%= escapes quotes to &#34; and breaks Save.
+    assert.match(partial, /var base = <%- JSON\.stringify\(base\) %>;/);
     assert.doesNotMatch(partial, /id="maGrQuery"/);
+    assert.match(route, /needsRequestSites/);
+    assert.doesNotMatch(
+      route,
+      /google-reviews\/settings[\s\S]*?QUERY_REQUIRED/,
+    );
+    const settingsPage = fs.readFileSync(
+      path.join(__dirname, '../views/member_app/review_settings.ejs'),
+      'utf8',
+    );
+    assert.match(settingsPage, /ma-gr-need-sites-nag:/);
+    assert.match(settingsPage, /removeItem/);
     assert.match(route, /reviewView/);
     assert.match(route, /=== 'reviews'/);
     assert.match(route, /googleReviewFocusId/);

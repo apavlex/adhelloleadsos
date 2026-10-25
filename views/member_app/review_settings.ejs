@@ -11,6 +11,15 @@
     }) %>
     <h1 class="ma-page-title">Review settings</h1>
     <p class="ma-page-sub">Logo, review links, and the photo shown when your link is shared.</p>
+    <script>
+    /* Re-show the Reviews-tab request-site nag after visiting settings (notify prefs Save dismisses it). */
+    (function () {
+      try {
+        var base = <%- JSON.stringify(typeof base !== 'undefined' ? base : '') %>;
+        if (base) localStorage.removeItem('ma-gr-need-sites-nag:' + base);
+      } catch (e) {}
+    })();
+    </script>
 
     <%- include('_flash') %>
 
