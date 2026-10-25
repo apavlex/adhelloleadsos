@@ -177,7 +177,7 @@ test('customers: mark-as-lead routes put contact on Leads Received', async () =>
     assert.equal(after.isLead, true);
 
     const leadsPage = await (await fetch(`${A}/referrals`)).text();
-    assert.match(leadsPage, /From contacts/);
+    assert.match(leadsPage, /Leads from contacts and online forms/);
     assert.match(leadsPage, /Inbound Texter/);
     assert.match(leadsPage, /contact-lead-/);
     assert.match(leadsPage, /Mark as customer/);

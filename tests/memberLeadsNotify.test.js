@@ -20,7 +20,7 @@ describe('member leads + referral notifications', () => {
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_formLeads\.forEach/);
-    assert.match(page, /From contacts/);
+    assert.match(page, /Leads from contacts and online forms/);
     assert.match(page, /_contactLeads\.forEach/);
     assert.match(page, /maPushRoot/);
     assert.match(page, /member-app-push\.js/);
