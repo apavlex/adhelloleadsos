@@ -2996,6 +2996,12 @@
     var parseUrl = voiceEndpoint().replace(/\/voice\/transcribe$/, '/voice/parse-customer');
     var parsing = false;
     var lastTranscript = '';
+    var parseGeneration = 0;
+    var parseAbort = null;
+    var applyingVoice = false;
+    /** Fields the user typed after the last mic start — never overwrite those. */
+    var dirtyFields = Object.create(null);
+    var FIELD_KEYS = ['name', 'phone', 'email', 'address', 'notes'];
 
     function setStatus(msg, isError) {
       if (!statusEl) return;
@@ -3007,14 +3013,55 @@
       wrap.classList.toggle('is-busy', /transcrib|filling/i.test(text) && !isError);
     }
 
+    function markDirty(name) {
+      if (applyingVoice) return;
+      if (FIELD_KEYS.indexOf(name) === -1) return;
+      dirtyFields[name] = true;
+      // Typing while a parse is in flight: drop that result so it can’t wipe digits.
+      if (parsing && parseAbort) {
+        try { parseAbort.abort(); } catch (_) { /* ignore */ }
+        parseAbort = null;
+        parsing = false;
+        parseGeneration += 1;
+        setStatus('Keep typing — voice fill canceled so it won’t erase what you enter.');
+        wrap.classList.remove('is-listening', 'is-busy');
+      } else if (parsing) {
+        parseGeneration += 1;
+        parsing = false;
+      }
+    }
+
+    form.addEventListener('input', function (e) {
+      var t = e.target;
+      if (!t || t === capture) return;
+      if (t.name) markDirty(t.name);
+    });
+
     function fillForm(fields) {
       fields = fields || {};
-      ['name', 'phone', 'email', 'address', 'notes'].forEach(function (key) {
-        var input = form.querySelector('[name="' + key + '"]');
-        if (!input) return;
-        input.value = fields[key] != null ? String(fields[key]) : '';
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-      });
+      applyingVoice = true;
+      try {
+        FIELD_KEYS.forEach(function (key) {
+          if (dirtyFields[key]) return;
+          var input = form.querySelector('[name="' + key + '"]');
+          if (!input) return;
+          // Don’t fight the field the user is actively typing in.
+          if (document.activeElement === input) {
+            dirtyFields[key] = true;
+            return;
+          }
+          var next = fields[key] != null ? String(fields[key]) : '';
+          var cur = String(input.value || '');
+          // Never clear a typed value with a blank parse result (common when
+          // speech only caught the name and the phone parse arrives late).
+          if (!next.trim() && cur.trim()) return;
+          if (next === cur) return;
+          input.value = next;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+      } finally {
+        applyingVoice = false;
+      }
     }
 
     function showPreview(fields, warning) {
@@ -3049,30 +3096,37 @@
       if (sheet) sheet.hidden = true;
     }
 
+    function currentFields() {
+      return {
+        name: (form.querySelector('[name="name"]') || {}).value,
+        phone: (form.querySelector('[name="phone"]') || {}).value,
+        email: (form.querySelector('[name="email"]') || {}).value,
+        address: (form.querySelector('[name="address"]') || {}).value,
+        notes: (form.querySelector('[name="notes"]') || {}).value,
+      };
+    }
+
     function parseTranscript(text) {
       var cleaned = String(text || '').trim();
       if (!cleaned || parsing) return;
       if (cleaned === lastTranscript) {
-        showPreview(
-          {
-            name: (form.querySelector('[name="name"]') || {}).value,
-            phone: (form.querySelector('[name="phone"]') || {}).value,
-            email: (form.querySelector('[name="email"]') || {}).value,
-            address: (form.querySelector('[name="address"]') || {}).value,
-            notes: (form.querySelector('[name="notes"]') || {}).value,
-          },
-          ''
-        );
+        showPreview(currentFields(), '');
         return;
       }
       parsing = true;
       lastTranscript = cleaned;
+      var gen = ++parseGeneration;
+      if (parseAbort) {
+        try { parseAbort.abort(); } catch (_) { /* ignore */ }
+      }
+      parseAbort = typeof AbortController !== 'undefined' ? new AbortController() : null;
       setStatus('Filling the form from what you said…');
       fetch(parseUrl, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ text: cleaned }),
+        signal: parseAbort ? parseAbort.signal : undefined,
       })
         .then(function (r) {
           return r.json().catch(function () { return {}; }).then(function (d) {
@@ -3081,19 +3135,25 @@
           });
         })
         .then(function (d) {
+          if (gen !== parseGeneration) return;
           if (!d || !d.success || !d.fields) {
             setStatus((d && d.error) || 'Could not understand that. Try again.', true);
             return;
           }
           fillForm(d.fields);
           setStatus('Check the details, then confirm.');
-          showPreview(d.fields, d.warning || '');
+          showPreview(currentFields(), d.warning || '');
         })
-        .catch(function () {
+        .catch(function (err) {
+          if (err && err.name === 'AbortError') return;
+          if (gen !== parseGeneration) return;
           setStatus('Connection error. Check your internet and try again.', true);
         })
         .finally(function () {
-          parsing = false;
+          if (gen === parseGeneration) {
+            parsing = false;
+            parseAbort = null;
+          }
         });
     }
 
@@ -3111,6 +3171,13 @@
           if (btn.getAttribute('data-state') === 'transcribing') return;
           capture.value = '';
           lastTranscript = '';
+          dirtyFields = Object.create(null);
+          parseGeneration += 1;
+          if (parseAbort) {
+            try { parseAbort.abort(); } catch (_) { /* ignore */ }
+            parseAbort = null;
+          }
+          parsing = false;
           btn.setAttribute('data-state', 'listening');
           btn.setAttribute('aria-pressed', 'true');
           setStatus('Listening — tap the mic again when you’re done.');

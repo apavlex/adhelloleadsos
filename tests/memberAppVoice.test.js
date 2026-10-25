@@ -126,10 +126,11 @@ test('job page includes voice dictate controls', async () => {
     const res = await fetch(`${base}/m/${encodeURIComponent(token)}/customers/jobs/new`);
     const html = await res.text();
     assert.equal(res.status, 200);
+    // Notes keep a mic; other job fields no longer have per-field dictation.
     assert.match(html, /data-ma-voice-for="jbNotes"/);
-    assert.match(html, /data-ma-voice-for="jbTitle"/);
-    assert.match(html, /data-ma-voice-for="jbNewName"/);
-    assert.match(html, /data-ma-voice-for="jbNewPhone"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="jbTitle"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="jbNewName"/);
+    assert.doesNotMatch(html, /data-ma-voice-for="jbNewPhone"/);
     assert.match(html, /alex-voice-input\.js/);
     assert.match(html, /__maVoiceEndpoint/);
     assert.match(html, /\/voice\/transcribe/);
@@ -178,6 +179,11 @@ test('new customer form includes speak-once mic only (no field mics)', async () 
     assert.match(js, /hideIfUnsupported:\s*false/);
     assert.match(js, /preventFocus:\s*true/);
     assert.match(js, /data-state',\s*'listening'/);
+    // Typing must not be wiped by a late voice parse (phone erase bug).
+    assert.match(js, /dirtyFields/);
+    assert.match(js, /parseAbort/);
+    assert.match(js, /Never clear a typed value|activeElement === input/);
+    assert.match(html, /id="cuPhone"[^>]*autocomplete="off"/);
     assert.match(voice, /hideIfUnsupported/);
     assert.match(voice, /preventFocus/);
     assert.match(voice, /alex-voice-icon--stop/);

@@ -369,16 +369,16 @@
         <% } %>
         <div class="ma-field">
           <label class="ma-label" for="cuName">Name</label>
-          <input id="cuName" name="name" class="ma-input" maxlength="120" value="<%= fv.name || '' %>" required autocapitalize="words" <%= customer ? '' : 'autofocus' %>>
+          <input id="cuName" name="name" class="ma-input" maxlength="120" value="<%= fv.name || '' %>" required autocapitalize="words" autocomplete="off" autocorrect="off" spellcheck="false" <%= customer ? '' : 'autofocus' %>>
         </div>
         <div class="ma-grid2">
           <div class="ma-field">
             <label class="ma-label" for="cuPhone">Phone</label>
-            <input id="cuPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.phone || '' %>">
+            <input id="cuPhone" name="phone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.phone || '' %>" autocomplete="off" autocorrect="off" spellcheck="false">
           </div>
           <div class="ma-field">
             <label class="ma-label" for="cuEmail">Email</label>
-            <input id="cuEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= fv.email || '' %>">
+            <input id="cuEmail" name="email" type="email" inputmode="email" maxlength="200" class="ma-input" value="<%= fv.email || '' %>" autocomplete="off" spellcheck="false">
           </div>
         </div>
         <div class="ma-field">
