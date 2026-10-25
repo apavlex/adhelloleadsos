@@ -48,7 +48,7 @@ describe('member app install modal and tab bar', () => {
     );
     assert.match(css, /\.ma-shell\s*\{[^}]*scroll-padding-bottom:/s);
     const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
-    assert.match(head, /\.ma-shell\{padding-bottom:calc\(50px \+ 26px \+ 20px/);
+    assert.match(head, /\.ma-shell\{[^}]*padding:[^;]*calc\(50px \+ 26px \+ 20px/);
     assert.match(head, /scroll-padding-bottom:calc\(50px \+ 26px \+ 20px/);
     assert.match(head, /ma-tab__fab/);
     assert.match(head, /margin-top:-26px/);
@@ -131,10 +131,14 @@ describe('member app install modal and tab bar', () => {
     assert.match(head, /summary\.ma-settings-row/);
     assert.match(head, /\.ma-empty--tap\{/);
     assert.match(head, /\.ma-tabbar\{[^}]*bottom:0/s);
+    // Filled add-customer (+) must stay --on; critical .ma-iconbtn { color: acc } used to hide it.
+    assert.match(head, /\.ma-iconbtn\.is-on,\s*\.ma-iconbtn--fill\{color:var\(--on\)\}/);
+    assert.match(css, /\.ma-iconbtn\.is-on,\s*\.ma-iconbtn--fill[^}]*color:\s*var\(--on\)/s);
     const icons = fs.readFileSync(path.join(root, 'services/memberAppIcons.js'), 'utf8');
     assert.match(icons, /width="24" height="24"/);
     assert.match(icons, /photo:\s*icon\(/);
     const customers = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
+    assert.match(customers, /ma-iconbtn ma-iconbtn--fill[\s\S]*?icons\.plus/);
     assert.match(customers, /summary class="ma-settings-row"/);
     assert.match(customers, /ma-cust-partner-filter|Show partners/);
     assert.match(customers, /Referral partner/);
