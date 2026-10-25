@@ -29,6 +29,13 @@
         <% if (customer.referralId) { %><span class="ma-pill ma-pill--sent">From referral</span><% } %>
         <% if (_kind === 'lead') { %><span class="ma-pill ma-pill--accepted">Lead</span><% } %>
         <% if (_kind === 'quote') { %><span class="ma-pill ma-pill--job-estimate">Quote</span><% } %>
+        <% if (!_flooring) { %>
+          <% if (_kind === 'lead') { %>
+          <button type="submit" form="maMarkCustomerForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
+          <% } else { %>
+          <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
+          <% } %>
+        <% } %>
       </div>
     </div>
     <% if (_flooring) { %>
@@ -37,14 +44,6 @@
       <button type="submit" form="maMarkLeadForm" class="<%= _kind === 'lead' ? 'is-on' : '' %>" <%= _kind === 'lead' ? 'aria-current=page' : '' %>><%- icons.leads %><span>Lead</span></button>
       <button type="submit" form="maMarkQuoteForm" class="<%= _kind === 'quote' ? 'is-on' : '' %>" <%= _kind === 'quote' ? 'aria-current=page' : '' %>><%- icons.send %><span>Quote</span></button>
     </nav>
-    <% } else { %>
-    <div class="ma-titlebar__actions" style="margin:0 0 12px;justify-content:flex-start">
-      <% if (_kind === 'lead') { %>
-      <button type="submit" form="maMarkCustomerForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
-      <% } else { %>
-      <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
-      <% } %>
-    </div>
     <% } %>
     <% const tel = String(customer.phone || '').replace(/[^0-9+]/g, ''); %>
     <% const mapsHref = googleMapsSearchUrl({ name: customer.name, address: customer.address }); %>
