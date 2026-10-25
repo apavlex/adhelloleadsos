@@ -272,6 +272,12 @@ test('Reviews AI page explains ChatGPT, Muse, Grok, and GHL automation', async (
     assert.match(reviewHtml, /id="maAiReviews"/);
     assert.match(reviewHtml, /Ask with ChatGPT, Muse, or Grok/);
     assert.match(reviewHtml, /AI review settings/);
+    // ChatGPT card sits at the bottom; Automated follow-ups (and other folds) stay above it.
+    const autoIdx = reviewHtml.indexOf('id="maAutoFollowUp"');
+    const aiIdx = reviewHtml.indexOf('id="maAiReviews"');
+    const smsIdx = reviewHtml.indexOf('>SMS script');
+    assert.ok(autoIdx > 0 && aiIdx > autoIdx, 'Automated follow-ups should appear above Ask with ChatGPT');
+    assert.ok(smsIdx > 0 && aiIdx > smsIdx, 'Ask with ChatGPT should be below SMS script at page bottom');
     // Request | Reviews stay — AI is a settings page, not a third segment tab.
     assert.match(reviewHtml, />Request</);
     assert.match(reviewHtml, /view=reviews/);

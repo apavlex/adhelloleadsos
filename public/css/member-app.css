@@ -139,7 +139,16 @@ a.ma-avatar.is-on { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--acc); }
   box-shadow: 0 3px 10px rgba(15, 23, 42, 0.1);
 }
 .ma-profile-hero {
-  display: flex; align-items: center; gap: 12px; margin: 4px 0 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+.ma-profile-hero .ma-avatar--lg {
+  width: 84px; height: 84px; font-size: 30px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.1);
 }
 .ma-profile-hero__name { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 18px; line-height: 1.2; }
 .ma-profile-hero__sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; font-weight: 600; }
@@ -240,10 +249,11 @@ summary.ma-settings-row:active {
   -webkit-user-select: none; user-select: none;
 }
 .ma-iconbtn::before { content: ""; position: absolute; inset: 4px; border-radius: 999px; background: var(--acc-soft); transition: transform 0.12s ease; }
-.ma-iconbtn svg { position: relative; width: 20px; height: 20px; }
+.ma-iconbtn svg { position: relative; z-index: 1; width: 20px; height: 20px; }
 .ma-iconbtn:active::before { transform: scale(0.92); }
 .ma-iconbtn.is-on::before, .ma-iconbtn--fill::before { background: var(--acc); }
-.ma-iconbtn.is-on, .ma-iconbtn--fill { color: var(--on); }
+/* Keep filled icons on --on so critical CSS (.ma-iconbtn { color: var(--acc) }) can't hide the glyph on the blue circle. */
+.ma-iconbtn.is-on, .ma-iconbtn--fill, a.ma-iconbtn--fill, button.ma-iconbtn--fill { color: var(--on); }
 .ma-iconbtn:focus-visible { outline: 2px solid var(--acc); outline-offset: 0; }
 .ma-top__back { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin-left: -8px; padding-right: 8px; color: var(--acc); text-decoration: none; font-size: 17px; font-weight: 500; min-width: 0; }
 .ma-top__back svg { width: 24px; height: 24px; flex-shrink: 0; }

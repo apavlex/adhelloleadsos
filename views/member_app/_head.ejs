@@ -139,8 +139,11 @@ summary.ma-settings-row::-webkit-details-marker,summary.ma-settings-row::marker{
 .ma-top__brand{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;min-width:0}
 .ma-top__title{font-size:15px;font-weight:600;color:var(--muted,#6e6e73);margin:0}
 .ma-top__actions{display:flex!important;flex-direction:row!important;align-items:center;gap:4px;flex-shrink:0}
-.ma-iconbtn{display:inline-flex!important;align-items:center;justify-content:center;width:40px;height:40px;border:0;background:transparent;color:var(--acc);text-decoration:none;border-radius:10px;padding:0}
-.ma-iconbtn svg{width:22px;height:22px;display:block}
+.ma-iconbtn{position:relative;display:inline-flex!important;align-items:center;justify-content:center;width:44px;height:44px;border:0;background:transparent;color:var(--acc);text-decoration:none;border-radius:999px;padding:0;flex-shrink:0}
+.ma-iconbtn::before{content:"";position:absolute;inset:4px;border-radius:999px;background:var(--acc-soft,color-mix(in srgb,var(--acc) 16%,#fff))}
+.ma-iconbtn svg{position:relative;z-index:1;width:20px;height:20px;display:block}
+.ma-iconbtn.is-on::before,.ma-iconbtn--fill::before{background:var(--acc)}
+.ma-iconbtn.is-on,.ma-iconbtn--fill{color:var(--on)}
 .ma-page-title{font-size:24px;font-weight:800;margin:16px 0 4px;font-family:var(--font-display)}
 .ma-page-sub{color:var(--muted,#6e6e73);margin:0 0 14px;font-size:14px;line-height:1.4}
 .ma-seg{display:grid!important;grid-template-columns:1fr 1fr;gap:0;background:var(--card,#fff);border:1px solid var(--line,rgba(60,60,67,.12));border-radius:999px;padding:4px;margin-bottom:14px}
