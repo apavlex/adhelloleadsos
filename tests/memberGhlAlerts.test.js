@@ -81,13 +81,19 @@ describe('memberGhlAlerts', () => {
     assert.equal(memberGhlAlerts.isEnabled(ok.member), true);
   });
 
-  it('lists pending GHL forms/calls/texts only when enabled', async () => {
+  it('lists form leads for every member; calls/texts only when owner toggle is on', async () => {
     const network = await store.getNetwork(NID);
     const owner = await store.saveMember(NID, {
       id: 'owner',
       companyName: 'Owner Co',
       email: 'owner@example.com',
       ghlAlertsEnabled: true,
+    });
+    const partner = await store.saveMember(NID, {
+      id: 'partner',
+      companyName: 'Partner Co',
+      email: 'partner@example.com',
+      status: 'active',
     });
     const now = Date.parse('2026-10-19T12:00:00.000Z');
     await dbService.saveLead({
@@ -130,18 +136,67 @@ describe('memberGhlAlerts', () => {
     }, { ghlContactId: 'ghl_contact_tm', source: 'ghl' });
     assert.equal(saved.ok, true);
 
-    const rows = await memberGhlAlerts.listPendingForMember(owner, network, { now });
-    assert.equal(rows.length, 2);
-    assert.equal(rows[0].kind, 'missed_call');
-    assert.match(rows[0].title, /T Munezero/);
-    assert.equal(rows[0].customerId, saved.customer.id);
-    assert.equal(rows[0].openHref, `/customers/c/${encodeURIComponent(saved.customer.id)}`);
-    assert.doesNotMatch(rows[0].openHref, /gohighlevel|leadconnector|\/focus|\/pipeline/i);
-    assert.equal(rows[1].kind, 'form');
-    assert.match(rows[1].title, /Form Lead/);
+    const ownerRows = await memberGhlAlerts.listPendingForMember(owner, network, { now });
+    assert.equal(ownerRows.length, 2);
+    assert.equal(ownerRows[0].kind, 'missed_call');
+    assert.match(ownerRows[0].title, /T Munezero/);
+    assert.equal(ownerRows[0].customerId, saved.customer.id);
+    assert.equal(ownerRows[0].openHref, `/customers/c/${encodeURIComponent(saved.customer.id)}`);
+    assert.doesNotMatch(ownerRows[0].openHref, /gohighlevel|leadconnector|\/focus|\/pipeline/i);
+    assert.equal(ownerRows[1].kind, 'form');
+    assert.match(ownerRows[1].title, /Form Lead/);
+
+    const partnerRows = await memberGhlAlerts.listPendingForMember(partner, network, { now });
+    assert.equal(partnerRows.length, 1);
+    assert.equal(partnerRows[0].kind, 'form');
+    assert.match(partnerRows[0].title, /Form Lead/);
 
     const off = await store.saveMember(NID, { ...owner, ghlAlertsEnabled: false });
-    assert.equal((await memberGhlAlerts.listPendingForMember(off, network, { now })).length, 0);
+    const ownerFormsOnly = await memberGhlAlerts.listPendingForMember(off, network, { now });
+    assert.equal(ownerFormsOnly.length, 1);
+    assert.equal(ownerFormsOnly[0].kind, 'form');
+  });
+
+  it('notifyEnabledMembers fans form leads out to every active network member', async () => {
+    const network = await store.getNetwork(NID);
+    await store.saveMember(NID, {
+      id: 'owner',
+      companyName: 'Owner Co',
+      email: 'owner@example.com',
+      // Forms notify even when the calls/texts toggle is off.
+      ghlAlertsEnabled: false,
+    });
+    await store.saveMember(NID, {
+      id: 'partner',
+      companyName: 'Partner Co',
+      email: 'partner@example.com',
+      status: 'active',
+    });
+    await store.saveMember(NID, {
+      id: 'paused_partner',
+      companyName: 'Paused Co',
+      email: 'paused@example.com',
+      status: 'paused',
+    });
+    const lead = {
+      key: 'lead:form_net',
+      workspaceId: WID,
+      title: 'Jordan Homeowner',
+      phone: '+15551231234',
+    };
+    const result = await memberGhlAlerts.notifyEnabledMembers({
+      workspaceId: WID,
+      lead,
+      event: { type: 'form', label: 'Website contact', preview: 'Need flooring' },
+    });
+    assert.equal(result.members, 2);
+    const ownerItems = memberActivity.list(NID, 'owner');
+    const partnerItems = memberActivity.list(NID, 'partner');
+    const pausedItems = memberActivity.list(NID, 'paused_partner');
+    assert.ok(ownerItems.some((i) => i.kind === 'form' && /Jordan/.test(i.title)));
+    assert.ok(partnerItems.some((i) => i.kind === 'form' && /Jordan/.test(i.title)));
+    assert.equal(pausedItems.length, 0);
+    assert.ok(network);
   });
 
   it('Open creates an in-app customer for unmatched GHL inbound (never CRM focus/pipeline)', async () => {
@@ -360,8 +415,8 @@ describe('memberGhlAlerts', () => {
     const push = fs.readFileSync(path.join(root, 'services/inboundPush.js'), 'utf8');
 
     assert.match(top, /data-ma-bell-ghl-toggle/);
-    assert.match(top, /GHL forms, calls &amp; texts/);
-    assert.match(top, /Website form leads, missed calls, and texts/);
+    assert.match(top, /GHL calls &amp; texts/);
+    assert.match(top, /already alert everyone in your network/);
     assert.match(js, /activity\/ghl-alerts/);
     assert.match(js, /activity\/ghl-done/);
     assert.match(js, /ghlAlertsEnabled/);
@@ -371,7 +426,7 @@ describe('memberGhlAlerts', () => {
     assert.match(js, /markGhlDoneAll/);
     assert.match(js, /GHL_KINDS/);
     assert.match(js, /form:\s*1/);
-    assert.match(js, /Website form leads, missed calls, and texts/);
+    assert.match(js, /already alert everyone in your network/);
     assert.match(js, /function ghlProfileHref/);
     assert.match(js, /ghlProfileHref\(item\)/);
     assert.match(js, /data-ma-bell-ghl-open/);
@@ -390,10 +445,13 @@ describe('memberGhlAlerts', () => {
     assert.match(route, /activity\/ghl-done/);
     assert.match(route, /markAllPendingDone/);
     assert.match(route, /memberGhlAlerts/);
-    assert.match(route, /excludeGhlKinds/);
+    assert.match(route, /ghlCallsEnabled/);
     assert.match(route, /MEMBER_INBOUND_ALERT_TYPES/);
     assert.match(push, /memberGhlAlerts/);
     assert.match(push, /notifyEnabledMembers/);
+    const alerts = fs.readFileSync(path.join(root, 'services/memberGhlAlerts.js'), 'utf8');
+    assert.match(alerts, /allowInboundTypeForMember/);
+    assert.match(alerts, /isActiveNetworkMember/);
     const inbound = fs.readFileSync(path.join(root, 'services/inboundEvents.js'), 'utf8');
     assert.match(inbound, /MEMBER_INBOUND_ALERT_TYPES/);
     assert.match(inbound, /'form'/);

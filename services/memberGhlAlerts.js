@@ -1,7 +1,7 @@
 /**
- * Optional GHL inbound alerts inside the Reviews (member) app bell.
- * Covers missed calls, texts, and website form leads when the toggle is on.
- * Off by default — owners and workspace staff can turn them on per member.
+ * GHL inbound alerts inside the Reviews (member) app bell.
+ * - Website form leads: every active network member (push + Waiting on a reply).
+ * - Missed calls / texts: workspace owner & staff who turn on the toggle.
  * Separate from Agency OS /notifications inbound (staff CRM bell).
  */
 const dbService = require('./database');
@@ -11,6 +11,7 @@ const { isOwnerMember } = require('./memberAppointmentLink');
 const {
   pendingInboundItems,
   MEMBER_INBOUND_ALERT_TYPES,
+  GHL_ACTIVITY_TYPES,
   TYPE_LABELS,
 } = require('./inboundEvents');
 const workspaceIntegrations = require('./workspaceIntegrations');
@@ -106,9 +107,16 @@ async function ensureCustomerForInbound(network, member, customers, row) {
   return saved.customer;
 }
 
-function canUseGhlAlerts(member, network) {
+/** Active member on a workspace-backed network (receives website form lead alerts). */
+function isActiveNetworkMember(member, network) {
   if (!member || !network || !String(network.ownerWorkspaceId || '').trim()) return false;
   if (member.status === 'paused') return false;
+  return true;
+}
+
+/** Owner / workspace staff may opt into missed-call & text alerts. */
+function canUseGhlAlerts(member, network) {
+  if (!isActiveNetworkMember(member, network)) return false;
   return !!(member.workspaceStaff || isOwnerMember(member, network));
 }
 
@@ -136,12 +144,22 @@ async function ghlLinkContext(workspaceId) {
   };
 }
 
+function allowInboundTypeForMember(type, member, network) {
+  const t = String(type || '').trim().toLowerCase();
+  if (!MEMBER_INBOUND_ALERT_TYPES.has(t)) return false;
+  if (!isActiveNetworkMember(member, network)) return false;
+  // Website forms fan out to the whole business network.
+  if (t === 'form') return true;
+  // Missed calls / texts stay behind the owner/staff toggle.
+  return canUseGhlAlerts(member, network) && isEnabled(member);
+}
+
 /**
- * Pending GHL form leads / missed calls / voicemails / texts for the Reviews bell.
- * Empty when the toggle is off or the member cannot use GHL alerts.
+ * Pending GHL inbound for the Reviews bell.
+ * Forms: every active network member. Calls/texts: owner/staff with toggle on.
  */
 async function listPendingForMember(member, network, opts = {}) {
-  if (!isEnabled(member) || !canUseGhlAlerts(member, network)) return [];
+  if (!isActiveNetworkMember(member, network)) return [];
   const wid = String(network.ownerWorkspaceId || '').trim();
   if (!wid) return [];
   const leads = await dbService.getAllLeads(wid);
@@ -151,7 +169,7 @@ async function listPendingForMember(member, network, opts = {}) {
     now: opts.now,
     days: opts.days,
     limit: opts.limit || 25,
-  }).filter((row) => row && MEMBER_INBOUND_ALERT_TYPES.has(row.type));
+  }).filter((row) => row && allowInboundTypeForMember(row.type, member, network));
 
   const customers = await work.listCustomers(network.id, member.id);
   const out = [];
@@ -186,8 +204,8 @@ async function listPendingForMember(member, network, opts = {}) {
 }
 
 async function markLeadDone(member, network, leadKey) {
-  if (!canUseGhlAlerts(member, network) || !isEnabled(member)) {
-    return { ok: false, error: 'Turn on GHL alerts first.' };
+  if (!isActiveNetworkMember(member, network)) {
+    return { ok: false, error: 'Member required.' };
   }
   const wid = String(network.ownerWorkspaceId || '').trim();
   const raw = String(leadKey || '').trim();
@@ -203,8 +221,8 @@ async function markLeadDone(member, network, leadKey) {
 
 /** Clear every pending GHL inbound row shown under Waiting on a reply. */
 async function markAllPendingDone(member, network, opts = {}) {
-  if (!canUseGhlAlerts(member, network) || !isEnabled(member)) {
-    return { ok: false, error: 'Turn on GHL alerts first.', updated: 0 };
+  if (!isActiveNetworkMember(member, network)) {
+    return { ok: false, error: 'Member required.', updated: 0 };
   }
   const pending = await listPendingForMember(member, network, opts);
   const keys = [...new Set(pending.map((row) => String(row && row.leadKey || '').trim()).filter(Boolean))];
@@ -225,7 +243,8 @@ function memberAppUrl(network, member, path = '') {
 }
 
 /**
- * Fire-and-forget phone push + keep in-app activity for Reviews members who opted in.
+ * Fire-and-forget phone push + in-app activity.
+ * Forms → every active network member. Calls/texts → opted-in owners/staff.
  * Never throws.
  */
 function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
@@ -238,7 +257,7 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
     const network = await store.getNetworkForWorkspace(wid);
     if (!network) return { sent: 0, members: 0 };
     const members = (await store.listMembers(network.id)).filter(
-      (m) => canUseGhlAlerts(m, network) && isEnabled(m),
+      (m) => allowInboundTypeForMember(type, m, network),
     );
     if (!members.length) return { sent: 0, members: 0 };
 
@@ -306,6 +325,8 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
 
 module.exports = {
   canUseGhlAlerts,
+  isActiveNetworkMember,
+  allowInboundTypeForMember,
   isEnabled,
   setEnabled,
   listPendingForMember,
@@ -313,4 +334,5 @@ module.exports = {
   markAllPendingDone,
   notifyEnabledMembers,
   ghlLinkContext,
+  GHL_ACTIVITY_TYPES,
 };

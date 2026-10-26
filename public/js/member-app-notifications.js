@@ -212,8 +212,8 @@
     if (ghlToggle) ghlToggle.checked = !!enabled;
     if (ghlStatus) {
       ghlStatus.textContent = enabled
-        ? 'Website form leads, missed calls, and texts from Lead Connector show here and on phone alerts.'
-        : 'Show website form leads, missed calls, and texts from Lead Connector in this app.';
+        ? 'Missed calls and texts from Lead Connector. Website form leads already alert everyone in your network.'
+        : 'Show missed calls and texts from Lead Connector. Website form leads already alert everyone in your network.';
     }
   }
 
