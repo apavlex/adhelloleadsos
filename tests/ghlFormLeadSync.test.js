@@ -134,6 +134,49 @@ describe('ghlFormLeadSync', () => {
     assert.equal(result.notified, 0);
   });
 
+  it('still notifies a form contact that lagged behind the first listContacts pull', async () => {
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'key',
+      GHL_LOCATION_ID: 'loc_tpr',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+
+    // First sync: GHL has not indexed the new form contact yet.
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [] }));
+    const first = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
+    assert.equal(first.synced, 0);
+    assert.equal(first.notified, 0);
+
+    // Contact was created ~10 minutes ago (before first sync's wall clock), but
+    // only appears now. Prior bug: watermark jumped to now-5s and skipped it.
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    mock.method(ghlClient, 'listContacts', async () => ({
+      contacts: [
+        {
+          id: 'ghl_form_lagged',
+          name: 'Lagged Form Lead',
+          phone: '+15550007777',
+          email: 'lagged@buyers.test',
+          source: 'Website',
+          dateAdded: tenMinutesAgo,
+        },
+      ],
+    }));
+
+    const second = await ghlFormLeadSync.syncRecentFormLeads(WID, {
+      force: true,
+      notifyMaxAgeMs: 2 * 60 * 60 * 1000,
+    });
+    assert.equal(second.synced, 1);
+    assert.equal(second.notified, 1);
+
+    const leads = await dbService.getAllLeads(WID);
+    const row = leads.find((l) => /Lagged Form/i.test(l.title || ''));
+    assert.ok(row);
+    const events = Array.isArray(row.inboundEvents) ? row.inboundEvents : [];
+    assert.ok(events.some((e) => e && e.id === 'form:ghl-contact:ghl_form_lagged'));
+  });
+
   it('listPendingForMember surfaces pulled form leads for network partners', async () => {
     mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
       GHL_API_KEY: 'key',
