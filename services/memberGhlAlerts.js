@@ -52,6 +52,29 @@ function inboundCustomerSource(existingSource, rowType) {
   return prev;
 }
 
+function isFormInboundRow(row) {
+  return String((row && row.type) || '').trim().toLowerCase() === 'form';
+}
+
+/** After create/match: website forms become Leads with a Website form tag. */
+async function finalizeInboundCustomer(network, member, list, customer, row) {
+  if (!customer) return null;
+  let next = customer;
+  if (isFormInboundRow(row)) {
+    try {
+      const memberCustomerGhl = require('./memberCustomerGhl');
+      const stamped = await memberCustomerGhl.stampWebsiteFormLead(network, member.id, next);
+      if (stamped.ok && stamped.customer) next = stamped.customer;
+    } catch (err) {
+      console.warn('[memberGhlAlerts] website form stamp failed:', err && err.message);
+    }
+  }
+  const idx = list.findIndex((c) => c && c.id === next.id);
+  if (idx >= 0) list[idx] = next;
+  else list.push(next);
+  return next;
+}
+
 /**
  * Match or create a Reviews-app customer so Open always has an in-app profile.
  * Never returns a CRM /focus or /pipeline path.
@@ -67,7 +90,9 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     const needPhone = fields.phone && !existing.phone;
     const needEmail = fields.email && !existing.email;
     const needSource = nextSource !== existing.source;
-    if (!needGhl && !needPhone && !needEmail && !needSource) return existing;
+    if (!needGhl && !needPhone && !needEmail && !needSource) {
+      return finalizeInboundCustomer(network, member, list, existing, row);
+    }
     const saved = await work.saveCustomer(
       network.id,
       member.id,
@@ -87,11 +112,9 @@ async function ensureCustomerForInbound(network, member, customers, row) {
       },
     );
     if (saved.ok && saved.customer) {
-      const idx = list.findIndex((c) => c && c.id === existing.id);
-      if (idx >= 0) list[idx] = saved.customer;
-      return saved.customer;
+      return finalizeInboundCustomer(network, member, list, saved.customer, row);
     }
-    return existing;
+    return finalizeInboundCustomer(network, member, list, existing, row);
   }
 
   const title = String((row && row.title) || '').trim();
@@ -114,8 +137,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     },
   );
   if (!saved.ok || !saved.customer) return null;
-  list.push(saved.customer);
-  return saved.customer;
+  return finalizeInboundCustomer(network, member, list, saved.customer, row);
 }
 
 /** Active member on a workspace-backed network (receives website form lead alerts). */

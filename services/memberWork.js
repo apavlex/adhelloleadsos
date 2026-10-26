@@ -169,7 +169,7 @@ const CUSTOMER_SOURCES = new Set([
   'agency',
 ]);
 
-/** Human labels for customer.source (lead / customer profile pill). */
+/** Human labels for customer.source (lead list + profile pill). */
 const CUSTOMER_SOURCE_LABELS = {
   manual: 'Manual',
   csv: 'CSV import',
