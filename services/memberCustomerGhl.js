@@ -625,11 +625,23 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
     try {
       const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
       if (ghlClient.isConfigured(integrationEnv)) {
-        answers = await fetchContactFormAnswers(ghlId, integrationEnv);
+        answers = await fetchContactFormAnswers(ghlId, integrationEnv, {
+          email: customer.email,
+          phone: customer.phone,
+          name: customer.name,
+          address: customer.address,
+          includeCoreFallback: src === 'website_form' || !!customer.isLead,
+        });
       }
     } catch (err) {
       console.warn('[memberCustomerGhl] form answers from GHL failed:', err && err.message);
     }
+  }
+
+  // Website form with no GHL extras: still show the submitted contact fields.
+  if (!answers.length && (src === 'website_form' || customer.isLead)) {
+    const { coreIdentityAnswers } = require('./ghlFormAnswers');
+    answers = coreIdentityAnswers(customer);
   }
 
   if (!answers.length) return customer;

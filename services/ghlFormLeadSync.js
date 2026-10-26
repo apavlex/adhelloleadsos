@@ -175,7 +175,21 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     } catch (err) {
       console.warn('[ghlFormLeadSync] getContact failed:', err && err.message);
     }
-    const answers = answersFromContact(fullContact, fieldCatalog);
+    let answers = answersFromContact(fullContact, fieldCatalog);
+    // Lead Connector often leaves contact.customFields empty — pull the submission.
+    if (!answers.length || answers.every((a) => ['Company', 'Source', 'Address', 'Website', 'Type'].includes(a.q))) {
+      try {
+        const { fetchContactFormAnswers } = require('./ghlFormAnswers');
+        // eslint-disable-next-line no-await-in-loop
+        const richer = await fetchContactFormAnswers(fullContact, integrationEnv, {
+          catalog: fieldCatalog,
+          email: fullContact.email,
+          phone: fullContact.phone,
+          includeCoreFallback: false,
+        });
+        if (richer.length) answers = richer;
+      } catch (_) { /* keep contact-derived answers */ }
+    }
 
     const at = new Date(addedMs).toISOString();
     const label = websiteFormLabel({

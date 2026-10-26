@@ -69,4 +69,35 @@ describe('ghlFormAnswers', () => {
     ]);
     assert.equal(preview, 'A: 1 · B: 2 · C: 3');
   });
+
+  it('answersFromSubmission reads others + standard fields', () => {
+    const { answersFromSubmission, coreIdentityAnswers } = require('../services/ghlFormAnswers');
+    const answers = answersFromSubmission(
+      {
+        name: 'Alex',
+        email: 'alex@adhelo.io',
+        phone: '+13608726483',
+        others: {
+          project_type: 'Hardwood',
+          message: 'Need living room floors',
+          custom_field_id: 'cf_ignore_shape',
+        },
+      },
+      [{ id: 'cf_proj', name: 'Project type', fieldKey: 'project_type' }],
+    );
+    assert.ok(answers.some((a) => a.q === 'Name' && a.a === 'Alex'));
+    assert.ok(answers.some((a) => /Hardwood/i.test(a.a)));
+    assert.ok(answers.some((a) => /living room/i.test(a.a)));
+
+    const core = coreIdentityAnswers({
+      name: 'Alex',
+      phone: '+13608726483',
+      email: 'alex@adhelo.io',
+      address: 'Camas',
+    });
+    assert.deepEqual(
+      core.map((a) => a.q),
+      ['Name', 'Phone', 'Email', 'Address'],
+    );
+  });
 });

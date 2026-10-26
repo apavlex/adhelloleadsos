@@ -203,6 +203,8 @@ const OK_MESSAGES = {
   marked_quote: 'Marked as a material quote request.',
   marked_customer: 'Moved to Customers.',
   unmarked_lead: 'Moved to Customers.',
+  removed_lead: 'Removed from Leads.',
+  lead_deleted: 'Lead deleted.',
   tag: 'Tags updated and synced with GHL CRM.',
   job: 'Job saved.',
   job_deleted: 'Job deleted.',
@@ -1290,13 +1292,22 @@ router.post('/m/:token/brand/hero', (req, res, next) => {
 function presentContactLead(customer, base) {
   const c = customer || {};
   const notes = String(c.notes || '').trim();
+  let preview = '';
+  try {
+    const { answersPreview } = require('../services/ghlFormAnswers');
+    if (Array.isArray(c.formAnswers) && c.formAnswers.length) {
+      preview = answersPreview(c.formAnswers, 4);
+    }
+  } catch (_) { /* ignore */ }
+  if (!preview && notes) preview = notes.length > 160 ? `${notes.slice(0, 157)}…` : notes;
   return {
     id: c.id,
     name: c.name || 'Contact',
     phone: c.phone || '',
     email: c.email || '',
     address: c.address || '',
-    preview: notes.length > 160 ? `${notes.slice(0, 157)}…` : notes,
+    preview,
+    formAnswers: Array.isArray(c.formAnswers) ? c.formAnswers : [],
     at: c.markedAsLeadAt || c.updatedAt || c.createdAt || '',
     source: c.source || '',
     sourceLabel: work.customerSourceLabel(c),
@@ -2251,6 +2262,32 @@ router.post('/m/:token/customers/c/:id/mark-customer', form, withMember(async (r
     return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not mark as customer.')}`);
   }
   return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_customer`);
+}));
+
+/**
+ * Remove from the Leads list without deleting the contact.
+ * Clears the lead flag → they leave Leads (and may reappear under Customers).
+ */
+router.post('/m/:token/customers/c/:id/remove-lead', form, withMember(async (req, res, ctx) => {
+  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer');
+  if (!result.ok) {
+    return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not remove lead.')}`);
+  }
+  const stay = String((req.body && req.body.stay) || '') === '1';
+  if (stay) {
+    return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=removed_lead`);
+  }
+  return res.redirect(303, `${ctx.base}/referrals?ok=removed_lead`);
+}));
+
+/** Delete a lead/contact entirely from the Reviews book (confirm in UI). */
+router.post('/m/:token/customers/c/:id/delete-lead', form, withMember(async (req, res, ctx) => {
+  const existing = await work.getCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  if (!existing) {
+    return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent('Lead not found.')}`);
+  }
+  await work.deleteCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  return res.redirect(303, `${ctx.base}/referrals?ok=lead_deleted`);
 }));
 
 /**

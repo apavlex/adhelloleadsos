@@ -273,6 +273,12 @@
               <button type="submit" class="ma-btn ma-btn--sm"><%- icons.customers %> Mark as customer</button>
             </form>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.href %>">Open</a>
+            <form method="post" action="<%= base %>/customers/c/<%= encodeURIComponent(lead.id) %>/remove-lead" data-ma-confirm="Remove <%= lead.name %> from Leads? They’ll stay in Customers.">
+              <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Remove</button>
+            </form>
+            <form method="post" action="<%= base %>/customers/c/<%= encodeURIComponent(lead.id) %>/delete-lead" data-ma-confirm="Delete <%= lead.name %> permanently from your book?">
+              <button type="submit" class="ma-btn ma-btn--sm ma-btn--danger">Delete</button>
+            </form>
           </div>
         </article>
         <% }); %>

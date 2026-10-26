@@ -332,6 +332,14 @@ describe('member customer GHL sync', () => {
     mock.method(ghlClient, 'listLocationContactCustomFields', async () => ([
       { id: 'cf_msg', name: 'How can we help?' },
     ]));
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({
+      submissions: [{
+        contactId: 'ghl_alex_form',
+        name: 'Alex',
+        phone: '3605550101',
+        others: { cf_msg: 'Need hardwood in living room' },
+      }],
+    }));
     mock.method(ghlClient, 'getContact', async () => ({
       id: 'ghl_alex_form',
       name: 'Alex',

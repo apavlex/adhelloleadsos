@@ -49,6 +49,7 @@ describe('ghlFormLeadSync', () => {
     mock.method(ghlClient, 'listLocationContactCustomFields', async () => ([
       { id: 'cf_need', name: 'What do you need?' },
     ]));
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
     const added = new Date().toISOString();
     const casey = {
       id: 'ghl_form_casey',
@@ -97,6 +98,7 @@ describe('ghlFormLeadSync', () => {
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
     mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
     const contact = {
       id: 'ghl_form_dup',
       name: 'Dup Lead',
@@ -121,6 +123,7 @@ describe('ghlFormLeadSync', () => {
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
     mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     mock.method(ghlClient, 'listContacts', async () => ({
       contacts: [
@@ -150,6 +153,7 @@ describe('ghlFormLeadSync', () => {
     mock.method(ghlClient, 'isConfigured', () => true);
 
     mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
     // First sync: GHL has not indexed the new form contact yet.
     mock.method(ghlClient, 'listContacts', async () => ({ contacts: [] }));
     const first = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
@@ -191,6 +195,7 @@ describe('ghlFormLeadSync', () => {
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
     mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
     const pat = {
       id: 'ghl_form_pat',
       name: 'Pat Form',
