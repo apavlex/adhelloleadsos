@@ -1305,6 +1305,7 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
         inboundFormName: formEvent.label,
         inboundEvents: appendInboundEvent(prior, formEvent),
         formAnswers: normalizeFormAnswers(answers),
+        inboundHandledAt: '',
       };
       const updated = await dbService.updateLead(lead.key, patch, wid);
       notifyInboundEvent({ workspaceId: wid, lead: updated || { ...lead, ...patch }, event: formEvent });

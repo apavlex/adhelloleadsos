@@ -3887,7 +3887,9 @@ router.post('/m/:token/activity/clear', express.json(), withMember(async (req, r
   const ghlEnabled = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network)
     && memberGhlAlerts.isEnabled(ctx.member);
   if (clearAll) {
-    await memberGhlAlerts.markAllPendingDone(ctx.member, ctx.network);
+    // Clear only archives in-app activity → History. Do NOT mark GHL / website
+    // form leads Done — those stay under Waiting on a reply until Done / Done all
+    // (otherwise a tap on Clear makes a just-arrived TPR form alert vanish).
     memberActivity.clearKinds(ctx.network.id, ctx.member.id, [...MEMBER_INBOUND_ALERT_TYPES]);
   }
   const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);

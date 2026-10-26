@@ -191,7 +191,9 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
       } catch (_) { /* keep contact-derived answers */ }
     }
 
-    const at = new Date(addedMs).toISOString();
+    // Wall-clock `at` so a prior Done / Clear cannot hide this brand-new stamp
+    // when GHL dateAdded is older than inboundHandledAt.
+    const at = new Date(now).toISOString();
     const label = websiteFormLabel({
       formName: sourceHint(fullContact),
       label: sourceHint(fullContact),
@@ -215,6 +217,8 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
       inboundEvents: appendInboundEvent(prior, formEvent),
       ghlContactId: lead.ghlContactId || ghlId,
       formAnswers: normalizeFormAnswers(answers),
+      // Re-open Waiting on a reply when a new form event is stamped.
+      inboundHandledAt: '',
     };
     try {
       // eslint-disable-next-line no-await-in-loop
