@@ -92,12 +92,14 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     ? Number(opts.notifyMaxAgeMs)
     : DEFAULT_NOTIFY_MAX_AGE_MS;
   const scanCutoff = now - maxAgeMs;
-  // High-water mark so we never re-blast old contacts on every bell open.
+  // Absolute age floor for phone notify — do NOT gate on watermark. GHL listContacts
+  // often lags a new form contact by seconds/minutes; advancing a high-water mark
+  // past "now" permanently skipped those contacts when they finally appeared.
+  const notifyFloor = now - notifyMaxAgeMs;
   let watermarkMs = Number(priorState.watermarkMs);
   if (!Number.isFinite(watermarkMs) || watermarkMs <= 0) {
-    watermarkMs = now - notifyMaxAgeMs;
+    watermarkMs = notifyFloor;
   }
-  const notifyCutoff = Math.max(scanCutoff, watermarkMs);
   const limit = Math.min(100, Math.max(5, Number(opts.limit) || DEFAULT_LIMIT));
 
   let contacts = [];
@@ -126,7 +128,9 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     const addedMs = contactAddedMs(contact) || now;
     if (addedMs > maxSeenAdded) maxSeenAdded = addedMs;
     const formEventId = `form:ghl-contact:${ghlId}`;
-    const shouldNotify = addedMs > notifyCutoff;
+    // Idempotent via formEventId; age uses wall clock so a lagged first list
+    // cannot permanently skip a still-fresh form contact.
+    const shouldNotify = addedMs >= notifyFloor;
 
     let lead = findLocalLeadMatch(localLeads, contact);
     if (!lead) {
@@ -219,9 +223,11 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     }
   }
 
+  // Only advance to contacts we actually saw — never bump to wall-clock "now",
+  // which raced ahead of GHL's list and skipped new form leads forever.
   dbService.setKvSync(throttleKey(wid), {
     at: now,
-    watermarkMs: Math.max(watermarkMs, maxSeenAdded, now - 5000),
+    watermarkMs: Math.max(watermarkMs, maxSeenAdded),
   });
 
   return { synced, notified };
