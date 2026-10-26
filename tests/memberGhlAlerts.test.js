@@ -145,16 +145,30 @@ describe('memberGhlAlerts', () => {
     assert.doesNotMatch(ownerRows[0].openHref, /gohighlevel|leadconnector|\/focus|\/pipeline/i);
     assert.equal(ownerRows[1].kind, 'form');
     assert.match(ownerRows[1].title, /Form Lead/);
+    assert.ok(ownerRows[1].customerId);
+    const formCust = await work.getCustomer(NID, 'owner', ownerRows[1].customerId);
+    assert.equal(formCust.source, 'website_form');
+    assert.equal(work.customerSourceLabel(formCust), 'Website form');
 
     const partnerRows = await memberGhlAlerts.listPendingForMember(partner, network, { now });
     assert.equal(partnerRows.length, 1);
     assert.equal(partnerRows[0].kind, 'form');
     assert.match(partnerRows[0].title, /Form Lead/);
+    const partnerForm = await work.getCustomer(NID, 'partner', partnerRows[0].customerId);
+    assert.equal(partnerForm.source, 'website_form');
 
     const off = await store.saveMember(NID, { ...owner, ghlAlertsEnabled: false });
     const ownerFormsOnly = await memberGhlAlerts.listPendingForMember(off, network, { now });
     assert.equal(ownerFormsOnly.length, 1);
     assert.equal(ownerFormsOnly[0].kind, 'form');
+  });
+
+  it('inboundCustomerSource prefers website_form for forms without clobbering referral', () => {
+    assert.equal(memberGhlAlerts.inboundCustomerSource('', 'form'), 'website_form');
+    assert.equal(memberGhlAlerts.inboundCustomerSource('', 'missed_call'), 'ghl');
+    assert.equal(memberGhlAlerts.inboundCustomerSource('ghl', 'form'), 'website_form');
+    assert.equal(memberGhlAlerts.inboundCustomerSource('referral', 'form'), 'referral');
+    assert.equal(memberGhlAlerts.inboundCustomerSource('manual', 'sms'), 'manual');
   });
 
   it('notifyEnabledMembers fans form leads out to every active network member', async () => {

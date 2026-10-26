@@ -43,6 +43,15 @@ function matchCustomerForInbound(customers, row) {
   return work.findCustomerMatch(customers, inboundMatchFields(row));
 }
 
+/** Prefer website_form for form rows; keep referral / manual / csv when already set. */
+function inboundCustomerSource(existingSource, rowType) {
+  const preferred = String(rowType || '').trim().toLowerCase() === 'form' ? 'website_form' : 'ghl';
+  const prev = String(existingSource || '').trim().toLowerCase();
+  if (!prev) return preferred;
+  if (preferred === 'website_form' && prev === 'ghl') return 'website_form';
+  return prev;
+}
+
 /**
  * Match or create a Reviews-app customer so Open always has an in-app profile.
  * Never returns a CRM /focus or /pipeline path.
@@ -53,10 +62,12 @@ async function ensureCustomerForInbound(network, member, customers, row) {
   const existing = matchCustomerForInbound(list, row);
   if (existing) {
     // Patch GHL id / phone / email onto an existing match so Calls & texts can link.
+    const nextSource = inboundCustomerSource(existing.source, row && row.type);
     const needGhl = fields.ghlContactId && !existing.ghlContactId;
     const needPhone = fields.phone && !existing.phone;
     const needEmail = fields.email && !existing.email;
-    if (!needGhl && !needPhone && !needEmail) return existing;
+    const needSource = nextSource !== existing.source;
+    if (!needGhl && !needPhone && !needEmail && !needSource) return existing;
     const saved = await work.saveCustomer(
       network.id,
       member.id,
@@ -70,7 +81,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
       {
         id: existing.id,
         ghlContactId: needGhl ? fields.ghlContactId : existing.ghlContactId,
-        source: existing.source || 'ghl',
+        source: nextSource,
         tags: existing.tags,
         isReferralPartner: existing.isReferralPartner,
       },
@@ -99,7 +110,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     },
     {
       ghlContactId: fields.ghlContactId || undefined,
-      source: 'ghl',
+      source: inboundCustomerSource('', row && row.type),
     },
   );
   if (!saved.ok || !saved.customer) return null;
@@ -341,6 +352,7 @@ module.exports = {
   canUseGhlAlerts,
   isActiveNetworkMember,
   allowInboundTypeForMember,
+  inboundCustomerSource,
   isEnabled,
   setEnabled,
   listPendingForMember,
