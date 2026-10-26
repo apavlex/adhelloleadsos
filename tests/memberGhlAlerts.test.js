@@ -81,7 +81,7 @@ describe('memberGhlAlerts', () => {
     assert.equal(memberGhlAlerts.isEnabled(ok.member), true);
   });
 
-  it('lists pending GHL calls/texts only when enabled', async () => {
+  it('lists pending GHL forms/calls/texts only when enabled', async () => {
     const network = await store.getNetwork(NID);
     const owner = await store.saveMember(NID, {
       id: 'owner',
@@ -109,8 +109,17 @@ describe('memberGhlAlerts', () => {
       key: 'lead:form1',
       workspaceId: WID,
       title: 'Form Lead',
+      phone: '+15553334444',
       inboundEvents: [
         { id: 'f1', type: 'form', at: '2026-10-19T11:50:00.000Z', label: 'Website' },
+      ],
+    });
+    await dbService.saveLead({
+      key: 'lead:email1',
+      workspaceId: WID,
+      title: 'Email only',
+      inboundEvents: [
+        { id: 'e1', type: 'email', at: '2026-10-19T11:40:00.000Z', label: 'Reply' },
       ],
     });
 
@@ -122,12 +131,14 @@ describe('memberGhlAlerts', () => {
     assert.equal(saved.ok, true);
 
     const rows = await memberGhlAlerts.listPendingForMember(owner, network, { now });
-    assert.equal(rows.length, 1);
+    assert.equal(rows.length, 2);
     assert.equal(rows[0].kind, 'missed_call');
     assert.match(rows[0].title, /T Munezero/);
     assert.equal(rows[0].customerId, saved.customer.id);
     assert.equal(rows[0].openHref, `/customers/c/${encodeURIComponent(saved.customer.id)}`);
     assert.doesNotMatch(rows[0].openHref, /gohighlevel|leadconnector|\/focus|\/pipeline/i);
+    assert.equal(rows[1].kind, 'form');
+    assert.match(rows[1].title, /Form Lead/);
 
     const off = await store.saveMember(NID, { ...owner, ghlAlertsEnabled: false });
     assert.equal((await memberGhlAlerts.listPendingForMember(off, network, { now })).length, 0);
@@ -349,7 +360,8 @@ describe('memberGhlAlerts', () => {
     const push = fs.readFileSync(path.join(root, 'services/inboundPush.js'), 'utf8');
 
     assert.match(top, /data-ma-bell-ghl-toggle/);
-    assert.match(top, /GHL calls &amp; texts/);
+    assert.match(top, /GHL forms, calls &amp; texts/);
+    assert.match(top, /Website form leads, missed calls, and texts/);
     assert.match(js, /activity\/ghl-alerts/);
     assert.match(js, /activity\/ghl-done/);
     assert.match(js, /ghlAlertsEnabled/);
@@ -358,6 +370,8 @@ describe('memberGhlAlerts', () => {
     assert.match(js, /Done all/);
     assert.match(js, /markGhlDoneAll/);
     assert.match(js, /GHL_KINDS/);
+    assert.match(js, /form:\s*1/);
+    assert.match(js, /Website form leads, missed calls, and texts/);
     assert.match(js, /function ghlProfileHref/);
     assert.match(js, /ghlProfileHref\(item\)/);
     assert.match(js, /data-ma-bell-ghl-open/);
@@ -377,8 +391,11 @@ describe('memberGhlAlerts', () => {
     assert.match(route, /markAllPendingDone/);
     assert.match(route, /memberGhlAlerts/);
     assert.match(route, /excludeGhlKinds/);
-    assert.match(route, /GHL_ACTIVITY_TYPES/);
+    assert.match(route, /MEMBER_INBOUND_ALERT_TYPES/);
     assert.match(push, /memberGhlAlerts/);
     assert.match(push, /notifyEnabledMembers/);
+    const inbound = fs.readFileSync(path.join(root, 'services/inboundEvents.js'), 'utf8');
+    assert.match(inbound, /MEMBER_INBOUND_ALERT_TYPES/);
+    assert.match(inbound, /'form'/);
   });
 });

@@ -137,9 +137,11 @@
   }
 
   function ghlHtml(item) {
-    var callLabel = item.callOpensLeadConnector
-      ? (item.kind === 'sms' ? 'Lead Connector' : 'Call in LC')
-      : (item.kind === 'sms' ? 'Reply' : 'Call back');
+    var callLabel = item.kind === 'form'
+      ? (item.callOpensLeadConnector ? 'Call in LC' : 'Call')
+      : (item.callOpensLeadConnector
+        ? (item.kind === 'sms' ? 'Lead Connector' : 'Call in LC')
+        : (item.kind === 'sms' ? 'Reply' : 'Call back'));
     var callAttrs = item.callOpensLeadConnector ? ' target="_blank" rel="noopener noreferrer"' : '';
     var openHref = ghlProfileHref(item);
     var meta = esc(item.typeLabel || kindLabel(item.kind)) +
@@ -163,7 +165,7 @@
     );
   }
 
-  var GHL_KINDS = { missed_call: 1, voicemail: 1, sms: 1 };
+  var GHL_KINDS = { form: 1, missed_call: 1, voicemail: 1, sms: 1 };
 
   function renderList(items, ghlItems) {
     if (!listEl) return;
@@ -210,8 +212,8 @@
     if (ghlToggle) ghlToggle.checked = !!enabled;
     if (ghlStatus) {
       ghlStatus.textContent = enabled
-        ? 'Missed calls and texts from Lead Connector show here and on phone alerts.'
-        : 'Show missed calls and texts from Lead Connector in this app.';
+        ? 'Website form leads, missed calls, and texts from Lead Connector show here and on phone alerts.'
+        : 'Show website form leads, missed calls, and texts from Lead Connector in this app.';
     }
   }
 
@@ -466,7 +468,7 @@
       pushEnable.textContent = (label.charAt(0).toUpperCase() + label.slice(1)) + ' on · Send test';
       setPushStatus(
         ghlEnabled
-          ? 'Agency messages, leads, referrals, and GHL calls & texts arrive on this device, even when the app is closed.'
+          ? 'Agency messages, leads, referrals, and GHL forms / calls / texts arrive on this device, even when the app is closed.'
           : 'Agency messages, leads, and referrals arrive on this device, even when the app is closed.',
       );
       if (pushOff) pushOff.hidden = false;
@@ -477,7 +479,7 @@
       pushEnable.textContent = 'Turn on ' + label;
       setPushStatus(
         ghlEnabled
-          ? 'Turn on ' + label + ' for agency messages, leads, referrals, and GHL calls & texts.'
+          ? 'Turn on ' + label + ' for agency messages, leads, referrals, and GHL forms / calls / texts.'
           : 'Turn on ' + label + ' for agency messages, leads, and referrals.',
       );
     }
