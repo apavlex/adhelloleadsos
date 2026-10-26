@@ -1298,6 +1298,8 @@ function presentContactLead(customer, base) {
     address: c.address || '',
     preview: notes.length > 160 ? `${notes.slice(0, 157)}…` : notes,
     at: c.markedAsLeadAt || c.updatedAt || c.createdAt || '',
+    source: c.source || '',
+    sourceLabel: work.customerSourceLabel(c),
     href: `${base}/customers/c/${encodeURIComponent(c.id)}`,
     quoteHref: `${base}/quote?customer=${encodeURIComponent(c.id)}`,
   };
@@ -1311,9 +1313,32 @@ function presentContactQuote(customer, base) {
   };
 }
 
+/** Stamp website-form package leads onto matching contacts (tag + isLead + source). */
+async function repairWebsiteFormContactLeads(ctx) {
+  const formLeads = (ctx.appointment && ctx.appointment.formLeads) || [];
+  if (!formLeads.length || !ctx.network || !ctx.member) return;
+  try {
+    const memberCustomerGhl = require('../services/memberCustomerGhl');
+    const customers = await work.listCustomers(ctx.network.id, ctx.member.id);
+    for (const fl of formLeads.slice(-60)) {
+      if (!fl) continue;
+      const match = work.findCustomerMatch(customers, { phone: fl.phone, email: fl.email });
+      if (!match) continue;
+      if (match.isLead && match.source === 'website_form') continue;
+      // eslint-disable-next-line no-await-in-loop
+      await memberCustomerGhl.stampWebsiteFormLead(ctx.network, ctx.member.id, match);
+    }
+  } catch (err) {
+    console.warn('[memberApp] website form lead repair failed:', err && err.message);
+  }
+}
+
 async function renderReferrals(req, res, ctx, flash, status) {
   const view = ['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received';
   const flooring = freeAppSignup.isFlooringOffer(ctx.member);
+  if (view === 'received') {
+    await repairWebsiteFormContactLeads(ctx);
+  }
   const [referrals, members, jobs, leadRequest, contactLeadRows, contactQuoteRows] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
@@ -1931,6 +1956,7 @@ async function renderCustomerPage(res, ctx, {
     upgradeHref: '/signup',
     ghlActivity: ghlActivity || null,
     contactKind: customer ? work.customerKind(customer) : 'customer',
+    sourceLabel: customer ? work.customerSourceLabel(customer) : '',
     ...tagViews,
   }, status);
 }

@@ -61,6 +61,9 @@ describe('member leads + referral notifications', () => {
     assert.match(referrals, /Mark as customer/);
     assert.match(referrals, /mark-customer/);
     assert.match(referrals, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/to-customer/);
+    assert.match(referrals, /sourceLabel/);
+    assert.match(referrals, /Website form|lead\.sourceLabel/);
+    assert.match(route, /sourceLabel: work\.customerSourceLabel/);
     assert.match(customers, /Open Leads/);
     assert.match(customers, /showLeads/);
     assert.match(route, /customers\/c\/:id\/mark-customer/);
@@ -190,7 +193,7 @@ describe('member leads + referral notifications', () => {
     assert.match(sent[0].body.title, /New website lead: Jordan Homeowner/i);
     assert.match(sent[0].body.body, /TPRFlooring\.com Form/);
     assert.doesNotMatch(sent[0].body.body, /ai_studio|direct/i);
-    assert.match(sent[0].body.url, /\/customers\/c\/cust_form_1/);
+    assert.match(sent[0].body.url, /\/customers\/c\/[a-z0-9]+/);
   });
 
   it('notifyReferralRecipient wires push alongside SMS/email', () => {

@@ -293,4 +293,32 @@ describe('member customer GHL sync', () => {
 
     mock.restoreAll();
   });
+
+  it('stampWebsiteFormLead marks lead, sets source, and applies Website form tag', async () => {
+    const created = await work.saveCustomer(NET.id, MEM, {
+      name: 'Web Form Alex',
+      phone: '3605550199',
+      email: 'alex@tprflooring.com',
+    }, { source: 'ghl' });
+    assert.equal(created.ok, true);
+    assert.equal(created.customer.isLead, false);
+
+    const stamped = await memberCustomerGhl.stampWebsiteFormLead(NET, MEM, created.customer);
+    assert.equal(stamped.ok, true);
+    assert.equal(stamped.customer.isLead, true);
+    assert.equal(stamped.customer.source, 'website_form');
+    assert.equal(work.customerSourceLabel(stamped.customer), 'Website form');
+
+    const tag = await memberCustomerGhl.ensureWebsiteFormTag(NET.ownerWorkspaceId);
+    assert.equal(tag.name, 'Website form');
+    assert.ok(stamped.customer.tags.includes(tag.key));
+
+    const leads = await work.listContactLeads(NET.id, MEM);
+    assert.ok(leads.some((c) => c.id === stamped.customer.id));
+
+    // Idempotent
+    const again = await memberCustomerGhl.stampWebsiteFormLead(NET, MEM, stamped.customer);
+    assert.equal(again.ok, true);
+    assert.equal(again.customer.tags.filter((k) => k === tag.key).length, 1);
+  });
 });

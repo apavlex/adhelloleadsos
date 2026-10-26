@@ -160,7 +160,41 @@ function normalizePhotos(raw) {
 
 // ── Records ──────────────────────────────────────────────────────────────────
 
-const CUSTOMER_SOURCES = new Set(['manual', 'csv', 'ghl', 'referral']);
+const CUSTOMER_SOURCES = new Set([
+  'manual',
+  'csv',
+  'ghl',
+  'referral',
+  'website_form',
+  'agency',
+]);
+
+/** Human labels for customer.source (lead list + profile). */
+const CUSTOMER_SOURCE_LABELS = {
+  manual: 'Marked from contacts',
+  csv: 'CSV import',
+  ghl: 'CRM',
+  referral: 'Referral',
+  website_form: 'Website form',
+  agency: 'Agency',
+};
+
+function customerSourceKey(customerOrSource) {
+  if (typeof customerOrSource === 'string') {
+    const key = String(customerOrSource || '').trim().toLowerCase();
+    return CUSTOMER_SOURCES.has(key) ? key : 'manual';
+  }
+  const c = customerOrSource && typeof customerOrSource === 'object' ? customerOrSource : {};
+  const key = String(c.source || '').trim().toLowerCase();
+  if (c.referralId && (!key || key === 'manual')) return 'referral';
+  if (CUSTOMER_SOURCES.has(key)) return key;
+  return c.ghlContactId ? 'ghl' : 'manual';
+}
+
+function customerSourceLabel(customerOrSource) {
+  return CUSTOMER_SOURCE_LABELS[customerSourceKey(customerOrSource)]
+    || CUSTOMER_SOURCE_LABELS.manual;
+}
 
 function phoneDigits(value) {
   return String(value || '').replace(/\D/g, '');
@@ -1271,6 +1305,9 @@ module.exports = {
   MAX_JOB_PHOTOS,
   REMIND_BEFORE_OPTIONS,
   CUSTOMER_SOURCES,
+  CUSTOMER_SOURCE_LABELS,
+  customerSourceKey,
+  customerSourceLabel,
   googleMapsSearchUrl,
   MAX_CUSTOMER_TAGS,
   isRecordId,

@@ -26,7 +26,22 @@
     <div class="ma-titlebar">
       <h1 class="ma-page-title"><%= customer.name %></h1>
       <div class="ma-titlebar__actions">
-        <% if (customer.referralId) { %><span class="ma-pill ma-pill--sent">From referral</span><% } %>
+        <%
+          const _srcLabel = typeof sourceLabel !== 'undefined' && sourceLabel
+            ? sourceLabel
+            : (customer.source === 'website_form' ? 'Website form'
+              : customer.source === 'agency' ? 'Agency'
+              : customer.source === 'referral' || customer.referralId ? 'Referral'
+              : customer.source === 'csv' ? 'CSV import'
+              : customer.source === 'ghl' ? 'CRM'
+              : customer.referralId ? 'Referral'
+              : '');
+        %>
+        <% if (_srcLabel && _srcLabel !== 'Marked from contacts') { %>
+        <span class="ma-pill <%= customer.source === 'referral' || customer.referralId ? 'ma-pill--sent' : (customer.source === 'website_form' || customer.source === 'agency' ? 'ma-pill--accepted' : 'ma-pill--pending') %>" title="How this contact was added"><%= _srcLabel %></span>
+        <% } else if (customer.referralId) { %>
+        <span class="ma-pill ma-pill--sent">Referral</span>
+        <% } %>
         <% if (_kind === 'lead') { %><span class="ma-pill ma-pill--accepted">Lead</span><% } %>
         <% if (_kind === 'quote') { %><span class="ma-pill ma-pill--job-estimate">Quote</span><% } %>
         <% if (!_flooring) { %>

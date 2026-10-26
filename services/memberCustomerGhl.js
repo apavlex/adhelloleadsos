@@ -77,6 +77,103 @@ async function ensureReferralPartnerTag(workspaceId) {
   return dbService.createTag(workspaceId, 'Referral partner', '#3B82F6');
 }
 
+const WEBSITE_FORM_TAG_NAME = 'Website form';
+const WEBSITE_FORM_TAG_COLOR = '#0EA5E9';
+
+/** Shared “Website form” catalog tag — syncs to GHL when the contact is linked. */
+async function ensureWebsiteFormTag(workspaceId) {
+  const catalog = await dbService.listTags(workspaceId);
+  const hit = catalog.find((t) => /^website\s*form$/i.test(String(t.name || '').trim()));
+  if (hit) {
+    if (hit.isActive === false) {
+      return (await dbService.setTagActive(workspaceId, hit.key, true)) || { ...hit, isActive: true };
+    }
+    return hit;
+  }
+  return dbService.createTag(workspaceId, WEBSITE_FORM_TAG_NAME, WEBSITE_FORM_TAG_COLOR);
+}
+
+/**
+ * Mark a Reviews contact as a lead from a website form: isLead + Website form tag + source.
+ * Idempotent. Syncs the tag to GHL when linked.
+ */
+async function stampWebsiteFormLead(network, memberId, customer) {
+  if (!network || !memberId || !customer || !customer.id) {
+    return { ok: false, error: 'Customer required.' };
+  }
+  let next = customer;
+  if (!next.isLead) {
+    const marked = await work.setCustomerLeadFlag(network.id, memberId, next.id, true);
+    if (marked.ok && marked.customer) next = marked.customer;
+  }
+
+  const wid = String(network.ownerWorkspaceId || '').trim();
+  if (wid) {
+    const tag = await ensureWebsiteFormTag(wid);
+    const tagKey = String((tag && tag.key) || '').trim();
+    const hasTag = work.normalizeCustomerTags(next.tags).includes(tagKey);
+    const needSource = next.source !== 'website_form' && next.source !== 'referral' && next.source !== 'agency';
+    if (tagKey && (!hasTag || needSource)) {
+      const keys = new Set(work.normalizeCustomerTags(next.tags));
+      if (tagKey) keys.add(tagKey);
+      const saved = await work.saveCustomer(
+        network.id,
+        memberId,
+        {
+          name: next.name,
+          phone: next.phone,
+          email: next.email,
+          address: next.address,
+          notes: next.notes,
+        },
+        {
+          id: next.id,
+          tags: [...keys],
+          ghlContactId: next.ghlContactId,
+          ghlSyncedAt: next.ghlSyncedAt,
+          source: needSource ? 'website_form' : next.source,
+          referralId: next.referralId,
+          isReferralPartner: next.isReferralPartner,
+        },
+      );
+      if (saved.ok && saved.customer) {
+        next = saved.customer;
+        // Re-apply lead flag — saveCustomer preserves isLead from existing via spread,
+        // but be safe if the record was re-normalized without it.
+        if (!next.isLead) {
+          const again = await work.setCustomerLeadFlag(network.id, memberId, next.id, true);
+          if (again.ok && again.customer) next = again.customer;
+        }
+        await pushCustomerTagsToGhl(network, next).catch(() => null);
+      }
+    }
+  } else if (next.source !== 'website_form' && next.source !== 'referral' && next.source !== 'agency') {
+    const saved = await work.saveCustomer(
+      network.id,
+      memberId,
+      {
+        name: next.name,
+        phone: next.phone,
+        email: next.email,
+        address: next.address,
+        notes: next.notes,
+      },
+      {
+        id: next.id,
+        tags: next.tags,
+        ghlContactId: next.ghlContactId,
+        ghlSyncedAt: next.ghlSyncedAt,
+        source: 'website_form',
+        referralId: next.referralId,
+        isReferralPartner: next.isReferralPartner,
+      },
+    );
+    if (saved.ok && saved.customer) next = saved.customer;
+  }
+
+  return { ok: true, customer: next };
+}
+
 /** True when a local customer should be treated as a referral business, not a homeowner. */
 function customerLooksLikePartner(customer, tagNameByKey = null) {
   if (customer && customer.isReferralPartner === true) return true;
@@ -490,6 +587,9 @@ module.exports = {
   resolveWorkspaceTag,
   ghlTagNamesLookLikePartner,
   ensureReferralPartnerTag,
+  ensureWebsiteFormTag,
+  stampWebsiteFormLead,
+  WEBSITE_FORM_TAG_NAME,
   customerLooksLikePartner,
   pushCustomerTagsToGhl,
   pullCustomerTagsFromGhl,

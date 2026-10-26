@@ -145,11 +145,24 @@ describe('memberGhlAlerts', () => {
     assert.doesNotMatch(ownerRows[0].openHref, /gohighlevel|leadconnector|\/focus|\/pipeline/i);
     assert.equal(ownerRows[1].kind, 'form');
     assert.match(ownerRows[1].title, /Form Lead/);
+    assert.ok(ownerRows[1].customerId);
+    const formCust = await work.getCustomer(NID, 'owner', ownerRows[1].customerId);
+    assert.equal(formCust.isLead, true, 'website form contacts are marked as leads');
+    assert.equal(formCust.source, 'website_form');
+    assert.equal(work.customerSourceLabel(formCust), 'Website form');
+    const memberCustomerGhl = require('../services/memberCustomerGhl');
+    const formTag = await memberCustomerGhl.ensureWebsiteFormTag(WID);
+    assert.ok(formCust.tags.includes(formTag.key), 'Website form tag applied');
+    const contactLeads = await work.listContactLeads(NID, 'owner');
+    assert.ok(contactLeads.some((c) => c.id === formCust.id), 'shows under Leads from contacts');
 
     const partnerRows = await memberGhlAlerts.listPendingForMember(partner, network, { now });
     assert.equal(partnerRows.length, 1);
     assert.equal(partnerRows[0].kind, 'form');
     assert.match(partnerRows[0].title, /Form Lead/);
+    const partnerForm = await work.getCustomer(NID, 'partner', partnerRows[0].customerId);
+    assert.equal(partnerForm.isLead, true);
+    assert.equal(partnerForm.source, 'website_form');
 
     const off = await store.saveMember(NID, { ...owner, ghlAlertsEnabled: false });
     const ownerFormsOnly = await memberGhlAlerts.listPendingForMember(off, network, { now });

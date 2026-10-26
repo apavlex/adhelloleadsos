@@ -506,14 +506,16 @@ async function pushMemberReferralAlert({ network, member, baseUrl, referral, sum
  * Same subscription path as referral alerts (member app + linked package).
  */
 async function resolveFormLeadProfileUrl({
-  network, member, baseUrl, leadName, phone, email, ghlContactId, customerId,
+  network, member, baseUrl, leadName, phone, email, ghlContactId, customerId, stampWebsiteForm = true,
 } = {}) {
   const app = memberPortalLink(baseUrl, network, member);
-  if (customerId) return `${app}/customers/c/${encodeURIComponent(customerId)}`;
   try {
     const work = require('./memberWork');
+    const memberCustomerGhl = require('./memberCustomerGhl');
     const customers = await work.listCustomers(network.id, member.id);
-    let customer = work.findCustomerMatch(customers, { phone, email, ghlContactId });
+    let customer = customerId
+      ? customers.find((c) => c && c.id === customerId) || await work.getCustomer(network.id, member.id, customerId)
+      : work.findCustomerMatch(customers, { phone, email, ghlContactId });
     if (!customer && (leadName || phone || email)) {
       const saved = await work.saveCustomer(network.id, member.id, {
         name: String(leadName || phone || email || 'Lead').slice(0, 120),
@@ -521,9 +523,13 @@ async function resolveFormLeadProfileUrl({
         email: email || '',
       }, {
         ghlContactId: ghlContactId || undefined,
-        source: 'ghl',
+        source: 'website_form',
       });
       if (saved.ok) customer = saved.customer;
+    }
+    if (customer && customer.id && stampWebsiteForm) {
+      const stamped = await memberCustomerGhl.stampWebsiteFormLead(network, member.id, customer);
+      if (stamped.ok && stamped.customer) customer = stamped.customer;
     }
     if (customer && customer.id) {
       return `${app}/customers/c/${encodeURIComponent(customer.id)}`;

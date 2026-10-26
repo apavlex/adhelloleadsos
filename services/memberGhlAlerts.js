@@ -43,6 +43,29 @@ function matchCustomerForInbound(customers, row) {
   return work.findCustomerMatch(customers, inboundMatchFields(row));
 }
 
+function isFormInboundRow(row) {
+  return String((row && row.type) || '').trim().toLowerCase() === 'form';
+}
+
+/** After create/match: website forms become Leads with a Website form tag. */
+async function finalizeInboundCustomer(network, member, list, customer, row) {
+  if (!customer) return null;
+  let next = customer;
+  if (isFormInboundRow(row)) {
+    try {
+      const memberCustomerGhl = require('./memberCustomerGhl');
+      const stamped = await memberCustomerGhl.stampWebsiteFormLead(network, member.id, next);
+      if (stamped.ok && stamped.customer) next = stamped.customer;
+    } catch (err) {
+      console.warn('[memberGhlAlerts] website form stamp failed:', err && err.message);
+    }
+  }
+  const idx = list.findIndex((c) => c && c.id === next.id);
+  if (idx >= 0) list[idx] = next;
+  else list.push(next);
+  return next;
+}
+
 /**
  * Match or create a Reviews-app customer so Open always has an in-app profile.
  * Never returns a CRM /focus or /pipeline path.
@@ -56,7 +79,13 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     const needGhl = fields.ghlContactId && !existing.ghlContactId;
     const needPhone = fields.phone && !existing.phone;
     const needEmail = fields.email && !existing.email;
-    if (!needGhl && !needPhone && !needEmail) return existing;
+    const formSource = isFormInboundRow(row) ? 'website_form' : '';
+    const nextSource = existing.source === 'referral' || existing.source === 'agency'
+      ? existing.source
+      : (formSource || existing.source || 'ghl');
+    if (!needGhl && !needPhone && !needEmail && nextSource === existing.source) {
+      return finalizeInboundCustomer(network, member, list, existing, row);
+    }
     const saved = await work.saveCustomer(
       network.id,
       member.id,
@@ -70,17 +99,15 @@ async function ensureCustomerForInbound(network, member, customers, row) {
       {
         id: existing.id,
         ghlContactId: needGhl ? fields.ghlContactId : existing.ghlContactId,
-        source: existing.source || 'ghl',
+        source: nextSource,
         tags: existing.tags,
         isReferralPartner: existing.isReferralPartner,
       },
     );
     if (saved.ok && saved.customer) {
-      const idx = list.findIndex((c) => c && c.id === existing.id);
-      if (idx >= 0) list[idx] = saved.customer;
-      return saved.customer;
+      return finalizeInboundCustomer(network, member, list, saved.customer, row);
     }
-    return existing;
+    return finalizeInboundCustomer(network, member, list, existing, row);
   }
 
   const title = String((row && row.title) || '').trim();
@@ -99,12 +126,11 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     },
     {
       ghlContactId: fields.ghlContactId || undefined,
-      source: 'ghl',
+      source: isFormInboundRow(row) ? 'website_form' : 'ghl',
     },
   );
   if (!saved.ok || !saved.customer) return null;
-  list.push(saved.customer);
-  return saved.customer;
+  return finalizeInboundCustomer(network, member, list, saved.customer, row);
 }
 
 /** Active member on a workspace-backed network (receives website form lead alerts). */
