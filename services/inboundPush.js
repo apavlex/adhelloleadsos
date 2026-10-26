@@ -87,10 +87,46 @@ function readFormNotifyClaim(key) {
 }
 
 function claimFormLeadNotify(workspaceId, lead, opts = {}) {
+  const wid = String(workspaceId || '').trim();
   const key = formNotifyDedupeKey(workspaceId, lead);
-  if (!key) return true;
   const windowMs = Number(opts.windowMs) > 0 ? Number(opts.windowMs) : FORM_NOTIFY_DEDUPE_MS;
   const now = Date.now();
+  const eventId = String((opts.event && opts.event.id) || '').trim();
+  const isResubmitEvent = /^(form:ghl-sub:|form:ghl-touch:)/i.test(eventId);
+
+  // Distinct GHL form submissions / contact re-touches should alert even when
+  // the same contact was notified earlier (Alex → Alex Pavlenko re-fill).
+  // Still collapse ContactCreate + first sync racing within 2 minutes.
+  if (isResubmitEvent) {
+    const eventKey = wid && eventId ? `formLeadNotify:${wid}:${eventId}` : '';
+    if (eventKey) {
+      const sameEvent = readFormNotifyClaim(eventKey);
+      if (sameEvent && Number(sameEvent.at) > 0 && now - Number(sameEvent.at) < windowMs) {
+        return false;
+      }
+    }
+    const prior = key ? readFormNotifyClaim(key) : null;
+    const claimedRecently = prior && Number(prior.at) > 0 && now - Number(prior.at) < windowMs;
+    if (claimedRecently) {
+      const priorForms = (Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : [])
+        .filter((e) => e && String(e.type || '') === 'form' && String(e.id || '') !== eventId);
+      let latestPrior = 0;
+      for (const e of priorForms) {
+        const t = Date.parse(String(e.at || ''));
+        if (Number.isFinite(t) && t > latestPrior) latestPrior = t;
+      }
+      // First-fill race (ContactCreate then submission seconds later): skip.
+      if (latestPrior && now - latestPrior < 2 * 60 * 1000) {
+        if (eventKey) dbService.setKvSync(eventKey, { at: now, leadKey: String((lead && lead.key) || '') });
+        return false;
+      }
+    }
+    if (eventKey) dbService.setKvSync(eventKey, { at: now, leadKey: String((lead && lead.key) || '') });
+    if (key) dbService.setKvSync(key, { at: now, leadKey: String((lead && lead.key) || '') });
+    return true;
+  }
+
+  if (!key) return true;
   const prior = readFormNotifyClaim(key);
   if (prior && Number(prior.at) > 0 && now - Number(prior.at) < windowMs) {
     return false;
@@ -126,7 +162,7 @@ function notifyInboundEvent({ workspaceId, lead, event }) {
         sent = (result && result.sent) || 0;
       }
     }
-    if (eventType === 'form' && !claimFormLeadNotify(wid, lead)) {
+    if (eventType === 'form' && !claimFormLeadNotify(wid, lead, { event })) {
       return { sent, deduped: true };
     }
     try {

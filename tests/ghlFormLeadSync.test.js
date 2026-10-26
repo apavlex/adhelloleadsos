@@ -116,6 +116,76 @@ describe('ghlFormLeadSync', () => {
     assert.equal(second.notified, 0);
   });
 
+  it('notifies again when the same contact submits a new form (Alex Pavlenko re-fill)', async () => {
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'key',
+      GHL_LOCATION_ID: 'loc_tpr',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+
+    const contact = {
+      id: 'ghl_alex',
+      name: 'Alex',
+      phone: '+13608726483',
+      email: 'alex@adhelo.io',
+      source: 'ai_studio',
+      dateAdded: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    };
+    // First sync: contact-only (no submissions API rows yet).
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
+    mock.method(ghlClient, 'listContacts', async () => ({
+      contacts: [{ ...contact, dateAdded: new Date().toISOString() }],
+    }));
+    mock.method(ghlClient, 'getContact', async () => contact);
+
+    const first = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
+    assert.equal(first.notified, 1);
+
+    // Age the first form stamp + notify claim so the re-fill is not treated as a
+    // ContactCreate race (dedupe window is 2 minutes for first-fill doubles).
+    const afterFirst = await dbService.getAllLeads(WID);
+    const alexLead = afterFirst.find((l) => l.ghlContactId === 'ghl_alex');
+    assert.ok(alexLead);
+    const agedAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const agedEvents = (alexLead.inboundEvents || []).map((e) => (
+      e && e.id === 'form:ghl-contact:ghl_alex' ? { ...e, at: agedAt } : e
+    ));
+    await dbService.updateLead(alexLead.key, { inboundEvents: agedEvents, inboundHandledAt: agedAt }, WID);
+    dbService.setKvSync(`formLeadNotify:${WID}:ghl_alex`, { at: Date.now() - 10 * 60 * 1000 });
+
+    // Re-fill: same GHL contact, new submission id, fuller name.
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({
+      submissions: [{
+        id: 'sub_alex_2',
+        contactId: 'ghl_alex',
+        name: 'Alex Pavlenko',
+        email: 'alex@adhelo.io',
+        phone: '+13608726483',
+        createdAt: new Date().toISOString(),
+        others: { project_interest: 'Hardwood Collection' },
+      }],
+    }));
+    mock.method(ghlClient, 'listContacts', async () => ({
+      contacts: [{ ...contact, name: 'Alex Pavlenko' }],
+    }));
+    mock.method(ghlClient, 'getContact', async () => ({ ...contact, name: 'Alex Pavlenko' }));
+
+    const second = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
+    assert.equal(second.synced, 1);
+    assert.equal(second.notified, 1);
+
+    const leads = await dbService.getAllLeads(WID);
+    const lead = leads.find((l) => l.ghlContactId === 'ghl_alex');
+    assert.ok(lead);
+    assert.match(String(lead.title || ''), /Pavlenko/i);
+    const events = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+    assert.ok(events.some((e) => e && e.id === 'form:ghl-contact:ghl_alex'));
+    assert.ok(events.some((e) => e && e.id === 'form:ghl-sub:sub_alex_2'));
+    const rows = pendingInboundItems(leads);
+    assert.ok(rows.some((r) => r.type === 'form' && /Pavlenko/i.test(r.title)));
+  });
+
   it('does not phone-notify historical GHL contacts older than the notify window', async () => {
     mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
       GHL_API_KEY: 'key',
