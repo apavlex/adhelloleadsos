@@ -69,6 +69,13 @@ function normalizeInboundEvent(ev) {
   if (contactId) out.ghlContactId = contactId.slice(0, 80);
   const conversationId = String(ev.conversationId || '').trim();
   if (conversationId) out.conversationId = conversationId.slice(0, 80);
+  if (Array.isArray(ev.answers) && ev.answers.length) {
+    try {
+      const { normalizeFormAnswers } = require('./ghlFormAnswers');
+      const answers = normalizeFormAnswers(ev.answers);
+      if (answers.length) out.answers = answers;
+    } catch (_) { /* keep event without answers */ }
+  }
   return out;
 }
 
@@ -187,6 +194,9 @@ function pendingInboundItems(leads, opts = {}) {
     const latest = open.reduce((a, b) => (toMs(b.at) >= toMs(a.at) ? b : a));
     const short = shortLeadKey(lead.key);
     const types = [...new Set(open.map((e) => e.type))];
+    const eventAnswers = Array.isArray(latest.answers) ? latest.answers : [];
+    const leadAnswers = Array.isArray(lead.formAnswers) ? lead.formAnswers : [];
+    const answers = eventAnswers.length ? eventAnswers : leadAnswers;
     const base = {
       leadKey: lead.key,
       short,
@@ -197,6 +207,8 @@ function pendingInboundItems(leads, opts = {}) {
       typeLabel: TYPE_LABELS[latest.type],
       label: latest.label || '',
       preview: latest.preview || '',
+      answers,
+      ghlContactId: String(latest.ghlContactId || lead.ghlContactId || '').trim(),
       at: latest.at,
       count: open.length,
       otherTypes: types.filter((t) => t !== latest.type).map((t) => TYPE_LABELS[t]),

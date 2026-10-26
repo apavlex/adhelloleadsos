@@ -78,6 +78,12 @@ function normalizeAppointment(raw) {
 
 function normalizeFormLead(raw) {
   const f = raw && typeof raw === 'object' ? raw : {};
+  let answers = [];
+  if (Array.isArray(f.answers)) {
+    try {
+      answers = require('./ghlFormAnswers').normalizeFormAnswers(f.answers);
+    } catch (_) { answers = []; }
+  }
   return {
     id: str(f.id) || newId('fl'),
     leadKey: str(f.leadKey) || null,
@@ -86,6 +92,7 @@ function normalizeFormLead(raw) {
     email: str(f.email).slice(0, 160) || null,
     formName: str(f.formName).slice(0, 140) || 'Website form',
     preview: str(f.preview).slice(0, 240) || null,
+    answers,
     source: str(f.source).slice(0, 60) || 'ghl',
     status: str(f.status).toLowerCase() === 'closed' ? 'closed' : 'open',
     at: str(f.at) || nowIso(),

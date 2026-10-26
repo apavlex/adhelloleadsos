@@ -46,21 +46,23 @@ describe('ghlFormLeadSync', () => {
       GHL_LOCATION_ID: 'loc_tpr',
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => ([
+      { id: 'cf_need', name: 'What do you need?' },
+    ]));
     const added = new Date().toISOString();
-    mock.method(ghlClient, 'listContacts', async () => ({
-      contacts: [
-        {
-          id: 'ghl_form_casey',
-          name: 'Casey Buyer',
-          firstName: 'Casey',
-          lastName: 'Buyer',
-          phone: '+15550003333',
-          email: 'casey@buyers.test',
-          source: 'Website',
-          dateAdded: added,
-        },
-      ],
-    }));
+    const casey = {
+      id: 'ghl_form_casey',
+      name: 'Casey Buyer',
+      firstName: 'Casey',
+      lastName: 'Buyer',
+      phone: '+15550003333',
+      email: 'casey@buyers.test',
+      source: 'Website',
+      dateAdded: added,
+      customFields: [{ id: 'cf_need', value: 'New floors' }],
+    };
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [casey] }));
+    mock.method(ghlClient, 'getContact', async () => casey);
 
     const pushes = [];
     mock.method(memberGhlAlerts, 'notifyEnabledMembers', async (args) => {
@@ -80,10 +82,12 @@ describe('ghlFormLeadSync', () => {
     assert.ok(result.notified >= 1);
 
     const leads = await dbService.getAllLeads(WID);
-    assert.ok(leads.some((l) => /Casey/i.test(l.title || '')));
+    const caseyLead = leads.find((l) => /Casey/i.test(l.title || ''));
+    assert.ok(caseyLead);
+    assert.ok(Array.isArray(caseyLead.formAnswers) && caseyLead.formAnswers.some((a) => /New floors/i.test(a.a)));
     const rows = pendingInboundItems(leads);
-    assert.ok(rows.some((r) => r.type === 'form' && /Casey/i.test(r.title)));
-    assert.ok(pushes.some((p) => p && p.event && p.event.type === 'form'));
+    assert.ok(rows.some((r) => r.type === 'form' && /Casey/i.test(r.title) && Array.isArray(r.answers) && r.answers.length));
+    assert.ok(pushes.some((p) => p && p.event && p.event.type === 'form' && Array.isArray(p.event.answers)));
   });
 
   it('does not re-notify the same GHL contact twice', async () => {
@@ -92,6 +96,7 @@ describe('ghlFormLeadSync', () => {
       GHL_LOCATION_ID: 'loc_tpr',
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
     const contact = {
       id: 'ghl_form_dup',
       name: 'Dup Lead',
@@ -100,6 +105,7 @@ describe('ghlFormLeadSync', () => {
       dateAdded: new Date().toISOString(),
     };
     mock.method(ghlClient, 'listContacts', async () => ({ contacts: [contact] }));
+    mock.method(ghlClient, 'getContact', async () => contact);
 
     const first = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
     assert.equal(first.synced, 1);
@@ -114,6 +120,7 @@ describe('ghlFormLeadSync', () => {
       GHL_LOCATION_ID: 'loc_tpr',
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
     mock.method(ghlClient, 'listContacts', async () => ({
       contacts: [
@@ -126,6 +133,7 @@ describe('ghlFormLeadSync', () => {
         },
       ],
     }));
+    mock.method(ghlClient, 'getContact', async () => null);
     const result = await ghlFormLeadSync.syncRecentFormLeads(WID, {
       force: true,
       notifyMaxAgeMs: 2 * 60 * 60 * 1000,
@@ -141,6 +149,7 @@ describe('ghlFormLeadSync', () => {
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
 
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
     // First sync: GHL has not indexed the new form contact yet.
     mock.method(ghlClient, 'listContacts', async () => ({ contacts: [] }));
     const first = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
@@ -150,18 +159,16 @@ describe('ghlFormLeadSync', () => {
     // Contact was created ~10 minutes ago (before first sync's wall clock), but
     // only appears now. Prior bug: watermark jumped to now-5s and skipped it.
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    mock.method(ghlClient, 'listContacts', async () => ({
-      contacts: [
-        {
-          id: 'ghl_form_lagged',
-          name: 'Lagged Form Lead',
-          phone: '+15550007777',
-          email: 'lagged@buyers.test',
-          source: 'Website',
-          dateAdded: tenMinutesAgo,
-        },
-      ],
-    }));
+    const lagged = {
+      id: 'ghl_form_lagged',
+      name: 'Lagged Form Lead',
+      phone: '+15550007777',
+      email: 'lagged@buyers.test',
+      source: 'Website',
+      dateAdded: tenMinutesAgo,
+    };
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [lagged] }));
+    mock.method(ghlClient, 'getContact', async () => lagged);
 
     const second = await ghlFormLeadSync.syncRecentFormLeads(WID, {
       force: true,
@@ -183,17 +190,16 @@ describe('ghlFormLeadSync', () => {
       GHL_LOCATION_ID: 'loc_tpr',
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
-    mock.method(ghlClient, 'listContacts', async () => ({
-      contacts: [
-        {
-          id: 'ghl_form_pat',
-          name: 'Pat Form',
-          phone: '+15550005555',
-          source: 'Lead Connector Form',
-          dateAdded: new Date().toISOString(),
-        },
-      ],
-    }));
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    const pat = {
+      id: 'ghl_form_pat',
+      name: 'Pat Form',
+      phone: '+15550005555',
+      source: 'Lead Connector Form',
+      dateAdded: new Date().toISOString(),
+    };
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [pat] }));
+    mock.method(ghlClient, 'getContact', async () => pat);
 
     await store.saveNetwork({
       id: NID,

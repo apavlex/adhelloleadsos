@@ -711,6 +711,36 @@ html[data-ma-theme="dark"] .ma-tile, html[data-ma-theme="dark"] .ma-card, html[d
 .ma-card__meta { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
 .ma-card__note { font-size: 14px; margin: 10px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--bg); }
 
+/* Website form Q&A on customer profile */
+.ma-form-answers { padding: 4px 16px 8px; }
+.ma-form-answers__list { margin: 0; }
+.ma-form-answers__row {
+  display: grid;
+  grid-template-columns: minmax(96px, 38%) 1fr;
+  gap: 8px 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ma-form-answers__row:last-child { border-bottom: 0; }
+.ma-form-answers__row dt {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.ma-form-answers__row dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+html[data-ma-theme="dark"] .ma-form-answers__row { border-color: rgba(255, 255, 255, 0.08); }
+
 /* Google review inbox cards */
 .ma-gr-place {
   margin: 0 0 6px;
