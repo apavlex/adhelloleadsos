@@ -368,6 +368,7 @@
     <% if (customer) {
       const _formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
       const _showFormBlock = _formAnswers.length || customer.source === 'website_form';
+      const _isLeadContact = (typeof contactKind !== 'undefined' ? contactKind : (customer.isLead ? 'lead' : 'customer')) === 'lead';
     %>
     <% if (_showFormBlock) { %>
     <section class="ma-section" id="maFormAnswers">
@@ -388,7 +389,7 @@
       <% } %>
     </section>
     <% } %>
-    <% if (_kind === 'lead') { %>
+    <% if (_isLeadContact) { %>
     <div class="ma-actions" style="margin:0 0 14px;flex-wrap:wrap">
       <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/remove-lead" data-ma-confirm="Remove <%= customer.name %> from Leads? They’ll stay in Customers.">
         <input type="hidden" name="stay" value="1">
