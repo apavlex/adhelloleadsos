@@ -157,23 +157,84 @@ function answersFromContact(contact, catalog = []) {
   return normalizeFormAnswers(draft);
 }
 
+/** Standard fields from a form submission / customer (shown when no custom Q&A). */
+function coreIdentityAnswers(person = {}) {
+  const draft = [];
+  const name = str(person.name || [person.firstName, person.lastName].filter(Boolean).join(' '));
+  const phone = str(person.phone);
+  const email = str(person.email);
+  const address = contactAddressLine(person) || str(person.address);
+  if (name) draft.push({ q: 'Name', a: name });
+  if (phone) draft.push({ q: 'Phone', a: phone });
+  if (email) draft.push({ q: 'Email', a: email });
+  if (address) draft.push({ q: 'Address', a: address });
+  if (str(person.companyName || person.company)) {
+    draft.push({ q: 'Company', a: str(person.companyName || person.company) });
+  }
+  return normalizeFormAnswers(draft);
+}
+
+/**
+ * Parse GHL /forms/submissions row (`others` holds extra form fields).
+ */
+function answersFromSubmission(submission, catalog = []) {
+  const s = submission && typeof submission === 'object' ? submission : {};
+  const labels = catalogLabelMap(catalog);
+  const draft = [];
+  const name = str(s.name || s.fullName);
+  const email = str(s.email);
+  const phone = str(s.phone);
+  if (name) draft.push({ q: 'Name', a: name });
+  if (phone) draft.push({ q: 'Phone', a: phone });
+  if (email) draft.push({ q: 'Email', a: email });
+
+  const others = s.others && typeof s.others === 'object' ? s.others : {};
+  for (const [key, raw] of Object.entries(others)) {
+    if (raw == null || typeof raw === 'object') continue;
+    const k = String(key || '').trim();
+    if (!k) continue;
+    // Skip duplicates of standard fields
+    if (/^(full_?name|first_?name|last_?name|name|email|phone|contactid|formid)$/i.test(k)) continue;
+    const label = labels.get(k) || humanizeLabel(k);
+    const val = str(raw);
+    if (!label || !val) continue;
+    if (isInternalField(label, k)) continue;
+    draft.push({ q: label, a: val, key: k });
+  }
+
+  // fieldsOriSequance is the form's field order when present — keep first-seen order from others.
+  return normalizeFormAnswers(draft);
+}
+
+function pickBestSubmission(submissions, contactId) {
+  const list = Array.isArray(submissions) ? submissions.filter(Boolean) : [];
+  if (!list.length) return null;
+  const id = String(contactId || '').trim();
+  if (id) {
+    const hit = list.find((s) => String(s.contactId || '').trim() === id);
+    if (hit) return hit;
+  }
+  return list.slice().sort((a, b) => Date.parse(b.createdAt || 0) - Date.parse(a.createdAt || 0))[0];
+}
+
 /**
  * Load a contact (if needed) and resolve custom-field names from the location catalog.
+ * Also tries GHL form submissions (Lead Connector) for the real field answers.
  * @param {object|string} contactOrId
  * @param {object} [integrationEnv]
- * @param {{ catalog?: object[] }} [opts]
+ * @param {{ catalog?: object[], email?: string, phone?: string, includeCoreFallback?: boolean }} [opts]
  */
 async function fetchContactFormAnswers(contactOrId, integrationEnv, opts = {}) {
   let contact = contactOrId;
+  const contactIdHint = typeof contactOrId === 'string' ? contactOrId.trim() : String((contactOrId && contactOrId.id) || '').trim();
   if (typeof contactOrId === 'string' && contactOrId.trim()) {
     try {
       contact = await ghlClient.getContact(contactOrId.trim(), integrationEnv);
     } catch (err) {
       console.warn('[ghlFormAnswers] getContact failed:', err && err.message);
-      return [];
+      contact = null;
     }
   }
-  if (!contact || typeof contact !== 'object') return [];
 
   let catalog = Array.isArray(opts.catalog) ? opts.catalog : null;
   if (!catalog) {
@@ -184,7 +245,57 @@ async function fetchContactFormAnswers(contactOrId, integrationEnv, opts = {}) {
       catalog = [];
     }
   }
-  return answersFromContact(contact, catalog);
+
+  let fromContact = contact && typeof contact === 'object' ? answersFromContact(contact, catalog) : [];
+
+  // Prefer the actual form submission — Lead Connector often leaves customFields empty.
+  let fromSubmission = [];
+  const queries = [];
+  const ghlId = String((contact && contact.id) || contactIdHint || '').trim();
+  const email = str(opts.email || (contact && contact.email));
+  const phone = str(opts.phone || (contact && contact.phone));
+  if (ghlId) queries.push(ghlId);
+  if (email) queries.push(email);
+  if (phone) queries.push(phone.replace(/[^\d+]/g, '') || phone);
+
+  for (const q of queries) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const batch = await ghlClient.listFormSubmissions(integrationEnv, { q, limit: 10 });
+      const best = pickBestSubmission(batch.submissions, ghlId);
+      if (best) {
+        fromSubmission = answersFromSubmission(best, catalog);
+        if (fromSubmission.length) break;
+      }
+    } catch (err) {
+      // forms.readonly may be missing on older tokens — fall back to contact fields.
+      console.warn('[ghlFormAnswers] form submissions failed:', err && err.message);
+      break;
+    }
+  }
+
+  // Prefer submission extras; merge any contact-only custom fields that aren't already present.
+  let merged = fromSubmission.length ? fromSubmission : fromContact;
+  if (fromSubmission.length && fromContact.length) {
+    const seen = new Set(merged.map((a) => a.q.toLowerCase()));
+    for (const row of fromContact) {
+      if (seen.has(row.q.toLowerCase())) continue;
+      merged.push(row);
+      seen.add(row.q.toLowerCase());
+      if (merged.length >= MAX_ANSWERS) break;
+    }
+  }
+
+  if (!merged.length && opts.includeCoreFallback !== false) {
+    merged = coreIdentityAnswers(contact || {
+      name: opts.name,
+      email,
+      phone,
+      address: opts.address,
+    });
+  }
+
+  return normalizeFormAnswers(merged);
 }
 
 module.exports = {
@@ -192,6 +303,8 @@ module.exports = {
   normalizeFormAnswers,
   answersPreview,
   answersFromContact,
+  answersFromSubmission,
+  coreIdentityAnswers,
   fetchContactFormAnswers,
   humanizeLabel,
   contactAddressLine,

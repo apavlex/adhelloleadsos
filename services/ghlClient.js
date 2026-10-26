@@ -585,6 +585,41 @@ async function listContactNotes(contactId, integrationEnv) {
   return parseGhlNotesResponse(data);
 }
 
+/**
+ * GHL form / Lead Connector submissions for a location.
+ * Filter with `q` (contactId, name, email, or phone).
+ * Requires forms.readonly on the private integration token.
+ */
+async function listFormSubmissions(integrationEnv, {
+  q,
+  formId,
+  limit = 20,
+  page = 1,
+  startAt,
+  endAt,
+} = {}) {
+  const { locationId } = resolveConfig(integrationEnv);
+  if (!locationId) throw new Error('GHL location ID is not configured.');
+  const query = {
+    locationId,
+    limit: Math.min(100, Math.max(1, Number(limit) || 20)),
+    page: Math.max(1, Number(page) || 1),
+  };
+  if (q) query.q = String(q).trim();
+  if (formId) query.formId = String(formId).trim();
+  if (startAt) query.startAt = String(startAt).trim();
+  if (endAt) query.endAt = String(endAt).trim();
+  const data = await ghlRequest('GET', '/forms/submissions', {
+    integrationEnv,
+    query,
+    apiVersion: '2021-07-28',
+  });
+  return {
+    submissions: Array.isArray(data.submissions) ? data.submissions : [],
+    meta: data.meta || {},
+  };
+}
+
 async function createContactNote(contactId, body, integrationEnv) {
   const text = String(body || '').trim();
   if (!text) throw new Error('Note body is required');
@@ -925,6 +960,7 @@ module.exports = {
   upsertOpportunity,
   updateOpportunity,
   listContactNotes,
+  listFormSubmissions,
   createContactNote,
   createContactTask,
   updateContactTask,

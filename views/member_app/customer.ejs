@@ -110,25 +110,6 @@
     <p class="ma-hint" style="margin:8px 0 0">Opens Review with this customer selected so you can confirm the message before it sends via GHL CRM. We’ll track opens and nudge once if they don’t click.</p>
     <% } %>
 
-    <%
-      const _formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
-    %>
-    <% if (_formAnswers.length) { %>
-    <section class="ma-section" style="margin-top:16px">
-      <div class="ma-section__head"><h2>Form answers</h2></div>
-      <div class="ma-card ma-form-answers" aria-label="Website form answers">
-        <dl class="ma-form-answers__list">
-          <% _formAnswers.forEach(function (row) { %>
-          <div class="ma-form-answers__row">
-            <dt><%= row.q %></dt>
-            <dd><%= row.a %></dd>
-          </div>
-          <% }); %>
-        </dl>
-      </div>
-    </section>
-    <% } %>
-
     <% } else { %>
     <h1 class="ma-page-title">New customer</h1>
     <p class="ma-page-sub">Speak the details once, confirm, and create — or type / upload a list.</p>
@@ -381,6 +362,42 @@
       <% } %>
       </div>
     </section>
+    <% } %>
+    <% } %>
+
+    <% if (customer) {
+      const _formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
+      const _showFormBlock = _formAnswers.length || customer.source === 'website_form';
+    %>
+    <% if (_showFormBlock) { %>
+    <section class="ma-section" id="maFormAnswers">
+      <div class="ma-section__head"><h2>Form answers</h2></div>
+      <% if (_formAnswers.length) { %>
+      <div class="ma-card ma-form-answers" aria-label="Website form answers">
+        <dl class="ma-form-answers__list">
+          <% _formAnswers.forEach(function (row) { %>
+          <div class="ma-form-answers__row">
+            <dt><%= row.q %></dt>
+            <dd><%= row.a %></dd>
+          </div>
+          <% }); %>
+        </dl>
+      </div>
+      <% } else { %>
+      <p class="ma-hint" style="margin:0">No extra form fields yet — name, phone, and email are in Details below. Pulling from GHL may need the <strong>forms</strong> scope on your CRM connection.</p>
+      <% } %>
+    </section>
+    <% } %>
+    <% if (_kind === 'lead') { %>
+    <div class="ma-actions" style="margin:0 0 14px;flex-wrap:wrap">
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/remove-lead" data-ma-confirm="Remove <%= customer.name %> from Leads? They’ll stay in Customers.">
+        <input type="hidden" name="stay" value="1">
+        <button type="submit" class="ma-btn ma-btn--soft">Remove from Leads</button>
+      </form>
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/delete" data-ma-confirm="Delete <%= customer.name %> permanently from your book?">
+        <button type="submit" class="ma-btn ma-btn--danger">Delete lead</button>
+      </form>
+    </div>
     <% } %>
     <% } %>
 
