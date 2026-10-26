@@ -188,6 +188,49 @@ describe('ghlFormLeadSync', () => {
     assert.ok(events.some((e) => e && e.id === 'form:ghl-contact:ghl_form_lagged'));
   });
 
+  it('re-opens Waiting on a reply when a new form is stamped after Done', async () => {
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'key',
+      GHL_LOCATION_ID: 'loc_tpr',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
+
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const contact = {
+      id: 'ghl_form_reopen',
+      name: 'Reopen Form',
+      phone: '+15550008888',
+      source: 'Website',
+      dateAdded: tenMinutesAgo,
+    };
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [contact] }));
+    mock.method(ghlClient, 'getContact', async () => contact);
+
+    // Prior Done left the lead handled; dateAdded is older than that stamp.
+    await dbService.saveLead({
+      key: 'lead:reopen',
+      workspaceId: WID,
+      title: 'Reopen Form',
+      phone: '+15550008888',
+      ghlContactId: 'ghl_form_reopen',
+      inboundHandledAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
+      inboundEvents: [],
+    }, WID);
+
+    const result = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
+    assert.equal(result.synced, 1);
+    assert.equal(result.notified, 1);
+
+    const leads = await dbService.getAllLeads(WID);
+    const lead = leads.find((l) => l.ghlContactId === 'ghl_form_reopen');
+    assert.ok(lead);
+    assert.equal(String(lead.inboundHandledAt || ''), '');
+    const rows = pendingInboundItems(leads);
+    assert.ok(rows.some((r) => r.type === 'form' && /Reopen/i.test(r.title)));
+  });
+
   it('listPendingForMember surfaces pulled form leads for network partners', async () => {
     mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
       GHL_API_KEY: 'key',

@@ -509,6 +509,8 @@ async function processWorkflowWebhook(body, opts = {}) {
       formAnswers,
       logs: [{ type: 'inbound_form', message: formLogMessage(parsed), timestamp: parsed.at }],
     };
+    // Fresh form submission re-opens Waiting on a reply even if a prior Done cleared it.
+    if (formEventIsNew) patch.inboundHandledAt = '';
     if (formLabel) patch.inboundFormName = formLabel;
     if (attr.adSource) patch.adSource = attr.adSource;
     for (const k of ['utmSource', 'utmMedium', 'utmCampaign', 'utmContent', 'landingUrl']) {
