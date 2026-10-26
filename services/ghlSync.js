@@ -1243,6 +1243,7 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
       lead,
       formName: sourceHint,
       contactEmail: (contact && contact.email) || lead.email,
+      silent: true, // single notify via notifyInboundEvent (Reviews only)
     });
     if (attached && attached.matched) packageId = attached.packageId;
   } catch (e) {

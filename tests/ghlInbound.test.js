@@ -255,9 +255,10 @@ test('ContactCreate attaches to the only portal package and returns contractorPa
   });
 
   const pushed = [];
-  mock.method(networkNotify, 'notifyMemberFormLead', async (args) => {
+  const memberGhlAlerts = require('../services/memberGhlAlerts');
+  mock.method(memberGhlAlerts, 'notifyEnabledMembers', async (args) => {
     pushed.push(args);
-    return { ok: true, channel: 'sms' };
+    return { sent: 1, members: 1 };
   });
 
   const r = await ghlSync.processWebhook({
@@ -278,8 +279,10 @@ test('ContactCreate attaches to the only portal package and returns contractorPa
   const updated = packages.find((p) => p.id === pkg.id);
   assert.ok(updated);
   assert.ok((updated.formLeads || []).some((f) => /Casey/i.test(f.name)));
-  assert.ok(pushed.length >= 1);
+  // Reviews-only notify path (silent package attach + notifyInboundEvent).
+  assert.ok(pushed.some((p) => p && p.event && p.event.type === 'form'));
   mock.restoreAll();
+  void networkNotify;
 });
 
 test('request_review workflow webhook previews without creating a lead', async () => {

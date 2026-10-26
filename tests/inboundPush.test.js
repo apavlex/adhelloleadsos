@@ -68,6 +68,25 @@ test('notifies every current workspace member with alerts on, nobody else', asyn
   assert.equal(sent[0].body.title, 'New voicemail: Dana Roofer');
 });
 
+test('website form leads skip Agency OS workspace push (Reviews-only)', async (t) => {
+  const sent = [];
+  t.mock.method(webpush, 'sendNotification', async (s, body) => sent.push({ endpoint: s.endpoint, body: JSON.parse(body) }));
+  const memberGhlAlerts = require('../services/memberGhlAlerts');
+  let memberCalls = 0;
+  t.mock.method(memberGhlAlerts, 'notifyEnabledMembers', async () => {
+    memberCalls += 1;
+    return { sent: 1, members: 1 };
+  });
+  const r = await notifyInboundEvent({
+    workspaceId: WID,
+    lead: { key: 'lead:form1', title: 'Alex Form' },
+    event: { type: 'form', label: 'ai_studio' },
+  });
+  assert.equal(memberCalls, 1);
+  assert.equal(sent.length, 0, 'must not ring Agency OS workspace subscriptions');
+  assert.equal(r.sent, 1);
+});
+
 test('skips workspace users who paused GHL call/text notifications', async (t) => {
   ghlNotificationPrefs.setPaused('owner@example.com', true);
   const sent = [];

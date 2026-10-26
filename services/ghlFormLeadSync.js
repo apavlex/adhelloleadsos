@@ -3,7 +3,7 @@
  * widget) and never fires Form Submitted / ContactCreate at AdHello.
  *
  * Pulls recent GHL contacts, stamps a form inbound event once per contact, and
- * fans out through notifyInboundEvent (Reviews network notify path).
+ * fans out through notifyInboundEvent (Reviews network notify path only).
  */
 const dbService = require('./database');
 const ghlClient = require('./ghlClient');
@@ -13,7 +13,10 @@ const { notifyInboundEvent } = require('./inboundPush');
 const { findLocalLeadMatch, pullContactToLead } = require('./ghlSync');
 
 const THROTTLE_MS = 45 * 1000;
+/** How far back to scan GHL contacts for the Reviews inbox. */
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+/** First sync after deploy: only phone-notify contacts newer than this. */
+const DEFAULT_NOTIFY_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 const DEFAULT_LIMIT = 40;
 
 function throttleKey(wid) {
@@ -49,7 +52,7 @@ function looksLikeWebsiteForm(contact) {
   // (Lead Connector forms often leave source empty).
   if (!hint.trim()) return true;
   if (/manual|import|csv|api|bulk|referral.?partner|teammate/.test(hint)) return false;
-  return /form|website|web|facebook|fb|lead|landing|funnel|survey|chat|widget|typeform|jotform|inbound|paid.?social|google|ads/.test(hint)
+  return /form|website|web|facebook|fb|lead|landing|funnel|survey|chat|widget|typeform|jotform|inbound|paid.?social|google|ads|ai_?studio|studio/.test(hint)
     || hint.length > 0;
 }
 
@@ -62,22 +65,34 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
 
   const now = Date.now();
   const minInterval = Number(opts.minIntervalMs) > 0 ? Number(opts.minIntervalMs) : THROTTLE_MS;
+  const rawState = dbService.getKvSync(throttleKey(wid));
+  const priorState = {
+    at: Number(rawState && rawState.at) || 0,
+    watermarkMs: Number(rawState && rawState.watermarkMs) || 0,
+  };
   if (!opts.force) {
-    const prior = dbService.getKvSync(throttleKey(wid));
-    const lastAt = prior && Number(prior.at);
-    if (Number.isFinite(lastAt) && now - lastAt < minInterval) {
+    if (priorState.at && now - priorState.at < minInterval) {
       return { synced: 0, notified: 0, skipped: 'throttled' };
     }
   }
-  dbService.setKvSync(throttleKey(wid), { at: now });
 
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
   if (!ghlClient.isConfigured(integrationEnv)) {
+    dbService.setKvSync(throttleKey(wid), { at: now, watermarkMs: priorState.watermarkMs });
     return { synced: 0, notified: 0, skipped: 'no_ghl' };
   }
 
   const maxAgeMs = Number(opts.maxAgeMs) > 0 ? Number(opts.maxAgeMs) : DEFAULT_MAX_AGE_MS;
-  const cutoff = now - maxAgeMs;
+  const notifyMaxAgeMs = Number(opts.notifyMaxAgeMs) > 0
+    ? Number(opts.notifyMaxAgeMs)
+    : DEFAULT_NOTIFY_MAX_AGE_MS;
+  const scanCutoff = now - maxAgeMs;
+  // High-water mark so we never re-blast old contacts on every bell open.
+  let watermarkMs = Number(priorState.watermarkMs);
+  if (!Number.isFinite(watermarkMs) || watermarkMs <= 0) {
+    watermarkMs = now - notifyMaxAgeMs;
+  }
+  const notifyCutoff = Math.max(scanCutoff, watermarkMs);
   const limit = Math.min(100, Math.max(5, Number(opts.limit) || DEFAULT_LIMIT));
 
   let contacts = [];
@@ -86,34 +101,35 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     contacts = Array.isArray(batch.contacts) ? batch.contacts : [];
   } catch (err) {
     console.warn('[ghlFormLeadSync] listContacts failed:', err && err.message);
+    dbService.setKvSync(throttleKey(wid), { at: now, watermarkMs: priorState.watermarkMs });
     return { synced: 0, notified: 0, skipped: 'list_failed' };
   }
 
   const recent = contacts
-    .filter((c) => c && contactAddedMs(c) >= cutoff)
+    .filter((c) => c && contactAddedMs(c) >= scanCutoff)
     .filter((c) => looksLikeWebsiteForm(c))
     .sort((a, b) => contactAddedMs(b) - contactAddedMs(a));
-
-  if (!recent.length) return { synced: 0, notified: 0 };
 
   const localLeads = await dbService.getAllLeads(wid);
   let synced = 0;
   let notified = 0;
+  let maxSeenAdded = watermarkMs;
 
   for (const contact of recent) {
     const ghlId = String(contact.id || '').trim();
     if (!ghlId) continue;
+    const addedMs = contactAddedMs(contact) || now;
+    if (addedMs > maxSeenAdded) maxSeenAdded = addedMs;
     const formEventId = `form:ghl-contact:${ghlId}`;
+    const shouldNotify = addedMs > notifyCutoff;
 
     let lead = findLocalLeadMatch(localLeads, contact);
-    let action = 'updated';
     if (!lead) {
       try {
         // eslint-disable-next-line no-await-in-loop
         const pulled = await pullContactToLead(contact, wid, localLeads, integrationEnv);
         if (pulled && pulled.skipped) continue;
         lead = pulled.lead || (pulled.key ? await dbService.getLead(pulled.key, wid) : null);
-        action = pulled.action || 'created';
         if (lead && !localLeads.some((l) => l && l.key === lead.key)) localLeads.push(lead);
       } catch (err) {
         console.warn('[ghlFormLeadSync] pull failed:', err && err.message);
@@ -125,7 +141,11 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     const prior = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
     if (prior.some((e) => e && e.id === formEventId)) continue;
 
-    const at = new Date(contactAddedMs(contact) || now).toISOString();
+    // Older than the notify window: leave alone (avoid flooding Waiting on a reply
+    // with historical GHL contacts). Only brand-new ones get stamped + pushed.
+    if (!shouldNotify) continue;
+
+    const at = new Date(addedMs).toISOString();
     const label = sourceHint(contact) || 'Website form';
     const formEvent = {
       id: formEventId,
@@ -151,7 +171,6 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
       if (idx >= 0) localLeads[idx] = next;
       synced += 1;
 
-      // Prefer package attach when possible (Website & agency + member SMS).
       try {
         const appointmentPackages = require('./appointmentPackages');
         const name = String(
@@ -175,18 +194,25 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
           lead: next,
           formName: label,
           contactEmail: contact.email || next.email,
+          silent: true, // notify once via notifyInboundEvent (Reviews only)
         });
       } catch (attachErr) {
         console.warn('[ghlFormLeadSync] attach failed:', attachErr && attachErr.message);
       }
 
-      notifyInboundEvent({ workspaceId: wid, lead: next, event: formEvent });
+      // Reviews-only phone push (Agency OS workspace push skipped for forms).
+      // eslint-disable-next-line no-await-in-loop
+      await notifyInboundEvent({ workspaceId: wid, lead: next, event: formEvent });
       notified += 1;
-      void action;
     } catch (err) {
       console.warn('[ghlFormLeadSync] stamp failed:', err && err.message);
     }
   }
+
+  dbService.setKvSync(throttleKey(wid), {
+    at: now,
+    watermarkMs: Math.max(watermarkMs, maxSeenAdded, now - 5000),
+  });
 
   return { synced, notified };
 }
@@ -197,4 +223,5 @@ module.exports = {
   looksLikeWebsiteForm,
   sourceHint,
   THROTTLE_MS,
+  DEFAULT_NOTIFY_MAX_AGE_MS,
 };

@@ -108,6 +108,32 @@ describe('ghlFormLeadSync', () => {
     assert.equal(second.notified, 0);
   });
 
+  it('does not phone-notify historical GHL contacts older than the notify window', async () => {
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'key',
+      GHL_LOCATION_ID: 'loc_tpr',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    mock.method(ghlClient, 'listContacts', async () => ({
+      contacts: [
+        {
+          id: 'ghl_old_kim',
+          name: 'Kim Hamilton',
+          phone: '+15550006666',
+          source: 'Website',
+          dateAdded: threeDaysAgo,
+        },
+      ],
+    }));
+    const result = await ghlFormLeadSync.syncRecentFormLeads(WID, {
+      force: true,
+      notifyMaxAgeMs: 2 * 60 * 60 * 1000,
+    });
+    assert.equal(result.synced, 0);
+    assert.equal(result.notified, 0);
+  });
+
   it('listPendingForMember surfaces pulled form leads for network partners', async () => {
     mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
       GHL_API_KEY: 'key',
