@@ -528,6 +528,7 @@ async function processWorkflowWebhook(body, opts = {}) {
         lead: { ...lead, ...patch },
         formName: parsed.label,
         contactEmail: contact.email || lead.email,
+        silent: true, // single notify via notifyInboundEvent (Reviews only)
       });
       if (attached.matched) contractorPackageId = attached.packageId;
     } catch (e) {

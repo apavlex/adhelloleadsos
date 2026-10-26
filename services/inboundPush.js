@@ -63,20 +63,16 @@ function notifyMissedCallTextSent({ workspaceId, lead, preview, outcome }) {
 /** Fire-and-forget; never throws. */
 function notifyInboundEvent({ workspaceId, lead, event }) {
   const wid = String(workspaceId || (lead && lead.workspaceId) || '').trim();
-  const payload = wid ? inboundPushPayload(lead, event, wid) : null;
-  if (!payload) {
-    // Still fan out to Reviews members who opted into GHL alerts (missed call / SMS).
-    try {
-      require('./memberGhlAlerts').notifyEnabledMembers({ workspaceId: wid, lead, event });
-    } catch (_) { /* ignore */ }
-    return Promise.resolve({ sent: 0 });
-  }
+  const eventType = String((event && event.type) || '').trim().toLowerCase();
+  // Website form leads belong in the Reviews / member app only — do not also
+  // ring the Agency OS workspace PWA (duplicate lock-screen banners).
+  const reviewsOnly = eventType === 'form';
+  const payload = wid && !reviewsOnly ? inboundPushPayload(lead, event, wid) : null;
   return (async () => {
     let sent = 0;
-    if (push.matchingSubscriptions({ workspaceId: wid }).length) {
+    if (payload && push.matchingSubscriptions({ workspaceId: wid }).length) {
       const ws = await dbService.getWorkspace(wid);
       if (ws) {
-        const eventType = event && event.type;
         const result = await push.sendPush(
           {
             workspaceId: wid,
@@ -92,7 +88,12 @@ function notifyInboundEvent({ workspaceId, lead, event }) {
       }
     }
     try {
-      require('./memberGhlAlerts').notifyEnabledMembers({ workspaceId: wid, lead, event });
+      const memberResult = await require('./memberGhlAlerts').notifyEnabledMembers({
+        workspaceId: wid,
+        lead,
+        event,
+      });
+      sent += (memberResult && memberResult.sent) || 0;
     } catch (_) { /* ignore */ }
     return { sent };
   })().catch((e) => {

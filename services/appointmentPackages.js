@@ -676,7 +676,8 @@ async function attachFormLead(workspaceId, formLead, match = {}) {
   }
   pkg.updatedAt = nowIso();
   if (changed) await saveStore(workspaceId, store);
-  if (isNew) {
+  // silent: caller will notify (avoids double Reviews + Agency OS pushes).
+  if (isNew && !match.silent) {
     try {
       const push = require('./pushNotifications');
       const { createContractorPortalToken } = require('./contractorPortalSign');

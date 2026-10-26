@@ -170,6 +170,7 @@ async function listPendingForMember(member, network, opts = {}) {
       await ghlFormLeadSync.syncRecentFormLeads(wid, {
         force: !!opts.forceFormSync,
         maxAgeMs: opts.formSyncMaxAgeMs,
+        notifyMaxAgeMs: opts.formNotifyMaxAgeMs,
       });
     } catch (err) {
       console.warn('[memberGhlAlerts] form lead sync failed:', err && err.message);
