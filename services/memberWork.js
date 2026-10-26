@@ -169,9 +169,9 @@ const CUSTOMER_SOURCES = new Set([
   'agency',
 ]);
 
-/** Human labels for customer.source (lead list + profile). */
+/** Human labels for customer.source (lead list + profile pill). */
 const CUSTOMER_SOURCE_LABELS = {
-  manual: 'Marked from contacts',
+  manual: 'Manual',
   csv: 'CSV import',
   ghl: 'CRM',
   referral: 'Referral',
@@ -179,6 +179,10 @@ const CUSTOMER_SOURCE_LABELS = {
   agency: 'Agency',
 };
 
+/**
+ * Resolve a display label for how this contact entered the book.
+ * Prefers stored source; falls back to referralId → Referral.
+ */
 function customerSourceKey(customerOrSource) {
   if (typeof customerOrSource === 'string') {
     const key = String(customerOrSource || '').trim().toLowerCase();
@@ -186,14 +190,24 @@ function customerSourceKey(customerOrSource) {
   }
   const c = customerOrSource && typeof customerOrSource === 'object' ? customerOrSource : {};
   const key = String(c.source || '').trim().toLowerCase();
+  // Older converted referrals were stamped manual — treat referralId as Referral.
   if (c.referralId && (!key || key === 'manual')) return 'referral';
   if (CUSTOMER_SOURCES.has(key)) return key;
   return c.ghlContactId ? 'ghl' : 'manual';
 }
 
 function customerSourceLabel(customerOrSource) {
-  return CUSTOMER_SOURCE_LABELS[customerSourceKey(customerOrSource)]
-    || CUSTOMER_SOURCE_LABELS.manual;
+  return CUSTOMER_SOURCE_LABELS[customerSourceKey(customerOrSource)] || CUSTOMER_SOURCE_LABELS.manual;
+}
+
+/** Pill modifier class for the source chip on the profile titlebar. */
+function customerSourcePillClass(customerOrSource) {
+  const key = customerSourceKey(customerOrSource);
+  if (key === 'referral') return 'ma-pill--sent';
+  if (key === 'website_form' || key === 'agency') return 'ma-pill--accepted';
+  if (key === 'ghl') return 'ma-pill--pending';
+  if (key === 'csv') return 'ma-pill--job-lead';
+  return 'ma-pill--job-lead';
 }
 
 function phoneDigits(value) {
@@ -889,7 +903,7 @@ async function convertReferral(networkId, memberId, referral, { tradeLabel, toda
       email: emailLooksValid(cleanEmail(h.email)) ? h.email : '',
       address,
       notes: h.note,
-    }, { referralId: refId });
+    }, { referralId: refId, source: 'referral' });
     if (!created.ok) return created;
     customer = created.customer;
   }
@@ -1308,6 +1322,7 @@ module.exports = {
   CUSTOMER_SOURCE_LABELS,
   customerSourceKey,
   customerSourceLabel,
+  customerSourcePillClass,
   googleMapsSearchUrl,
   MAX_CUSTOMER_TAGS,
   isRecordId,

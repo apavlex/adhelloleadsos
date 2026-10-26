@@ -12,7 +12,8 @@
     <%- include('_flash') %>
 
     <% const rows = Array.isArray(posts) ? posts : []; %>
-    <% const highlightId = typeof highlightId !== 'undefined' ? String(highlightId || '') : ''; %>
+    <% /* Locals may already define highlightId — never redeclare it (TDZ crash). */ %>
+    <% const newsHighlightId = String(typeof highlightId !== 'undefined' && highlightId ? highlightId : ''); %>
     <% if (!rows.length) { %>
     <p class="ma-empty">No news yet. When your network posts an update, it shows up here and in Notifications.</p>
     <% } else { %>
@@ -30,7 +31,7 @@
             else whenLabel = Math.round(m / (60 * 24)) + 'd ago';
           }
         }
-        const isOn = highlightId && item && item.id === highlightId;
+        const isOn = newsHighlightId && item && item.id === newsHighlightId;
         const link = item && item.link ? item.link : '';
         const linkLabel = (item && item.linkLabel) || (link ? 'Open link' : '');
       %>

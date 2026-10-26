@@ -248,7 +248,7 @@
             <div style="min-width:0">
               <p class="ma-card__title"><%= lead.name %></p>
               <p class="ma-card__meta">
-                <%= lead.sourceLabel || 'Marked from contacts' %>
+                <%= (lead.sourceLabel && lead.sourceLabel !== 'Manual') ? lead.sourceLabel : 'Marked from contacts' %>
                 <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
               </p>
               <% if (lead.phone || lead.email || lead.address) { %>

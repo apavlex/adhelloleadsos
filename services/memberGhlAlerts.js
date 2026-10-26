@@ -43,6 +43,15 @@ function matchCustomerForInbound(customers, row) {
   return work.findCustomerMatch(customers, inboundMatchFields(row));
 }
 
+/** Prefer website_form for form rows; keep referral / manual / csv when already set. */
+function inboundCustomerSource(existingSource, rowType) {
+  const preferred = String(rowType || '').trim().toLowerCase() === 'form' ? 'website_form' : 'ghl';
+  const prev = String(existingSource || '').trim().toLowerCase();
+  if (!prev) return preferred;
+  if (preferred === 'website_form' && prev === 'ghl') return 'website_form';
+  return prev;
+}
+
 function isFormInboundRow(row) {
   return String((row && row.type) || '').trim().toLowerCase() === 'form';
 }
@@ -76,14 +85,12 @@ async function ensureCustomerForInbound(network, member, customers, row) {
   const existing = matchCustomerForInbound(list, row);
   if (existing) {
     // Patch GHL id / phone / email onto an existing match so Calls & texts can link.
+    const nextSource = inboundCustomerSource(existing.source, row && row.type);
     const needGhl = fields.ghlContactId && !existing.ghlContactId;
     const needPhone = fields.phone && !existing.phone;
     const needEmail = fields.email && !existing.email;
-    const formSource = isFormInboundRow(row) ? 'website_form' : '';
-    const nextSource = existing.source === 'referral' || existing.source === 'agency'
-      ? existing.source
-      : (formSource || existing.source || 'ghl');
-    if (!needGhl && !needPhone && !needEmail && nextSource === existing.source) {
+    const needSource = nextSource !== existing.source;
+    if (!needGhl && !needPhone && !needEmail && !needSource) {
       return finalizeInboundCustomer(network, member, list, existing, row);
     }
     const saved = await work.saveCustomer(
@@ -126,7 +133,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     },
     {
       ghlContactId: fields.ghlContactId || undefined,
-      source: isFormInboundRow(row) ? 'website_form' : 'ghl',
+      source: inboundCustomerSource('', row && row.type),
     },
   );
   if (!saved.ok || !saved.customer) return null;
@@ -386,6 +393,7 @@ module.exports = {
   canUseGhlAlerts,
   isActiveNetworkMember,
   allowInboundTypeForMember,
+  inboundCustomerSource,
   isEnabled,
   setEnabled,
   listPendingForMember,

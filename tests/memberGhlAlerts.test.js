@@ -170,6 +170,14 @@ describe('memberGhlAlerts', () => {
     assert.equal(ownerFormsOnly[0].kind, 'form');
   });
 
+  it('inboundCustomerSource prefers website_form for forms without clobbering referral', () => {
+    assert.equal(memberGhlAlerts.inboundCustomerSource('', 'form'), 'website_form');
+    assert.equal(memberGhlAlerts.inboundCustomerSource('', 'missed_call'), 'ghl');
+    assert.equal(memberGhlAlerts.inboundCustomerSource('ghl', 'form'), 'website_form');
+    assert.equal(memberGhlAlerts.inboundCustomerSource('referral', 'form'), 'referral');
+    assert.equal(memberGhlAlerts.inboundCustomerSource('manual', 'sms'), 'manual');
+  });
+
   it('notifyEnabledMembers fans form leads out to every active network member', async () => {
     const network = await store.getNetwork(NID);
     await store.saveMember(NID, {
