@@ -212,7 +212,7 @@ function normalizeCustomer(raw) {
     isReferralPartner: c.isReferralPartner === true,
     /**
      * Member marked this contact as a lead (e.g. inbound SMS/call).
-     * Shows under Leads & Referrals → Received → From contacts.
+     * Shows under Leads & Referrals → Received → Leads from contacts and online forms.
      */
     isLead: c.isLead === true,
     markedAsLeadAt: c.isLead === true && c.markedAsLeadAt ? String(c.markedAsLeadAt) : '',

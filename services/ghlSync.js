@@ -1204,6 +1204,46 @@ async function processCallMessage(parsed, lead, wid, createdLead) {
 }
 
 /**
+ * When GHL only fires ContactCreate (no Form Submitted workflow), still route
+ * brand-new contacts into the contractor / Reviews form-lead inbox when a
+ * package match exists (tag or single portal package).
+ */
+async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
+  if (action !== 'created' || !lead || !lead.key) return null;
+  try {
+    const appointmentPackages = require('./appointmentPackages');
+    const name = String(
+      (contact && (contact.name || contact.fullName || contact.companyName))
+      || lead.title
+      || 'Lead',
+    ).trim().slice(0, 120) || 'Lead';
+    const sourceHint = String(
+      (contact && (contact.source || contact.contactSource || contact.type)) || '',
+    ).trim();
+    const attached = await appointmentPackages.attachFormLead(wid, {
+      leadKey: lead.key,
+      name,
+      phone: (contact && contact.phone) || lead.phone || null,
+      email: (contact && contact.email) || lead.email || null,
+      formName: sourceHint || 'GHL contact',
+      preview: '',
+      source: 'ghl',
+      at: new Date().toISOString(),
+      status: 'open',
+      id: `form:contact-create:${lead.key}`,
+    }, {
+      lead,
+      formName: sourceHint,
+      contactEmail: (contact && contact.email) || lead.email,
+    });
+    return attached && attached.matched ? attached.packageId : null;
+  } catch (e) {
+    console.warn('[ghlSync] contact-create form attach failed:', e && e.message);
+    return null;
+  }
+}
+
+/**
  * Handle inbound GHL contact webhook (ContactCreate / ContactUpdate).
  * @param {object} payload
  * @param {{ workspaceId?: string }} [opts]
@@ -1227,6 +1267,16 @@ async function processWebhook(payload, opts = {}) {
   if (result.skipped) {
     return { ok: true, workspaceId: wid, ignored: true, reason: result.reason || 'skipped' };
   }
+  let contractorPackageId = null;
+  // ContactCreate only — ContactUpdate/bulk sync must not spam the Reviews inbox.
+  if (result.action === 'created' && /create/i.test(String(parsed.type || ''))) {
+    contractorPackageId = await maybeAttachContactCreateFormLead(
+      wid,
+      result.lead,
+      parsed.contact,
+      result.action,
+    );
+  }
   return {
     ok: true,
     workspaceId: wid,
@@ -1234,6 +1284,7 @@ async function processWebhook(payload, opts = {}) {
     key: result.key,
     ghlContactId: parsed.contactId || (parsed.contact && parsed.contact.id),
     notesPulled: result.notesPulled || 0,
+    contractorPackageId: contractorPackageId || undefined,
   };
 }
 

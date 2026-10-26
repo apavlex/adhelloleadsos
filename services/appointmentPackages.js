@@ -636,6 +636,10 @@ function findPackageForFormLead(store, { lead, formName, contactEmail, packageId
     if (pkg.contactEmail && email && pkg.contactEmail.toLowerCase() === email) return pkg;
     if (title && pkg.businessName && title.includes(pkg.businessName.toLowerCase())) return pkg;
   }
+  // Solo / single-inbox workspaces: form webhooks often omit match tags. Route to the
+  // only portal package so Reviews-app owners still get the lead ping.
+  const portal = packages.filter((p) => p && p.portalEnabled !== false);
+  if (portal.length === 1) return portal[0];
   return null;
 }
 

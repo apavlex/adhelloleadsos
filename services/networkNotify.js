@@ -501,7 +501,49 @@ async function pushMemberReferralAlert({ network, member, baseUrl, referral, sum
   );
 }
 
-/** SMS/email a linked network partner when a website or agency lead hits their package. */
+/**
+ * Phone/home-screen Web Push for a website or agency form lead.
+ * Same subscription path as referral alerts (member app + linked package).
+ */
+async function pushMemberFormLeadAlert({
+  network, member, baseUrl, leadName, formName, source, preview, detailsAllowed,
+} = {}) {
+  if (!network || !member) return { sent: 0 };
+  const workspaceId = network.ownerWorkspaceId;
+  const memberAppointmentLink = require('./memberAppointmentLink');
+  const pkg = workspaceId
+    ? await memberAppointmentLink.findPackageForMember(workspaceId, member, network).catch(() => null)
+    : null;
+  const push = require('./pushNotifications');
+  const app = memberPortalLink(baseUrl, network, member);
+  const url = `${app}/referrals`;
+  const who = String(leadName || 'New lead').trim().slice(0, 80);
+  const kind = source === 'agency'
+    ? 'Your agency sent a lead'
+    : (source === 'customer_referral' ? 'New customer referral' : 'New website lead');
+  const detail = detailsAllowed
+    ? [formName, preview].filter(Boolean).join(' — ').slice(0, 160)
+    : '';
+  const body = detailsAllowed
+    ? (detail ? `${who} · ${detail}` : who)
+    : `${who} — open the app to unlock details`;
+  return push.sendMemberPush(
+    {
+      networkId: network.id,
+      memberId: member.id,
+      packageId: pkg && pkg.portalEnabled !== false ? pkg.id : undefined,
+      workspaceId,
+    },
+    {
+      title: kind,
+      body: String(body || who).slice(0, 200),
+      url,
+      tag: `member-form-${source || 'ghl'}-${Date.now()}`,
+    },
+  );
+}
+
+/** SMS/email + in-app bell + phone push when a website or agency lead hits their package. */
 async function notifyMemberFormLead({ network, member, baseUrl, leadName, formName, source, preview }) {
   if (!network || !member) return { ok: false, error: 'No member.' };
   const app = memberPortalLink(baseUrl, network, member);
@@ -513,6 +555,18 @@ async function notifyMemberFormLead({ network, member, baseUrl, leadName, formNa
   const memberLeadRequests = require('./memberLeadRequests');
   const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(network, member)
     .catch(() => false);
+  const detail = detailsAllowed
+    ? [formName, preview].filter(Boolean).join(' — ').slice(0, 160)
+    : '';
+  recordMemberActivity(network, member, {
+    kind: source === 'agency' ? 'agency' : (source === 'customer_referral' ? 'customer_referral' : 'form'),
+    title: kind,
+    body: detailsAllowed ? (detail ? `${who} · ${detail}` : who) : who,
+    href: leadsUrl,
+  });
+  pushMemberFormLeadAlert({
+    network, member, baseUrl, leadName, formName, source, preview, detailsAllowed,
+  }).catch((err) => console.warn('[network] form-lead push failed:', err && err.message));
   if (!detailsAllowed) {
     return messageMember(network, member, {
       sms: `${brandView(network).appName}: ${kind} — “${who}”. Upgrade to unlock details: ${leadsUrl}`,
@@ -520,14 +574,7 @@ async function notifyMemberFormLead({ network, member, baseUrl, leadName, formNa
       email: `${kind} for ${member.companyName}.\n\nProject: ${who}\n\nUpgrade to a paid plan to see phone, email, and notes:\n${leadsUrl}`,
     });
   }
-  const detail = [formName, preview].filter(Boolean).join(' — ').slice(0, 160);
   const sms = `${brandView(network).appName}: ${kind} — ${who}${detail ? ` (${detail})` : ''}. Open: ${leadsUrl}`;
-  recordMemberActivity(network, member, {
-    kind: source === 'agency' ? 'agency' : (source === 'customer_referral' ? 'customer_referral' : 'form'),
-    title: kind,
-    body: detail ? `${who} · ${detail}` : who,
-    href: leadsUrl,
-  });
   return messageMember(network, member, {
     sms,
     subject: `${kind}: ${who}`,
@@ -918,6 +965,7 @@ module.exports = {
   notifyReferralRecipient,
   notifyReferralPool,
   pushMemberReferralAlert,
+  pushMemberFormLeadAlert,
   notifyMemberFormLead,
   sendMemberPortalLink,
   sendReviewRequest,

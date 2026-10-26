@@ -177,6 +177,37 @@ describe('appointmentPackages', () => {
     assert.equal(byEmail.id, 'pkg_handymen');
   });
 
+  it('falls back to the only portal package when form tags are missing', () => {
+    const solo = normalizeStore({
+      packages: [
+        {
+          id: 'pkg_solo',
+          businessName: 'TPR Flooring',
+          purchased: 5,
+          portalEnabled: true,
+        },
+      ],
+    });
+    const hit = findPackageForFormLead(solo, {
+      lead: { title: 'Jordan Homeowner' },
+      formName: 'Website contact',
+    });
+    assert.ok(hit);
+    assert.equal(hit.id, 'pkg_solo');
+
+    const multi = normalizeStore({
+      packages: [
+        { id: 'pkg_a', businessName: 'A Co', purchased: 5, portalEnabled: true },
+        { id: 'pkg_b', businessName: 'B Co', purchased: 5, portalEnabled: true },
+      ],
+    });
+    const miss = findPackageForFormLead(multi, {
+      lead: { title: 'Someone' },
+      formName: 'Contact',
+    });
+    assert.equal(miss, null);
+  });
+
   it('tracks lead credit remaining', () => {
     const credits = normalizeLeadCredits({ purchased: 25, delivered: 7 });
     assert.equal(credits.remaining, 18);
