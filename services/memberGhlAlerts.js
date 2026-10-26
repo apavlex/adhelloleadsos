@@ -1,5 +1,6 @@
 /**
- * Optional GHL missed-call / text alerts inside the Reviews (member) app bell.
+ * Optional GHL inbound alerts inside the Reviews (member) app bell.
+ * Covers missed calls, texts, and website form leads when the toggle is on.
  * Off by default — owners and workspace staff can turn them on per member.
  * Separate from Agency OS /notifications inbound (staff CRM bell).
  */
@@ -9,7 +10,7 @@ const work = require('./memberWork');
 const { isOwnerMember } = require('./memberAppointmentLink');
 const {
   pendingInboundItems,
-  GHL_ACTIVITY_TYPES,
+  MEMBER_INBOUND_ALERT_TYPES,
   TYPE_LABELS,
 } = require('./inboundEvents');
 const workspaceIntegrations = require('./workspaceIntegrations');
@@ -136,7 +137,7 @@ async function ghlLinkContext(workspaceId) {
 }
 
 /**
- * Pending GHL missed calls / voicemails / texts for the Reviews bell.
+ * Pending GHL form leads / missed calls / voicemails / texts for the Reviews bell.
  * Empty when the toggle is off or the member cannot use GHL alerts.
  */
 async function listPendingForMember(member, network, opts = {}) {
@@ -150,7 +151,7 @@ async function listPendingForMember(member, network, opts = {}) {
     now: opts.now,
     days: opts.days,
     limit: opts.limit || 25,
-  }).filter((row) => row && GHL_ACTIVITY_TYPES.has(row.type));
+  }).filter((row) => row && MEMBER_INBOUND_ALERT_TYPES.has(row.type));
 
   const customers = await work.listCustomers(network.id, member.id);
   const out = [];
@@ -230,7 +231,7 @@ function memberAppUrl(network, member, path = '') {
 function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
   const wid = String(workspaceId || (lead && lead.workspaceId) || '').trim();
   const type = String((event && event.type) || '').trim().toLowerCase();
-  if (!wid || !lead || !GHL_ACTIVITY_TYPES.has(type)) {
+  if (!wid || !lead || !MEMBER_INBOUND_ALERT_TYPES.has(type)) {
     return Promise.resolve({ sent: 0, members: 0 });
   }
   return (async () => {
@@ -250,7 +251,9 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
     const label = String((event && event.label) || '').trim();
     const preview = String((event && event.preview) || '').replace(/\s+/g, ' ').trim();
     const body = [label, preview].filter(Boolean).join(' · ').slice(0, 200)
-      || (type === 'sms' ? 'Tap to reply in Lead Connector.' : 'Tap to call back.');
+      || (type === 'form'
+        ? 'New website form lead — open to call them.'
+        : (type === 'sms' ? 'Tap to reply in Lead Connector.' : 'Tap to call back.'));
 
     const customersByMember = new Map();
     let sent = 0;

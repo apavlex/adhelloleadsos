@@ -23,6 +23,12 @@ const TYPE_LABELS = {
 /** Missed calls + SMS shown on the dedicated GHL / Lead Connector activity page. */
 const GHL_ACTIVITY_TYPES = new Set(['missed_call', 'voicemail', 'sms']);
 
+/**
+ * Reviews-app bell (GHL alerts toggle): calls/texts plus website form leads.
+ * Kept separate from GHL_ACTIVITY_TYPES so Agency OS call/SMS pages stay scoped.
+ */
+const MEMBER_INBOUND_ALERT_TYPES = new Set(['form', 'missed_call', 'voicemail', 'sms']);
+
 /** Events that need a follow-up (answered calls are logged but not queued). */
 const ACTIONABLE_TYPES = new Set(['form', 'missed_call', 'voicemail', 'sms', 'email']);
 
@@ -270,6 +276,7 @@ module.exports = {
   ACTIONABLE_TYPES,
   FOLLOW_UP_UPDATE_TYPES,
   GHL_ACTIVITY_TYPES,
+  MEMBER_INBOUND_ALERT_TYPES,
   MAX_EVENTS_PER_LEAD,
   GHL_ACTIVITY_DAYS,
   GHL_ACTIVITY_LIMIT,

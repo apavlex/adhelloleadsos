@@ -1203,44 +1203,79 @@ async function processCallMessage(parsed, lead, wid, createdLead) {
   return { ok: true, workspaceId: wid, key: lead.key, action: 'call_outbound', messageId: parsed.messageId || null };
 }
 
+function contactCreateSourceHint(contact) {
+  return String(
+    (contact && (contact.source || contact.contactSource || contact.type || contact.companyName)) || '',
+  ).trim();
+}
+
 /**
  * When GHL only fires ContactCreate (no Form Submitted workflow), still route
  * brand-new contacts into the contractor / Reviews form-lead inbox when a
- * package match exists (tag or single portal package).
+ * package match exists (tag or single portal package), and always stamp a form
+ * inbound event so Reviews owners with GHL alerts on get Waiting-on-a-reply.
  */
 async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
   if (action !== 'created' || !lead || !lead.key) return null;
+  const name = String(
+    (contact && (contact.name || contact.fullName || contact.companyName))
+    || lead.title
+    || 'Lead',
+  ).trim().slice(0, 120) || 'Lead';
+  const sourceHint = contactCreateSourceHint(contact);
+  const at = new Date().toISOString();
+  const formEventId = `form:contact-create:${lead.key}`;
+  let packageId = null;
   try {
     const appointmentPackages = require('./appointmentPackages');
-    const name = String(
-      (contact && (contact.name || contact.fullName || contact.companyName))
-      || lead.title
-      || 'Lead',
-    ).trim().slice(0, 120) || 'Lead';
-    const sourceHint = String(
-      (contact && (contact.source || contact.contactSource || contact.type)) || '',
-    ).trim();
     const attached = await appointmentPackages.attachFormLead(wid, {
       leadKey: lead.key,
       name,
       phone: (contact && contact.phone) || lead.phone || null,
       email: (contact && contact.email) || lead.email || null,
-      formName: sourceHint || 'GHL contact',
+      formName: sourceHint || 'Website form',
       preview: '',
       source: 'ghl',
-      at: new Date().toISOString(),
+      at,
       status: 'open',
-      id: `form:contact-create:${lead.key}`,
+      id: formEventId,
     }, {
       lead,
       formName: sourceHint,
       contactEmail: (contact && contact.email) || lead.email,
     });
-    return attached && attached.matched ? attached.packageId : null;
+    if (attached && attached.matched) packageId = attached.packageId;
   } catch (e) {
     console.warn('[ghlSync] contact-create form attach failed:', e && e.message);
-    return null;
   }
+
+  // Stamp form inbound even without a package so Reviews GHL alerts still fire.
+  try {
+    const { appendInboundEvent } = require('./inboundEvents');
+    const { notifyInboundEvent } = require('./inboundPush');
+    const prior = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+    const formEvent = {
+      id: formEventId,
+      type: 'form',
+      at,
+      label: sourceHint || 'Website form',
+      preview: '',
+      source: 'ghl',
+    };
+    if (!formEvent.id || !prior.some((e) => e && e.id === formEvent.id)) {
+      const patch = {
+        inboundSource: 'ghl',
+        inboundAt: at,
+        inboundFormName: formEvent.label,
+        inboundEvents: appendInboundEvent(prior, formEvent),
+      };
+      const updated = await dbService.updateLead(lead.key, patch, wid);
+      notifyInboundEvent({ workspaceId: wid, lead: updated || { ...lead, ...patch }, event: formEvent });
+    }
+  } catch (e) {
+    console.warn('[ghlSync] contact-create form notify failed:', e && e.message);
+  }
+  return packageId;
 }
 
 /**

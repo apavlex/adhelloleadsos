@@ -44,7 +44,7 @@ const outscraper = require('../services/outscraperClient');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const memberActivity = require('../services/memberActivity');
 const memberGhlAlerts = require('../services/memberGhlAlerts');
-const { GHL_ACTIVITY_TYPES } = require('../services/inboundEvents');
+const { MEMBER_INBOUND_ALERT_TYPES } = require('../services/inboundEvents');
 const freeAppSignup = require('../services/freeAppSignup');
 const freeAppListWorkspace = require('../services/freeAppListWorkspace');
 const memberShareInvite = require('../services/memberShareInvite');
@@ -3711,12 +3711,12 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
 
 // ── In-app lead activity bell (member PWA) ───────────────────────────────────
 
-/** Inbox only (not cleared). GHL texts/calls also land in memberActivity for push
- *  history — hide them from Leads & referrals when Waiting on a reply is on. */
+/** Inbox only (not cleared). GHL form/call/text rows also land in memberActivity for
+ *  push history — hide them from Leads & referrals when Waiting on a reply is on. */
 function bellActivityItems(networkId, memberId, { excludeGhlKinds = false } = {}) {
   const rows = memberActivity.listInbox(networkId, memberId);
   if (!excludeGhlKinds) return rows;
-  return rows.filter((it) => !it || !GHL_ACTIVITY_TYPES.has(String(it.kind || '').toLowerCase()));
+  return rows.filter((it) => !it || !MEMBER_INBOUND_ALERT_TYPES.has(String(it.kind || '').toLowerCase()));
 }
 
 function bellActivityUnread(networkId, memberId, { excludeGhlKinds = false } = {}) {
@@ -3811,7 +3811,7 @@ router.post('/m/:token/activity/clear', express.json(), withMember(async (req, r
   }
   // Keep GHL activity copies out of the inbox after Clear all.
   if (clearAll) {
-    memberActivity.clearKinds(ctx.network.id, ctx.member.id, [...GHL_ACTIVITY_TYPES]);
+    memberActivity.clearKinds(ctx.network.id, ctx.member.id, [...MEMBER_INBOUND_ALERT_TYPES]);
   }
   const ghlItems = ghlEnabled
     ? await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)
@@ -3827,7 +3827,7 @@ router.post('/m/:token/activity/clear', express.json(), withMember(async (req, r
   });
 }));
 
-/** Opt in/out of GHL missed-call & text alerts in the Reviews app. */
+/** Opt in/out of GHL form / missed-call / text alerts in the Reviews app. */
 router.post('/m/:token/activity/ghl-alerts', express.json(), withMember(async (req, res, ctx) => {
   noStore(res);
   const enabled = !!(req.body && req.body.enabled);
@@ -3857,7 +3857,7 @@ router.post('/m/:token/activity/ghl-done', express.json(), withMember(async (req
   if (!done.ok) return res.status(400).json({ success: false, error: done.error });
   // Archive matching in-app copies so they don't reappear when GHL alerts are off.
   if (doneAll) {
-    memberActivity.clearKinds(ctx.network.id, ctx.member.id, [...GHL_ACTIVITY_TYPES]);
+    memberActivity.clearKinds(ctx.network.id, ctx.member.id, [...MEMBER_INBOUND_ALERT_TYPES]);
   }
   const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);
   const ghlEnabled = memberGhlAlerts.isEnabled(ctx.member);
