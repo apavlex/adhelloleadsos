@@ -1209,6 +1209,18 @@ function contactCreateSourceHint(contact) {
   ).trim();
 }
 
+function contactCreateFormLabel(contact, lead) {
+  const { websiteFormLabel } = require('./websiteFormLabel');
+  return websiteFormLabel({
+    formName: contactCreateSourceHint(contact),
+    label: contactCreateSourceHint(contact),
+    websiteUrl: (contact && (contact.website || contact.websiteUrl))
+      || (lead && lead.website)
+      || '',
+    businessName: (contact && contact.companyName) || (lead && lead.companyName) || '',
+  });
+}
+
 /**
  * When GHL only fires ContactCreate (no Form Submitted workflow), still route
  * brand-new contacts into the contractor / Reviews form-lead inbox when a
@@ -1222,7 +1234,7 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
     || lead.title
     || 'Lead',
   ).trim().slice(0, 120) || 'Lead';
-  const sourceHint = contactCreateSourceHint(contact);
+  const formLabel = contactCreateFormLabel(contact, lead);
   const at = new Date().toISOString();
   const formEventId = `form:contact-create:${lead.key}`;
   let packageId = null;
@@ -1233,7 +1245,7 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
       name,
       phone: (contact && contact.phone) || lead.phone || null,
       email: (contact && contact.email) || lead.email || null,
-      formName: sourceHint || 'Website form',
+      formName: formLabel,
       preview: '',
       source: 'ghl',
       at,
@@ -1241,7 +1253,7 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
       id: formEventId,
     }, {
       lead,
-      formName: sourceHint,
+      formName: formLabel,
       contactEmail: (contact && contact.email) || lead.email,
       silent: true, // single notify via notifyInboundEvent (Reviews only)
     });
@@ -1259,7 +1271,7 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
       id: formEventId,
       type: 'form',
       at,
-      label: sourceHint || 'Website form',
+      label: formLabel,
       preview: '',
       source: 'ghl',
     };

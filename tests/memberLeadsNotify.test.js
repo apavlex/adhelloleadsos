@@ -78,13 +78,15 @@ describe('member leads + referral notifications', () => {
     assert.match(work, /listContactLeads/);
   });
 
-  it('form-lead SMS and push deep-link to /referrals (not legacy /leads alone)', () => {
+  it('form-lead SMS and push deep-link to the lead profile (not legacy /leads alone)', () => {
     const notify = fs.readFileSync(path.join(root, 'services/networkNotify.js'), 'utf8');
     const pkgs = fs.readFileSync(path.join(root, 'services/appointmentPackages.js'), 'utf8');
-    assert.match(notify, /const leadsUrl = `\$\{app\}\/referrals`/);
+    assert.match(notify, /resolveFormLeadProfileUrl/);
+    assert.match(notify, /\/customers\/c\//);
     assert.doesNotMatch(notify, /const leadsUrl = `\$\{app\}\/leads`/);
     assert.match(notify, /pushMemberFormLeadAlert/);
     assert.match(notify, /async function notifyMemberFormLead/);
+    assert.match(notify, /websiteFormLabel/);
     assert.match(pkgs, /notifyUrl = `\$\{memberUrl\}\/referrals`/);
     assert.match(pkgs, /attachFormLead/);
     assert.match(pkgs, /notifyContractorNewLead/);
@@ -162,6 +164,7 @@ describe('member leads + referral notifications', () => {
       id: 'pkg_form',
       portalEnabled: true,
       businessName: 'TPR Flooring',
+      websiteUrl: 'https://www.TPRFlooring.com',
     }));
 
     const sent = [];
@@ -174,16 +177,20 @@ describe('member leads + referral notifications', () => {
       member: { id: 'm_form', companyName: 'TPR Flooring' },
       baseUrl: 'https://reviews.adhello.io',
       leadName: 'Jordan Homeowner',
-      formName: 'Website contact',
+      formName: 'ai_studio',
       source: 'ghl',
       preview: 'Need flooring quote',
       detailsAllowed: true,
+      phone: '+15551234567',
+      email: 'jordan@example.com',
+      customerId: 'cust_form_1',
     });
 
     assert.equal(result.sent, 1);
-    assert.match(sent[0].body.title, /New website lead/i);
-    assert.match(sent[0].body.body, /Jordan Homeowner/);
-    assert.match(sent[0].body.url, /\/referrals/);
+    assert.match(sent[0].body.title, /New website lead: Jordan Homeowner/i);
+    assert.match(sent[0].body.body, /TPRFlooring\.com Form/);
+    assert.doesNotMatch(sent[0].body.body, /ai_studio|direct/i);
+    assert.match(sent[0].body.url, /\/customers\/c\/cust_form_1/);
   });
 
   it('notifyReferralRecipient wires push alongside SMS/email', () => {

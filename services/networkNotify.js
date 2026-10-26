@@ -505,28 +505,73 @@ async function pushMemberReferralAlert({ network, member, baseUrl, referral, sum
  * Phone/home-screen Web Push for a website or agency form lead.
  * Same subscription path as referral alerts (member app + linked package).
  */
+async function resolveFormLeadProfileUrl({
+  network, member, baseUrl, leadName, phone, email, ghlContactId, customerId,
+} = {}) {
+  const app = memberPortalLink(baseUrl, network, member);
+  if (customerId) return `${app}/customers/c/${encodeURIComponent(customerId)}`;
+  try {
+    const work = require('./memberWork');
+    const customers = await work.listCustomers(network.id, member.id);
+    let customer = work.findCustomerMatch(customers, { phone, email, ghlContactId });
+    if (!customer && (leadName || phone || email)) {
+      const saved = await work.saveCustomer(network.id, member.id, {
+        name: String(leadName || phone || email || 'Lead').slice(0, 120),
+        phone: phone || '',
+        email: email || '',
+      }, {
+        ghlContactId: ghlContactId || undefined,
+        source: 'ghl',
+      });
+      if (saved.ok) customer = saved.customer;
+    }
+    if (customer && customer.id) {
+      return `${app}/customers/c/${encodeURIComponent(customer.id)}`;
+    }
+  } catch (err) {
+    console.warn('[network] form-lead profile resolve failed:', err && err.message);
+  }
+  return `${app}/referrals`;
+}
+
 async function pushMemberFormLeadAlert({
   network, member, baseUrl, leadName, formName, source, preview, detailsAllowed,
+  phone, email, ghlContactId, customerId,
 } = {}) {
   if (!network || !member) return { sent: 0 };
   const workspaceId = network.ownerWorkspaceId;
   const memberAppointmentLink = require('./memberAppointmentLink');
+  const { websiteFormLabel } = require('./websiteFormLabel');
   const pkg = workspaceId
     ? await memberAppointmentLink.findPackageForMember(workspaceId, member, network).catch(() => null)
     : null;
   const push = require('./pushNotifications');
-  const app = memberPortalLink(baseUrl, network, member);
-  const url = `${app}/referrals`;
+  const url = await resolveFormLeadProfileUrl({
+    network, member, baseUrl, leadName, phone, email, ghlContactId, customerId,
+  });
   const who = String(leadName || 'New lead').trim().slice(0, 80);
+  const niceForm = websiteFormLabel({
+    formName,
+    label: formName,
+    websiteUrl: (pkg && pkg.websiteUrl) || '',
+    businessName: (pkg && pkg.businessName) || '',
+    companyName: member.companyName || '',
+  });
   const kind = source === 'agency'
     ? 'Your agency sent a lead'
     : (source === 'customer_referral' ? 'New customer referral' : 'New website lead');
+  const title = source === 'agency' || source === 'customer_referral'
+    ? kind
+    : `New website lead: ${who}`;
   const detail = detailsAllowed
-    ? [formName, preview].filter(Boolean).join(' — ').slice(0, 160)
+    ? [niceForm, preview].filter(Boolean).join(' — ').slice(0, 160)
     : '';
   const body = detailsAllowed
-    ? (detail ? `${who} · ${detail}` : who)
+    ? (source === 'agency' || source === 'customer_referral'
+      ? (detail ? `${who} · ${detail}` : who)
+      : (detail || who))
     : `${who} — open the app to unlock details`;
+  const tagId = String(ghlContactId || customerId || phone || email || who).slice(0, 48);
   return push.sendMemberPush(
     {
       networkId: network.id,
@@ -535,19 +580,36 @@ async function pushMemberFormLeadAlert({
       workspaceId,
     },
     {
-      title: kind,
+      title: String(title).slice(0, 120),
       body: String(body || who).slice(0, 200),
       url,
-      tag: `member-form-${source || 'ghl'}-${Date.now()}`,
+      tag: `member-form-${source || 'ghl'}-${tagId}`,
     },
   );
 }
 
 /** SMS/email + in-app bell + phone push when a website or agency lead hits their package. */
-async function notifyMemberFormLead({ network, member, baseUrl, leadName, formName, source, preview }) {
+async function notifyMemberFormLead({
+  network, member, baseUrl, leadName, formName, source, preview,
+  phone, email, ghlContactId, customerId,
+}) {
   if (!network || !member) return { ok: false, error: 'No member.' };
-  const app = memberPortalLink(baseUrl, network, member);
-  const leadsUrl = `${app}/referrals`;
+  const { websiteFormLabel } = require('./websiteFormLabel');
+  const memberAppointmentLink = require('./memberAppointmentLink');
+  const workspaceId = network.ownerWorkspaceId;
+  const pkg = workspaceId
+    ? await memberAppointmentLink.findPackageForMember(workspaceId, member, network).catch(() => null)
+    : null;
+  const niceForm = websiteFormLabel({
+    formName,
+    label: formName,
+    websiteUrl: (pkg && pkg.websiteUrl) || '',
+    businessName: (pkg && pkg.businessName) || '',
+    companyName: member.companyName || '',
+  });
+  const openUrl = await resolveFormLeadProfileUrl({
+    network, member, baseUrl, leadName, phone, email, ghlContactId, customerId,
+  });
   const who = String(leadName || 'New lead').trim().slice(0, 80);
   const kind = source === 'agency'
     ? 'Your agency sent a lead'
@@ -556,29 +618,30 @@ async function notifyMemberFormLead({ network, member, baseUrl, leadName, formNa
   const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(network, member)
     .catch(() => false);
   const detail = detailsAllowed
-    ? [formName, preview].filter(Boolean).join(' — ').slice(0, 160)
+    ? [niceForm, preview].filter(Boolean).join(' — ').slice(0, 160)
     : '';
   recordMemberActivity(network, member, {
     kind: source === 'agency' ? 'agency' : (source === 'customer_referral' ? 'customer_referral' : 'form'),
     title: kind,
     body: detailsAllowed ? (detail ? `${who} · ${detail}` : who) : who,
-    href: leadsUrl,
+    href: openUrl,
   });
   pushMemberFormLeadAlert({
-    network, member, baseUrl, leadName, formName, source, preview, detailsAllowed,
+    network, member, baseUrl, leadName, formName: niceForm, source, preview, detailsAllowed,
+    phone, email, ghlContactId, customerId,
   }).catch((err) => console.warn('[network] form-lead push failed:', err && err.message));
   if (!detailsAllowed) {
     return messageMember(network, member, {
-      sms: `${brandView(network).appName}: ${kind} — “${who}”. Upgrade to unlock details: ${leadsUrl}`,
+      sms: `${brandView(network).appName}: ${kind} — “${who}”. Upgrade to unlock details: ${openUrl}`,
       subject: `${kind}: ${who}`,
-      email: `${kind} for ${member.companyName}.\n\nProject: ${who}\n\nUpgrade to a paid plan to see phone, email, and notes:\n${leadsUrl}`,
+      email: `${kind} for ${member.companyName}.\n\nProject: ${who}\n\nUpgrade to a paid plan to see phone, email, and notes:\n${openUrl}`,
     });
   }
-  const sms = `${brandView(network).appName}: ${kind} — ${who}${detail ? ` (${detail})` : ''}. Open: ${leadsUrl}`;
+  const sms = `${brandView(network).appName}: ${kind} — ${who}${detail ? ` (${detail})` : ''}. Open: ${openUrl}`;
   return messageMember(network, member, {
     sms,
     subject: `${kind}: ${who}`,
-    email: `${kind} for ${member.companyName}.\n\n${who}${detail ? `\n${detail}` : ''}\n\nOpen your app:\n${leadsUrl}`,
+    email: `${kind} for ${member.companyName}.\n\n${who}${detail ? `\n${detail}` : ''}\n\nOpen your app:\n${openUrl}`,
   });
 }
 

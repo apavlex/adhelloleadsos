@@ -77,14 +77,25 @@ test('website form leads skip Agency OS workspace push (Reviews-only)', async (t
     memberCalls += 1;
     return { sent: 1, members: 1 };
   });
+  const lead = { key: 'lead:form1', title: 'Alex Form', ghlContactId: 'ghl_form_dedupe_1' };
   const r = await notifyInboundEvent({
     workspaceId: WID,
-    lead: { key: 'lead:form1', title: 'Alex Form' },
+    lead,
     event: { type: 'form', label: 'ai_studio' },
   });
   assert.equal(memberCalls, 1);
   assert.equal(sent.length, 0, 'must not ring Agency OS workspace subscriptions');
   assert.equal(r.sent, 1);
+
+  // ContactCreate + Form sync both fire — only the first phone-notifies.
+  const again = await notifyInboundEvent({
+    workspaceId: WID,
+    lead,
+    event: { type: 'form', label: 'direct' },
+  });
+  assert.equal(memberCalls, 1, 'second form notify for same contact is deduped');
+  assert.equal(again.deduped, true);
+  assert.equal(again.sent, 0);
 });
 
 test('skips workspace users who paused GHL call/text notifications', async (t) => {
