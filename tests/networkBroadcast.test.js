@@ -289,6 +289,20 @@ test('Network members view and Reviews bell expose News & updates', () => {
   const newsView = fs.readFileSync(path.join(__dirname, '../views/member_app/news.ejs'), 'utf8');
   assert.match(newsView, /News &amp; updates/);
   assert.match(newsView, /ma-news-card/);
+  // Must not redeclare highlightId (TDZ → “Cannot access before initialization”).
+  assert.match(newsView, /newsHighlightId/);
+  assert.doesNotMatch(newsView, /const highlightId\s*=/);
+});
+
+test('Reviews app errors stay on /m — not Agency OS dashboard', () => {
+  const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+  const errView = fs.readFileSync(path.join(__dirname, '../views/member_app/error.ejs'), 'utf8');
+  assert.match(server, /member_app\/error/);
+  assert.match(server, /memberMatch/);
+  assert.match(server, /Back to Reviews app|member_app\/error/);
+  assert.match(errView, /Back to Reviews app/);
+  assert.doesNotMatch(errView, /Back to Dashboard/);
+  assert.doesNotMatch(errView, /href="\/today"/);
 });
 
 test('Referral Leads loads news posts for the default view, not only Members', () => {
