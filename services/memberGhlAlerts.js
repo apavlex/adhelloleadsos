@@ -39,6 +39,27 @@ function inboundMatchFields(row) {
   };
 }
 
+function inboundFormAnswers(row) {
+  try {
+    const { normalizeFormAnswers } = require('./ghlFormAnswers');
+    if (Array.isArray(row && row.answers) && row.answers.length) {
+      return normalizeFormAnswers(row.answers);
+    }
+    if (Array.isArray(row && row.formAnswers) && row.formAnswers.length) {
+      return normalizeFormAnswers(row.formAnswers);
+    }
+  } catch (_) { /* ignore */ }
+  return [];
+}
+
+function answersNeedSave(existing, nextAnswers) {
+  if (!nextAnswers || !nextAnswers.length) return false;
+  const prior = Array.isArray(existing && existing.formAnswers) ? existing.formAnswers : [];
+  if (!prior.length) return true;
+  if (prior.length !== nextAnswers.length) return true;
+  return nextAnswers.some((a, i) => !prior[i] || prior[i].q !== a.q || prior[i].a !== a.a);
+}
+
 function matchCustomerForInbound(customers, row) {
   return work.findCustomerMatch(customers, inboundMatchFields(row));
 }
@@ -82,6 +103,7 @@ async function finalizeInboundCustomer(network, member, list, customer, row) {
 async function ensureCustomerForInbound(network, member, customers, row) {
   const list = Array.isArray(customers) ? customers : [];
   const fields = inboundMatchFields(row);
+  const formAnswers = inboundFormAnswers(row);
   const existing = matchCustomerForInbound(list, row);
   if (existing) {
     // Patch GHL id / phone / email onto an existing match so Calls & texts can link.
@@ -90,7 +112,8 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     const needPhone = fields.phone && !existing.phone;
     const needEmail = fields.email && !existing.email;
     const needSource = nextSource !== existing.source;
-    if (!needGhl && !needPhone && !needEmail && !needSource) {
+    const needAnswers = answersNeedSave(existing, formAnswers);
+    if (!needGhl && !needPhone && !needEmail && !needSource && !needAnswers) {
       return finalizeInboundCustomer(network, member, list, existing, row);
     }
     const saved = await work.saveCustomer(
@@ -109,6 +132,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
         source: nextSource,
         tags: existing.tags,
         isReferralPartner: existing.isReferralPartner,
+        formAnswers: needAnswers ? formAnswers : undefined,
       },
     );
     if (saved.ok && saved.customer) {
@@ -134,6 +158,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     {
       ghlContactId: fields.ghlContactId || undefined,
       source: inboundCustomerSource('', row && row.type),
+      formAnswers: formAnswers.length ? formAnswers : undefined,
     },
   );
   if (!saved.ok || !saved.customer) return null;
@@ -334,6 +359,8 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
         email: lead.email,
         phone: lead.phone,
         type,
+        answers: (event && event.answers) || lead.formAnswers || [],
+        formAnswers: lead.formAnswers || (event && event.answers) || [],
       });
       const path = customer ? profileOpenHref(customer) : '/customers';
       const href = memberAppUrl(network, member, path);

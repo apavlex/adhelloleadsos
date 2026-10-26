@@ -321,4 +321,42 @@ describe('member customer GHL sync', () => {
     assert.equal(again.ok, true);
     assert.equal(again.customer.tags.filter((k) => k === tag.key).length, 1);
   });
+
+  it('ensureFormAnswersOnCustomer backfills GHL custom fields onto the profile', async () => {
+    mock.restoreAll();
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'test',
+      GHL_LOCATION_ID: 'loc1',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => ([
+      { id: 'cf_msg', name: 'How can we help?' },
+    ]));
+    mock.method(ghlClient, 'getContact', async () => ({
+      id: 'ghl_alex_form',
+      name: 'Alex',
+      phone: '3605550101',
+      source: 'Website',
+      customFields: [{ id: 'cf_msg', value: 'Need hardwood in living room' }],
+    }));
+
+    const created = await work.saveCustomer(NET.id, MEM, {
+      name: 'Alex',
+      phone: '3605550101',
+    }, { source: 'website_form', ghlContactId: 'ghl_alex_form' });
+    assert.equal(created.ok, true);
+    assert.equal((created.customer.formAnswers || []).length, 0);
+
+    const enriched = await memberCustomerGhl.ensureFormAnswersOnCustomer(
+      NET,
+      MEM,
+      created.customer,
+    );
+    assert.ok(enriched.formAnswers.some((a) => /hardwood/i.test(a.a)));
+    assert.ok(enriched.formAnswers.some((a) => /help/i.test(a.q)));
+
+    const again = await memberCustomerGhl.ensureFormAnswersOnCustomer(NET, MEM, enriched);
+    assert.equal(again.formAnswers.length, enriched.formAnswers.length);
+    mock.restoreAll();
+  });
 });

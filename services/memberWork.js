@@ -245,6 +245,15 @@ function normalizeSharedWith(raw) {
   return normalizeSharedPeers(raw, 'jobId');
 }
 
+function normalizeCustomerFormAnswers(raw) {
+  try {
+    const { normalizeFormAnswers } = require('./ghlFormAnswers');
+    return normalizeFormAnswers(raw);
+  } catch (_) {
+    return [];
+  }
+}
+
 function normalizeCustomer(raw) {
   const c = raw && typeof raw === 'object' ? raw : {};
   const source = String(c.source || '').trim().toLowerCase();
@@ -255,6 +264,8 @@ function normalizeCustomer(raw) {
     email: cleanEmail(c.email),
     address: cleanLine(c.address, 200),
     notes: cleanBlock(c.notes, 2000),
+    /** Website / Lead Connector form Q&A shown on the profile. */
+    formAnswers: normalizeCustomerFormAnswers(c.formAnswers),
     tags: normalizeCustomerTags(c.tags),
     /** CRM contacts that are referral businesses, not homeowners. */
     isReferralPartner: c.isReferralPartner === true,
@@ -570,7 +581,7 @@ async function setCustomerLeadFlag(networkId, memberId, id, isLead) {
 
 /** Create (no id) or update (id of an existing customer in this scope). */
 async function saveCustomer(networkId, memberId, input, opts = {}) {
-  const { id, referralId, ghlContactId, ghlSyncedAt, source, tags, isReferralPartner } = opts;
+  const { id, referralId, ghlContactId, ghlSyncedAt, source, tags, isReferralPartner, formAnswers } = opts;
   const prefix = custPrefix(networkId, memberId);
   const checked = validateCustomer(input);
   if (!checked.ok) return checked;
@@ -600,12 +611,17 @@ async function saveCustomer(networkId, memberId, input, opts = {}) {
     isReferralPartner !== undefined
       ? isReferralPartner === true
       : !!(existing && existing.isReferralPartner);
+  const nextFormAnswers =
+    formAnswers !== undefined
+      ? normalizeCustomerFormAnswers(formAnswers)
+      : normalizeCustomerFormAnswers(existing && existing.formAnswers);
   const customer = normalizeCustomer({
     ...(existing || {}),
     ...checked.fields,
     id: existing ? existing.id : newId(),
     tags: nextTags,
     isReferralPartner: nextPartner,
+    formAnswers: nextFormAnswers,
     referralId: existing ? existing.referralId : (referralId || ''),
     ghlContactId: nextGhlId,
     ghlSyncedAt: nextSynced,

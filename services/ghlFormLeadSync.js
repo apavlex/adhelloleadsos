@@ -12,6 +12,11 @@ const { appendInboundEvent } = require('./inboundEvents');
 const { notifyInboundEvent } = require('./inboundPush');
 const { websiteFormLabel } = require('./websiteFormLabel');
 const { findLocalLeadMatch, pullContactToLead } = require('./ghlSync');
+const {
+  answersFromContact,
+  answersPreview,
+  normalizeFormAnswers,
+} = require('./ghlFormAnswers');
 
 const THROTTLE_MS = 45 * 1000;
 /** How far back to scan GHL contacts for the Reviews inbox. */
@@ -118,6 +123,13 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     .sort((a, b) => contactAddedMs(b) - contactAddedMs(a));
 
   const localLeads = await dbService.getAllLeads(wid);
+  let fieldCatalog = null;
+  try {
+    fieldCatalog = await ghlClient.listLocationContactCustomFields(integrationEnv);
+  } catch (err) {
+    console.warn('[ghlFormLeadSync] custom field catalog failed:', err && err.message);
+    fieldCatalog = [];
+  }
   let synced = 0;
   let notified = 0;
   let maxSeenAdded = watermarkMs;
@@ -154,19 +166,31 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     // with historical GHL contacts). Only brand-new ones get stamped + pushed.
     if (!shouldNotify) continue;
 
+    // List payloads often omit customFields — fetch the full contact for answers.
+    let fullContact = contact;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const remote = await ghlClient.getContact(ghlId, integrationEnv);
+      if (remote && typeof remote === 'object') fullContact = remote;
+    } catch (err) {
+      console.warn('[ghlFormLeadSync] getContact failed:', err && err.message);
+    }
+    const answers = answersFromContact(fullContact, fieldCatalog);
+
     const at = new Date(addedMs).toISOString();
     const label = websiteFormLabel({
-      formName: sourceHint(contact),
-      label: sourceHint(contact),
-      websiteUrl: contact.website || contact.websiteUrl || '',
-      businessName: contact.companyName || '',
+      formName: sourceHint(fullContact),
+      label: sourceHint(fullContact),
+      websiteUrl: fullContact.website || fullContact.websiteUrl || '',
+      businessName: fullContact.companyName || '',
     });
     const formEvent = {
       id: formEventId,
       type: 'form',
       at,
       label,
-      preview: '',
+      preview: answersPreview(answers),
+      answers,
       source: 'ghl',
       ghlContactId: ghlId,
     };
@@ -176,6 +200,7 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
       inboundFormName: label,
       inboundEvents: appendInboundEvent(prior, formEvent),
       ghlContactId: lead.ghlContactId || ghlId,
+      formAnswers: normalizeFormAnswers(answers),
     };
     try {
       // eslint-disable-next-line no-await-in-loop
@@ -196,10 +221,11 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
         await appointmentPackages.attachFormLead(wid, {
           leadKey: next.key,
           name,
-          phone: contact.phone || next.phone || null,
-          email: contact.email || next.email || null,
+          phone: fullContact.phone || next.phone || null,
+          email: fullContact.email || next.email || null,
           formName: label,
-          preview: '',
+          preview: formEvent.preview,
+          answers,
           source: 'ghl',
           at,
           status: 'open',
@@ -207,7 +233,7 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
         }, {
           lead: next,
           formName: label,
-          contactEmail: contact.email || next.email,
+          contactEmail: fullContact.email || next.email,
           silent: true, // notify once via notifyInboundEvent (Reviews only)
         });
       } catch (attachErr) {

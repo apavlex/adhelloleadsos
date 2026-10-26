@@ -489,12 +489,15 @@ async function processWorkflowWebhook(body, opts = {}) {
     });
     // Keep paid-channel tip only when the form name itself is real (not Direct/AI Studio).
     const eventLabel = [formLabel, attr.adSource].filter(Boolean).join(' · ');
+    const { normalizeFormAnswers, answersPreview } = require('./ghlFormAnswers');
+    const formAnswers = normalizeFormAnswers(parsed.answers);
     const formEvent = {
       id: parsed.eventId ? `form:${parsed.eventId}` : '',
       type: 'form',
       at: parsed.at,
       label: eventLabel,
-      preview: parsed.answers.slice(0, 3).map((x) => `${x.q}: ${x.a}`).join(' · '),
+      preview: answersPreview(formAnswers) || parsed.answers.slice(0, 3).map((x) => `${x.q}: ${x.a}`).join(' · '),
+      answers: formAnswers,
       source: 'ghl',
     };
     const priorFormEvents = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
@@ -503,6 +506,7 @@ async function processWorkflowWebhook(body, opts = {}) {
       inboundSource: source,
       inboundAt: parsed.at,
       inboundEvents: appendInboundEvent(priorFormEvents, formEvent),
+      formAnswers,
       logs: [{ type: 'inbound_form', message: formLogMessage(parsed), timestamp: parsed.at }],
     };
     if (formLabel) patch.inboundFormName = formLabel;
@@ -528,6 +532,7 @@ async function processWorkflowWebhook(body, opts = {}) {
         email: contact.email || lead.email || null,
         formName: formLabel,
         preview: formEvent.preview,
+        answers: formAnswers,
         source: 'ghl',
         at: parsed.at,
         status: 'open',

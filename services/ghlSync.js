@@ -1237,6 +1237,27 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
   const formLabel = contactCreateFormLabel(contact, lead);
   const at = new Date().toISOString();
   const formEventId = `form:contact-create:${lead.key}`;
+  const { answersFromContact, answersPreview, normalizeFormAnswers } = require('./ghlFormAnswers');
+  let answers = [];
+  try {
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    let catalog = [];
+    try {
+      catalog = await ghlClient.listLocationContactCustomFields(integrationEnv);
+    } catch (_) { catalog = []; }
+    let full = contact;
+    const ghlId = String((contact && contact.id) || lead.ghlContactId || '').trim();
+    if (ghlId && integrationEnv) {
+      try {
+        const remote = await ghlClient.getContact(ghlId, integrationEnv);
+        if (remote && typeof remote === 'object') full = remote;
+      } catch (_) { /* use webhook contact */ }
+    }
+    answers = answersFromContact(full, catalog);
+  } catch (e) {
+    console.warn('[ghlSync] contact-create form answers failed:', e && e.message);
+  }
+  const preview = answersPreview(answers);
   let packageId = null;
   try {
     const appointmentPackages = require('./appointmentPackages');
@@ -1246,7 +1267,8 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
       phone: (contact && contact.phone) || lead.phone || null,
       email: (contact && contact.email) || lead.email || null,
       formName: formLabel,
-      preview: '',
+      preview,
+      answers,
       source: 'ghl',
       at,
       status: 'open',
@@ -1272,7 +1294,8 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
       type: 'form',
       at,
       label: formLabel,
-      preview: '',
+      preview,
+      answers: normalizeFormAnswers(answers),
       source: 'ghl',
     };
     if (!formEvent.id || !prior.some((e) => e && e.id === formEvent.id)) {
@@ -1281,6 +1304,7 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
         inboundAt: at,
         inboundFormName: formEvent.label,
         inboundEvents: appendInboundEvent(prior, formEvent),
+        formAnswers: normalizeFormAnswers(answers),
       };
       const updated = await dbService.updateLead(lead.key, patch, wid);
       notifyInboundEvent({ workspaceId: wid, lead: updated || { ...lead, ...patch }, event: formEvent });

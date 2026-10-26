@@ -2071,6 +2071,10 @@ async function customerPageData(req, ctx, id, { refreshTags = false, loadGhlActi
       .catch(() => null);
     if (pulled && pulled.ok && pulled.customer) customer = pulled.customer;
   }
+  // Website form leads: pull GHL custom fields onto the profile when missing.
+  customer = await memberCustomerGhl
+    .ensureFormAnswersOnCustomer(ctx.network, ctx.member.id, customer)
+    .catch(() => customer) || customer;
   // Shared contacts used to drop site-visit photos — pull them from the sharer once.
   if (customer.sharedFromMemberId && customer.sharedFromCustomerId) {
     await work.syncSharedCustomerPhotos(ctx.network.id, ctx.member.id, customer).catch(() => null);

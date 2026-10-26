@@ -578,6 +578,92 @@ async function syncCustomersWithGhl(network, memberId, opts = {}) {
   };
 }
 
+/**
+ * Backfill website form Q&A onto a Reviews customer profile.
+ * Prefers answers already stamped on the workspace lead; otherwise pulls from GHL.
+ * Idempotent when formAnswers already present.
+ */
+async function ensureFormAnswersOnCustomer(network, memberId, customer) {
+  if (!network || !memberId || !customer || !customer.id) return customer;
+  if (Array.isArray(customer.formAnswers) && customer.formAnswers.length) return customer;
+  const ghlId = String(customer.ghlContactId || '').trim();
+  if (!ghlId) return customer;
+  const src = String(customer.source || '').trim().toLowerCase();
+  if (src && src !== 'website_form' && src !== 'ghl' && !customer.isLead) return customer;
+
+  const { normalizeFormAnswers, fetchContactFormAnswers } = require('./ghlFormAnswers');
+  let answers = [];
+
+  const wid = String(network.ownerWorkspaceId || '').trim();
+  if (wid) {
+    try {
+      const leads = await dbService.getAllLeads(wid);
+      const lead = (Array.isArray(leads) ? leads : []).find(
+        (l) => l && String(l.ghlContactId || '').trim() === ghlId,
+      );
+      if (lead) {
+        if (Array.isArray(lead.formAnswers) && lead.formAnswers.length) {
+          answers = normalizeFormAnswers(lead.formAnswers);
+        } else {
+          const events = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+          for (let i = events.length - 1; i >= 0; i -= 1) {
+            const ev = events[i];
+            if (!ev || String(ev.type || '') !== 'form') continue;
+            if (Array.isArray(ev.answers) && ev.answers.length) {
+              answers = normalizeFormAnswers(ev.answers);
+              break;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[memberCustomerGhl] form answers from lead failed:', err && err.message);
+    }
+  }
+
+  if (!answers.length) {
+    try {
+      const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+      if (ghlClient.isConfigured(integrationEnv)) {
+        answers = await fetchContactFormAnswers(ghlId, integrationEnv);
+      }
+    } catch (err) {
+      console.warn('[memberCustomerGhl] form answers from GHL failed:', err && err.message);
+    }
+  }
+
+  if (!answers.length) return customer;
+
+  let address = customer.address || '';
+  if (!address) {
+    const addr = answers.find((a) => String(a.q || '').toLowerCase() === 'address');
+    if (addr && addr.a) address = String(addr.a).slice(0, 200);
+  }
+
+  const saved = await work.saveCustomer(
+    network.id,
+    memberId,
+    {
+      name: customer.name,
+      phone: customer.phone,
+      email: customer.email,
+      address,
+      notes: customer.notes,
+    },
+    {
+      id: customer.id,
+      tags: customer.tags,
+      ghlContactId: customer.ghlContactId,
+      ghlSyncedAt: customer.ghlSyncedAt,
+      source: customer.source,
+      referralId: customer.referralId,
+      isReferralPartner: customer.isReferralPartner,
+      formAnswers: answers,
+    },
+  );
+  return saved.ok && saved.customer ? saved.customer : customer;
+}
+
 module.exports = {
   contactToFields,
   listActiveWorkspaceTags,
@@ -589,6 +675,7 @@ module.exports = {
   ensureReferralPartnerTag,
   ensureWebsiteFormTag,
   stampWebsiteFormLead,
+  ensureFormAnswersOnCustomer,
   WEBSITE_FORM_TAG_NAME,
   customerLooksLikePartner,
   pushCustomerTagsToGhl,
