@@ -50,6 +50,10 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /maMarkLeadForm/);
     assert.match(page, /ma-titlebar__actions/);
     assert.match(page, /form="maMarkLeadForm"/);
+    // Source tag (Manual / Website form / Referral / …) on the lead profile titlebar.
+    assert.match(page, /sourceLabel/);
+    assert.match(page, /Website form/);
+    assert.match(page, /How this contact was added/);
     // Mark as lead sits in the titlebar actions (right of the name), not a row below.
     assert.match(
       page,
@@ -67,7 +71,11 @@ describe('member leads + referral notifications', () => {
     assert.match(route, /customers\/c\/:id\/unmark-lead/);
     assert.match(route, /leads\/:leadId\/to-customer/);
     assert.match(route, /marked_customer/);
+    assert.match(route, /website_form/);
+    assert.match(route, /sourceLabel: customer \? work\.customerSourceLabel\(customer\)/);
     assert.match(route, /filter\(\(c\) => showLeads \|\| !c\.isLead\)/);
+    assert.match(work, /website_form/);
+    assert.match(work, /customerSourceLabel/);
     // Customer Details has no per-field mics (speak-once is New customer only).
     assert.doesNotMatch(page, /data-ma-voice-for="cuName"/);
     assert.doesNotMatch(page, /data-ma-voice-for="cuNotes"/);

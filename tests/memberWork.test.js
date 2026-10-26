@@ -440,6 +440,8 @@ test('a received referral converts into a customer and job once', async () => {
   assert.equal(first.customer.email, '');
   assert.equal(first.customer.address, '9 Elm, Camas 98607');
   assert.equal(first.customer.referralId, 'ref123abc');
+  assert.equal(first.customer.source, 'referral');
+  assert.equal(work.customerSourceLabel(first.customer), 'Referral');
   assert.equal(first.job.title, 'Flooring referral');
   assert.equal(first.job.status, 'scheduled');
   assert.equal(first.job.date, '2026-10-01');
@@ -447,6 +449,39 @@ test('a received referral converts into a customer and job once', async () => {
   const again = await work.convertReferral(NET, MEM_A, referral, { tradeLabel: 'Flooring', today: '2026-10-01' });
   assert.equal(again.existing, true);
   assert.equal(again.job.id, first.job.id);
+});
+
+test('customerSourceLabel covers manual, website form, referral, agency, csv, crm', () => {
+  assert.equal(work.customerSourceLabel('manual'), 'Manual');
+  assert.equal(work.customerSourceLabel('website_form'), 'Website form');
+  assert.equal(work.customerSourceLabel('referral'), 'Referral');
+  assert.equal(work.customerSourceLabel('agency'), 'Agency');
+  assert.equal(work.customerSourceLabel('csv'), 'CSV import');
+  assert.equal(work.customerSourceLabel('ghl'), 'CRM');
+  assert.equal(work.customerSourceLabel({ source: 'website_form' }), 'Website form');
+  assert.equal(work.customerSourceLabel({ source: 'manual', referralId: 'ref1' }), 'Referral');
+  assert.equal(work.customerSourceLabel({ referralId: 'ref1' }), 'Referral');
+  assert.equal(work.customerSourcePillClass('website_form'), 'ma-pill--accepted');
+  assert.equal(work.customerSourcePillClass('referral'), 'ma-pill--sent');
+  assert.ok(work.CUSTOMER_SOURCES.has('website_form'));
+  assert.ok(work.CUSTOMER_SOURCES.has('agency'));
+});
+
+test('saveCustomer keeps website_form and agency sources', async () => {
+  const form = await work.saveCustomer(NET, MEM_A, {
+    name: 'Form Person',
+    phone: '3605550991',
+  }, { source: 'website_form' });
+  assert.equal(form.ok, true);
+  assert.equal(form.customer.source, 'website_form');
+  assert.equal(work.normalizeCustomer(form.customer).source, 'website_form');
+
+  const agency = await work.saveCustomer(NET, MEM_A, {
+    name: 'Agency Person',
+    phone: '3605550992',
+  }, { source: 'agency' });
+  assert.equal(agency.ok, true);
+  assert.equal(agency.customer.source, 'agency');
 });
 
 test('shareCustomerWithTeammate copies contact and all projects', async () => {

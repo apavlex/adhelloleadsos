@@ -1931,6 +1931,8 @@ async function renderCustomerPage(res, ctx, {
     upgradeHref: '/signup',
     ghlActivity: ghlActivity || null,
     contactKind: customer ? work.customerKind(customer) : 'customer',
+    sourceLabel: customer ? work.customerSourceLabel(customer) : '',
+    sourcePillClass: customer ? work.customerSourcePillClass(customer) : '',
     ...tagViews,
   }, status);
 }
@@ -3934,12 +3936,15 @@ router.post('/m/:token/leads/:leadId/to-customer', form, withMember(async (req, 
   if (existing) {
     await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, existing.id, false);
   } else {
+    const leadSource = String(lead.source || '').trim().toLowerCase() === 'agency'
+      ? 'agency'
+      : 'website_form';
     const saved = await work.saveCustomer(ctx.network.id, ctx.member.id, {
       name: lead.name || 'Customer',
       phone: lead.phone || '',
       email: lead.email || '',
       notes: lead.preview || '',
-    }, { source: 'manual' });
+    }, { source: leadSource });
     if (!saved.ok) {
       return renderReferrals(req, res, ctx, { error: saved.error || 'Could not add that customer.' }, 400);
     }
