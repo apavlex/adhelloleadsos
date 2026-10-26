@@ -44,7 +44,7 @@ const outscraper = require('../services/outscraperClient');
 const memberLeadRequests = require('../services/memberLeadRequests');
 const memberActivity = require('../services/memberActivity');
 const memberGhlAlerts = require('../services/memberGhlAlerts');
-const { MEMBER_INBOUND_ALERT_TYPES } = require('../services/inboundEvents');
+const { MEMBER_INBOUND_ALERT_TYPES, GHL_ACTIVITY_TYPES } = require('../services/inboundEvents');
 const freeAppSignup = require('../services/freeAppSignup');
 const freeAppListWorkspace = require('../services/freeAppListWorkspace');
 const memberShareInvite = require('../services/memberShareInvite');
@@ -3711,22 +3711,29 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
 
 // ── In-app lead activity bell (member PWA) ───────────────────────────────────
 
-/** Inbox only (not cleared). GHL form/call/text rows also land in memberActivity for
- *  push history — hide them from Leads & referrals when Waiting on a reply is on. */
-function bellActivityItems(networkId, memberId, { excludeGhlKinds = false } = {}) {
+/**
+ * Inbox only (not cleared). Form leads always sit under Waiting on a reply for
+ * every network member; call/text rows join that list when the owner toggle is on.
+ */
+function bellActivityItems(networkId, memberId, { ghlCallsEnabled = false } = {}) {
   const rows = memberActivity.listInbox(networkId, memberId);
-  if (!excludeGhlKinds) return rows;
-  return rows.filter((it) => !it || !MEMBER_INBOUND_ALERT_TYPES.has(String(it.kind || '').toLowerCase()));
+  return rows.filter((it) => {
+    if (!it) return false;
+    const kind = String(it.kind || '').toLowerCase();
+    if (kind === 'form') return false;
+    if (ghlCallsEnabled && GHL_ACTIVITY_TYPES.has(kind)) return false;
+    return true;
+  });
 }
 
-function bellActivityUnread(networkId, memberId, { excludeGhlKinds = false } = {}) {
-  return bellActivityItems(networkId, memberId, { excludeGhlKinds }).filter((e) => e && !e.read).length;
+function bellActivityUnread(networkId, memberId, { ghlCallsEnabled = false } = {}) {
+  return bellActivityItems(networkId, memberId, { ghlCallsEnabled }).filter((e) => e && !e.read).length;
 }
 
 function bellUnreadTotal(ctx, ghlPendingCount) {
-  const ghlEnabled = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network)
+  const ghlCallsEnabled = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network)
     && memberGhlAlerts.isEnabled(ctx.member);
-  return bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled })
+  return bellActivityUnread(ctx.network.id, ctx.member.id, { ghlCallsEnabled })
     + (Number(ghlPendingCount) || 0);
 }
 
@@ -3734,13 +3741,11 @@ router.get('/m/:token/activity.json', withMember(async (req, res, ctx) => {
   noStore(res);
   const ghlAvailable = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network);
   const ghlEnabled = ghlAvailable && memberGhlAlerts.isEnabled(ctx.member);
-  const ghlItems = ghlEnabled
-    ? await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)
-    : [];
-  // When GHL alerts are on, sms/missed_call/voicemail belong only under Waiting on a reply.
-  const items = bellActivityItems(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }).slice(0, 40);
+  // Forms for every active member; calls/texts only when the owner toggle is on.
+  const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);
+  const items = bellActivityItems(ctx.network.id, ctx.member.id, { ghlCallsEnabled: ghlEnabled }).slice(0, 40);
   const historyCount = memberActivity.listHistory(ctx.network.id, ctx.member.id).length;
-  const activityUnread = bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled });
+  const activityUnread = bellActivityUnread(ctx.network.id, ctx.member.id, { ghlCallsEnabled: ghlEnabled });
   return res.json({
     success: true,
     unread: activityUnread + ghlItems.length,
@@ -3784,13 +3789,11 @@ router.post('/m/:token/activity/read', express.json(), withMember(async (req, re
     : memberActivity.markRead(ctx.network.id, ctx.member.id, ids);
   const ghlEnabled = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network)
     && memberGhlAlerts.isEnabled(ctx.member);
-  const ghlPending = ghlEnabled
-    ? (await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)).length
-    : 0;
+  const ghlPending = (await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)).length;
   return res.json({
     success: true,
     updated: result.updated,
-    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }) + ghlPending,
+    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { ghlCallsEnabled: ghlEnabled }) + ghlPending,
   });
 }));
 
@@ -3806,43 +3809,36 @@ router.post('/m/:token/activity/clear', express.json(), withMember(async (req, r
 
   const ghlEnabled = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network)
     && memberGhlAlerts.isEnabled(ctx.member);
-  if (clearAll && ghlEnabled) {
-    await memberGhlAlerts.markAllPendingDone(ctx.member, ctx.network);
-  }
-  // Keep GHL activity copies out of the inbox after Clear all.
   if (clearAll) {
+    await memberGhlAlerts.markAllPendingDone(ctx.member, ctx.network);
     memberActivity.clearKinds(ctx.network.id, ctx.member.id, [...MEMBER_INBOUND_ALERT_TYPES]);
   }
-  const ghlItems = ghlEnabled
-    ? await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)
-    : [];
+  const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);
 
   return res.json({
     success: true,
     updated: result.updated,
-    items: bellActivityItems(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }),
+    items: bellActivityItems(ctx.network.id, ctx.member.id, { ghlCallsEnabled: ghlEnabled }),
     ghlItems,
     historyCount: memberActivity.listHistory(ctx.network.id, ctx.member.id).length,
     unread: bellUnreadTotal(ctx, ghlItems.length),
   });
 }));
 
-/** Opt in/out of GHL form / missed-call / text alerts in the Reviews app. */
+/** Opt in/out of GHL missed-call & text alerts (forms always notify the network). */
 router.post('/m/:token/activity/ghl-alerts', express.json(), withMember(async (req, res, ctx) => {
   noStore(res);
   const enabled = !!(req.body && req.body.enabled);
   const result = await memberGhlAlerts.setEnabled(ctx.network, ctx.member, enabled);
   if (!result.ok) return res.status(400).json({ success: false, error: result.error });
   ctx.member = result.member;
-  const ghlItems = result.enabled
-    ? await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network)
-    : [];
+  const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);
   return res.json({
     success: true,
     ghlAlertsEnabled: result.enabled,
     ghlAlertsAvailable: true,
     ghlItems,
-    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: result.enabled }) + ghlItems.length,
+    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { ghlCallsEnabled: result.enabled }) + ghlItems.length,
   });
 }));
 
@@ -3855,19 +3851,20 @@ router.post('/m/:token/activity/ghl-done', express.json(), withMember(async (req
     ? await memberGhlAlerts.markAllPendingDone(ctx.member, ctx.network)
     : await memberGhlAlerts.markLeadDone(ctx.member, ctx.network, body.leadKey);
   if (!done.ok) return res.status(400).json({ success: false, error: done.error });
-  // Archive matching in-app copies so they don't reappear when GHL alerts are off.
+  // Archive matching in-app copies so they don't reappear under Leads & referrals.
   if (doneAll) {
     memberActivity.clearKinds(ctx.network.id, ctx.member.id, [...MEMBER_INBOUND_ALERT_TYPES]);
   }
   const ghlItems = await memberGhlAlerts.listPendingForMember(ctx.member, ctx.network);
-  const ghlEnabled = memberGhlAlerts.isEnabled(ctx.member);
+  const ghlEnabled = memberGhlAlerts.canUseGhlAlerts(ctx.member, ctx.network)
+    && memberGhlAlerts.isEnabled(ctx.member);
   return res.json({
     success: true,
     updated: done.updated != null ? done.updated : 1,
     ghlItems,
-    items: bellActivityItems(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }),
+    items: bellActivityItems(ctx.network.id, ctx.member.id, { ghlCallsEnabled: ghlEnabled }),
     historyCount: memberActivity.listHistory(ctx.network.id, ctx.member.id).length,
-    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { excludeGhlKinds: ghlEnabled }) + ghlItems.length,
+    unread: bellActivityUnread(ctx.network.id, ctx.member.id, { ghlCallsEnabled: ghlEnabled }) + ghlItems.length,
   });
 }));
 
