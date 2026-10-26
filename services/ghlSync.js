@@ -1303,8 +1303,9 @@ async function processWebhook(payload, opts = {}) {
     return { ok: true, workspaceId: wid, ignored: true, reason: result.reason || 'skipped' };
   }
   let contractorPackageId = null;
-  // ContactCreate only — ContactUpdate/bulk sync must not spam the Reviews inbox.
-  if (result.action === 'created' && /create/i.test(String(parsed.type || ''))) {
+  // New local lead from ContactCreate/ContactUpdate (first time we see them).
+  // Website forms often only fire ContactCreate; treat first pull as a form lead.
+  if (result.action === 'created') {
     contractorPackageId = await maybeAttachContactCreateFormLead(
       wid,
       result.lead,

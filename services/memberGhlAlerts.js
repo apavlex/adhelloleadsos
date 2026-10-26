@@ -162,6 +162,19 @@ async function listPendingForMember(member, network, opts = {}) {
   if (!isActiveNetworkMember(member, network)) return [];
   const wid = String(network.ownerWorkspaceId || '').trim();
   if (!wid) return [];
+  // Website Lead Connector forms often create a GHL contact without a Form
+  // Submitted webhook. Pull recent contacts so Reviews still gets the ping.
+  if (!opts.skipFormSync) {
+    try {
+      const ghlFormLeadSync = require('./ghlFormLeadSync');
+      await ghlFormLeadSync.syncRecentFormLeads(wid, {
+        force: !!opts.forceFormSync,
+        maxAgeMs: opts.formSyncMaxAgeMs,
+      });
+    } catch (err) {
+      console.warn('[memberGhlAlerts] form lead sync failed:', err && err.message);
+    }
+  }
   const leads = await dbService.getAllLeads(wid);
   const ghl = await ghlLinkContext(wid);
   const rows = pendingInboundItems(leads, {
