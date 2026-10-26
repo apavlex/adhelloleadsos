@@ -727,8 +727,34 @@ app.use((err, req, res, next) => {
         : err.message || 'Something went wrong';
     return res.status(status).json({ success: false, error: msg });
   }
-  res.status(status >= 400 && status < 600 ? status : 500).render('error', {
-    message: err.message || 'Something went wrong',
+  const code = status >= 400 && status < 600 ? status : 500;
+  const message = err.message || 'Something went wrong';
+  // Reviews / member app (/m/:token/…) — stay in-app; never the Agency OS dashboard.
+  const memberMatch = String((req.originalUrl || req.url || req.path || '')).match(/^(\/m\/[^/?#]+)/);
+  if (memberMatch) {
+    let brand = res.locals && res.locals.brand;
+    let icons = res.locals && res.locals.icons;
+    try {
+      if (!brand || !brand.appName) {
+        brand = require('./services/networkBrand').brandView(null);
+      }
+      if (!icons) {
+        icons = require('./services/memberAppIcons').ICONS || {};
+      }
+    } catch (_) {
+      brand = brand || { appName: 'Reviews' };
+      icons = icons || {};
+    }
+    return res.status(code).render('member_app/error', {
+      message,
+      base: memberMatch[1],
+      brand,
+      icons,
+      active: 'home',
+    });
+  }
+  res.status(code).render('error', {
+    message,
     activePage: '',
   });
 });
