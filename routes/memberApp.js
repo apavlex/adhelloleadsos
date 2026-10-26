@@ -1951,6 +1951,14 @@ async function renderCustomerPage(res, ctx, {
       label: mate ? mate.label : 'Teammate',
     };
   });
+  let formAnswers = [];
+  if (customer) {
+    try {
+      formAnswers = require('../services/ghlFormAnswers').normalizeFormAnswers(customer.formAnswers);
+    } catch (_) {
+      formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
+    }
+  }
   return render(res, 'customer', ctx, {
     active: 'customers',
     customer,
@@ -1958,6 +1966,7 @@ async function renderCustomerPage(res, ctx, {
     teammates,
     sharedWithLabels,
     formValues: formValues || customer || {},
+    formAnswers,
     flash: flash || null,
     inviteUrl: inviteUrl || '',
     today,

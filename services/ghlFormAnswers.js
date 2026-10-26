@@ -48,6 +48,51 @@ function isInternalField(label, key) {
   return INTERNAL_FIELD_RE.test(String(label || '')) || INTERNAL_FIELD_RE.test(String(key || ''));
 }
 
+/** GHL attribution crumbs (Direct / AI Studio) → friendly “Website” for Source fields. */
+const SOURCE_ATTRIBUTION_JUNK = new Set([
+  'direct',
+  'organic',
+  'referral',
+  'ai_studio',
+  'ai studio',
+  'aistudio',
+  'ai-studio',
+  'leadconnector',
+  'lead connector',
+  'api',
+  'manual',
+  'import',
+  'csv',
+  'unknown',
+  'null',
+  'undefined',
+  'other',
+  'none',
+  'n/a',
+  'na',
+  '-',
+]);
+
+function isSourceQuestion(q) {
+  return /^(source|contact\s*source|session\s*source|attribution)$/i.test(String(q || '').trim());
+}
+
+function friendlySourceAnswer(value) {
+  const raw = str(value);
+  if (!raw) return '';
+  const key = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const compact = key.replace(/\s+/g, '');
+  if (
+    SOURCE_ATTRIBUTION_JUNK.has(key)
+    || SOURCE_ATTRIBUTION_JUNK.has(compact)
+    || SOURCE_ATTRIBUTION_JUNK.has(raw.toLowerCase())
+    || /^ai[_\s-]?studio$/i.test(raw)
+  ) {
+    return 'Website';
+  }
+  return raw;
+}
+
 /**
  * @param {unknown} raw
  * @returns {{ q: string, a: string }[]}
@@ -59,9 +104,10 @@ function normalizeFormAnswers(raw) {
   for (const row of list) {
     if (!row || typeof row !== 'object') continue;
     const q = humanizeLabel(row.q || row.label || row.name || row.key || '');
-    const a = str(row.a != null ? row.a : row.value != null ? row.value : row.answer).slice(0, MAX_A);
+    let a = str(row.a != null ? row.a : row.value != null ? row.value : row.answer).slice(0, MAX_A);
     if (!q || !a) continue;
     if (isInternalField(q, row.key || row.id)) continue;
+    if (isSourceQuestion(q)) a = friendlySourceAnswer(a) || a;
     const dedupe = q.toLowerCase();
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
