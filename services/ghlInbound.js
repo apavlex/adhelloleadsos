@@ -480,7 +480,15 @@ async function processWorkflowWebhook(body, opts = {}) {
 
   if (parsed.kind === 'form') {
     const attr = parsed.attribution;
-    const eventLabel = [parsed.label, attr.adSource].filter(Boolean).join(' · ');
+    const { websiteFormLabel } = require('./websiteFormLabel');
+    const formLabel = websiteFormLabel({
+      formName: parsed.label,
+      label: parsed.label,
+      websiteUrl: (parsed.contact && parsed.contact.website) || lead.website || '',
+      businessName: (parsed.contact && parsed.contact.companyName) || '',
+    });
+    // Keep paid-channel tip only when the form name itself is real (not Direct/AI Studio).
+    const eventLabel = [formLabel, attr.adSource].filter(Boolean).join(' · ');
     const formEvent = {
       id: parsed.eventId ? `form:${parsed.eventId}` : '',
       type: 'form',
@@ -497,7 +505,7 @@ async function processWorkflowWebhook(body, opts = {}) {
       inboundEvents: appendInboundEvent(priorFormEvents, formEvent),
       logs: [{ type: 'inbound_form', message: formLogMessage(parsed), timestamp: parsed.at }],
     };
-    if (parsed.label) patch.inboundFormName = parsed.label;
+    if (formLabel) patch.inboundFormName = formLabel;
     if (attr.adSource) patch.adSource = attr.adSource;
     for (const k of ['utmSource', 'utmMedium', 'utmCampaign', 'utmContent', 'landingUrl']) {
       if (attr[k]) patch[k] = attr[k];
@@ -518,7 +526,7 @@ async function processWorkflowWebhook(body, opts = {}) {
         name: contact.name || contact.full_name || lead.title || 'Lead',
         phone: contact.phone || lead.phone || null,
         email: contact.email || lead.email || null,
-        formName: parsed.label || 'Website form',
+        formName: formLabel,
         preview: formEvent.preview,
         source: 'ghl',
         at: parsed.at,
@@ -526,7 +534,7 @@ async function processWorkflowWebhook(body, opts = {}) {
         id: formEvent.id || undefined,
       }, {
         lead: { ...lead, ...patch },
-        formName: parsed.label,
+        formName: formLabel,
         contactEmail: contact.email || lead.email,
         silent: true, // single notify via notifyInboundEvent (Reviews only)
       });

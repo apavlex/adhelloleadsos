@@ -10,6 +10,7 @@ const ghlClient = require('./ghlClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { appendInboundEvent } = require('./inboundEvents');
 const { notifyInboundEvent } = require('./inboundPush');
+const { websiteFormLabel } = require('./websiteFormLabel');
 const { findLocalLeadMatch, pullContactToLead } = require('./ghlSync');
 
 const THROTTLE_MS = 45 * 1000;
@@ -65,7 +66,11 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
 
   const now = Date.now();
   const minInterval = Number(opts.minIntervalMs) > 0 ? Number(opts.minIntervalMs) : THROTTLE_MS;
-  const rawState = dbService.getKvSync(throttleKey(wid));
+  const rawKv = dbService.getKvSync(throttleKey(wid));
+  let rawState = rawKv;
+  if (typeof rawKv === 'string') {
+    try { rawState = JSON.parse(rawKv); } catch (_) { rawState = null; }
+  }
   const priorState = {
     at: Number(rawState && rawState.at) || 0,
     watermarkMs: Number(rawState && rawState.watermarkMs) || 0,
@@ -146,7 +151,12 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     if (!shouldNotify) continue;
 
     const at = new Date(addedMs).toISOString();
-    const label = sourceHint(contact) || 'Website form';
+    const label = websiteFormLabel({
+      formName: sourceHint(contact),
+      label: sourceHint(contact),
+      websiteUrl: contact.website || contact.websiteUrl || '',
+      businessName: contact.companyName || '',
+    });
     const formEvent = {
       id: formEventId,
       type: 'form',

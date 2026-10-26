@@ -707,6 +707,8 @@ async function attachFormLead(workspaceId, formLead, match = {}) {
             formName: entry.formName,
             source: entry.source,
             preview: entry.preview,
+            phone: entry.phone,
+            email: entry.email,
           }).catch((err) => console.warn('[appointmentPackages] member SMS failed:', err && err.message));
         }
       } catch (linkErr) {

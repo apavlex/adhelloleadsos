@@ -60,6 +60,45 @@ function notifyMissedCallTextSent({ workspaceId, lead, preview, outcome }) {
   });
 }
 
+/** One phone ping per contact even when ContactCreate + Form sync both fire. */
+const FORM_NOTIFY_DEDUPE_MS = 15 * 60 * 1000;
+
+function formNotifyDedupeKey(workspaceId, lead) {
+  const wid = String(workspaceId || '').trim();
+  const ghlId = String((lead && lead.ghlContactId) || '').trim();
+  const leadKey = String((lead && lead.key) || '').trim();
+  const id = ghlId || leadKey;
+  if (!wid || !id) return '';
+  return `formLeadNotify:${wid}:${id}`;
+}
+
+/**
+ * Returns true the first time we should phone-notify this form lead; false if
+ * ContactCreate / Form Submitted / pull-sync already pinged within the window.
+ */
+function readFormNotifyClaim(key) {
+  const raw = dbService.getKvSync(key);
+  if (!raw) return null;
+  try {
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch (_) {
+    return null;
+  }
+}
+
+function claimFormLeadNotify(workspaceId, lead, opts = {}) {
+  const key = formNotifyDedupeKey(workspaceId, lead);
+  if (!key) return true;
+  const windowMs = Number(opts.windowMs) > 0 ? Number(opts.windowMs) : FORM_NOTIFY_DEDUPE_MS;
+  const now = Date.now();
+  const prior = readFormNotifyClaim(key);
+  if (prior && Number(prior.at) > 0 && now - Number(prior.at) < windowMs) {
+    return false;
+  }
+  dbService.setKvSync(key, { at: now, leadKey: String((lead && lead.key) || '') });
+  return true;
+}
+
 /** Fire-and-forget; never throws. */
 function notifyInboundEvent({ workspaceId, lead, event }) {
   const wid = String(workspaceId || (lead && lead.workspaceId) || '').trim();
@@ -87,6 +126,9 @@ function notifyInboundEvent({ workspaceId, lead, event }) {
         sent = (result && result.sent) || 0;
       }
     }
+    if (eventType === 'form' && !claimFormLeadNotify(wid, lead)) {
+      return { sent, deduped: true };
+    }
     try {
       const memberResult = await require('./memberGhlAlerts').notifyEnabledMembers({
         workspaceId: wid,
@@ -102,4 +144,11 @@ function notifyInboundEvent({ workspaceId, lead, event }) {
   });
 }
 
-module.exports = { inboundPushPayload, notifyInboundEvent, notifyMissedCallTextSent };
+module.exports = {
+  inboundPushPayload,
+  notifyInboundEvent,
+  notifyMissedCallTextSent,
+  claimFormLeadNotify,
+  formNotifyDedupeKey,
+  FORM_NOTIFY_DEDUPE_MS,
+};

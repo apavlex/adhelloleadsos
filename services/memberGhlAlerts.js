@@ -288,16 +288,13 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
 
     const memberActivity = require('./memberActivity');
     const push = require('./pushNotifications');
+    const { websiteFormLabel } = require('./websiteFormLabel');
     const who = String(lead.title || lead.name || '').trim()
       || String(lead.phone || '').trim()
       || 'Unknown contact';
     const typeLabel = TYPE_LABELS[type] || type;
-    const label = String((event && event.label) || '').trim();
+    const rawLabel = String((event && event.label) || lead.inboundFormName || '').trim();
     const preview = String((event && event.preview) || '').replace(/\s+/g, ' ').trim();
-    const body = [label, preview].filter(Boolean).join(' · ').slice(0, 200)
-      || (type === 'form'
-        ? 'New website form lead — open to call them.'
-        : (type === 'sms' ? 'Tap to reply in Lead Connector.' : 'Tap to call back.'));
 
     const customersByMember = new Map();
     let sent = 0;
@@ -307,21 +304,42 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
         customers = await work.listCustomers(network.id, member.id);
         customersByMember.set(member.id, customers);
       }
-      const customer = matchCustomerForInbound(customers, {
+      // Always create/match a Reviews profile so the tap opens the lead card.
+      // eslint-disable-next-line no-await-in-loop
+      const customer = await ensureCustomerForInbound(network, member, customers, {
+        title: who,
         ghlContactId: lead.ghlContactId,
         email: lead.email,
         phone: lead.phone,
+        type,
       });
-      const path = customer ? profileOpenHref(customer) : '';
+      const path = customer ? profileOpenHref(customer) : '/customers';
       const href = memberAppUrl(network, member, path);
+      // eslint-disable-next-line no-await-in-loop
+      const pkg = await memberAppointmentLink.findPackageForMember(wid, member, network).catch(() => null);
+      const formLabel = type === 'form'
+        ? websiteFormLabel({
+          formName: lead.inboundFormName,
+          label: rawLabel,
+          websiteUrl: (pkg && pkg.websiteUrl) || lead.website || '',
+          businessName: (pkg && pkg.businessName) || '',
+          companyName: member.companyName || '',
+        })
+        : rawLabel;
+      const title = type === 'form'
+        ? `New website lead: ${who}`.slice(0, 120)
+        : `${typeLabel}: ${who}`.slice(0, 120);
+      const body = type === 'form'
+        ? [formLabel, preview].filter(Boolean).join(' · ').slice(0, 200) || 'Open to call them.'
+        : ([rawLabel, preview].filter(Boolean).join(' · ').slice(0, 200)
+          || (type === 'sms' ? 'Tap to reply in Lead Connector.' : 'Tap to call back.'));
       memberActivity.add(network.id, member.id, {
         kind: type,
-        title: `${typeLabel}: ${who}`.slice(0, 140),
+        title: title.slice(0, 140),
         body,
         href,
       });
       try {
-        const pkg = await memberAppointmentLink.findPackageForMember(wid, member, network).catch(() => null);
         const result = await push.sendMemberPush(
           {
             networkId: network.id,
@@ -330,10 +348,11 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
             workspaceId: wid,
           },
           {
-            title: `${typeLabel}: ${who}`.slice(0, 120),
+            title,
             body,
             url: href,
-            tag: `member-ghl-${type}-${String(lead.key || '').slice(0, 40)}`,
+            // Stable tag so ContactCreate + Form sync replace instead of stacking.
+            tag: `member-ghl-${type}-${String(lead.ghlContactId || lead.key || '').slice(0, 48)}`,
           },
         );
         sent += (result && result.sent) || 0;
