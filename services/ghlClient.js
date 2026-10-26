@@ -609,10 +609,11 @@ async function listFormSubmissions(integrationEnv, {
   if (formId) query.formId = String(formId).trim();
   if (startAt) query.startAt = String(startAt).trim();
   if (endAt) query.endAt = String(endAt).trim();
+  // Forms module requires Version: v3 (2021-07-28 returns auth/empty failures).
   const data = await ghlRequest('GET', '/forms/submissions', {
     integrationEnv,
     query,
-    apiVersion: '2021-07-28',
+    apiVersion: 'v3',
   });
   return {
     submissions: Array.isArray(data.submissions) ? data.submissions : [],

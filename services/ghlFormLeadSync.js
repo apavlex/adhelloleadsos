@@ -54,8 +54,25 @@ function contactUpdatedMs(contact) {
 }
 
 function submissionCreatedMs(submission) {
-  const t = Date.parse(String((submission && submission.createdAt) || ''));
+  const raw = submission && (
+    submission.createdAt
+    || submission.submittedAt
+    || submission.dateAdded
+    || submission.updatedAt
+  );
+  const t = Date.parse(String(raw || ''));
   return Number.isFinite(t) ? t : 0;
+}
+
+function lastFormEventMs(lead) {
+  const prior = Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : [];
+  let best = 0;
+  for (const e of prior) {
+    if (!e || String(e.type || '') !== 'form') continue;
+    const t = Date.parse(String(e.at || ''));
+    if (Number.isFinite(t) && t > best) best = t;
+  }
+  return best;
 }
 
 function ymd(ms) {
@@ -242,20 +259,38 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
 
   // ── 1) Form submissions (re-submits by the same contact get a new id) ──────
   let submissions = [];
+  let submissionsFailed = false;
+  async function pullSubmissions(query) {
+    const batch = await ghlClient.listFormSubmissions(integrationEnv, query);
+    return Array.isArray(batch.submissions) ? batch.submissions : [];
+  }
   try {
-    const batch = await ghlClient.listFormSubmissions(integrationEnv, {
+    // GHL startAt/endAt are YYYY-MM-DD; endAt defaults to "today" — use today, not tomorrow.
+    submissions = await pullSubmissions({
       limit,
       startAt: ymd(Math.min(scanCutoff, notifyFloor)),
-      endAt: ymd(now + 86400000),
+      endAt: ymd(now),
     });
-    submissions = Array.isArray(batch.submissions) ? batch.submissions : [];
   } catch (err) {
+    console.warn('[ghlFormLeadSync] listFormSubmissions (dated) failed:', err && err.message);
+  }
+  try {
+    // Retry bare when dated call failed or returned nothing (wrong Version / date filter quirks).
+    if (!submissions.length) {
+      submissions = await pullSubmissions({ limit });
+    }
+  } catch (err) {
+    submissionsFailed = true;
     console.warn('[ghlFormLeadSync] listFormSubmissions failed:', err && err.message);
   }
 
   const recentSubs = submissions
     .filter((s) => s && String(s.id || '').trim())
-    .filter((s) => submissionCreatedMs(s) >= notifyFloor)
+    .filter((s) => {
+      const created = submissionCreatedMs(s);
+      // Missing timestamps: still treat as notify-eligible (Lead Connector quirks).
+      return !created || created >= notifyFloor;
+    })
     .sort((a, b) => submissionCreatedMs(b) - submissionCreatedMs(a));
 
   for (const sub of recentSubs) {
@@ -414,6 +449,78 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     } catch (err) {
       console.warn('[ghlFormLeadSync] stamp failed:', err && err.message);
     }
+  }
+
+  // ── 3) Retouch known form leads (submissions empty / contact not on first page) ─
+  // Same person filling again often keeps dateAdded old, so listContacts misses them.
+  // Pull each already-stamped form contact by id and notify on a fresh dateUpdated.
+  const knownFormLeads = localLeads.filter((l) => {
+    if (!l || !String(l.ghlContactId || '').trim()) return false;
+    const events = Array.isArray(l.inboundEvents) ? l.inboundEvents : [];
+    return events.some((e) => e && String(e.type || '') === 'form');
+  });
+  for (const priorLead of knownFormLeads) {
+    const ghlId = String(priorLead.ghlContactId || '').trim();
+    if (!ghlId || seenContactIds.has(ghlId)) continue;
+    let fullContact = null;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      fullContact = await ghlClient.getContact(ghlId, integrationEnv);
+    } catch (err) {
+      console.warn('[ghlFormLeadSync] retouch getContact failed:', err && err.message);
+      continue;
+    }
+    if (!fullContact || typeof fullContact !== 'object') continue;
+    const updatedMs = contactUpdatedMs(fullContact);
+    if (!updatedMs || updatedMs < notifyFloor) continue;
+    const lastForm = lastFormEventMs(priorLead);
+    if (lastForm && updatedMs <= lastForm + 5000) continue;
+    const retouchId = `form:ghl-touch:${ghlId}:${updatedMs}`;
+    if (hasFormEvent(priorLead, retouchId)) continue;
+
+    let answers = answersFromContact(fullContact, fieldCatalog);
+    if (!answers.length || answers.every((a) => ['Company', 'Source', 'Address', 'Website', 'Type'].includes(a.q))) {
+      try {
+        const { fetchContactFormAnswers } = require('./ghlFormAnswers');
+        // eslint-disable-next-line no-await-in-loop
+        const richer = await fetchContactFormAnswers(fullContact, integrationEnv, {
+          catalog: fieldCatalog,
+          email: fullContact.email,
+          phone: fullContact.phone,
+          includeCoreFallback: false,
+        });
+        if (richer.length) answers = richer;
+      } catch (_) { /* keep contact-derived answers */ }
+    }
+    const at = new Date(now).toISOString();
+    const label = websiteFormLabel({
+      formName: sourceHint(fullContact),
+      label: sourceHint(fullContact),
+      websiteUrl: fullContact.website || fullContact.websiteUrl || '',
+      businessName: fullContact.companyName || '',
+    });
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const out = await stampFormLead({
+        wid,
+        lead: priorLead,
+        localLeads,
+        formEventId: retouchId,
+        at,
+        label,
+        answers,
+        contact: fullContact,
+      });
+      synced += out.synced;
+      notified += out.notified;
+      seenContactIds.add(ghlId);
+    } catch (err) {
+      console.warn('[ghlFormLeadSync] retouch stamp failed:', err && err.message);
+    }
+  }
+
+  if (submissionsFailed && !synced && !notified) {
+    console.warn('[ghlFormLeadSync] no form submissions available — ensure GHL private integration has forms.readonly');
   }
 
   dbService.setKvSync(throttleKey(wid), {

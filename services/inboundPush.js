@@ -111,13 +111,18 @@ function claimFormLeadNotify(workspaceId, lead, opts = {}) {
       const priorForms = (Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : [])
         .filter((e) => e && String(e.type || '') === 'form' && String(e.id || '') !== eventId);
       let latestPrior = 0;
+      let latestPriorIsContactOnly = false;
       for (const e of priorForms) {
         const t = Date.parse(String(e.at || ''));
-        if (Number.isFinite(t) && t > latestPrior) latestPrior = t;
+        if (Number.isFinite(t) && t > latestPrior) {
+          latestPrior = t;
+          latestPriorIsContactOnly = /^form:ghl-contact:/i.test(String(e.id || ''));
+        }
       }
-      // First-fill race (ContactCreate then submission seconds later): skip.
-      if (latestPrior && now - latestPrior < 2 * 60 * 1000) {
-        if (eventKey) dbService.setKvSync(eventKey, { at: now, leadKey: String((lead && lead.key) || '') });
+      // First-fill race only: ContactCreate (or contact stamp) then submission
+      // seconds later. Do NOT burn the submission claim key when skipping — a
+      // later retry after the race window must still be allowed to ping.
+      if (latestPriorIsContactOnly && latestPrior && now - latestPrior < 2 * 60 * 1000) {
         return false;
       }
     }

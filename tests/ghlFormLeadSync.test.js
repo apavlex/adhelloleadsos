@@ -186,6 +186,62 @@ describe('ghlFormLeadSync', () => {
     assert.ok(rows.some((r) => r.type === 'form' && /Pavlenko/i.test(r.title)));
   });
 
+  it('retouches a known form lead when submissions are empty and contact falls off listContacts', async () => {
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'key',
+      GHL_LOCATION_ID: 'loc_tpr',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
+
+    const added = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const contact = {
+      id: 'ghl_alex_touch',
+      name: 'Alex',
+      phone: '+13608726483',
+      email: 'alex@adhelo.io',
+      source: 'ai_studio',
+      dateAdded: added,
+      dateUpdated: added,
+    };
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [{ ...contact }] }));
+    mock.method(ghlClient, 'getContact', async () => contact);
+
+    const first = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
+    assert.equal(first.notified, 1);
+
+    const afterFirst = await dbService.getAllLeads(WID);
+    const alexLead = afterFirst.find((l) => l.ghlContactId === 'ghl_alex_touch');
+    assert.ok(alexLead);
+    const agedAt = new Date(Date.now() - 20 * 60 * 1000).toISOString();
+    const agedEvents = (alexLead.inboundEvents || []).map((e) => (
+      e && e.id === 'form:ghl-contact:ghl_alex_touch' ? { ...e, at: agedAt } : e
+    ));
+    await dbService.updateLead(alexLead.key, { inboundEvents: agedEvents, inboundHandledAt: agedAt }, WID);
+    dbService.setKvSync(`formLeadNotify:${WID}:ghl_alex_touch`, { at: Date.now() - 20 * 60 * 1000 });
+
+    // Re-fill: submissions API empty, contact no longer on the first listContacts page.
+    const updatedAt = new Date().toISOString();
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [] }));
+    mock.method(ghlClient, 'getContact', async () => ({
+      ...contact,
+      name: 'Alex Pavlenko',
+      dateUpdated: updatedAt,
+    }));
+
+    const second = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
+    assert.equal(second.synced, 1);
+    assert.equal(second.notified, 1);
+
+    const leads = await dbService.getAllLeads(WID);
+    const lead = leads.find((l) => l.ghlContactId === 'ghl_alex_touch');
+    assert.ok(lead);
+    assert.match(String(lead.title || ''), /Pavlenko/i);
+    const events = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+    assert.ok(events.some((e) => e && String(e.id || '').startsWith('form:ghl-touch:ghl_alex_touch:')));
+  });
+
   it('does not phone-notify historical GHL contacts older than the notify window', async () => {
     mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
       GHL_API_KEY: 'key',
