@@ -100,4 +100,15 @@ describe('ghlFormAnswers', () => {
       ['Name', 'Phone', 'Email', 'Address'],
     );
   });
+
+  it('rewrites Source ai_studio / Direct to Website', () => {
+    const out = normalizeFormAnswers([
+      { q: 'Source', a: 'ai_studio' },
+      { q: 'Contact Source', a: 'Direct' },
+      { q: 'Project Interest', a: 'Hardwood Collection' },
+    ]);
+    assert.equal(out.find((a) => a.q === 'Source').a, 'Website');
+    assert.equal(out.find((a) => a.q === 'Contact Source').a, 'Website');
+    assert.equal(out.find((a) => a.q === 'Project Interest').a, 'Hardwood Collection');
+  });
 });
