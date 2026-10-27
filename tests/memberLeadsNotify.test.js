@@ -45,23 +45,26 @@ describe('member leads + referral notifications', () => {
     const customers = fs.readFileSync(path.join(root, 'views/member_app/customers.ejs'), 'utf8');
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     const work = fs.readFileSync(path.join(root, 'services/memberWork.js'), 'utf8');
-    assert.match(page, /Mark as lead/);
-    assert.match(page, /Mark as customer/);
     assert.match(page, /maMarkLeadForm/);
+    assert.match(page, /maMarkCustomerForm/);
     assert.match(page, /ma-titlebar__actions/);
-    assert.match(page, /form="maMarkLeadForm"/);
-    // Source tag (Manual / Website form / Referral / …) on the lead profile titlebar.
-    assert.match(page, /sourceLabel/);
-    assert.match(page, /Website form/);
-    assert.match(page, /How this contact was added/);
-    // Mark as lead sits in the titlebar actions (right of the name), not a row below.
+    assert.match(page, /ma-stage-btn/);
+    // One stage button by the name (Lead / Customer / Referral) — no source/Lead pill clutter.
+    assert.match(page, /ma-stage-btn--lead/);
+    assert.match(page, /ma-stage-btn--customer/);
+    assert.match(page, /ma-stage-btn--referral/);
+    assert.match(page, />Lead</);
+    assert.match(page, />Customer</);
+    assert.match(page, /'Referral'|Referral contact/);
+    assert.doesNotMatch(page, /How this contact was added/);
+    assert.doesNotMatch(page, /Mark as customer/);
+    assert.doesNotMatch(page, /Mark as lead/);
     assert.match(
       page,
-      /ma-titlebar[\s\S]*?ma-titlebar__actions[\s\S]*?Mark as lead[\s\S]*?<\/div>\s*<\/div>/,
+      /ma-titlebar[\s\S]*?ma-titlebar__actions[\s\S]*?ma-stage-btn[\s\S]*?<\/div>\s*<\/div>/,
     );
     assert.doesNotMatch(page, /ma-titlebar__actions"[^>]*justify-content:flex-start/);
     assert.match(page, /mark-lead/);
-    assert.doesNotMatch(page, /for="cuName"[\s\S]*Mark as lead/);
     assert.match(referrals, /Mark as customer/);
     assert.match(referrals, /mark-customer/);
     assert.match(referrals, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/to-customer/);

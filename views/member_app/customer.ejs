@@ -23,34 +23,41 @@
       <input type="hidden" name="stay" value="1">
     </form>
     <% } %>
+    <%
+      const _isReferralStage = !!(
+        customer.isReferralPartner
+        || customer.referralId
+        || customer.source === 'referral'
+      );
+      // One stage label by the name: Referral → Lead → Quote → Customer.
+      const _stage = _isReferralStage ? 'referral'
+        : (_kind === 'lead' ? 'lead'
+          : (_kind === 'quote' ? 'quote' : 'customer'));
+      const _stageLabel = _stage === 'referral' ? 'Referral'
+        : (_stage === 'lead' ? 'Lead'
+          : (_stage === 'quote' ? 'Quote' : 'Customer'));
+    %>
     <div class="ma-titlebar">
       <h1 class="ma-page-title"><%= customer.name %></h1>
       <div class="ma-titlebar__actions">
-        <%
-          const _srcLabel = typeof sourceLabel !== 'undefined' && sourceLabel
-            ? sourceLabel
-            : (customer.source === 'website_form' ? 'Website form'
-              : customer.source === 'agency' ? 'Agency'
-              : customer.source === 'referral' || customer.referralId ? 'Referral'
-              : customer.source === 'csv' ? 'CSV import'
-              : customer.source === 'ghl' ? 'CRM'
-              : 'Manual');
-          const _srcPill = typeof sourcePillClass !== 'undefined' && sourcePillClass
-            ? sourcePillClass
-            : (customer.source === 'referral' || customer.referralId ? 'ma-pill--sent'
-              : customer.source === 'website_form' || customer.source === 'agency' ? 'ma-pill--accepted'
-              : customer.source === 'ghl' ? 'ma-pill--pending'
-              : 'ma-pill--job-lead');
-        %>
-        <span class="ma-pill <%= _srcPill %>" title="How this contact was added"><%= _srcLabel %></span>
-        <% if (_kind === 'lead') { %><span class="ma-pill ma-pill--accepted">Lead</span><% } %>
-        <% if (_kind === 'quote') { %><span class="ma-pill ma-pill--job-estimate">Quote</span><% } %>
-        <% if (!_flooring) { %>
-          <% if (_kind === 'lead') { %>
-          <button type="submit" form="maMarkCustomerForm" class="ma-btn ma-btn--sm ma-mark-lead">Mark as customer</button>
-          <% } else { %>
-          <button type="submit" form="maMarkLeadForm" class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead">Mark as lead</button>
-          <% } %>
+        <% if (_flooring) { %>
+        <% /* Stage is the Customer / Lead / Quote control below — no extra chips by the name. */ %>
+        <% } else if (_stage === 'referral') { %>
+        <span class="ma-btn ma-btn--sm ma-stage-btn ma-stage-btn--referral" title="Referral contact"><%= _stageLabel %></span>
+        <% } else if (_stage === 'lead') { %>
+        <button
+          type="submit"
+          form="maMarkCustomerForm"
+          class="ma-btn ma-btn--sm ma-stage-btn ma-stage-btn--lead"
+          title="Stage: Lead — tap to mark as Customer"
+        >Lead</button>
+        <% } else { %>
+        <button
+          type="submit"
+          form="maMarkLeadForm"
+          class="ma-btn ma-btn--sm ma-btn--soft ma-stage-btn ma-stage-btn--customer"
+          title="Stage: Customer — tap to mark as Lead"
+        >Customer</button>
         <% } %>
       </div>
     </div>
