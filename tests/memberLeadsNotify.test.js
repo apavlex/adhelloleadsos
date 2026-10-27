@@ -49,11 +49,11 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /maMarkCustomerForm/);
     assert.match(page, /ma-titlebar__actions/);
     assert.match(page, /ma-stage-btn/);
-    // Lead / Referral stage badges; Customer stage pill removed — only Mark as lead.
-    assert.match(page, /ma-stage-btn--lead/);
+    // Referral stage badge only; Lead/Customer pills removed — just Mark as customer / Mark as lead.
+    assert.doesNotMatch(page, /ma-stage-btn--lead/);
     assert.doesNotMatch(page, /ma-stage-btn--customer/);
     assert.match(page, /ma-stage-btn--referral/);
-    assert.match(page, /ma-stage-btn--lead[\s\S]*?ma-btn--ghost[\s\S]*?Mark as customer/);
+    assert.match(page, /ma-btn--ghost[\s\S]*?Mark as customer/);
     assert.match(page, /ma-btn--ghost[\s\S]*?Mark as lead/);
     assert.match(page, /'Referral'|Referral contact/);
     assert.doesNotMatch(page, /How this contact was added/);
