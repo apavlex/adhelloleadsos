@@ -49,17 +49,17 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /maMarkCustomerForm/);
     assert.match(page, /ma-titlebar__actions/);
     assert.match(page, /ma-stage-btn/);
-    // Stage badge + Mark as customer / Mark as lead next to the name — no source pill clutter.
+    // Lead / Referral stage badges; Customer stage pill removed — only Mark as lead.
     assert.match(page, /ma-stage-btn--lead/);
-    assert.match(page, /ma-stage-btn--customer/);
+    assert.doesNotMatch(page, /ma-stage-btn--customer/);
     assert.match(page, /ma-stage-btn--referral/);
     assert.match(page, /ma-stage-btn--lead[\s\S]*?ma-btn--ghost[\s\S]*?Mark as customer/);
-    assert.match(page, /ma-stage-btn--customer[\s\S]*?ma-btn--ghost[\s\S]*?Mark as lead/);
+    assert.match(page, /ma-btn--ghost[\s\S]*?Mark as lead/);
     assert.match(page, /'Referral'|Referral contact/);
     assert.doesNotMatch(page, /How this contact was added/);
     assert.match(
       page,
-      /ma-titlebar[\s\S]*?ma-titlebar__actions[\s\S]*?ma-stage-btn[\s\S]*?<\/div>\s*<\/div>/,
+      /ma-titlebar[\s\S]*?ma-titlebar__actions[\s\S]*?Mark as lead[\s\S]*?<\/div>\s*<\/div>/,
     );
     assert.doesNotMatch(page, /ma-titlebar__actions"[^>]*justify-content:flex-start/);
     assert.match(page, /mark-lead/);
