@@ -131,6 +131,8 @@ describe('ghlFormLeadSync', () => {
     }));
     mock.method(ghlClient, 'isConfigured', () => true);
     mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    // Successful phone delivery so the contact claim blocks the same-fill submission race.
+    mock.method(memberGhlAlerts, 'notifyEnabledMembers', async () => ({ sent: 1, members: 1 }));
 
     const contact = {
       id: 'ghl_alex',
@@ -150,19 +152,24 @@ describe('ghlFormLeadSync', () => {
     const first = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
     assert.equal(first.notified, 1);
 
-    // Age the first form stamp + notify claim so the re-fill is not treated as a
-    // ContactCreate race (dedupe window is 2 minutes for first-fill doubles).
-    const afterFirst = await dbService.getAllLeads(WID);
-    const alexLead = afterFirst.find((l) => l.ghlContactId === 'ghl_alex');
-    assert.ok(alexLead);
-    const agedAt = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-    const agedEvents = (alexLead.inboundEvents || []).map((e) => (
-      e && e.id === 'form:ghl-contact:ghl_alex' ? { ...e, at: agedAt } : e
-    ));
-    await dbService.updateLead(alexLead.key, { inboundEvents: agedEvents, inboundHandledAt: agedAt }, WID);
-    dbService.setKvSync(`formLeadNotify:${WID}:ghl_alex`, { at: Date.now() - 10 * 60 * 1000 });
+    // Same first fill arriving as a submission a few minutes later must NOT
+    // ring the phone again (ContactCreate / contact stamp already did).
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({
+      submissions: [{
+        id: 'sub_alex_1',
+        contactId: 'ghl_alex',
+        name: 'Alex',
+        email: 'alex@adhelo.io',
+        phone: '+13608726483',
+        createdAt: new Date().toISOString(),
+        others: { project_interest: 'Carpet' },
+      }],
+    }));
+    const sameFill = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
+    assert.equal(sameFill.synced, 1);
+    assert.equal(sameFill.notified, 0, 'first submission after contact stamp is the same fill');
 
-    // Re-fill: same GHL contact, new submission id, fuller name.
+    // True re-fill: contact already has a real submission stamped, new id arrives.
     mock.method(ghlClient, 'listFormSubmissions', async () => ({
       submissions: [{
         id: 'sub_alex_2',
@@ -189,6 +196,7 @@ describe('ghlFormLeadSync', () => {
     assert.match(String(lead.title || ''), /Pavlenko/i);
     const events = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
     assert.ok(events.some((e) => e && e.id === 'form:ghl-contact:ghl_alex'));
+    assert.ok(events.some((e) => e && e.id === 'form:ghl-sub:sub_alex_1'));
     assert.ok(events.some((e) => e && e.id === 'form:ghl-sub:sub_alex_2'));
     const rows = pendingInboundItems(leads);
     assert.ok(rows.some((r) => r.type === 'form' && /Pavlenko/i.test(r.title)));

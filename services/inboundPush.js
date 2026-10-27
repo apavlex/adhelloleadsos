@@ -130,17 +130,14 @@ function shouldAttemptFormNotify(workspaceId, lead, opts = {}) {
     if (deliveredRecently) {
       const priorForms = (Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : [])
         .filter((e) => e && String(e.type || '') === 'form' && String(e.id || '') !== eventId);
-      let latestPrior = 0;
-      let latestPriorIsContactOnly = false;
-      for (const e of priorForms) {
-        const t = Date.parse(String(e.at || ''));
-        if (Number.isFinite(t) && t > latestPrior) {
-          latestPrior = t;
-          latestPriorIsContactOnly = /^form:ghl-contact:/i.test(String(e.id || ''));
-        }
-      }
-      // First-fill race only when the contact stamp already delivered a push.
-      if (latestPriorIsContactOnly && latestPrior && now - latestPrior < 2 * 60 * 1000) {
+      // ContactCreate / contact stamp + later form:ghl-sub are the SAME first fill
+      // arriving on two pipes (webhook/contact list, then submissions poll ~2–4 min).
+      // Only treat as a true re-fill when a prior real submission already exists.
+      const hasPriorRealSubmission = priorForms.some((e) => {
+        const id = String(e.id || '');
+        return id && !/^(form:ghl-contact:|form:contact-create:)/i.test(id);
+      });
+      if (!hasPriorRealSubmission) {
         return false;
       }
     }

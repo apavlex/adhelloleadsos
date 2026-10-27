@@ -98,6 +98,39 @@ test('website form leads skip Agency OS workspace push (Reviews-only)', async (t
   assert.equal(again.sent, 0);
 });
 
+test('ContactCreate then form:ghl-sub does not double-notify the same first fill', async (t) => {
+  const memberGhlAlerts = require('../services/memberGhlAlerts');
+  let memberCalls = 0;
+  t.mock.method(memberGhlAlerts, 'notifyEnabledMembers', async () => {
+    memberCalls += 1;
+    return { sent: 1, members: 1 };
+  });
+  const lead = {
+    key: 'lead:form_race',
+    title: 'bob test',
+    ghlContactId: 'ghl_bob_race',
+    inboundEvents: [
+      { id: 'form:contact-create:lead:form_race', type: 'form', at: new Date(Date.now() - 4 * 60 * 1000).toISOString() },
+    ],
+  };
+  const first = await notifyInboundEvent({
+    workspaceId: WID,
+    lead,
+    event: { id: 'form:contact-create:lead:form_race', type: 'form', label: 'Website' },
+  });
+  assert.equal(first.sent, 1);
+  assert.equal(memberCalls, 1);
+
+  // ~4 minutes later the submissions poll finds the same fill.
+  const again = await notifyInboundEvent({
+    workspaceId: WID,
+    lead,
+    event: { id: 'form:ghl-sub:sub_bob_1', type: 'form', label: 'Website' },
+  });
+  assert.equal(again.deduped, true);
+  assert.equal(memberCalls, 1, 'same first fill must not ring twice');
+});
+
 test('retries form notify when the first attempt sent zero pushes', async (t) => {
   const memberGhlAlerts = require('../services/memberGhlAlerts');
   const { formEventNeedsNotifyRetry } = require('../services/inboundPush');
