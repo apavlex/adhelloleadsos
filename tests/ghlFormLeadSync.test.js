@@ -40,6 +40,12 @@ describe('ghlFormLeadSync', () => {
     assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Manual import' }), false);
   });
 
+  it('scheduler runs form lead sync every 2 minutes without opening the app', () => {
+    const sched = fs.readFileSync(path.join(__dirname, '../services/scheduler.js'), 'utf8');
+    assert.match(sched, /ghlFormLeadSync'\)\.syncAllWorkspaces/);
+    assert.match(sched, /GHL form lead sync failed/);
+  });
+
   it('syncRecentFormLeads stamps form inbound + notifies for new GHL contacts', async () => {
     mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
       GHL_API_KEY: 'key',
