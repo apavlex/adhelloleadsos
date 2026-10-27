@@ -136,9 +136,9 @@
     params.get('install') === '1' ||
     params.get('hint') === 'install' ||
     params.get('install') === 'true';
-  // Home root (/m/:token) always offers install first until this is a member Home Screen app.
-  var isHomeRoot = /^\/m\/[^/]+\/?$/.test(String(window.location.pathname || ''));
-  var forceInstall = forceQuery || isHomeRoot;
+  // Only open the sheet when ?install=1 (invite / Get the app links) or the user
+  // taps “Save as a phone app” in Settings — never auto-nag on Home or deep links.
+  var forceInstall = forceQuery;
 
   try { localStorage.removeItem(LEGACY_KEY); } catch (e) { /* private mode */ }
 
@@ -379,29 +379,14 @@
 
   // Safari/Chrome deep links (customer, leads, …): YouTube-style “Open in app” bar.
   // iOS cannot hand HTTPS links to a Home Screen PWA — the bar explains that.
-  var showingOpenAppBanner = showOpenAppBanner();
+  showOpenAppBanner();
 
-  // Home (+ Get the app ?install=1): show install sheet immediately as the first thing.
-  // Skip only when already running as the installed member PWA, or snoozed this session.
+  // Explicit ?install=1 only (Get the app / invite links). No auto-popup on browse.
   if (modal && !alreadyInstalled && forceInstall && !snoozed()) {
     configurePanels();
     modal.hidden = false;
     document.documentElement.style.overflow = 'hidden';
     cleanInstallQueryFromUrl();
-  } else if (modal && !alreadyInstalled && !forceInstall && !snoozed() && !showingOpenAppBanner) {
-    // Non-home pages without the open-app bar: gentle idle prompt once per session.
-    var showInstall = function () {
-      if (alreadyInstalled || snoozed() || !modal) return;
-      configurePanels();
-      modal.hidden = false;
-      document.documentElement.style.overflow = 'hidden';
-      markSnoozed();
-    };
-    if (typeof requestIdleCallback === 'function') {
-      requestIdleCallback(showInstall, { timeout: 2500 });
-    } else {
-      setTimeout(showInstall, 1200);
-    }
   }
 
   // The server reads this so "today" and "this week" match the phone's clock.
