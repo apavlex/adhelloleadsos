@@ -298,6 +298,9 @@ describe('businessReviews', () => {
     assert.match(partial, /Went to review/);
     assert.match(partial, /Private notes/);
     assert.match(partial, /In inbox/);
+    assert.match(partial, /ma-g-rating/);
+    assert.match(partial, /_google_star_row/);
+    assert.match(partial, /ma-bars--google/);
     assert.match(partial, /id="maSeoRankCta"/);
     assert.match(partial, /Get Google Business Rank/);
     assert.match(partial, /https:\/\/adhello\.io\/seo-rank/);
