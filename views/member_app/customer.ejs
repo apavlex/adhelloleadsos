@@ -170,8 +170,14 @@
       });
       const openJob = (jobs || []).find(function (j) { return j.status !== 'completed' && j.status !== 'cancelled'; }) || (jobs || [])[0];
     %>
-    <% if (customer.sharedFromMemberId) { %>
-    <p class="ma-hint" style="margin:0 0 12px">Shared onto your book by a teammate — including their projects. Your other customers stay private.</p>
+    <% if (customer.sharedFromMemberId || (typeof addedByLabel !== 'undefined' && addedByLabel)) { %>
+    <p class="ma-hint" style="margin:0 0 12px">
+      <% if (customer.sharedFromMemberId) { %>
+      Shared onto your book<% if (typeof addedByLabel !== 'undefined' && addedByLabel) { %> by <strong><%= addedByLabel %></strong><% } else { %> by a teammate<% } %> — including their projects. Your other customers stay private.
+      <% } else if (typeof addedByLabel !== 'undefined' && addedByLabel) { %>
+      Added by <strong><%= addedByLabel %></strong>
+      <% } %>
+    </p>
     <% } %>
     <section class="ma-section">
       <div class="ma-section__head">

@@ -106,7 +106,7 @@
             <div style="min-width:0">
               <p class="ma-card__title"><%= lead.name %></p>
               <p class="ma-card__meta">
-                <% if (lead.source === 'agency') { %>Sent by agency<% } else { %><%= lead.formName || 'Website form' %><% } %>
+                <% if (lead.source === 'agency') { %>From your team<% } else { %><%= lead.formName || 'Website form' %><% } %>
                 <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
               </p>
               <% if (_locked || lead.detailsLocked) { %>
@@ -122,7 +122,7 @@
               <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
               <% } %>
             </div>
-            <span class="ma-pill <%= lead.status === 'closed' ? 'ma-pill--lost' : 'ma-pill--accepted' %>"><%= lead.status === 'closed' ? 'Closed' : (lead.source === 'agency' ? 'Agency' : 'Open') %></span>
+            <span class="ma-pill <%= lead.status === 'closed' ? 'ma-pill--lost' : 'ma-pill--accepted' %>"><%= lead.status === 'closed' ? 'Closed' : (lead.source === 'agency' ? 'Team' : 'Open') %></span>
           </div>
           <% if (lead.status !== 'closed') { %>
           <div class="ma-actions">

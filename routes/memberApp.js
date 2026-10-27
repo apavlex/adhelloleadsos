@@ -1953,9 +1953,27 @@ async function renderCustomerPage(res, ctx, {
     };
   });
   let formAnswers = [];
+  let addedByLabel = '';
   if (customer) {
+    addedByLabel = String(customer.addedByName || '').trim();
+    if (!addedByLabel && customer.sharedFromMemberId) {
+      const sharer = teammates.find((t) => t.id === customer.sharedFromMemberId);
+      if (sharer) addedByLabel = String(sharer.label || '').trim();
+      else {
+        try {
+          const mate = await store.getMember(ctx.network.id, customer.sharedFromMemberId);
+          addedByLabel = work.memberAddedByLabel(mate);
+        } catch (_) { /* ignore */ }
+      }
+    }
+    if (!addedByLabel && customer.isLead) {
+      addedByLabel = work.memberAddedByLabel(ctx.member);
+    }
     try {
-      formAnswers = require('../services/ghlFormAnswers').normalizeFormAnswers(customer.formAnswers);
+      formAnswers = require('../services/ghlFormAnswers').presentFormAnswersForProfile(
+        customer.formAnswers,
+        { addedByName: addedByLabel },
+      );
     } catch (_) {
       formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
     }
@@ -1968,6 +1986,7 @@ async function renderCustomerPage(res, ctx, {
     sharedWithLabels,
     formValues: formValues || customer || {},
     formAnswers,
+    addedByLabel,
     flash: flash || null,
     inviteUrl: inviteUrl || '',
     today,
@@ -1999,7 +2018,11 @@ router.get('/m/:token/customers/import-template.csv', withMember((req, res, ctx)
 }));
 
 router.post('/m/:token/customers/new', form, withMember(async (req, res, ctx) => {
-  const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {}, { source: 'manual' });
+  const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {}, {
+    source: 'manual',
+    addedByMemberId: ctx.member.id,
+    addedByName: work.memberAddedByLabel(ctx.member),
+  });
   if (!result.ok) {
     return renderCustomerPage(res, ctx, { customer: null, formValues: req.body, flash: { error: result.error }, status: 400 });
   }
@@ -2203,7 +2226,10 @@ router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res
 
 /** Mark contact as lead → Leads folder (hidden from Customers list). */
 router.post('/m/:token/customers/c/:id/mark-lead', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'lead');
+  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'lead', {
+    addedByMemberId: ctx.member.id,
+    addedByName: work.memberAddedByLabel(ctx.member),
+  });
   if (!result.ok) {
     const data = await customerPageData(req, ctx, req.params.id);
     if (!data) return res.redirect(303, `${ctx.base}/customers`);

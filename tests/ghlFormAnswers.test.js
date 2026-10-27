@@ -7,6 +7,7 @@ const {
   formLeadNotifyBody,
   addressFromFormAnswers,
   descriptionFromFormAnswers,
+  presentFormAnswersForProfile,
   humanizeLabel,
 } = require('../services/ghlFormAnswers');
 
@@ -168,5 +169,20 @@ describe('ghlFormAnswers', () => {
       normalizeFormAnswers([{ q: 'Notes', a: 'N/A' }, { q: 'Zip', a: '98682' }]).length,
       1,
     );
+  });
+
+  it('presentFormAnswersForProfile replaces Agency OS source with teammate Added by', () => {
+    const out = presentFormAnswersForProfile(
+      [
+        { q: 'Company', a: 'na sharon' },
+        { q: 'Source', a: 'Agency OS' },
+        { q: 'Type', a: 'lead' },
+        { q: 'Address', a: 'BEAVERTON, OR 97007, US' },
+      ],
+      { addedByName: 'Greg Arakelyan' },
+    );
+    assert.ok(out.some((r) => r.q === 'Added by' && r.a === 'Greg Arakelyan'));
+    assert.equal(out.some((r) => /Agency OS|AdHello/i.test(r.a)), false);
+    assert.ok(out.some((r) => r.q === 'Company'));
   });
 });

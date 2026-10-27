@@ -176,7 +176,7 @@ const CUSTOMER_SOURCE_LABELS = {
   ghl: 'CRM',
   referral: 'Referral',
   website_form: 'Website form',
-  agency: 'Agency',
+  agency: 'Team',
 };
 
 /**
@@ -275,6 +275,11 @@ function normalizeCustomer(raw) {
      */
     isLead: c.isLead === true,
     markedAsLeadAt: c.isLead === true && c.markedAsLeadAt ? String(c.markedAsLeadAt) : '',
+    /** Teammate who added / marked this lead (shown on profile instead of “Agency OS”). */
+    addedByMemberId: SCOPE_ID.test(String(c.addedByMemberId || ''))
+      ? String(c.addedByMemberId)
+      : '',
+    addedByName: cleanLine(c.addedByName, 80),
     /**
      * Member removed this contact from Leads (or marked as customer). Website-form
      * sync must not auto re-stamp isLead until they Mark as lead again.
@@ -584,6 +589,10 @@ async function setCustomerKind(networkId, memberId, id, kind, opts = {}) {
     }
     return { ok: true, customer: existing, unchanged: true, kind: next };
   }
+  const addedByName = cleanLine(opts && opts.addedByName, 80);
+  const addedByMemberId = SCOPE_ID.test(String((opts && opts.addedByMemberId) || ''))
+    ? String(opts.addedByMemberId)
+    : '';
   const customer = await writeCustomer(networkId, memberId, {
     ...existing,
     isLead: wantLead,
@@ -591,6 +600,10 @@ async function setCustomerKind(networkId, memberId, id, kind, opts = {}) {
     isQuoteRequest: wantQuote,
     markedAsQuoteAt: wantQuote ? (existing.markedAsQuoteAt || now) : '',
     leadRemovedAt: nextLeadRemovedAt,
+    // First time this contact becomes a lead — remember who marked them.
+    ...(wantLead && !existing.addedByName && addedByName
+      ? { addedByName, addedByMemberId: addedByMemberId || existing.addedByMemberId || '' }
+      : {}),
   });
   return { ok: true, customer, kind: next };
 }
@@ -602,7 +615,10 @@ async function setCustomerLeadFlag(networkId, memberId, id, isLead) {
 
 /** Create (no id) or update (id of an existing customer in this scope). */
 async function saveCustomer(networkId, memberId, input, opts = {}) {
-  const { id, referralId, ghlContactId, ghlSyncedAt, source, tags, isReferralPartner, formAnswers } = opts;
+  const {
+    id, referralId, ghlContactId, ghlSyncedAt, source, tags, isReferralPartner, formAnswers,
+    addedByMemberId, addedByName,
+  } = opts;
   const prefix = custPrefix(networkId, memberId);
   const checked = validateCustomer(input);
   if (!checked.ok) return checked;
@@ -636,6 +652,12 @@ async function saveCustomer(networkId, memberId, input, opts = {}) {
     formAnswers !== undefined
       ? normalizeCustomerFormAnswers(formAnswers)
       : normalizeCustomerFormAnswers(existing && existing.formAnswers);
+  const nextAddedByName = existing
+    ? (existing.addedByName || cleanLine(addedByName, 80))
+    : cleanLine(addedByName, 80);
+  const nextAddedByMemberId = existing
+    ? (existing.addedByMemberId || (SCOPE_ID.test(String(addedByMemberId || '')) ? String(addedByMemberId) : ''))
+    : (SCOPE_ID.test(String(addedByMemberId || '')) ? String(addedByMemberId) : '');
   const customer = normalizeCustomer({
     ...(existing || {}),
     ...checked.fields,
@@ -647,11 +669,22 @@ async function saveCustomer(networkId, memberId, input, opts = {}) {
     ghlContactId: nextGhlId,
     ghlSyncedAt: nextSynced,
     source: nextSource,
+    addedByName: nextAddedByName,
+    addedByMemberId: nextAddedByMemberId,
     createdAt: existing ? existing.createdAt : now,
     updatedAt: now,
   });
   await dbService.putStorageKey(`${prefix}${customer.id}`, customer);
   return { ok: true, customer, created: !existing };
+}
+
+/** Display name for “Added by” on a lead profile. */
+function memberAddedByLabel(member) {
+  if (!member || typeof member !== 'object') return '';
+  return cleanLine(
+    member.contactName || member.companyName || String(member.email || '').split('@')[0],
+    80,
+  );
 }
 
 /** Replace customer tag keys (workspace catalog keys). */
@@ -995,7 +1028,11 @@ async function shareCustomerWithTeammate(networkId, fromMemberId, toMemberId, cu
       email: sourceCustomer.email,
       address: sourceCustomer.address,
       notes,
-    }, { source: 'manual' });
+    }, {
+      source: 'manual',
+      addedByMemberId: fromId,
+      addedByName: who || sourceCustomer.addedByName || '',
+    });
     if (!created.ok) return created;
     theirCustomer = await writeCustomer(networkId, toId, {
       ...created.customer,
@@ -1360,6 +1397,7 @@ module.exports = {
   customerSourceKey,
   customerSourceLabel,
   customerSourcePillClass,
+  memberAddedByLabel,
   googleMapsSearchUrl,
   MAX_CUSTOMER_TAGS,
   isRecordId,
