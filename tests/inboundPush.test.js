@@ -98,6 +98,80 @@ test('website form leads skip Agency OS workspace push (Reviews-only)', async (t
   assert.equal(again.sent, 0);
 });
 
+test('form:ghl-touch after first stamp does not double-notify (Alex enrichment)', async (t) => {
+  const memberGhlAlerts = require('../services/memberGhlAlerts');
+  let memberCalls = 0;
+  t.mock.method(memberGhlAlerts, 'notifyEnabledMembers', async () => {
+    memberCalls += 1;
+    return { sent: 1, members: 1 };
+  });
+  const stampedAt = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+  const lead = {
+    key: 'lead:alex_touch',
+    title: 'Alex',
+    phone: '+13602611532',
+    ghlContactId: 'ghl_alex_touch',
+    inboundEvents: [
+      { id: 'form:ghl-contact:ghl_alex_touch', type: 'form', at: stampedAt },
+    ],
+  };
+  const first = await notifyInboundEvent({
+    workspaceId: WID,
+    lead,
+    event: {
+      id: 'form:ghl-contact:ghl_alex_touch',
+      type: 'form',
+      label: 'Website form',
+      preview: 'Source: Website · Address: 98682',
+    },
+  });
+  assert.equal(first.sent, 1);
+  assert.equal(memberCalls, 1);
+
+  // ~2 minutes later GHL enriches Type/country → form sync retouches.
+  const again = await notifyInboundEvent({
+    workspaceId: WID,
+    lead,
+    event: {
+      id: `form:ghl-touch:ghl_alex_touch:${Date.now()}`,
+      type: 'form',
+      label: 'Website form',
+      preview: 'Source: Website · Type: lead · Address: 98682, US',
+    },
+  });
+  assert.equal(again.deduped, true);
+  assert.equal(memberCalls, 1, 'contact enrichment must not ring twice');
+});
+
+test('dedupes when first notify keyed by lead.key and second by ghlContactId', async (t) => {
+  const memberGhlAlerts = require('../services/memberGhlAlerts');
+  let memberCalls = 0;
+  t.mock.method(memberGhlAlerts, 'notifyEnabledMembers', async () => {
+    memberCalls += 1;
+    return { sent: 1, members: 1 };
+  });
+  const phone = '+15559876543';
+  const first = await notifyInboundEvent({
+    workspaceId: WID,
+    lead: { key: 'lead:key_only', title: 'Alex', phone },
+    event: { id: 'form:contact-create:lead:key_only', type: 'form', label: 'Website' },
+  });
+  assert.equal(first.sent, 1);
+
+  const again = await notifyInboundEvent({
+    workspaceId: WID,
+    lead: {
+      key: 'lead:key_only',
+      title: 'Alex',
+      phone,
+      ghlContactId: 'ghl_key_bridge',
+    },
+    event: { id: 'form:ghl-contact:ghl_key_bridge', type: 'form', label: 'Website' },
+  });
+  assert.equal(again.deduped, true);
+  assert.equal(memberCalls, 1, 'phone/lead key must bridge ContactCreate → form sync');
+});
+
 test('ContactCreate then form:ghl-sub does not double-notify the same first fill', async (t) => {
   const memberGhlAlerts = require('../services/memberGhlAlerts');
   let memberCalls = 0;

@@ -1304,6 +1304,7 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
       source: 'ghl',
     };
     if (!formEvent.id || !prior.some((e) => e && e.id === formEvent.id)) {
+      const ghlContactId = String((contact && contact.id) || lead.ghlContactId || '').trim();
       const patch = {
         inboundSource: 'ghl',
         inboundAt: at,
@@ -1312,10 +1313,15 @@ async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
         formAnswers: normalizeFormAnswers(answers),
         inboundHandledAt: '',
       };
+      if (ghlContactId && !lead.ghlContactId) patch.ghlContactId = ghlContactId;
       const updated = await dbService.updateLead(lead.key, patch, wid);
       // Await so a 0-send claim is recorded before form-sync races in, and so
       // retries can see sent:0 instead of a burned pre-push claim.
-      await notifyInboundEvent({ workspaceId: wid, lead: updated || { ...lead, ...patch }, event: formEvent });
+      await notifyInboundEvent({
+        workspaceId: wid,
+        lead: updated || { ...lead, ...patch, ghlContactId: ghlContactId || lead.ghlContactId },
+        event: formEvent,
+      });
     }
   } catch (e) {
     console.warn('[ghlSync] contact-create form notify failed:', e && e.message);

@@ -64,12 +64,32 @@ function notifyMissedCallTextSent({ workspaceId, lead, preview, outcome }) {
 const FORM_NOTIFY_DEDUPE_MS = 15 * 60 * 1000;
 
 function formNotifyDedupeKey(workspaceId, lead) {
+  const keys = formNotifyDedupeKeys(workspaceId, lead);
+  return keys[0] || '';
+}
+
+/**
+ * All claim keys for a contact — ContactCreate may only have lead.key while
+ * form-sync has ghlContactId; phone bridges both so the second pipe dedupes.
+ */
+function formNotifyDedupeKeys(workspaceId, lead) {
   const wid = String(workspaceId || '').trim();
-  const ghlId = String((lead && lead.ghlContactId) || '').trim();
-  const leadKey = String((lead && lead.key) || '').trim();
-  const id = ghlId || leadKey;
-  if (!wid || !id) return '';
-  return `formLeadNotify:${wid}:${id}`;
+  if (!wid || !lead) return [];
+  const out = [];
+  const seen = new Set();
+  const pushKey = (id) => {
+    const s = String(id || '').trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    out.push(`formLeadNotify:${wid}:${s}`);
+  };
+  pushKey(lead.ghlContactId);
+  pushKey(lead.key);
+  const phoneDigits = String(lead.phone || '').replace(/\D/g, '');
+  if (phoneDigits.length >= 10) {
+    pushKey(`p:${phoneDigits.slice(-10)}`);
+  }
+  return out;
 }
 
 function formEventNotifyKey(workspaceId, eventId) {
@@ -105,17 +125,50 @@ function eventClaimDelivered(claim) {
   return Number(claim.sent) > 0;
 }
 
+function recentContactClaim(workspaceId, lead, windowMs, now = Date.now()) {
+  for (const key of formNotifyDedupeKeys(workspaceId, lead)) {
+    const prior = readFormNotifyClaim(key);
+    if (contactClaimDelivered(prior) && now - Number(prior.at) < windowMs) {
+      return prior;
+    }
+  }
+  return null;
+}
+
+function recentFormEventMs(lead, exceptEventId = '') {
+  const except = String(exceptEventId || '');
+  let best = 0;
+  for (const e of Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : []) {
+    if (!e || String(e.type || '') !== 'form') continue;
+    if (except && String(e.id || '') === except) continue;
+    const t = Date.parse(String(e.at || ''));
+    if (Number.isFinite(t) && t > best) best = t;
+  }
+  return best;
+}
+
 /**
  * True when Reviews should attempt a form phone push.
  * Does NOT write claims — record after the send so a 0-send cannot burn the slot.
  */
 function shouldAttemptFormNotify(workspaceId, lead, opts = {}) {
   const wid = String(workspaceId || '').trim();
-  const key = formNotifyDedupeKey(workspaceId, lead);
+  const keys = formNotifyDedupeKeys(workspaceId, lead);
   const windowMs = Number(opts.windowMs) > 0 ? Number(opts.windowMs) : FORM_NOTIFY_DEDUPE_MS;
   const now = Date.now();
   const eventId = String((opts.event && opts.event.id) || '').trim();
+  const isTouchEvent = /^form:ghl-touch:/i.test(eventId);
   const isResubmitEvent = /^(form:ghl-sub:|form:ghl-touch:)/i.test(eventId);
+
+  // GHL often "updates" a brand-new contact (adds Type/country) a minute later.
+  // That fires form:ghl-touch — same fill, not a re-submit. Never ring again
+  // while a prior form stamp on this lead is still inside the dedupe window.
+  if (isTouchEvent) {
+    const lastFormMs = recentFormEventMs(lead, eventId);
+    if (lastFormMs && now - lastFormMs < windowMs) {
+      return false;
+    }
+  }
 
   if (isResubmitEvent) {
     const eventKey = formEventNotifyKey(wid, eventId);
@@ -125,8 +178,7 @@ function shouldAttemptFormNotify(workspaceId, lead, opts = {}) {
         return false;
       }
     }
-    const prior = key ? readFormNotifyClaim(key) : null;
-    const deliveredRecently = contactClaimDelivered(prior) && now - Number(prior.at) < windowMs;
+    const deliveredRecently = !!recentContactClaim(wid, lead, windowMs, now);
     if (deliveredRecently) {
       const priorForms = (Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : [])
         .filter((e) => e && String(e.type || '') === 'form' && String(e.id || '') !== eventId);
@@ -144,18 +196,15 @@ function shouldAttemptFormNotify(workspaceId, lead, opts = {}) {
     return true;
   }
 
-  if (!key) return true;
-  const prior = readFormNotifyClaim(key);
-  if (contactClaimDelivered(prior) && now - Number(prior.at) < windowMs) {
-    return false;
-  }
+  if (!keys.length) return true;
+  if (recentContactClaim(wid, lead, windowMs, now)) return false;
   return true;
 }
 
 /** Persist attempt outcome after notifyEnabledMembers runs. */
 function recordFormNotifyAttempt(workspaceId, lead, opts = {}) {
   const wid = String(workspaceId || '').trim();
-  const key = formNotifyDedupeKey(workspaceId, lead);
+  const keys = formNotifyDedupeKeys(workspaceId, lead);
   const eventId = String((opts.event && opts.event.id) || '').trim();
   const sent = Math.max(0, Number(opts.sent) || 0);
   const now = Date.now();
@@ -165,8 +214,8 @@ function recordFormNotifyAttempt(workspaceId, lead, opts = {}) {
   if (eventKey) dbService.setKvSync(eventKey, payload);
   // Only advance the contact-level dedupe slot when a push actually went out
   // (or for non-resubmit first stamps). Failed sends must stay retryable.
-  if (key && (sent > 0 || !isResubmitEvent)) {
-    dbService.setKvSync(key, payload);
+  if (keys.length && (sent > 0 || !isResubmitEvent)) {
+    for (const key of keys) dbService.setKvSync(key, payload);
   }
 }
 
@@ -242,6 +291,7 @@ module.exports = {
   recordFormNotifyAttempt,
   formEventNeedsNotifyRetry,
   formNotifyDedupeKey,
+  formNotifyDedupeKeys,
   formEventNotifyKey,
   FORM_NOTIFY_DEDUPE_MS,
 };
