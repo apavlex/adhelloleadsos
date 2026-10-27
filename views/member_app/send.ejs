@@ -212,11 +212,7 @@
         <% if (_picked.phone) { %>
         <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || ('Share this link: ' + _picked.url)) %>"><%- icons.sms %> Text</a>
         <% } %>
-<<<<<<< HEAD
         <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/send?view=analytics&customer=<%= encodeURIComponent(_picked.customerId) %>">See analytics</a>
-=======
-        <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/send?view=board&customer=<%= encodeURIComponent(_picked.customerId) %>">Board</a>
->>>>>>> a6ff33ac (Align referral share action buttons in one equal-width row)
       </div>
       <p class="ma-hint" style="margin-bottom:0">Clicks: <strong><%= _picked.clicks || 0 %></strong> · Referrals: <strong><%= _picked.referrals || 0 %></strong></p>
     </section>
