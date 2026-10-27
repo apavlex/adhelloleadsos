@@ -409,9 +409,14 @@ module.exports = {
     });
 
     // New GHL texts / emails / calls even when GHL webhooks are not delivered (every 2 min)
+    // Website form leads: same cadence so Reviews push works when the app is closed
+    // (bell open used to be the only sync trigger).
     cron.schedule('*/2 * * * *', () => {
       require('./ghlInboundPoll').pollAllWorkspaces().catch((e) =>
         console.error('[SCHEDULER] GHL inbound poll failed:', e.message)
+      );
+      require('./ghlFormLeadSync').syncAllWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] GHL form lead sync failed:', e.message)
       );
     });
 
@@ -444,6 +449,11 @@ module.exports = {
         console.error('[SCHEDULER] GHL inbound poll (startup) failed:', e.message)
       );
     }, 20000);
+    setTimeout(() => {
+      require('./ghlFormLeadSync').syncAllWorkspaces().catch((e) =>
+        console.error('[SCHEDULER] GHL form lead sync (startup) failed:', e.message)
+      );
+    }, 28000);
     // Ops agents: catch up after deploy/restart so hourly auto-runs don't stay dark until the next :00/:15/:30/:45.
     setTimeout(() => {
       tickAgentOpsWorkspaces().catch((e) =>

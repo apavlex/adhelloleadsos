@@ -531,8 +531,53 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
   return { synced, notified };
 }
 
+let syncAllRunning = false;
+
+/**
+ * Background pass so website form leads still push to Reviews when the app is
+ * closed (bell open is no longer required for sync). Matches ghlInboundPoll:
+ * every GHL-configured workspace, throttled per workspace inside syncRecentFormLeads.
+ */
+async function syncAllWorkspaces(opts = {}) {
+  if (syncAllRunning) return { skipped: true };
+  syncAllRunning = true;
+  const results = [];
+  try {
+    const ids = await dbService.listWorkspaceIds();
+    if (!ids.includes('default')) ids.push('default');
+    for (const wid of ids) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const env = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+        if (env.DEMO_WORKSPACE || !ghlClient.isConfigured(env)) continue;
+        // Skip workspaces with no Reviews / referral network — nowhere to push.
+        // eslint-disable-next-line no-await-in-loop
+        const network = await require('./networkStore').getNetworkForWorkspace(wid);
+        if (!network) continue;
+        // eslint-disable-next-line no-await-in-loop
+        const stats = await syncRecentFormLeads(wid, opts);
+        if (stats && (stats.synced || stats.notified)) {
+          console.log(
+            '[ghlFormLeadSync] workspace=%s synced=%d notified=%d',
+            wid.slice(0, 12),
+            stats.synced || 0,
+            stats.notified || 0,
+          );
+        }
+        results.push({ workspaceId: wid, ...stats });
+      } catch (err) {
+        console.warn('[ghlFormLeadSync] workspace %s failed: %s', wid.slice(0, 12), err && err.message);
+      }
+    }
+  } finally {
+    syncAllRunning = false;
+  }
+  return { results };
+}
+
 module.exports = {
   syncRecentFormLeads,
+  syncAllWorkspaces,
   contactAddedMs,
   contactUpdatedMs,
   looksLikeWebsiteForm,
