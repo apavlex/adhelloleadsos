@@ -212,8 +212,10 @@ describe('member leads + referral notifications', () => {
 
     assert.equal(result.sent, 1);
     assert.match(sent[0].body.title, /New website lead: Jordan Homeowner/i);
-    assert.match(sent[0].body.body, /TPRFlooring\.com Form/);
-    assert.doesNotMatch(sent[0].body.body, /ai_studio|direct/i);
+    // After the app brand line: phone · description (no Website form / Source clutter).
+    assert.match(sent[0].body.body, /\(555\) 123-4567/);
+    assert.match(sent[0].body.body, /Need flooring quote/i);
+    assert.doesNotMatch(sent[0].body.body, /Website form|ai_studio|Source:/i);
     assert.match(sent[0].body.url, /\/customers\/c\/[a-z0-9]+/);
   });
 

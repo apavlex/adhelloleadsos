@@ -125,6 +125,69 @@ function answersPreview(answers, limit = 3) {
     .slice(0, 240);
 }
 
+/** Meta Qs that should not appear as the “description” on a lock-screen push. */
+const NOTIFY_META_Q_RE = /^(source|contact\s*source|session\s*source|attribution|address|company|website|type|email|phone|name|full\s*name|first\s*name|last\s*name)$/i;
+
+function displayPhoneForNotify(raw) {
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return String(raw || '').replace(/\s+/g, ' ').trim().slice(0, 32);
+}
+
+/**
+ * Lock-screen / push body for website form leads, after the app brand line:
+ * phone · description · address (skip empty slots).
+ */
+function formLeadNotifyBody({ phone, answers, preview, address } = {}) {
+  const rows = normalizeFormAnswers(answers);
+  const byQ = (re) => {
+    const hit = rows.find((r) => re.test(String(r.q || '')));
+    return hit ? String(hit.a || '').trim() : '';
+  };
+
+  const phonePart = displayPhoneForNotify(phone);
+  let addressPart = String(address || '').trim() || byQ(/^address$/i) || '';
+
+  let description = '';
+  for (const row of rows) {
+    if (NOTIFY_META_Q_RE.test(String(row.q || ''))) continue;
+    const a = String(row.a || '').trim();
+    if (a) {
+      description = a;
+      break;
+    }
+  }
+
+  if ((!description || !addressPart) && preview) {
+    const chunks = String(preview).split(/\s*[·|—-]+\s*/).map((c) => c.trim()).filter(Boolean);
+    for (const chunk of chunks) {
+      if (/^address\s*:/i.test(chunk)) {
+        if (!addressPart) addressPart = chunk.replace(/^address\s*:\s*/i, '').trim();
+        continue;
+      }
+      if (/^(source|company|website|type)\s*:/i.test(chunk)) continue;
+      // Skip form-name crumbs that used to lead the old push body.
+      if (/^website\s*form$/i.test(chunk)) continue;
+      if (/^[A-Za-z0-9][\w.-]*(?:\s+[A-Za-z0-9][\w.-]*)*\s+Form$/i.test(chunk)) continue;
+      if (description) continue;
+      const cleaned = chunk.includes(':')
+        ? chunk.replace(/^[^:]+:\s*/, '').trim()
+        : chunk;
+      if (cleaned) description = cleaned;
+    }
+  }
+
+  return [phonePart, description, addressPart]
+    .filter(Boolean)
+    .join(' · ')
+    .slice(0, 200);
+}
+
 function contactAddressLine(contact) {
   const c = contact && typeof contact === 'object' ? contact : {};
   const parts = [
@@ -348,6 +411,8 @@ module.exports = {
   MAX_ANSWERS,
   normalizeFormAnswers,
   answersPreview,
+  formLeadNotifyBody,
+  displayPhoneForNotify,
   answersFromContact,
   answersFromSubmission,
   coreIdentityAnswers,

@@ -335,13 +335,14 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
 
     const memberActivity = require('./memberActivity');
     const push = require('./pushNotifications');
-    const { websiteFormLabel } = require('./websiteFormLabel');
+    const { formLeadNotifyBody } = require('./ghlFormAnswers');
     const who = String(lead.title || lead.name || '').trim()
       || String(lead.phone || '').trim()
       || 'Unknown contact';
     const typeLabel = TYPE_LABELS[type] || type;
     const rawLabel = String((event && event.label) || lead.inboundFormName || '').trim();
     const preview = String((event && event.preview) || '').replace(/\s+/g, ' ').trim();
+    const formAnswers = (event && event.answers) || lead.formAnswers || [];
 
     const customersByMember = new Map();
     let sent = 0;
@@ -366,20 +367,18 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
       const href = memberAppUrl(network, member, path);
       // eslint-disable-next-line no-await-in-loop
       const pkg = await memberAppointmentLink.findPackageForMember(wid, member, network).catch(() => null);
-      const formLabel = type === 'form'
-        ? websiteFormLabel({
-          formName: lead.inboundFormName,
-          label: rawLabel,
-          websiteUrl: (pkg && pkg.websiteUrl) || lead.website || '',
-          businessName: (pkg && pkg.businessName) || '',
-          companyName: member.companyName || '',
-        })
-        : rawLabel;
       const title = type === 'form'
         ? `New website lead: ${who}`.slice(0, 120)
         : `${typeLabel}: ${who}`.slice(0, 120);
+      // Form pushes: after the installed-app brand (e.g. TPR Flooring) show
+      // phone · description · address — not "Website form · Source: …".
       const body = type === 'form'
-        ? [formLabel, preview].filter(Boolean).join(' · ').slice(0, 200) || 'Open to call them.'
+        ? (formLeadNotifyBody({
+          phone: lead.phone,
+          answers: formAnswers,
+          preview,
+          address: lead.address || lead.postalCode || '',
+        }) || 'Open to call them.')
         : ([rawLabel, preview].filter(Boolean).join(' · ').slice(0, 200)
           || (type === 'sms' ? 'Tap to reply in Lead Connector.' : 'Tap to call back.'));
       memberActivity.add(network.id, member.id, {
