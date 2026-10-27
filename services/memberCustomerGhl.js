@@ -651,8 +651,8 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
 
   let address = customer.address || '';
   if (!address) {
-    const addr = answers.find((a) => String(a.q || '').toLowerCase() === 'address');
-    if (addr && addr.a) address = String(addr.a).slice(0, 200);
+    const { addressFromFormAnswers } = require('./ghlFormAnswers');
+    address = addressFromFormAnswers(answers) || '';
   }
 
   const saved = await work.saveCustomer(
