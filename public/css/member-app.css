@@ -715,6 +715,28 @@ a.ma-hero__stat:active { opacity: 0.88; }
 .ma-card__nav:hover .ma-card__title,
 .ma-card__nav:focus-visible .ma-card__title { color: var(--acc); }
 .ma-card__nav:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.ma-card__nav-trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.ma-card__nav-chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+}
+.ma-card__nav-chev svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.ma-card__nav:hover .ma-card__nav-chev,
+.ma-card__nav:focus-visible .ma-card__nav-chev { color: var(--acc); }
 /* iOS dark mode separates surfaces by color, not outlines. */
 html[data-ma-theme="dark"] .ma-tile, html[data-ma-theme="dark"] .ma-card, html[data-ma-theme="dark"] .ma-seg, html[data-ma-theme="dark"] .rv-link { border-color: transparent; box-shadow: none; }
 

@@ -263,11 +263,15 @@
                 <% } %>
                 <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
               </div>
-              <span class="ma-pill ma-pill--accepted">Lead</span>
+              <span class="ma-card__nav-trail">
+                <span class="ma-pill ma-pill--accepted">Lead</span>
+                <span class="ma-card__nav-chev" aria-hidden="true"><%- icons.chevronRight %></span>
+              </span>
             </div>
           </a>
           <div class="ma-actions">
             <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.href %>">Open</a>
             <% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.quoteHref || (base + '/quote?customer=' + encodeURIComponent(lead.id)) %>">Quote</a>
             <% } %>
