@@ -33,11 +33,59 @@ describe('ghlFormLeadSync', () => {
     dbService.deleteKvSync(`ghlFormLeadSync:${WID}`);
   });
 
-  it('looksLikeWebsiteForm accepts blank and form-like sources', () => {
-    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({}), true);
+  it('looksLikeWebsiteForm accepts form-like sources and Lead Connector extras', () => {
     assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Website' }), true);
     assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Facebook Lead Form' }), true);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'ai_studio' }), true);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Lead Connector Form' }), true);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({
+      email: 'casey@buyers.test',
+      customFields: [{ id: 'cf_need', value: 'New floors' }],
+    }), true, 'blank source + form extras (Lead Connector)');
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Direct', email: 'a@b.c' }), true);
     assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Manual import' }), false);
+  });
+
+  it('looksLikeWebsiteForm rejects call, SMS, and phone-only blank creates', () => {
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({}), false, 'phone-only blank is not a form');
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ phone: '+13602611532', name: 'Brett' }), false);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Inbound Call' }), false);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Missed Call' }), false);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'IVR' }), false);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Phone' }), false);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'SMS' }), false);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Inbound SMS' }), false);
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({ source: 'Email' }), false);
+    // Tags mentioning lead must not override a call source.
+    assert.equal(ghlFormLeadSync.looksLikeWebsiteForm({
+      source: 'Inbound Call',
+      tags: ['lead', 'new'],
+    }), false);
+  });
+
+  it('syncRecentFormLeads skips inbound-call contacts', async () => {
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'key',
+      GHL_LOCATION_ID: 'loc_tpr',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
+    const caller = {
+      id: 'ghl_call_brett',
+      name: 'Brett Kissinger',
+      phone: '+13602611532',
+      source: 'Inbound Call',
+      dateAdded: new Date().toISOString(),
+    };
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [caller] }));
+    mock.method(ghlClient, 'getContact', async () => caller);
+
+    const result = await ghlFormLeadSync.syncRecentFormLeads(WID, { force: true });
+    assert.equal(result.synced, 0);
+    assert.equal(result.notified, 0);
+    const leads = await dbService.getAllLeads(WID);
+    assert.equal(leads.filter((l) => /Brett/i.test(l.title || '')).length, 0);
   });
 
   it('scheduler runs form lead sync every 2 minutes without opening the app', () => {

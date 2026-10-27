@@ -1223,12 +1223,17 @@ function contactCreateFormLabel(contact, lead) {
 
 /**
  * When GHL only fires ContactCreate (no Form Submitted workflow), still route
- * brand-new contacts into the contractor / Reviews form-lead inbox when a
- * package match exists (tag or single portal package), and always stamp a form
- * inbound event so Reviews owners with GHL alerts on get Waiting-on-a-reply.
+ * brand-new *form* contacts into the contractor / Reviews form-lead inbox when a
+ * package match exists (tag or single portal package), and stamp a form inbound
+ * event so Reviews owners with GHL alerts on get Waiting-on-a-reply.
+ *
+ * Skip call / SMS / email creates — those are not website forms (ContactCreate
+ * also fires when Lead Connector opens a contact from an inbound call).
  */
 async function maybeAttachContactCreateFormLead(wid, lead, contact, action) {
   if (action !== 'created' || !lead || !lead.key) return null;
+  const { looksLikeWebsiteFormContact } = require('./websiteFormLabel');
+  if (!looksLikeWebsiteFormContact(contact)) return null;
   const name = String(
     (contact && (contact.name || contact.fullName || contact.companyName))
     || lead.title
@@ -1343,8 +1348,9 @@ async function processWebhook(payload, opts = {}) {
     return { ok: true, workspaceId: wid, ignored: true, reason: result.reason || 'skipped' };
   }
   let contractorPackageId = null;
-  // New local lead from ContactCreate/ContactUpdate (first time we see them).
-  // Website forms often only fire ContactCreate; treat first pull as a form lead.
+  // New local lead from ContactCreate (first time we see them).
+  // Website / Lead Connector forms often only fire ContactCreate — treat those
+  // as form leads. Inbound call/SMS ContactCreates are skipped inside.
   if (result.action === 'created') {
     contractorPackageId = await maybeAttachContactCreateFormLead(
       wid,

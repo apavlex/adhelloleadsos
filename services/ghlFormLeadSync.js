@@ -11,7 +11,11 @@ const ghlClient = require('./ghlClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { appendInboundEvent } = require('./inboundEvents');
 const { notifyInboundEvent } = require('./inboundPush');
-const { websiteFormLabel } = require('./websiteFormLabel');
+const {
+  websiteFormLabel,
+  looksLikeWebsiteFormContact,
+  contactSourceHint,
+} = require('./websiteFormLabel');
 const { findLocalLeadMatch, pullContactToLead } = require('./ghlSync');
 const {
   answersFromContact,
@@ -80,25 +84,12 @@ function ymd(ms) {
 }
 
 function sourceHint(contact) {
-  return String(
-    (contact && (
-      contact.source
-      || contact.contactSource
-      || contact.type
-      || contact.attributionSource
-      || (contact.attributionSource && contact.attributionSource.sessionSource)
-    )) || '',
-  ).trim().slice(0, 120);
+  return contactSourceHint(contact);
 }
 
+/** @deprecated Prefer looksLikeWebsiteFormContact — kept as a stable export for tests. */
 function looksLikeWebsiteForm(contact) {
-  const hint = `${sourceHint(contact)} ${Array.isArray(contact && contact.tags) ? contact.tags.join(' ') : ''}`.toLowerCase();
-  // Prefer form/web sources; still accept blank source for brand-new contacts
-  // (Lead Connector forms often leave source empty).
-  if (!hint.trim()) return true;
-  if (/manual|import|csv|api|bulk|referral.?partner|teammate/.test(hint)) return false;
-  return /form|website|web|facebook|fb|lead|landing|funnel|survey|chat|widget|typeform|jotform|inbound|paid.?social|google|ads|ai_?studio|studio/.test(hint)
-    || hint.length > 0;
+  return looksLikeWebsiteFormContact(contact);
 }
 
 function hasFormEvent(lead, formEventId) {

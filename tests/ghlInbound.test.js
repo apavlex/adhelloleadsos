@@ -231,6 +231,59 @@ test('appendInboundEvent dedupes by id and caps the list', () => {
   assert.equal(list[list.length - 1].id, 'e29');
 });
 
+test('ContactCreate from inbound call does not stamp a website form lead', async () => {
+  const appointmentPackages = require('../services/appointmentPackages');
+  const { mock } = require('node:test');
+  const callWid = 'ws_inbound_call_only';
+  await dbService.saveWorkspace(callWid, {
+    id: callWid,
+    name: 'Call Only',
+    ownerUserId: 'owner@example.com',
+    members: [{ email: 'owner@example.com', role: 'admin' }],
+  });
+
+  await appointmentPackages.createPackage(callWid, {
+    businessName: 'Call Inbox',
+    trade: 'Flooring',
+    purchased: 3,
+    leadsPurchased: 10,
+  });
+
+  const pushed = [];
+  const memberGhlAlerts = require('../services/memberGhlAlerts');
+  mock.method(memberGhlAlerts, 'notifyEnabledMembers', async (args) => {
+    pushed.push(args);
+    return { sent: 1, members: 1 };
+  });
+
+  const r = await ghlSync.processWebhook({
+    type: 'ContactCreate',
+    id: 'ghl_brett_call',
+    locationId: 'loc_x',
+    firstName: 'Brett',
+    lastName: 'Kissinger',
+    name: 'Brett Kissinger',
+    phone: '+13602611532',
+    source: 'Inbound Call',
+  }, { workspaceId: callWid, lockWorkspace: true });
+
+  assert.equal(r.action, 'created');
+  assert.equal(r.contractorPackageId, undefined);
+  const packages = await appointmentPackages.listPackages(callWid);
+  assert.equal(packages.length, 1);
+  assert.equal(
+    (packages[0].formLeads || []).some((f) => /Brett/i.test(f.name || '')),
+    false,
+    'inbound call must not enter formLeads',
+  );
+  assert.equal(pushed.filter((p) => p && p.event && p.event.type === 'form').length, 0);
+  const lead = (await dbService.getAllLeads(callWid)).find((l) => /Brett/i.test(l.title || ''));
+  assert.ok(lead);
+  const formEvents = (lead.inboundEvents || []).filter((e) => e && e.type === 'form');
+  assert.equal(formEvents.length, 0);
+  mock.restoreAll();
+});
+
 test('ContactCreate attaches to the only portal package and returns contractorPackageId', async () => {
   const appointmentPackages = require('../services/appointmentPackages');
   const networkStore = require('../services/networkStore');

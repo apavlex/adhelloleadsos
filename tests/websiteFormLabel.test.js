@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
   websiteFormLabel,
   looksLikeRealFormName,
+  looksLikeWebsiteFormContact,
   hostFromWebsite,
 } = require('../services/websiteFormLabel');
 
@@ -30,4 +31,15 @@ test('hostFromWebsite normalizes domains', () => {
   assert.equal(hostFromWebsite('https://www.tprflooring.com/form'), 'tprflooring.com');
   assert.equal(hostFromWebsite('tprflooring.com'), 'tprflooring.com');
   assert.equal(hostFromWebsite(''), '');
+});
+
+test('looksLikeWebsiteFormContact rejects call/SMS and phone-only blanks', () => {
+  assert.equal(looksLikeWebsiteFormContact({ source: 'Website' }), true);
+  assert.equal(looksLikeWebsiteFormContact({ source: 'Inbound Call', phone: '+13602611532' }), false);
+  assert.equal(looksLikeWebsiteFormContact({ source: 'SMS' }), false);
+  assert.equal(looksLikeWebsiteFormContact({ phone: '+13602611532' }), false);
+  assert.equal(looksLikeWebsiteFormContact({
+    phone: '+13602611532',
+    email: 'brett@example.com',
+  }), true);
 });
