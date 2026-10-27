@@ -3079,6 +3079,65 @@ body.ma-lr-open .ma-tabbar{visibility:hidden;pointer-events:none}
   to { transform: rotate(360deg); }
 }
 html.ma-nav-loading { cursor: progress; }
+
+/* Pull-to-refresh — spinning refresh icon under the status bar */
+.ma-ptr {
+  position: fixed;
+  left: 50%;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  z-index: 90;
+  width: 40px;
+  height: 40px;
+  margin-left: -20px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--card, #fff);
+  color: var(--acc, #2563eb);
+  border: 1px solid color-mix(in srgb, var(--line, #e2e8f0) 85%, transparent);
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+  opacity: 0;
+  transform: translateY(-12px) scale(0.86);
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+}
+.ma-ptr.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+.ma-ptr.is-armed {
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--acc, #2563eb) 28%, transparent);
+}
+.ma-ptr.is-refreshing .ma-ptr__icon {
+  animation: ma-ptr-spin 0.75s linear infinite;
+}
+.ma-ptr__icon {
+  width: 22px;
+  height: 22px;
+  display: block;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.ma-ptr__icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+@keyframes ma-ptr-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ma-ptr.is-refreshing .ma-ptr__icon {
+    animation: none;
+  }
+}
+html.dark .ma-ptr,
+[data-ma-theme="dark"] .ma-ptr {
+  background: color-mix(in srgb, var(--card, #1c1c1e) 92%, #000);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
 .ma-ghl-loading {
   display: flex;
   align-items: center;
