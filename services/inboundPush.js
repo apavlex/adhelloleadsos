@@ -72,10 +72,13 @@ function formNotifyDedupeKey(workspaceId, lead) {
   return `formLeadNotify:${wid}:${id}`;
 }
 
-/**
- * Returns true the first time we should phone-notify this form lead; false if
- * ContactCreate / Form Submitted / pull-sync already pinged within the window.
- */
+function formEventNotifyKey(workspaceId, eventId) {
+  const wid = String(workspaceId || '').trim();
+  const id = String(eventId || '').trim();
+  if (!wid || !id) return '';
+  return `formLeadNotify:${wid}:${id}`;
+}
+
 function readFormNotifyClaim(key) {
   const raw = dbService.getKvSync(key);
   if (!raw) return null;
@@ -86,7 +89,27 @@ function readFormNotifyClaim(key) {
   }
 }
 
-function claimFormLeadNotify(workspaceId, lead, opts = {}) {
+/**
+ * Contact-level claims: legacy rows (no `sent`) count as delivered so we don't
+ * re-blast everyone after deploy. Event-level claims: only `sent > 0` counts —
+ * a pre-push claim burn must not block retries.
+ */
+function contactClaimDelivered(claim) {
+  if (!claim || !(Number(claim.at) > 0)) return false;
+  if (!Object.prototype.hasOwnProperty.call(claim, 'sent')) return true;
+  return Number(claim.sent) > 0;
+}
+
+function eventClaimDelivered(claim) {
+  if (!claim || !(Number(claim.at) > 0)) return false;
+  return Number(claim.sent) > 0;
+}
+
+/**
+ * True when Reviews should attempt a form phone push.
+ * Does NOT write claims — record after the send so a 0-send cannot burn the slot.
+ */
+function shouldAttemptFormNotify(workspaceId, lead, opts = {}) {
   const wid = String(workspaceId || '').trim();
   const key = formNotifyDedupeKey(workspaceId, lead);
   const windowMs = Number(opts.windowMs) > 0 ? Number(opts.windowMs) : FORM_NOTIFY_DEDUPE_MS;
@@ -94,20 +117,17 @@ function claimFormLeadNotify(workspaceId, lead, opts = {}) {
   const eventId = String((opts.event && opts.event.id) || '').trim();
   const isResubmitEvent = /^(form:ghl-sub:|form:ghl-touch:)/i.test(eventId);
 
-  // Distinct GHL form submissions / contact re-touches should alert even when
-  // the same contact was notified earlier (Alex → Alex Pavlenko re-fill).
-  // Still collapse ContactCreate + first sync racing within 2 minutes.
   if (isResubmitEvent) {
-    const eventKey = wid && eventId ? `formLeadNotify:${wid}:${eventId}` : '';
+    const eventKey = formEventNotifyKey(wid, eventId);
     if (eventKey) {
       const sameEvent = readFormNotifyClaim(eventKey);
-      if (sameEvent && Number(sameEvent.at) > 0 && now - Number(sameEvent.at) < windowMs) {
+      if (eventClaimDelivered(sameEvent) && now - Number(sameEvent.at) < windowMs) {
         return false;
       }
     }
     const prior = key ? readFormNotifyClaim(key) : null;
-    const claimedRecently = prior && Number(prior.at) > 0 && now - Number(prior.at) < windowMs;
-    if (claimedRecently) {
+    const deliveredRecently = contactClaimDelivered(prior) && now - Number(prior.at) < windowMs;
+    if (deliveredRecently) {
       const priorForms = (Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : [])
         .filter((e) => e && String(e.type || '') === 'form' && String(e.id || '') !== eventId);
       let latestPrior = 0;
@@ -119,25 +139,53 @@ function claimFormLeadNotify(workspaceId, lead, opts = {}) {
           latestPriorIsContactOnly = /^form:ghl-contact:/i.test(String(e.id || ''));
         }
       }
-      // First-fill race only: ContactCreate (or contact stamp) then submission
-      // seconds later. Do NOT burn the submission claim key when skipping — a
-      // later retry after the race window must still be allowed to ping.
+      // First-fill race only when the contact stamp already delivered a push.
       if (latestPriorIsContactOnly && latestPrior && now - latestPrior < 2 * 60 * 1000) {
         return false;
       }
     }
-    if (eventKey) dbService.setKvSync(eventKey, { at: now, leadKey: String((lead && lead.key) || '') });
-    if (key) dbService.setKvSync(key, { at: now, leadKey: String((lead && lead.key) || '') });
     return true;
   }
 
   if (!key) return true;
   const prior = readFormNotifyClaim(key);
-  if (prior && Number(prior.at) > 0 && now - Number(prior.at) < windowMs) {
+  if (contactClaimDelivered(prior) && now - Number(prior.at) < windowMs) {
     return false;
   }
-  dbService.setKvSync(key, { at: now, leadKey: String((lead && lead.key) || '') });
   return true;
+}
+
+/** Persist attempt outcome after notifyEnabledMembers runs. */
+function recordFormNotifyAttempt(workspaceId, lead, opts = {}) {
+  const wid = String(workspaceId || '').trim();
+  const key = formNotifyDedupeKey(workspaceId, lead);
+  const eventId = String((opts.event && opts.event.id) || '').trim();
+  const sent = Math.max(0, Number(opts.sent) || 0);
+  const now = Date.now();
+  const payload = { at: now, sent, leadKey: String((lead && lead.key) || '') };
+  const isResubmitEvent = /^(form:ghl-sub:|form:ghl-touch:)/i.test(eventId);
+  const eventKey = formEventNotifyKey(wid, eventId);
+  if (eventKey) dbService.setKvSync(eventKey, payload);
+  // Only advance the contact-level dedupe slot when a push actually went out
+  // (or for non-resubmit first stamps). Failed sends must stay retryable.
+  if (key && (sent > 0 || !isResubmitEvent)) {
+    dbService.setKvSync(key, payload);
+  }
+}
+
+/**
+ * True when a stamped form event never got a successful Reviews push — sync
+ * should call notify again without re-stamping.
+ */
+function formEventNeedsNotifyRetry(workspaceId, eventId) {
+  const eventKey = formEventNotifyKey(workspaceId, eventId);
+  if (!eventKey) return true;
+  return !eventClaimDelivered(readFormNotifyClaim(eventKey));
+}
+
+/** @deprecated Use shouldAttemptFormNotify — kept for callers/tests. */
+function claimFormLeadNotify(workspaceId, lead, opts = {}) {
+  return shouldAttemptFormNotify(workspaceId, lead, opts);
 }
 
 /** Fire-and-forget; never throws. */
@@ -167,7 +215,7 @@ function notifyInboundEvent({ workspaceId, lead, event }) {
         sent = (result && result.sent) || 0;
       }
     }
-    if (eventType === 'form' && !claimFormLeadNotify(wid, lead, { event })) {
+    if (eventType === 'form' && !shouldAttemptFormNotify(wid, lead, { event })) {
       return { sent, deduped: true };
     }
     try {
@@ -178,6 +226,9 @@ function notifyInboundEvent({ workspaceId, lead, event }) {
       });
       sent += (memberResult && memberResult.sent) || 0;
     } catch (_) { /* ignore */ }
+    if (eventType === 'form') {
+      recordFormNotifyAttempt(wid, lead, { event, sent });
+    }
     return { sent };
   })().catch((e) => {
     console.warn('[inboundPush] failed:', e && e.message);
@@ -190,6 +241,10 @@ module.exports = {
   notifyInboundEvent,
   notifyMissedCallTextSent,
   claimFormLeadNotify,
+  shouldAttemptFormNotify,
+  recordFormNotifyAttempt,
+  formEventNeedsNotifyRetry,
   formNotifyDedupeKey,
+  formEventNotifyKey,
   FORM_NOTIFY_DEDUPE_MS,
 };

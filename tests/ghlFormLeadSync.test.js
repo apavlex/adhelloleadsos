@@ -44,6 +44,8 @@ describe('ghlFormLeadSync', () => {
     const sched = fs.readFileSync(path.join(__dirname, '../services/scheduler.js'), 'utf8');
     assert.match(sched, /ghlFormLeadSync'\)\.syncAllWorkspaces/);
     assert.match(sched, /GHL form lead sync failed/);
+    const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+    assert.match(server, /\/api\/cron\/form-lead-sync/);
   });
 
   it('syncRecentFormLeads stamps form inbound + notifies for new GHL contacts', async () => {
