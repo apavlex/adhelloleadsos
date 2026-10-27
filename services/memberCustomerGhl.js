@@ -581,80 +581,7 @@ async function syncCustomersWithGhl(network, memberId, opts = {}) {
   };
 }
 
-/**
- * Backfill website form Q&A onto a Reviews customer profile.
- * Prefers answers already stamped on the workspace lead; otherwise pulls from GHL.
- * Idempotent when formAnswers already present.
- */
-async function ensureFormAnswersOnCustomer(network, memberId, customer) {
-  if (!network || !memberId || !customer || !customer.id) return customer;
-  if (Array.isArray(customer.formAnswers) && customer.formAnswers.length) return customer;
-  const ghlId = String(customer.ghlContactId || '').trim();
-  if (!ghlId) return customer;
-  const src = String(customer.source || '').trim().toLowerCase();
-  if (src && src !== 'website_form' && src !== 'ghl' && !customer.isLead) return customer;
-
-  const { normalizeFormAnswers, fetchContactFormAnswers } = require('./ghlFormAnswers');
-  let answers = [];
-
-  const wid = String(network.ownerWorkspaceId || '').trim();
-  if (wid) {
-    try {
-      const leads = await dbService.getAllLeads(wid);
-      const lead = (Array.isArray(leads) ? leads : []).find(
-        (l) => l && String(l.ghlContactId || '').trim() === ghlId,
-      );
-      if (lead) {
-        if (Array.isArray(lead.formAnswers) && lead.formAnswers.length) {
-          answers = normalizeFormAnswers(lead.formAnswers);
-        } else {
-          const events = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
-          for (let i = events.length - 1; i >= 0; i -= 1) {
-            const ev = events[i];
-            if (!ev || String(ev.type || '') !== 'form') continue;
-            if (Array.isArray(ev.answers) && ev.answers.length) {
-              answers = normalizeFormAnswers(ev.answers);
-              break;
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('[memberCustomerGhl] form answers from lead failed:', err && err.message);
-    }
-  }
-
-  if (!answers.length) {
-    try {
-      const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
-      if (ghlClient.isConfigured(integrationEnv)) {
-        answers = await fetchContactFormAnswers(ghlId, integrationEnv, {
-          email: customer.email,
-          phone: customer.phone,
-          name: customer.name,
-          address: customer.address,
-          includeCoreFallback: src === 'website_form' || !!customer.isLead,
-        });
-      }
-    } catch (err) {
-      console.warn('[memberCustomerGhl] form answers from GHL failed:', err && err.message);
-    }
-  }
-
-  // Website form with no GHL extras: still show the submitted contact fields.
-  if (!answers.length && (src === 'website_form' || customer.isLead)) {
-    const { coreIdentityAnswers } = require('./ghlFormAnswers');
-    answers = coreIdentityAnswers(customer);
-  }
-
-  if (!answers.length) return customer;
-
-  let address = customer.address || '';
-  if (!address) {
-    const { addressFromFormAnswers } = require('./ghlFormAnswers');
-    address = addressFromFormAnswers(answers) || '';
-  }
-
+async function saveCustomerFormAnswers(network, memberId, customer, answers, addressOverride) {
   const saved = await work.saveCustomer(
     network.id,
     memberId,
@@ -662,7 +589,7 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
       name: customer.name,
       phone: customer.phone,
       email: customer.email,
-      address,
+      address: addressOverride != null ? addressOverride : customer.address,
       notes: customer.notes,
     },
     {
@@ -677,6 +604,104 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
     },
   );
   return saved.ok && saved.customer ? saved.customer : customer;
+}
+
+/**
+ * Backfill website form Q&A onto a Reviews customer profile.
+ * Only for contacts that actually came from a website form — never invent
+ * Company / Type / Address from the GHL contact record for manual leads.
+ * Prefers answers already stamped on the workspace lead; otherwise pulls from GHL.
+ */
+async function ensureFormAnswersOnCustomer(network, memberId, customer) {
+  if (!network || !memberId || !customer || !customer.id) return customer;
+  const src = String(customer.source || '').trim().toLowerCase();
+  const {
+    normalizeFormAnswers,
+    fetchContactFormAnswers,
+    looksLikeOnlyContactProfileAnswers,
+  } = require('./ghlFormAnswers');
+
+  // No website form → keep Form answers closed; clear any CRM crumbs we previously saved.
+  if (src !== 'website_form') {
+    if (Array.isArray(customer.formAnswers) && customer.formAnswers.length) {
+      return saveCustomerFormAnswers(network, memberId, customer, []);
+    }
+    return customer;
+  }
+
+  const existing = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
+  if (existing.length && !looksLikeOnlyContactProfileAnswers(existing)) {
+    return customer;
+  }
+
+  const ghlId = String(customer.ghlContactId || '').trim();
+  let answers = [];
+
+  const wid = String(network.ownerWorkspaceId || '').trim();
+  if (wid && ghlId) {
+    try {
+      const leads = await dbService.getAllLeads(wid);
+      const lead = (Array.isArray(leads) ? leads : []).find(
+        (l) => l && String(l.ghlContactId || '').trim() === ghlId,
+      );
+      if (lead) {
+        if (Array.isArray(lead.formAnswers) && lead.formAnswers.length
+          && !looksLikeOnlyContactProfileAnswers(lead.formAnswers)) {
+          answers = normalizeFormAnswers(lead.formAnswers);
+        } else {
+          const events = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
+          for (let i = events.length - 1; i >= 0; i -= 1) {
+            const ev = events[i];
+            if (!ev || String(ev.type || '') !== 'form') continue;
+            if (Array.isArray(ev.answers) && ev.answers.length
+              && !looksLikeOnlyContactProfileAnswers(ev.answers)) {
+              answers = normalizeFormAnswers(ev.answers);
+              break;
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[memberCustomerGhl] form answers from lead failed:', err && err.message);
+    }
+  }
+
+  if (!answers.length && ghlId) {
+    try {
+      const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+      if (ghlClient.isConfigured(integrationEnv)) {
+        answers = await fetchContactFormAnswers(ghlId, integrationEnv, {
+          email: customer.email,
+          phone: customer.phone,
+          name: customer.name,
+          address: customer.address,
+          includeCoreFallback: false,
+          // Custom fields / submissions only — not Company / Type / Address from the contact card.
+          contactFallback: 'custom',
+        });
+      }
+    } catch (err) {
+      console.warn('[memberCustomerGhl] form answers from GHL failed:', err && err.message);
+    }
+  }
+
+  if (looksLikeOnlyContactProfileAnswers(answers)) answers = [];
+
+  // Clear previously invented CRM crumbs when we still have nothing real.
+  if (!answers.length) {
+    if (existing.length) {
+      return saveCustomerFormAnswers(network, memberId, customer, []);
+    }
+    return customer;
+  }
+
+  let address = customer.address || '';
+  if (!address) {
+    const { addressFromFormAnswers } = require('./ghlFormAnswers');
+    address = addressFromFormAnswers(answers) || '';
+  }
+
+  return saveCustomerFormAnswers(network, memberId, customer, answers, address);
 }
 
 module.exports = {

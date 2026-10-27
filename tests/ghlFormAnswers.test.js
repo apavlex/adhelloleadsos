@@ -8,6 +8,7 @@ const {
   addressFromFormAnswers,
   descriptionFromFormAnswers,
   presentFormAnswersForProfile,
+  looksLikeOnlyContactProfileAnswers,
   humanizeLabel,
 } = require('../services/ghlFormAnswers');
 
@@ -171,7 +172,8 @@ describe('ghlFormAnswers', () => {
     );
   });
 
-  it('presentFormAnswersForProfile replaces Agency OS source with teammate Added by', () => {
+  it('presentFormAnswersForProfile drops Agency OS and does not invent Added by', () => {
+    // Added by is shown via the profile template (addedByLabel), not invented into Form answers.
     const out = presentFormAnswersForProfile(
       [
         { q: 'Company', a: 'na sharon' },
@@ -181,8 +183,35 @@ describe('ghlFormAnswers', () => {
       ],
       { addedByName: 'Greg Arakelyan' },
     );
-    assert.ok(out.some((r) => r.q === 'Added by' && r.a === 'Greg Arakelyan'));
     assert.equal(out.some((r) => /Agency OS|AdHello/i.test(r.a)), false);
+    assert.equal(out.some((r) => r.q === 'Added by'), false);
     assert.ok(out.some((r) => r.q === 'Company'));
+  });
+
+  it('does not invent Added by when there is no Agency OS source row', () => {
+    const out = presentFormAnswersForProfile(
+      [{ q: 'Project Interest', a: 'Hardwood' }],
+      { addedByName: 'Alex' },
+    );
+    assert.equal(out.some((r) => r.q === 'Added by'), false);
+    assert.ok(out.some((r) => r.q === 'Project Interest'));
+  });
+
+  it('looksLikeOnlyContactProfileAnswers detects CRM crumbs vs real form Q&A', () => {
+    assert.equal(
+      looksLikeOnlyContactProfileAnswers([
+        { q: 'Company', a: 'jr' },
+        { q: 'Type', a: 'lead' },
+        { q: 'Address', a: 'WA, US' },
+      ]),
+      true,
+    );
+    assert.equal(
+      looksLikeOnlyContactProfileAnswers([
+        { q: 'Company', a: 'jr' },
+        { q: 'How can we help?', a: 'Need floors' },
+      ]),
+      false,
+    );
   });
 });

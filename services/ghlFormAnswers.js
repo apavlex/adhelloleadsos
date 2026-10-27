@@ -106,8 +106,23 @@ function friendlySourceAnswer(value) {
   return raw;
 }
 
+/** CRM profile fields that are not website-form questions (Details already shows these). */
+const CONTACT_PROFILE_Q_RE = /^(company|type|source|contact\s*source|session\s*source|attribution|website|address|name|full\s*name|first\s*name|last\s*name|phone|email|added by)$/i;
+
+function isContactProfileQuestion(q) {
+  return CONTACT_PROFILE_Q_RE.test(String(q || '').trim());
+}
+
+/** True when every row is just GHL contact metadata — not a filled-out estimate form. */
+function looksLikeOnlyContactProfileAnswers(answers) {
+  const rows = normalizeFormAnswers(answers);
+  if (!rows.length) return true;
+  return rows.every((row) => isContactProfileQuestion(row.q));
+}
+
 /**
- * Profile Form answers: drop Agency OS source crumbs and surface “Added by” teammate.
+ * Profile Form answers: drop Agency OS source crumbs; optionally replace with “Added by”.
+ * Does not invent an Added by row when there is no form Q&A (template shows addedByLabel).
  */
 function presentFormAnswersForProfile(answers, { addedByName } = {}) {
   const rows = normalizeFormAnswers(answers);
@@ -128,9 +143,6 @@ function presentFormAnswersForProfile(answers, { addedByName } = {}) {
       addedByShown = true;
     }
     out.push(row);
-  }
-  if (who && !addedByShown) {
-    out.unshift({ q: 'Added by', a: who });
   }
   return out;
 }
@@ -337,20 +349,29 @@ function contactCustomFieldEntries(contact) {
 /**
  * Build display answers from a GHL contact (+ optional location custom-field catalog).
  * Skips name/phone/email (already on the Reviews Details card).
+ * @param {object} [opts]
+ * @param {boolean} [opts.standardExtras=true] Company / Source / Type from the contact record
+ * @param {boolean} [opts.includeAddress=true] Contact address line
  */
-function answersFromContact(contact, catalog = []) {
+function answersFromContact(contact, catalog = [], opts = {}) {
   const c = contact && typeof contact === 'object' ? contact : {};
   const labels = catalogLabelMap(catalog);
   const draft = [];
+  const standardExtras = opts.standardExtras !== false;
+  const includeAddress = opts.includeAddress !== false;
 
-  for (const [key, label] of STANDARD_EXTRAS) {
-    const val = str(c[key]);
-    if (!val) continue;
-    draft.push({ q: label, a: val });
+  if (standardExtras) {
+    for (const [key, label] of STANDARD_EXTRAS) {
+      const val = str(c[key]);
+      if (!val) continue;
+      draft.push({ q: label, a: val });
+    }
   }
 
-  const address = contactAddressLine(c);
-  if (address) draft.push({ q: 'Address', a: address });
+  if (includeAddress) {
+    const address = contactAddressLine(c);
+    if (address) draft.push({ q: 'Address', a: address });
+  }
 
   for (const entry of contactCustomFieldEntries(c)) {
     if (!entry) continue;
@@ -431,7 +452,17 @@ function pickBestSubmission(submissions, contactId) {
  * Also tries GHL form submissions (Lead Connector) for the real field answers.
  * @param {object|string} contactOrId
  * @param {object} [integrationEnv]
- * @param {{ catalog?: object[], email?: string, phone?: string, includeCoreFallback?: boolean }} [opts]
+ * @param {{
+ *   catalog?: object[],
+ *   email?: string,
+ *   phone?: string,
+ *   includeCoreFallback?: boolean,
+ *   contactFallback?: boolean|'custom'|'all'|'none',
+ * }} [opts]
+ * contactFallback:
+ *   - 'all' / true (default): Company/Type/Source/Address + custom fields
+ *   - 'custom': custom fields only (no CRM profile crumbs)
+ *   - 'none' / false: submissions only
  */
 async function fetchContactFormAnswers(contactOrId, integrationEnv, opts = {}) {
   let contact = contactOrId;
@@ -455,7 +486,21 @@ async function fetchContactFormAnswers(contactOrId, integrationEnv, opts = {}) {
     }
   }
 
-  let fromContact = contact && typeof contact === 'object' ? answersFromContact(contact, catalog) : [];
+  const fallbackMode = opts.contactFallback === undefined
+    ? 'all'
+    : opts.contactFallback === true
+      ? 'all'
+      : opts.contactFallback === false
+        ? 'none'
+        : String(opts.contactFallback || 'all');
+
+  let fromContact = [];
+  if (contact && typeof contact === 'object' && fallbackMode !== 'none') {
+    fromContact = answersFromContact(contact, catalog, {
+      standardExtras: fallbackMode === 'all',
+      includeAddress: fallbackMode === 'all',
+    });
+  }
 
   // Prefer the actual form submission — Lead Connector often leaves customFields empty.
   let fromSubmission = [];
@@ -519,6 +564,8 @@ module.exports = {
   isAddressQuestion,
   isBlankAnswer,
   isAgencyOsSource,
+  isContactProfileQuestion,
+  looksLikeOnlyContactProfileAnswers,
   answersFromContact,
   answersFromSubmission,
   coreIdentityAnswers,
