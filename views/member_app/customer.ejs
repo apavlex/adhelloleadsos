@@ -382,7 +382,8 @@
       const _formAnswers = Array.isArray(typeof formAnswers !== 'undefined' ? formAnswers : customer.formAnswers)
         ? (typeof formAnswers !== 'undefined' ? formAnswers : customer.formAnswers)
         : [];
-      const _showFormBlock = _formAnswers.length || customer.source === 'website_form';
+      // Only open Form answers when this contact actually came from a website estimate form.
+      const _showFormBlock = String(customer.source || '') === 'website_form';
       const _isLeadContact = (typeof contactKind !== 'undefined' ? contactKind : (customer.isLead ? 'lead' : 'customer')) === 'lead';
     %>
     <% if (_showFormBlock) { %>

@@ -1969,13 +1969,18 @@ async function renderCustomerPage(res, ctx, {
     if (!addedByLabel && customer.isLead) {
       addedByLabel = work.memberAddedByLabel(ctx.member);
     }
-    try {
-      formAnswers = require('../services/ghlFormAnswers').presentFormAnswersForProfile(
-        customer.formAnswers,
-        { addedByName: addedByLabel },
-      );
-    } catch (_) {
-      formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
+    // Form answers section only for real website estimate forms — not every lead/contact.
+    if (String(customer.source || '') === 'website_form') {
+      try {
+        formAnswers = require('../services/ghlFormAnswers').presentFormAnswersForProfile(
+          customer.formAnswers,
+          { addedByName: addedByLabel },
+        );
+      } catch (_) {
+        formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
+      }
+    } else {
+      formAnswers = [];
     }
   }
   return render(res, 'customer', ctx, {

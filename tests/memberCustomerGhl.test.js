@@ -408,4 +408,46 @@ describe('member customer GHL sync', () => {
     assert.equal(again.formAnswers.length, enriched.formAnswers.length);
     mock.restoreAll();
   });
+
+  it('ensureFormAnswersOnCustomer does not invent form Q&A for non-form contacts', async () => {
+    mock.restoreAll();
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'test',
+      GHL_LOCATION_ID: 'loc1',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({ submissions: [] }));
+    mock.method(ghlClient, 'getContact', async () => ({
+      id: 'ghl_manual_jr',
+      companyName: 'jr',
+      type: 'lead',
+      address1: 'WA',
+      country: 'US',
+    }));
+
+    const created = await work.saveCustomer(NET.id, MEM, {
+      name: 'jr',
+      phone: '+13605589058',
+    }, {
+      source: 'manual',
+      ghlContactId: 'ghl_manual_jr',
+      formAnswers: [
+        { q: 'Company', a: 'jr' },
+        { q: 'Type', a: 'lead' },
+        { q: 'Address', a: 'WA, US' },
+      ],
+    });
+    assert.equal(created.ok, true);
+    assert.ok((created.customer.formAnswers || []).length > 0);
+
+    const cleared = await memberCustomerGhl.ensureFormAnswersOnCustomer(
+      NET,
+      MEM,
+      created.customer,
+    );
+    assert.equal((cleared.formAnswers || []).length, 0);
+    assert.equal(cleared.source, 'manual');
+    mock.restoreAll();
+  });
 });
