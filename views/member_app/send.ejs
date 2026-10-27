@@ -71,11 +71,11 @@
       <label class="ma-label" for="maRefLinkUrl">Their unique referral link</label>
       <div class="ma-link-box">
         <code id="maRefLinkUrl"><%= _picked.url %></code>
-        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= _picked.url %>"><%- icons.copy %> Copy</button>
       </div>
-      <div class="ma-refdash__share-row">
+      <div class="ma-refdash__share-row" role="group" aria-label="Share actions">
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= _picked.url %>"><%- icons.copy %> Copy</button>
         <% if (_picked.phone) { %>
-        <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || _picked.url) %>"><%- icons.sms %> Text link</a>
+        <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || _picked.url) %>"><%- icons.sms %> Text</a>
         <% } %>
         <a class="ma-btn ma-btn--sm ma-btn--ghost" href="<%= base %>/send?view=request<%= _picked.customerId ? ('&customer=' + encodeURIComponent(_picked.customerId)) : '' %>">Change customer</a>
       </div>
@@ -206,11 +206,11 @@
       <label class="ma-label" for="maRefLinkUrl2">Their unique referral link</label>
       <div class="ma-link-box">
         <code id="maRefLinkUrl2"><%= _picked.url %></code>
-        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= _picked.url %>"><%- icons.copy %> Copy</button>
       </div>
-      <div class="ma-refdash__share-row">
+      <div class="ma-refdash__share-row" role="group" aria-label="Share actions">
+        <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" data-ma-copy="<%= _picked.url %>"><%- icons.copy %> Copy</button>
         <% if (_picked.phone) { %>
-        <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || ('Share this link: ' + _picked.url)) %>"><%- icons.sms %> Text link</a>
+        <a class="ma-btn ma-btn--sm" href="sms:<%= String(_picked.phone).replace(/[^0-9+]/g, '') %>?&body=<%= encodeURIComponent(_picked.smsText || ('Share this link: ' + _picked.url)) %>"><%- icons.sms %> Text</a>
         <% } %>
         <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/send?view=analytics&customer=<%= encodeURIComponent(_picked.customerId) %>">See analytics</a>
       </div>
