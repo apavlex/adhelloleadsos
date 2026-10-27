@@ -276,6 +276,11 @@ function normalizeCustomer(raw) {
     isLead: c.isLead === true,
     markedAsLeadAt: c.isLead === true && c.markedAsLeadAt ? String(c.markedAsLeadAt) : '',
     /**
+     * Member removed this contact from Leads (or marked as customer). Website-form
+     * sync must not auto re-stamp isLead until they Mark as lead again.
+     */
+    leadRemovedAt: !c.isLead && c.leadRemovedAt ? String(c.leadRemovedAt) : '',
+    /**
      * Flooring partners: contact is a material quote request (mutually exclusive with isLead).
      * Shows under Leads → Quote requests; hidden from the main Customers list.
      */
@@ -551,7 +556,7 @@ function customerKind(customer) {
   return 'customer';
 }
 
-async function setCustomerKind(networkId, memberId, id, kind) {
+async function setCustomerKind(networkId, memberId, id, kind, opts = {}) {
   const existing = await getCustomer(networkId, memberId, id);
   if (!existing) return { ok: false, error: 'Customer not found.' };
   const next = String(kind || '').trim().toLowerCase();
@@ -561,7 +566,22 @@ async function setCustomerKind(networkId, memberId, id, kind) {
   const now = new Date().toISOString();
   const wantLead = next === 'lead';
   const wantQuote = next === 'quote';
+  const removeFromLeads = opts && opts.removeFromLeads === true;
+  const nextLeadRemovedAt = wantLead
+    ? ''
+    : (removeFromLeads || existing.isLead
+      ? (existing.leadRemovedAt || now)
+      : (existing.leadRemovedAt || ''));
   if (existing.isLead === wantLead && existing.isQuoteRequest === wantQuote) {
+    // Remove from Leads when already a customer still needs the dismiss stamp,
+    // otherwise website-form repair re-adds them on the next Received load.
+    if (removeFromLeads && !wantLead && !existing.leadRemovedAt) {
+      const stamped = await writeCustomer(networkId, memberId, {
+        ...existing,
+        leadRemovedAt: now,
+      });
+      return { ok: true, customer: stamped, kind: next };
+    }
     return { ok: true, customer: existing, unchanged: true, kind: next };
   }
   const customer = await writeCustomer(networkId, memberId, {
@@ -570,6 +590,7 @@ async function setCustomerKind(networkId, memberId, id, kind) {
     markedAsLeadAt: wantLead ? (existing.markedAsLeadAt || now) : '',
     isQuoteRequest: wantQuote,
     markedAsQuoteAt: wantQuote ? (existing.markedAsQuoteAt || now) : '',
+    leadRemovedAt: nextLeadRemovedAt,
   });
   return { ok: true, customer, kind: next };
 }

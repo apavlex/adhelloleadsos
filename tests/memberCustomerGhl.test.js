@@ -322,6 +322,38 @@ describe('member customer GHL sync', () => {
     assert.equal(again.customer.tags.filter((k) => k === tag.key).length, 1);
   });
 
+  it('stampWebsiteFormLead does not re-add a contact removed from Leads', async () => {
+    const created = await work.saveCustomer(NET.id, MEM, {
+      name: 'Bob Test',
+      phone: '9862387463',
+      email: 'bob@tprflooring.com',
+    }, { source: 'ghl' });
+    assert.equal(created.ok, true);
+
+    const stamped = await memberCustomerGhl.stampWebsiteFormLead(NET, MEM, created.customer);
+    assert.equal(stamped.customer.isLead, true);
+
+    const removed = await work.setCustomerKind(NET.id, MEM, stamped.customer.id, 'customer', {
+      removeFromLeads: true,
+    });
+    assert.equal(removed.ok, true);
+    assert.equal(removed.customer.isLead, false);
+    assert.ok(removed.customer.leadRemovedAt);
+
+    const restamp = await memberCustomerGhl.stampWebsiteFormLead(NET, MEM, removed.customer);
+    assert.equal(restamp.ok, true);
+    assert.equal(restamp.customer.isLead, false, 'website form sync must not undo Remove from Leads');
+    assert.ok(restamp.customer.leadRemovedAt);
+
+    const leads = await work.listContactLeads(NET.id, MEM);
+    assert.equal(leads.some((c) => c.id === stamped.customer.id), false);
+
+    // Explicit Mark as lead clears the dismiss and allows stamp again.
+    const readded = await work.setCustomerKind(NET.id, MEM, stamped.customer.id, 'lead');
+    assert.equal(readded.customer.isLead, true);
+    assert.equal(readded.customer.leadRemovedAt, '');
+  });
+
   it('ensureFormAnswersOnCustomer backfills GHL custom fields onto the profile', async () => {
     mock.restoreAll();
     mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({

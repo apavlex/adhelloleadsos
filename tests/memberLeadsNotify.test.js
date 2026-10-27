@@ -82,6 +82,9 @@ describe('member leads + referral notifications', () => {
     assert.match(customers, /showLeads/);
     assert.match(route, /customers\/c\/:id\/mark-customer/);
     assert.match(route, /customers\/c\/:id\/unmark-lead/);
+    assert.match(route, /removeFromLeads:\s*true/);
+    assert.match(route, /match\.leadRemovedAt/);
+    assert.match(work, /leadRemovedAt/);
     assert.match(route, /leads\/:leadId\/to-customer/);
     assert.match(route, /marked_customer/);
     assert.match(route, /website_form/);
