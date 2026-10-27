@@ -59,9 +59,11 @@ function countQueueNeedingAction(leads) {
 }
 
 function enrichTasksWithLeadsForToday(tasks, leads) {
-  const leadMap = Object.fromEntries(leads.map((l) => [l.key, l]));
-  return tasks.map((t) => {
-    const L = t.leadKey && leadMap[t.leadKey];
+  const leadMap = Object.fromEntries(
+    (Array.isArray(leads) ? leads : []).filter((l) => l && l.key).map((l) => [l.key, l]),
+  );
+  return (Array.isArray(tasks) ? tasks : []).map((t) => {
+    const L = t && t.leadKey && leadMap[t.leadKey];
     const leadTitle = L ? String(L.title || L.company || L.email || 'Lead').slice(0, 120) : null;
     return { ...t, leadTitle };
   });
@@ -192,7 +194,9 @@ router.get('/', async (req, res, next) => {
     const dedupedViews = [...byLead.values()].sort(
       (a, b) => Date.parse(b.viewed_at || 0) - Date.parse(a.viewed_at || 0),
     );
-    const leadMapForViews = Object.fromEntries(workspaceLeads.map((l) => [l.key, l]));
+    const leadMapForViews = Object.fromEntries(
+      (workspaceLeads || []).filter((l) => l && l.key).map((l) => [l.key, l]),
+    );
     const reportsOpened24h = dedupedViews.slice(0, 25).map((v) => {
       const L = leadMapForViews[v.lead_id];
       const short = String(v.lead_id || '').replace(/^lead:/i, '');
@@ -205,40 +209,78 @@ router.get('/', async (req, res, next) => {
       };
     });
 
-    const [outreachCoach, actionPlan, rawTasks] = await Promise.all([
-      buildOutreachCoachSnapshot(req, {
-        businessesOnly: true,
-        leads: all,
-        workspace: workspaceDoc,
-        touchGoal,
-        history,
-      }),
-      actionPlanTracker.loadMonthView({
-        workspaceId: wid,
-        email,
-        year: apYear,
-        month: apMonth,
-        leads: workspaceLeads,
-      }),
-      dedupeOpenLeadTasks(wid, email).then(() => dbService.listUserTasks(wid, email)),
-    ]);
+    let outreachCoach = null;
+    let actionPlan = null;
+    let rawTasks = [];
+    try {
+      [outreachCoach, actionPlan, rawTasks] = await Promise.all([
+        buildOutreachCoachSnapshot(req, {
+          businessesOnly: true,
+          leads: all,
+          workspace: workspaceDoc,
+          touchGoal,
+          history,
+        }),
+        actionPlanTracker.loadMonthView({
+          workspaceId: wid,
+          email,
+          year: apYear,
+          month: apMonth,
+          leads: workspaceLeads,
+        }),
+        dedupeOpenLeadTasks(wid, email).then(() => dbService.listUserTasks(wid, email)),
+      ]);
+    } catch (err) {
+      console.warn('[today] coach/plan/tasks failed:', err && err.message);
+      try {
+        actionPlan = await actionPlanTracker.loadMonthView({
+          workspaceId: wid,
+          email,
+          year: apYear,
+          month: apMonth,
+          leads: workspaceLeads,
+        });
+      } catch (_) {
+        actionPlan = {
+          year: apYear,
+          month: apMonth,
+          categories: [],
+          completions: {},
+          dailyTotals: {},
+          monthlyTotal: 0,
+          clientsAcquiredYtd: 0,
+        };
+      }
+      try {
+        rawTasks = await dbService.listUserTasks(wid, email);
+      } catch (_) {
+        rawTasks = [];
+      }
+    }
+    if (!Array.isArray(rawTasks)) rawTasks = [];
 
     const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
     const followUpTasksToday = followUpTasksNeedingAttention(tasksEnriched);
     const todayTasks = manualTasksDueToday(tasksEnriched);
-    const selectedBoards = selectPipeline(workspaceDoc && workspaceDoc.opportunityBoards, req.query && req.query.pipeline);
-    if (selectedBoards.changed && workspaceDoc) {
-      workspaceDoc.opportunityBoards = selectedBoards.boards;
-      await dbService.saveWorkspace(wid, workspaceDoc);
+    let opportunityBoard = null;
+    try {
+      const selectedBoards = selectPipeline(workspaceDoc && workspaceDoc.opportunityBoards, req.query && req.query.pipeline);
+      if (selectedBoards.changed && workspaceDoc) {
+        workspaceDoc.opportunityBoards = selectedBoards.boards;
+        await dbService.saveWorkspace(wid, workspaceDoc);
+      }
+      opportunityBoard = buildOpportunityBoard({
+        boards: (workspaceDoc && workspaceDoc.opportunityBoards) || selectedBoards.boards,
+        leads: businessLeads,
+        tasks: rawTasks,
+        pipelineId: req.query && req.query.pipeline,
+        // Today shows every card; columns scroll after ~2 visible.
+        compactLimit: 0,
+      });
+    } catch (err) {
+      console.warn('[today] opportunity board failed:', err && err.message);
+      opportunityBoard = null;
     }
-    const opportunityBoard = buildOpportunityBoard({
-      boards: (workspaceDoc && workspaceDoc.opportunityBoards) || selectedBoards.boards,
-      leads: businessLeads,
-      tasks: rawTasks,
-      pipelineId: req.query && req.query.pipeline,
-      // Today shows every card; columns scroll after ~2 visible.
-      compactLimit: 0,
-    });
     const callWarmQueue = buildCallQueue(businessLeads, { limit: 20 });
     const nextActions = buildNextActionsQueue({
       tasks: tasksEnriched,
@@ -255,7 +297,7 @@ router.get('/', async (req, res, next) => {
       short,
       month: i + 1,
       year: navYear,
-      active: navYear === actionPlan.year && i + 1 === actionPlan.month,
+      active: !!(actionPlan && navYear === actionPlan.year && i + 1 === actionPlan.month),
     }));
     let agentOpsDash = null;
     try {

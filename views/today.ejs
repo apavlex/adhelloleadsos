@@ -868,7 +868,8 @@
     </section>
     <% } %>
 
-    <% const _bm = typeof bookmarkSessions !== 'undefined' && bookmarkSessions ? bookmarkSessions : { total: 0, callable: 0, href: '/focus', folders: [] }; %>
+    <% const _bmRaw = typeof bookmarkSessions !== 'undefined' && bookmarkSessions ? bookmarkSessions : null; %>
+    <% const _bm = { total: (_bmRaw && _bmRaw.total) || 0, callable: (_bmRaw && _bmRaw.callable) || 0, href: (_bmRaw && _bmRaw.href) || '/focus', folders: Array.isArray(_bmRaw && _bmRaw.folders) ? _bmRaw.folders : [] }; %>
     <% const _rw2 = typeof recentlyWorked !== 'undefined' && recentlyWorked ? recentlyWorked : { total: 0, items: [], href: '/focus', sinceDays: 14 }; %>
     <details class="today-resume today-viz today-viz-reveal today-viz-reveal-delay-1 mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
       <summary class="flex items-center gap-4 p-6 md:p-8 rounded-[2rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow">

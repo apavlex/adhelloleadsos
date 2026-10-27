@@ -739,15 +739,20 @@ app.use('/admin', require('./routes/admin'));
 app.use((err, req, res, next) => {
   console.error(err.stack);
   const status = err.status || err.statusCode || 500;
+  const message = err.message || 'Something went wrong';
+  if (res.headersSent) return next(err);
   if (wantsJsonResponse(req)) {
     const msg =
       status === 413
         ? 'Request too large. Try exporting fewer leads or use Download CSV.'
-        : err.message || 'Something went wrong';
+        : message;
     return res.status(status).json({ success: false, error: msg });
   }
   const code = status >= 400 && status < 600 ? status : 500;
-  const message = err.message || 'Something went wrong';
+  const sendPlain = () => {
+    if (res.headersSent) return;
+    res.status(code).type('text/plain').send(message);
+  };
   // Reviews / member app (/m/:token/…) — stay in-app; never the Agency OS dashboard.
   const memberMatch = String((req.originalUrl || req.url || req.path || '')).match(/^(\/m\/[^/?#]+)/);
   if (memberMatch) {
@@ -764,18 +769,36 @@ app.use((err, req, res, next) => {
       brand = brand || { appName: 'Reviews' };
       icons = icons || {};
     }
-    return res.status(code).render('member_app/error', {
-      message,
-      base: memberMatch[1],
-      brand,
-      icons,
-      active: 'home',
-    });
+    return res.status(code).render(
+      'member_app/error',
+      {
+        message,
+        base: memberMatch[1],
+        brand,
+        icons,
+        active: 'home',
+      },
+      (renderErr) => {
+        if (renderErr) {
+          console.error('[error-handler] member error page failed:', renderErr.message);
+          return sendPlain();
+        }
+      },
+    );
   }
-  res.status(code).render('error', {
-    message,
-    activePage: '',
-  });
+  return res.status(code).render(
+    'error',
+    {
+      message,
+      activePage: '',
+    },
+    (renderErr) => {
+      if (renderErr) {
+        console.error('[error-handler] error page failed:', renderErr.message);
+        return sendPlain();
+      }
+    },
+  );
 });
 
 function startServer() {

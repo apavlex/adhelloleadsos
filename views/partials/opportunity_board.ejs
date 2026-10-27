@@ -668,9 +668,10 @@
           <button type="button" class="opp-stage-move" data-stage-move="1" title="Move stage right" aria-label="Move stage right"<%= _isLastStage ? ' disabled' : '' %>><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
           <button type="button" class="opp-remove" data-stage-id="<%= stage.id %>">Remove</button>
         </div>
-        <div class="opp-stage-cards<%= stage.cards.length ? '' : ' is-empty' %>" data-stage-id="<%= stage.id %>">
-          <% if (!stage.cards.length) { %><div class="opp-drop">Drop here</div><% } %>
-          <% stage.cards.forEach(function (card) { %>
+        <% var _stageCards = Array.isArray(stage.cards) ? stage.cards.filter(Boolean) : []; %>
+        <div class="opp-stage-cards<%= _stageCards.length ? '' : ' is-empty' %>" data-stage-id="<%= stage.id %>">
+          <% if (!_stageCards.length) { %><div class="opp-drop">Drop here</div><% } %>
+          <% _stageCards.forEach(function (card) { %>
           <% var _cardPhone = String(card.phone || '').trim(); var _hasPhone = !!_cardPhone && _cardPhone !== 'N/A' && _cardPhone !== '—'; %>
           <article class="opp-card" data-lead-key="<%= card.key %>" data-title="<%= card.title %>" data-value="<%= card.value %>" data-phone="<%= _hasPhone ? _cardPhone : '' %>">
             <div class="opp-card-head">
