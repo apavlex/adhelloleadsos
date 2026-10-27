@@ -1335,6 +1335,7 @@ async function repairWebsiteFormContactLeads(ctx) {
       if (!fl) continue;
       const match = work.findCustomerMatch(customers, { phone: fl.phone, email: fl.email });
       if (!match) continue;
+      if (match.leadRemovedAt) continue;
       if (match.isLead && match.source === 'website_form') continue;
       // eslint-disable-next-line no-await-in-loop
       await memberCustomerGhl.stampWebsiteFormLead(ctx.network, ctx.member.id, match);
@@ -2275,10 +2276,13 @@ router.post('/m/:token/customers/c/:id/mark-customer', form, withMember(async (r
 
 /**
  * Remove from the Leads list without deleting the contact.
- * Clears the lead flag → they leave Leads (and may reappear under Customers).
+ * Clears the lead flag + stamps leadRemovedAt so website-form repair cannot
+ * put them back on Received until the member Marks as lead again.
  */
 router.post('/m/:token/customers/c/:id/remove-lead', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer');
+  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer', {
+    removeFromLeads: true,
+  });
   if (!result.ok) {
     return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not remove lead.')}`);
   }

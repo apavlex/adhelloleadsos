@@ -102,7 +102,10 @@ async function stampWebsiteFormLead(network, memberId, customer) {
     return { ok: false, error: 'Customer required.' };
   }
   let next = customer;
-  if (!next.isLead) {
+  // Member removed them from Leads / marked as customer — keep Website form tag/source
+  // but do not put them back on the Received list until they Mark as lead again.
+  const leadDismissed = !!String(next.leadRemovedAt || '').trim();
+  if (!next.isLead && !leadDismissed) {
     const marked = await work.setCustomerLeadFlag(network.id, memberId, next.id, true);
     if (marked.ok && marked.customer) next = marked.customer;
   }
@@ -140,7 +143,7 @@ async function stampWebsiteFormLead(network, memberId, customer) {
         next = saved.customer;
         // Re-apply lead flag — saveCustomer preserves isLead from existing via spread,
         // but be safe if the record was re-normalized without it.
-        if (!next.isLead) {
+        if (!next.isLead && !leadDismissed && !next.leadRemovedAt) {
           const again = await work.setCustomerLeadFlag(network.id, memberId, next.id, true);
           if (again.ok && again.customer) next = again.customer;
         }
