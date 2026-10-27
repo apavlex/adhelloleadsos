@@ -155,6 +155,74 @@ describe('teamFieldWork helpers', () => {
     assert.equal(rows[0].photoCount, 2);
     assert.equal(rows[0].overdue, true);
   });
+
+  it('collapses a shared original + teammate copy into one Leads Network card', () => {
+    const rows = teamFieldWork.dedupeFieldRows([
+      {
+        memberId: 'greg',
+        jobId: 'job_src',
+        customerId: 'c_greg',
+        customerName: 'Zimmerman',
+        title: 'Site visit',
+        status: 'lead',
+        photoCount: 0,
+        sharedWith: [{ memberId: 'tpr', jobId: 'job_copy' }],
+        updatedAt: '2026-10-20T00:00:00.000Z',
+      },
+      {
+        memberId: 'tpr',
+        jobId: 'job_copy',
+        customerId: 'c_tpr',
+        customerName: 'Zimmerman',
+        title: 'Site visit',
+        status: 'lead',
+        photoCount: 2,
+        photos: [{ id: 'ph1', href: '/p/1' }],
+        latestNote: 'Shared by Greg Arakelyan.',
+        sharedFromMemberId: 'greg',
+        sharedFromJobId: 'job_src',
+        updatedAt: '2026-10-21T00:00:00.000Z',
+      },
+    ]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].memberId, 'tpr');
+    assert.equal(rows[0].photoCount, 2);
+    assert.match(rows[0].latestNote || '', /Shared by Greg/);
+  });
+
+  it('does not count shared teammate copies twice in Active Numbers', () => {
+    const totals = teamFieldWork.computeTotals(
+      [
+        {
+          memberId: 'greg',
+          job: {
+            id: 'job_src',
+            status: 'lead',
+            value: 0,
+            date: '',
+            photos: [],
+            sharedWith: [{ memberId: 'tpr', jobId: 'job_copy' }],
+          },
+        },
+        {
+          memberId: 'tpr',
+          job: {
+            id: 'job_copy',
+            status: 'lead',
+            value: 0,
+            date: '',
+            photos: [{ id: 'ph1' }, { id: 'ph2' }],
+            sharedFromMemberId: 'greg',
+            sharedFromJobId: 'job_src',
+          },
+        },
+      ],
+      '2026-10-26',
+    );
+    assert.equal(totals.leads, 1);
+    assert.equal(totals.open, 1);
+    assert.equal(totals.membersWithLeads, 1);
+  });
 });
 
 describe('teamFieldWork.listTeamFieldWork', () => {

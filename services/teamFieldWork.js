@@ -153,9 +153,78 @@ function mergeTwinOnto(winner, twin) {
 }
 
 /**
- * Collapse same-teammate + same customer name + same title twins (share copies,
- * Lead vs Scheduled, etc.). Keeps the further-along job and lists every date
- * on that one card so Open jobs doesn't show Zimmerman twice.
+ * Prefer further-along / richer twin; on a true tie keep the shared *copy*
+ * (recipient) so Leads Network shows the teammate who received the lead.
+ */
+function preferSharedFieldRow(row, prev) {
+  if (preferFieldRow(row, prev)) return true;
+  if (preferFieldRow(prev, row)) return false;
+  const rowCopy = !!(row.sharedFromMemberId && row.sharedFromJobId);
+  const prevCopy = !!(prev.sharedFromMemberId && prev.sharedFromJobId);
+  if (rowCopy !== prevCopy) return rowCopy;
+  return false;
+}
+
+function jobRefKey(memberId, jobId) {
+  const mid = String(memberId || '').trim();
+  const jid = String(jobId || '').trim();
+  if (!mid || !jid) return '';
+  return `${mid}\0${jid}`;
+}
+
+/**
+ * Collapse a shared original + teammate copy into one Leads Network card.
+ * Share linkage wins over same-name coincidence across unrelated members.
+ */
+function collapseSharedAcrossMembers(rows) {
+  const list = Array.isArray(rows) ? rows.map((r) => ({ ...r })) : [];
+  const byRef = new Map();
+  for (const row of list) {
+    const key = jobRefKey(row.memberId, row.jobId);
+    if (key) byRef.set(key, row);
+  }
+
+  const pairs = [];
+  const paired = new Set();
+  for (const row of list) {
+    const fromKey = jobRefKey(row.sharedFromMemberId, row.sharedFromJobId);
+    if (!fromKey || paired.has(row)) continue;
+    const source = byRef.get(fromKey);
+    if (!source || source === row) continue;
+    pairs.push([source, row]);
+    paired.add(source);
+    paired.add(row);
+  }
+  // Source.sharedWith → copy when the copy forgot sharedFrom* somehow.
+  for (const row of list) {
+    if (paired.has(row)) continue;
+    const peers = Array.isArray(row.sharedWith) ? row.sharedWith : [];
+    for (const peer of peers) {
+      const copy = byRef.get(jobRefKey(peer && peer.memberId, peer && peer.jobId));
+      if (!copy || copy === row || paired.has(copy)) continue;
+      pairs.push([row, copy]);
+      paired.add(row);
+      paired.add(copy);
+      break;
+    }
+  }
+
+  const drop = new Set();
+  const winners = [];
+  for (const [source, copy] of pairs) {
+    const keepCopy = preferSharedFieldRow(copy, source);
+    const winner = mergeTwinOnto(keepCopy ? copy : source, keepCopy ? source : copy);
+    drop.add(source);
+    drop.add(copy);
+    winners.push(winner);
+  }
+  return list.filter((row) => !drop.has(row)).concat(winners);
+}
+
+/**
+ * Collapse same-teammate + same customer name + same title twins (Lead vs
+ * Scheduled, etc.), then collapse share-linked originals + teammate copies so
+ * Leads Network doesn't list Zimmerman twice after a share.
  */
 function dedupeFieldRows(rows) {
   const list = Array.isArray(rows) ? rows : [];
@@ -185,7 +254,49 @@ function dedupeFieldRows(rows) {
       best.set(key, mergeTwinOnto(prev, seeded));
     }
   }
-  return Array.from(best.values());
+  return collapseSharedAcrossMembers(Array.from(best.values()));
+}
+
+/**
+ * Drop shared teammate copies from rollup counts when the source job is also
+ * present — same rule as the Open jobs list.
+ */
+function filterSharedJobDupesForTotals(allJobs) {
+  const list = Array.isArray(allJobs) ? allJobs : [];
+  const byRef = new Map();
+  for (const item of list) {
+    const key = jobRefKey(item && item.memberId, item && item.job && item.job.id);
+    if (key) byRef.set(key, item);
+  }
+  const drop = new Set();
+  for (const item of list) {
+    const job = item && item.job;
+    if (!job) continue;
+    const fromKey = jobRefKey(job.sharedFromMemberId, job.sharedFromJobId);
+    if (!fromKey) continue;
+    const source = byRef.get(fromKey);
+    if (!source || source === item) continue;
+    // Prefer counting the richer / further-along job once.
+    const copyRow = {
+      status: job.status,
+      date: job.date,
+      photoCount: Array.isArray(job.photos) ? job.photos.length : 0,
+      updatedAt: job.updatedAt,
+      sharedFromMemberId: job.sharedFromMemberId,
+      sharedFromJobId: job.sharedFromJobId,
+    };
+    const sourceJob = source.job || {};
+    const sourceRow = {
+      status: sourceJob.status,
+      date: sourceJob.date,
+      photoCount: Array.isArray(sourceJob.photos) ? sourceJob.photos.length : 0,
+      updatedAt: sourceJob.updatedAt,
+      sharedFromMemberId: sourceJob.sharedFromMemberId,
+      sharedFromJobId: sourceJob.sharedFromJobId,
+    };
+    drop.add(preferSharedFieldRow(copyRow, sourceRow) ? source : item);
+  }
+  return list.filter((item) => !drop.has(item));
 }
 
 function cleanDay(value, fallback) {
@@ -271,7 +382,8 @@ function computeTotals(allJobs, today) {
   const membersWithOpen = new Set();
   const membersWithLeads = new Set();
 
-  allJobs.forEach(({ memberId, job }) => {
+  const counted = filterSharedJobDupesForTotals(allJobs);
+  counted.forEach(({ memberId, job }) => {
     const isOpen = work.isOpen(job);
     const value = Number(job.value) || 0;
     photos += (job.photos || []).length;
@@ -310,7 +422,7 @@ function computeTotals(allJobs, today) {
     openValue,
     wonValue,
     dealsValue: openValue + wonValue,
-    jobs: allJobs.length,
+    jobs: counted.length,
   };
 }
 
@@ -424,6 +536,9 @@ async function listTeamFieldWork(networkId, members, opts = {}) {
         isOpen: open,
         isUpcoming,
         isToday,
+        sharedFromMemberId: String(job.sharedFromMemberId || '').trim(),
+        sharedFromJobId: String(job.sharedFromJobId || '').trim(),
+        sharedWith: Array.isArray(job.sharedWith) ? job.sharedWith : [],
         ownerJobHref: ownerJobHref(member.id, job.id),
         ownerCustomerHref: (customer.id || job.customerId)
           ? ownerCustomerHref(member.id, customer.id || job.customerId)
@@ -582,5 +697,8 @@ module.exports = {
   statusRank,
   scheduleLabel,
   preferFieldRow,
+  preferSharedFieldRow,
   mergeTwinOnto,
+  collapseSharedAcrossMembers,
+  filterSharedJobDupesForTotals,
 };
