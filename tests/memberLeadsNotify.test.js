@@ -65,7 +65,9 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /mark-lead/);
     // Contact-lead cards open the profile; Mark as customer lives on the profile titlebar.
     assert.match(referrals, /ma-card__nav/);
+    assert.match(referrals, /ma-card__nav-chev/);
     assert.match(referrals, /contact-lead-[\s\S]*?ma-card__nav[\s\S]*?lead\.href/);
+    assert.match(referrals, /contact-lead-[\s\S]*?ma-actions[\s\S]*?>Open</);
     assert.doesNotMatch(
       referrals,
       /contact-lead-[\s\S]*?mark-customer[\s\S]*?Mark as customer/,

@@ -181,6 +181,8 @@ test('customers: mark-as-lead routes put contact on Leads Received', async () =>
     assert.match(leadsPage, /Inbound Texter/);
     assert.match(leadsPage, /contact-lead-/);
     assert.match(leadsPage, /ma-card__nav/);
+    assert.match(leadsPage, /ma-card__nav-chev/);
+    assert.match(leadsPage, />Open</);
     assert.match(leadsPage, new RegExp(`/customers/c/${saved.customer.id}`));
     assert.doesNotMatch(leadsPage, /contact-lead-[\s\S]*?Mark as customer/);
 
