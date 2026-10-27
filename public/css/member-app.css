@@ -1919,6 +1919,11 @@ form.ma-card:has([data-ma-customer-pick]) {
 }
 .ma-btn--block { width: 100%; }
 .ma-btn--ghost { background: transparent; color: var(--ink); border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent); }
+.ma-titlebar__actions .ma-mark-lead.ma-btn--ghost {
+  background: transparent;
+  color: var(--acc);
+  border-color: color-mix(in srgb, var(--acc) 55%, transparent);
+}
 .ma-btn--soft { background: var(--acc-soft); color: var(--acc-ink); }
 .ma-btn--danger { background: transparent; color: #e11d48; border: 1px solid rgba(225, 29, 72, 0.3); }
 .ma-btn--sm { min-height: 38px; padding: 8px 14px; font-size: 13px; }

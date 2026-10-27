@@ -53,7 +53,7 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /ma-stage-btn--lead/);
     assert.match(page, /ma-stage-btn--customer/);
     assert.match(page, /ma-stage-btn--referral/);
-    assert.match(page, /ma-stage-btn--lead[\s\S]*?Mark as customer/);
+    assert.match(page, /ma-stage-btn--lead[\s\S]*?ma-btn--ghost[\s\S]*?Mark as customer/);
     assert.match(page, /ma-stage-btn--customer[\s\S]*?Mark as lead/);
     assert.match(page, /'Referral'|Referral contact/);
     assert.doesNotMatch(page, /How this contact was added/);
