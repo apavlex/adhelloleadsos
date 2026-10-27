@@ -180,8 +180,14 @@ test('customers: mark-as-lead routes put contact on Leads Received', async () =>
     assert.match(leadsPage, /Leads from contacts and online forms/);
     assert.match(leadsPage, /Inbound Texter/);
     assert.match(leadsPage, /contact-lead-/);
-    assert.match(leadsPage, /Mark as customer/);
-    assert.match(leadsPage, /mark-customer/);
+    assert.match(leadsPage, /ma-card__nav/);
+    assert.match(leadsPage, new RegExp(`/customers/c/${saved.customer.id}`));
+    assert.doesNotMatch(leadsPage, /contact-lead-[\s\S]*?Mark as customer/);
+
+    const leadProfile = await (await fetch(`${A}/customers/c/${saved.customer.id}`)).text();
+    assert.match(leadProfile, /ma-stage-btn--lead/);
+    assert.match(leadProfile, /Mark as customer/);
+    assert.match(leadProfile, /mark-customer/);
 
     const customersHidden = await (await fetch(`${A}/customers`)).text();
     assert.doesNotMatch(customersHidden, /Inbound Texter/);

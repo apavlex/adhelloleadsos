@@ -45,19 +45,21 @@
         <% } else if (_stage === 'referral') { %>
         <span class="ma-btn ma-btn--sm ma-stage-btn ma-stage-btn--referral" title="Referral contact"><%= _stageLabel %></span>
         <% } else if (_stage === 'lead') { %>
+        <span class="ma-btn ma-btn--sm ma-stage-btn ma-stage-btn--lead" title="Stage: Lead"><%= _stageLabel %></span>
         <button
           type="submit"
           form="maMarkCustomerForm"
-          class="ma-btn ma-btn--sm ma-stage-btn ma-stage-btn--lead"
-          title="Stage: Lead — tap to mark as Customer"
-        >Lead</button>
+          class="ma-btn ma-btn--sm ma-mark-lead"
+          title="Mark as customer"
+        ><%- icons.customers %> Mark as customer</button>
         <% } else { %>
+        <span class="ma-btn ma-btn--sm ma-stage-btn ma-stage-btn--customer" title="Stage: Customer"><%= _stageLabel %></span>
         <button
           type="submit"
           form="maMarkLeadForm"
-          class="ma-btn ma-btn--sm ma-btn--soft ma-stage-btn ma-stage-btn--customer"
-          title="Stage: Customer — tap to mark as Lead"
-        >Customer</button>
+          class="ma-btn ma-btn--sm ma-btn--soft ma-mark-lead"
+          title="Mark as lead"
+        ><%- icons.leads %> Mark as lead</button>
         <% } %>
       </div>
     </div>

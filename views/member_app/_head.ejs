@@ -233,13 +233,14 @@ form.ma-card:has([data-ma-customer-pick]){overflow:visible}
 @keyframes maVoiceMicPulseCritical{0%{box-shadow:0 0 0 0 rgb(239 68 68 / .55)}55%{box-shadow:0 0 0 18px rgb(239 68 68 / 0)}100%{box-shadow:0 0 0 0 rgb(239 68 68 / 0)}}
 .ma-titlebar{display:flex!important;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 4px}
 .ma-titlebar .ma-page-title{margin:0;min-width:0;flex:1 1 auto;overflow-wrap:anywhere}
-.ma-titlebar__actions{display:inline-flex!important;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto;max-width:48%}
+.ma-titlebar__actions{display:inline-flex!important;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;flex:0 1 auto;max-width:min(68%,280px)}
 .ma-mark-lead{flex:0 0 auto;min-height:32px;padding:6px 10px;font-size:12px;white-space:nowrap}
-.ma-stage-btn{flex:0 0 auto;min-height:32px;padding:6px 12px;font-size:13px;font-weight:700;white-space:nowrap;border-radius:999px;border:0;box-shadow:none}
+.ma-stage-btn{flex:0 0 auto;min-height:32px;padding:6px 12px;font-size:13px;font-weight:700;white-space:nowrap;border-radius:999px;border:0;box-shadow:none;cursor:default}
 .ma-stage-btn--lead{background:rgba(245,158,11,.18);color:#b45309}
 .ma-stage-btn--customer{background:color-mix(in srgb,var(--acc,#2563eb) 18%,var(--card,#fff));color:var(--ink,#0f172a)}
 .ma-stage-btn--referral{background:rgba(37,99,235,.14);color:#1d4ed8}
 .ma-stage-btn--quote{background:rgba(16,185,129,.16);color:#047857}
+.ma-card__nav{display:block;color:inherit;text-decoration:none}
 .ma-label-actions{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}
 /* Bring in customers — thin strip even if SW serves a stale member-app.css */
 .ma-cust-tools.ma-fold{margin:0 0 8px!important;border-radius:10px!important}
