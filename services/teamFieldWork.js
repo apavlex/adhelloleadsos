@@ -87,37 +87,103 @@ function statusRank(status) {
   return i >= 0 ? i : -1;
 }
 
+/** Display label for a job's day/time (or Unscheduled). */
+function scheduleLabel(row) {
+  const label = String((row && (row.whenLabel || row.dayLabel)) || '').trim();
+  return label || 'Unscheduled';
+}
+
 /**
- * Collapse Lead + Estimate (etc.) twins for the same teammate + customer + title.
- * Keeps the further-along job; ties break on more photos, then newer update.
+ * Prefer further-along / richer twin. Returns true when `row` should replace `prev`.
+ */
+function preferFieldRow(row, prev) {
+  const rankDiff = statusRank(row.status) - statusRank(prev.status);
+  if (rankDiff > 0) return true;
+  if (rankDiff < 0) return false;
+  // Prefer a dated schedule over an undated twin when status ties.
+  const rowDated = !!(row.date);
+  const prevDated = !!(prev.date);
+  if (rowDated !== prevDated) return rowDated;
+  const photoDiff = (Number(row.photoCount) || 0) - (Number(prev.photoCount) || 0);
+  if (photoDiff > 0) return true;
+  if (photoDiff < 0) return false;
+  return String(row.updatedAt || '') > String(prev.updatedAt || '');
+}
+
+/**
+ * Merge schedule labels + photo hints from a discarded twin onto the kept card.
+ */
+function mergeTwinOnto(winner, twin) {
+  const labels = [];
+  const seen = new Set();
+  function pushLabel(raw) {
+    const label = String(raw || '').trim() || 'Unscheduled';
+    const key = label.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    labels.push(label);
+  }
+  (winner.dateLabels || [scheduleLabel(winner)]).forEach(pushLabel);
+  (twin.dateLabels || [scheduleLabel(twin)]).forEach(pushLabel);
+
+  const photos = [...(Array.isArray(winner.photos) ? winner.photos : [])];
+  const photoIds = new Set(photos.map((p) => p && p.id).filter(Boolean));
+  for (const p of (Array.isArray(twin.photos) ? twin.photos : [])) {
+    if (!p || (p.id && photoIds.has(p.id))) continue;
+    if (p.id) photoIds.add(p.id);
+    photos.push(p);
+  }
+  const photoCount = Math.max(
+    Number(winner.photoCount) || 0,
+    Number(twin.photoCount) || 0,
+    photos.length,
+  );
+  const latestNote = winner.latestNote || twin.latestNote || '';
+  const overdue = !!(winner.overdue || twin.overdue);
+
+  return {
+    ...winner,
+    dateLabels: labels,
+    // Primary when stays the winner's schedule; extras render under it.
+    photos: photos.slice(0, 4),
+    photoCount,
+    latestNote,
+    overdue,
+  };
+}
+
+/**
+ * Collapse same-teammate + same customer name + same title twins (share copies,
+ * Lead vs Scheduled, etc.). Keeps the further-along job and lists every date
+ * on that one card so Open jobs doesn't show Zimmerman twice.
  */
 function dedupeFieldRows(rows) {
   const list = Array.isArray(rows) ? rows : [];
   const best = new Map();
   for (const row of list) {
+    // Key on customer *name* (not id) so a shared copy and an original book
+    // for "Zimmerman" collapse even when customerIds differ.
     const key = [
       String(row.memberId || ''),
-      String(row.customerId || row.customerName || '').trim().toLowerCase(),
+      String(row.customerName || row.customerId || '').trim().toLowerCase(),
       String(row.title || '').trim().toLowerCase(),
     ].join('\0');
+    const seeded = {
+      ...row,
+      dateLabels: Array.isArray(row.dateLabels) && row.dateLabels.length
+        ? row.dateLabels
+        : [scheduleLabel(row)],
+    };
     const prev = best.get(key);
     if (!prev) {
-      best.set(key, row);
+      best.set(key, seeded);
       continue;
     }
-    const rankDiff = statusRank(row.status) - statusRank(prev.status);
-    if (rankDiff > 0) {
-      best.set(key, row);
-      continue;
+    if (preferFieldRow(seeded, prev)) {
+      best.set(key, mergeTwinOnto(seeded, prev));
+    } else {
+      best.set(key, mergeTwinOnto(prev, seeded));
     }
-    if (rankDiff < 0) continue;
-    const photoDiff = (Number(row.photoCount) || 0) - (Number(prev.photoCount) || 0);
-    if (photoDiff > 0) {
-      best.set(key, row);
-      continue;
-    }
-    if (photoDiff < 0) continue;
-    if (String(row.updatedAt || '') > String(prev.updatedAt || '')) best.set(key, row);
   }
   return Array.from(best.values());
 }
@@ -514,4 +580,7 @@ module.exports = {
   valueLabel,
   dedupeFieldRows,
   statusRank,
+  scheduleLabel,
+  preferFieldRow,
+  mergeTwinOnto,
 };
