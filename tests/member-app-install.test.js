@@ -66,6 +66,10 @@ describe('member app install modal and tab bar', () => {
     assert.match(html, /data-ma-install-panel="workspace-android"/);
     assert.match(html, /data-ma-install-panel="browser-ios"/);
     assert.match(html, /data-ma-install-panel="browser-android"/);
+    assert.match(html, /data-ma-install-panel="safari-open"/);
+    assert.match(html, /ma-open-app/);
+    assert.match(html, /data-ma-open-app/);
+    assert.match(html, /data-ma-open-app-dismiss/);
     assert.match(html, /data-ma-install-open-browser/);
     assert.match(html, /Share to Safari/);
     assert.match(html, /Open in Chrome/);
@@ -73,6 +77,22 @@ describe('member app install modal and tab bar', () => {
     assert.match(html, /data-ma-install-copy/);
     assert.match(html, /data-ma-install-share/);
     assert.doesNotMatch(html, /class="ma-install"/);
+  });
+
+  it('Safari/Chrome shows a YouTube-style Open in app bar', () => {
+    const js = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
+    const head = fs.readFileSync(path.join(root, 'views/member_app/_head.ejs'), 'utf8');
+    assert.match(js, /function showOpenAppBanner/);
+    assert.match(js, /ma-homescreen-app/);
+    assert.match(js, /ma-open-app-dismissed-until/);
+    assert.match(js, /openSafariOpenSheet/);
+    assert.match(js, /showingOpenAppBanner/);
+    assert.match(js, /inSafariOrBrowser/);
+    assert.match(css, /\.ma-open-app\s*\{/);
+    assert.match(css, /html\.ma-open-app-visible \.ma-shell/);
+    assert.match(head, /\.ma-open-app\{/);
+    assert.match(head, /html\.ma-open-app-visible \.ma-shell/);
   });
 
   it('settings profile exposes Install open control (not the top bar)', () => {

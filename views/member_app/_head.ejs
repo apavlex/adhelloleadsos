@@ -277,4 +277,14 @@ a.ma-refdash__who{display:flex!important;align-items:center;gap:10px;min-width:0
 #maNavLoading .ma-nav-loader-dot{width:14px;height:14px;border-radius:999px;background:var(--acc);box-shadow:0 0 0 6px color-mix(in srgb,var(--acc) 18%,transparent)}
 @keyframes ma-nav-loader-spin{to{transform:rotate(360deg)}}
 html.ma-nav-loading{cursor:progress}
+/* Open-in-app bar — critical so Safari deep links show the YouTube-style prompt even with stale SW CSS */
+.ma-open-app{position:fixed;top:0;left:0;right:0;z-index:70;padding:env(safe-area-inset-top,0px) 10px 0;background:rgba(15,23,42,.96);color:#fff;box-shadow:0 8px 24px rgba(15,23,42,.28)}
+.ma-open-app[hidden]{display:none!important}
+.ma-open-app__inner{display:flex;align-items:center;gap:10px;max-width:480px;margin:0 auto;min-height:52px;padding:8px 4px 10px;box-sizing:border-box}
+.ma-open-app__icon{width:36px;height:36px;border-radius:9px;object-fit:cover;background:#fff;flex:0 0 36px}
+.ma-open-app__copy{flex:1 1 auto;min-width:0;margin:0;font-size:13px;font-weight:600;line-height:1.25;color:rgba(255,255,255,.92)}
+.ma-open-app__copy strong{font-weight:800;color:#fff}
+.ma-open-app__open{flex:0 0 auto;min-height:34px;padding:0 14px;border:0;border-radius:999px;background:var(--acc,#2563eb);color:var(--on,#fff);font:inherit;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}
+.ma-open-app__dismiss{flex:0 0 36px;width:36px;height:36px;border:0;border-radius:999px;background:transparent;color:rgba(255,255,255,.72);font-size:22px;line-height:1;cursor:pointer}
+html.ma-open-app-visible .ma-shell{padding-top:calc(env(safe-area-inset-top,0px) + 14px + 52px)!important}
 </style>

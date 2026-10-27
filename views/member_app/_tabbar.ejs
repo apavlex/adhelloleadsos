@@ -23,6 +23,27 @@
   ];
   const _appName = (brand && brand.appName) ? brand.appName : 'this app';
 %>
+<%
+  const _openAppIcon = (typeof base !== 'undefined' && base)
+    ? (base + '/icon-192.png')
+    : '/images/adhello-app-icon-192.png';
+%>
+<div
+  class="ma-open-app"
+  id="maOpenApp"
+  hidden
+  role="region"
+  aria-label="Open in app"
+  data-ma-open-app-name="<%= _appName %>"
+>
+  <div class="ma-open-app__inner">
+    <img class="ma-open-app__icon" src="<%= _openAppIcon %>" alt="" width="36" height="36" decoding="async">
+    <p class="ma-open-app__copy">Open in the <strong><%= _appName %></strong> app</p>
+    <button type="button" class="ma-open-app__open" data-ma-open-app>OPEN</button>
+    <button type="button" class="ma-open-app__dismiss" data-ma-open-app-dismiss aria-label="Dismiss">&times;</button>
+  </div>
+</div>
+
 <nav class="ma-tabbar" aria-label="App sections">
   <div class="ma-tabbar__inner">
     <% _tabs.forEach(function (t) { %>
@@ -47,6 +68,18 @@
     <p class="ma-install-lead" data-ma-install-lead>
       Add <b><%= _appName %></b> to your Home Screen for one-tap reviews, customers, and referrals.
     </p>
+
+    <div data-ma-install-panel="safari-open" hidden>
+      <p class="ma-install-lead">
+        iPhone always opens links in <b>Safari</b> — it can’t jump into a Home Screen app the way YouTube’s native app can.
+      </p>
+      <ol class="ma-install-steps">
+        <li><span class="ma-install-n">1</span><span>Go to your <b>Home Screen</b>.</span></li>
+        <li><span class="ma-install-n">2</span><span>Tap <b><%= _appName %></b>.</span></li>
+        <li><span class="ma-install-n">3</span><span>Use the app from there for alerts and faster opens.</span></li>
+      </ol>
+      <button type="button" class="ma-btn ma-btn--soft" data-ma-open-app-howto style="width:100%;justify-content:center;margin-bottom:8px">Don’t see it? Add to Home Screen</button>
+    </div>
 
     <div data-ma-install-panel="browser-ios" hidden>
       <ol class="ma-install-steps">
@@ -92,6 +125,7 @@
       <button type="button" class="ma-btn ma-btn--soft" data-ma-install-copy data-ma-install-workspace-only hidden>Copy link</button>
       <button type="button" class="ma-btn ma-btn--soft" data-ma-install-share data-ma-install-workspace-only hidden>Share link</button>
       <button type="button" class="ma-btn" data-ma-install-close data-ma-install-browser-done hidden>Got it</button>
+      <button type="button" class="ma-btn" data-ma-install-close data-ma-install-safari-open-done hidden>Got it</button>
       <button type="button" class="ma-btn ma-btn--ghost" data-ma-install-close>Not now</button>
     </div>
   </div>

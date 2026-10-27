@@ -122,11 +122,16 @@
   // Only treat as "already installed" when this session came from the member manifest.
   var alreadyInstalled = standalone && memberPwa;
   var fromWorkspaceShell = standalone && !memberPwa;
+  // Mobile Safari/Chrome tab (not Home Screen app, not Agency OS shell).
+  var inSafariOrBrowser = !standalone && (isIOS || isAndroid);
 
   var modal = document.getElementById('maInstall');
+  var openAppBanner = document.getElementById('maOpenApp');
   // Legacy permanent dismiss blocked the sheet forever — clear it so Home can show again.
   var LEGACY_KEY = 'ma-install-hint-dismissed';
   var SNOOZE_KEY = 'ma-install-snoozed';
+  var HOMESCREEN_KEY = 'ma-homescreen-app';
+  var OPEN_APP_DISMISS_KEY = 'ma-open-app-dismissed-until';
   var forceQuery =
     params.get('install') === '1' ||
     params.get('hint') === 'install' ||
@@ -137,11 +142,43 @@
 
   try { localStorage.removeItem(LEGACY_KEY); } catch (e) { /* private mode */ }
 
+  if (alreadyInstalled) {
+    try { localStorage.setItem(HOMESCREEN_KEY, '1'); } catch (e) { /* private mode */ }
+  }
+
   function snoozed() {
     try { return sessionStorage.getItem(SNOOZE_KEY) === '1'; } catch (e) { return false; }
   }
   function markSnoozed() {
     try { sessionStorage.setItem(SNOOZE_KEY, '1'); } catch (e) { /* private mode */ }
+  }
+
+  function knowsHomescreenApp() {
+    try { return localStorage.getItem(HOMESCREEN_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  function openAppBannerDismissed() {
+    try {
+      var until = parseInt(localStorage.getItem(OPEN_APP_DISMISS_KEY) || '0', 10);
+      return Number.isFinite(until) && until > Date.now();
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function dismissOpenAppBanner(days) {
+    var ms = Math.max(1, Number(days) || 3) * 24 * 60 * 60 * 1000;
+    try { localStorage.setItem(OPEN_APP_DISMISS_KEY, String(Date.now() + ms)); } catch (e) { /* private mode */ }
+    if (openAppBanner) openAppBanner.hidden = true;
+    document.documentElement.classList.remove('ma-open-app-visible');
+  }
+
+  function showOpenAppBanner() {
+    if (!openAppBanner || alreadyInstalled || fromWorkspaceShell || !inSafariOrBrowser) return false;
+    if (openAppBannerDismissed()) return false;
+    openAppBanner.hidden = false;
+    document.documentElement.classList.add('ma-open-app-visible');
+    return true;
   }
 
   function cleanInstallQueryFromUrl() {
@@ -176,16 +213,57 @@
     // Workspace shell: open Safari/Chrome + copy/share. In-browser: Got it + steps only.
     var inWorkspace = name === 'workspace-ios' || name === 'workspace-android';
     var inBrowser = name === 'browser-ios' || name === 'browser-android';
+    var safariOpen = name === 'safari-open';
     var workspaceOnly = modal.querySelectorAll('[data-ma-install-workspace-only]');
     for (var w = 0; w < workspaceOnly.length; w++) workspaceOnly[w].hidden = !inWorkspace;
     var browserDone = modal.querySelectorAll('[data-ma-install-browser-done]');
     for (var b = 0; b < browserDone.length; b++) browserDone[b].hidden = !inBrowser;
+    var safariDone = modal.querySelectorAll('[data-ma-install-safari-open-done]');
+    for (var s = 0; s < safariDone.length; s++) safariDone[s].hidden = !safariOpen;
+    var title = modal.querySelector('#maInstallTitle');
+    var kicker = modal.querySelector('.ma-install-kicker');
+    var lead = modal.querySelector('[data-ma-install-lead]');
+    var appLabel =
+      (openAppBanner && openAppBanner.getAttribute('data-ma-open-app-name')) ||
+      (modal.getAttribute('data-ma-install-app-name')) ||
+      'this app';
+    if (title) title.textContent = safariOpen ? 'Open from Home Screen' : 'Save as a phone app';
+    if (kicker) {
+      kicker.textContent = safariOpen ? 'You’re in Safari' : 'Save this app to your phone';
+    }
+    if (lead) {
+      lead.hidden = !!safariOpen;
+      if (!safariOpen) {
+        lead.textContent = '';
+        lead.appendChild(document.createTextNode('Add '));
+        var leadBold = document.createElement('b');
+        leadBold.textContent = String(appLabel || 'this app');
+        lead.appendChild(leadBold);
+        lead.appendChild(
+          document.createTextNode(' to your Home Screen for one-tap reviews, customers, and referrals.'),
+        );
+      }
+    }
     var openBtn = modal.querySelector('[data-ma-install-open-browser]');
     if (openBtn) {
       // iOS standalone PWAs cannot open same-origin links in Safari (white flash).
       // Share sheet is the reliable handoff; Android uses Chrome intent.
       openBtn.textContent = name === 'workspace-android' ? 'Open in Chrome' : 'Share to Safari';
     }
+  }
+
+  function openSafariOpenSheet() {
+    if (!modal) return;
+    showPanel('safari-open');
+    modal.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
+  }
+
+  function openInstallFromBanner() {
+    if (!modal) return;
+    configurePanels();
+    modal.hidden = false;
+    document.documentElement.style.overflow = 'hidden';
   }
 
   function configurePanels() {
@@ -299,6 +377,10 @@
     } catch (e) { /* old browser */ }
   }
 
+  // Safari/Chrome deep links (customer, leads, …): YouTube-style “Open in app” bar.
+  // iOS cannot hand HTTPS links to a Home Screen PWA — the bar explains that.
+  var showingOpenAppBanner = showOpenAppBanner();
+
   // Home (+ Get the app ?install=1): show install sheet immediately as the first thing.
   // Skip only when already running as the installed member PWA, or snoozed this session.
   if (modal && !alreadyInstalled && forceInstall && !snoozed()) {
@@ -306,8 +388,8 @@
     modal.hidden = false;
     document.documentElement.style.overflow = 'hidden';
     cleanInstallQueryFromUrl();
-  } else if (modal && !alreadyInstalled && !forceInstall && !snoozed()) {
-    // Non-home pages: gentle idle prompt once per session.
+  } else if (modal && !alreadyInstalled && !forceInstall && !snoozed() && !showingOpenAppBanner) {
+    // Non-home pages without the open-app bar: gentle idle prompt once per session.
     var showInstall = function () {
       if (alreadyInstalled || snoozed() || !modal) return;
       configurePanels();
@@ -1045,6 +1127,27 @@
   initQrViewer();
 
   document.addEventListener('click', function (event) {
+    var openAppCta = event.target.closest('[data-ma-open-app]');
+    if (openAppCta) {
+      // iOS cannot launch a Home Screen PWA from Safari — explain that when we know
+      // they’ve used the installed app before; otherwise show Add to Home Screen steps.
+      if (knowsHomescreenApp()) openSafariOpenSheet();
+      else openInstallFromBanner();
+      return;
+    }
+
+    var openAppDismiss = event.target.closest('[data-ma-open-app-dismiss]');
+    if (openAppDismiss) {
+      dismissOpenAppBanner(3);
+      return;
+    }
+
+    var openAppHowto = event.target.closest('[data-ma-open-app-howto]');
+    if (openAppHowto) {
+      openInstallFromBanner();
+      return;
+    }
+
     var openBtn = event.target.closest('[data-ma-install-open]');
     if (openBtn) {
       openModal();
