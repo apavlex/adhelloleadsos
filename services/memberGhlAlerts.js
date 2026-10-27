@@ -104,6 +104,11 @@ async function ensureCustomerForInbound(network, member, customers, row) {
   const list = Array.isArray(customers) ? customers : [];
   const fields = inboundMatchFields(row);
   const formAnswers = inboundFormAnswers(row);
+  let formAddress = '';
+  try {
+    const { addressFromFormAnswers } = require('./ghlFormAnswers');
+    formAddress = addressFromFormAnswers(formAnswers);
+  } catch (_) { /* ignore */ }
   const existing = matchCustomerForInbound(list, row);
   if (existing) {
     // Patch GHL id / phone / email onto an existing match so Calls & texts can link.
@@ -111,9 +116,10 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     const needGhl = fields.ghlContactId && !existing.ghlContactId;
     const needPhone = fields.phone && !existing.phone;
     const needEmail = fields.email && !existing.email;
+    const needAddress = !!(formAddress && !String(existing.address || '').trim());
     const needSource = nextSource !== existing.source;
     const needAnswers = answersNeedSave(existing, formAnswers);
-    if (!needGhl && !needPhone && !needEmail && !needSource && !needAnswers) {
+    if (!needGhl && !needPhone && !needEmail && !needAddress && !needSource && !needAnswers) {
       return finalizeInboundCustomer(network, member, list, existing, row);
     }
     const saved = await work.saveCustomer(
@@ -123,7 +129,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
         name: existing.name,
         phone: needPhone ? fields.phone : existing.phone,
         email: needEmail ? fields.email : existing.email,
-        address: existing.address,
+        address: needAddress ? formAddress : existing.address,
         notes: existing.notes,
       },
       {
@@ -154,6 +160,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
       name: String(name).slice(0, 120) || 'Contact',
       phone: fields.phone || '',
       email: fields.email || '',
+      address: formAddress || '',
     },
     {
       ghlContactId: fields.ghlContactId || undefined,

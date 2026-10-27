@@ -363,13 +363,17 @@ describe('member customer GHL sync', () => {
     mock.method(ghlClient, 'isConfigured', () => true);
     mock.method(ghlClient, 'listLocationContactCustomFields', async () => ([
       { id: 'cf_msg', name: 'How can we help?' },
+      { id: 'cf_addr', name: 'PROJECT ADDRESS / ZIP' },
     ]));
     mock.method(ghlClient, 'listFormSubmissions', async () => ({
       submissions: [{
         contactId: 'ghl_alex_form',
         name: 'Alex',
         phone: '3605550101',
-        others: { cf_msg: 'Need hardwood in living room' },
+        others: {
+          cf_msg: 'Need hardwood in living room',
+          cf_addr: 'Camas, WA 98607',
+        },
       }],
     }));
     mock.method(ghlClient, 'getContact', async () => ({
@@ -377,7 +381,10 @@ describe('member customer GHL sync', () => {
       name: 'Alex',
       phone: '3605550101',
       source: 'Website',
-      customFields: [{ id: 'cf_msg', value: 'Need hardwood in living room' }],
+      customFields: [
+        { id: 'cf_msg', value: 'Need hardwood in living room' },
+        { id: 'cf_addr', value: 'Camas, WA 98607' },
+      ],
     }));
 
     const created = await work.saveCustomer(NET.id, MEM, {
@@ -386,6 +393,7 @@ describe('member customer GHL sync', () => {
     }, { source: 'website_form', ghlContactId: 'ghl_alex_form' });
     assert.equal(created.ok, true);
     assert.equal((created.customer.formAnswers || []).length, 0);
+    assert.equal(created.customer.address || '', '');
 
     const enriched = await memberCustomerGhl.ensureFormAnswersOnCustomer(
       NET,
@@ -394,6 +402,7 @@ describe('member customer GHL sync', () => {
     );
     assert.ok(enriched.formAnswers.some((a) => /hardwood/i.test(a.a)));
     assert.ok(enriched.formAnswers.some((a) => /help/i.test(a.q)));
+    assert.match(String(enriched.address || ''), /Camas.*98607/i);
 
     const again = await memberCustomerGhl.ensureFormAnswersOnCustomer(NET, MEM, enriched);
     assert.equal(again.formAnswers.length, enriched.formAnswers.length);

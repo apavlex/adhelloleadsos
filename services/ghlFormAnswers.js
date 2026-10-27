@@ -93,6 +93,65 @@ function friendlySourceAnswer(value) {
   return raw;
 }
 
+/** GHL / form placeholders that are not real answers. */
+function isBlankAnswer(value) {
+  const a = String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+  if (!a) return true;
+  return /^(n\/?a|none|null|undefined|unknown|-|—|–|\.|select|please\s*select)$/i.test(a);
+}
+
+/**
+ * True for project address / zip / location fields (not square footage).
+ * Matches labels like "PROJECT ADDRESS / ZIP", "Postal Code", "City".
+ */
+function isAddressQuestion(q) {
+  const s = String(q || '').toLowerCase().replace(/[_./]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!s) return false;
+  if (/\b(sq\.?\s*ft|square\s*foot|footage|budget|phone|email|name)\b/.test(s)) return false;
+  return (
+    /\b(project\s+)?address\b/.test(s)
+    || /\b(zip|postal)\s*(code)?\b/.test(s)
+    || /\b(city|state|location|street)\b/.test(s)
+    || /\baddress\b.+\bzip\b/.test(s)
+    || /\bzip\b.+\baddress\b/.test(s)
+  );
+}
+
+/**
+ * Pull a street/city/zip line from form Q&A for the Reviews Address field.
+ */
+function addressFromFormAnswers(answers) {
+  const rows = normalizeFormAnswers(answers);
+  const parts = [];
+  const seen = new Set();
+  for (const row of rows) {
+    if (!isAddressQuestion(row.q)) continue;
+    const a = String(row.a || '').trim();
+    if (isBlankAnswer(a)) continue;
+    const key = a.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parts.push(a);
+  }
+  return parts.join(', ').slice(0, MAX_A);
+}
+
+/**
+ * First meaningful non-meta form answer for notify / notes (details, interest, sq ft).
+ */
+function descriptionFromFormAnswers(answers) {
+  const rows = normalizeFormAnswers(answers);
+  for (const row of rows) {
+    const q = String(row.q || '');
+    if (NOTIFY_META_Q_RE.test(q) || isAddressQuestion(q)) continue;
+    if (isSourceQuestion(q)) continue;
+    const a = String(row.a || '').trim();
+    if (isBlankAnswer(a)) continue;
+    return a.slice(0, MAX_A);
+  }
+  return '';
+}
+
 /**
  * @param {unknown} raw
  * @returns {{ q: string, a: string }[]}
@@ -105,9 +164,10 @@ function normalizeFormAnswers(raw) {
     if (!row || typeof row !== 'object') continue;
     const q = humanizeLabel(row.q || row.label || row.name || row.key || '');
     let a = str(row.a != null ? row.a : row.value != null ? row.value : row.answer).slice(0, MAX_A);
-    if (!q || !a) continue;
+    if (!q || isBlankAnswer(a)) continue;
     if (isInternalField(q, row.key || row.id)) continue;
     if (isSourceQuestion(q)) a = friendlySourceAnswer(a) || a;
+    if (isBlankAnswer(a)) continue;
     const dedupe = q.toLowerCase();
     if (seen.has(dedupe)) continue;
     seen.add(dedupe);
@@ -144,30 +204,21 @@ function displayPhoneForNotify(raw) {
  * phone · description · address (skip empty slots).
  */
 function formLeadNotifyBody({ phone, answers, preview, address } = {}) {
-  const rows = normalizeFormAnswers(answers);
-  const byQ = (re) => {
-    const hit = rows.find((r) => re.test(String(r.q || '')));
-    return hit ? String(hit.a || '').trim() : '';
-  };
-
   const phonePart = displayPhoneForNotify(phone);
-  let addressPart = String(address || '').trim() || byQ(/^address$/i) || '';
+  let addressPart = String(address || '').trim();
+  if (isBlankAnswer(addressPart)) addressPart = '';
+  if (!addressPart) addressPart = addressFromFormAnswers(answers);
 
-  let description = '';
-  for (const row of rows) {
-    if (NOTIFY_META_Q_RE.test(String(row.q || ''))) continue;
-    const a = String(row.a || '').trim();
-    if (a) {
-      description = a;
-      break;
-    }
-  }
+  let description = descriptionFromFormAnswers(answers);
 
   if ((!description || !addressPart) && preview) {
     const chunks = String(preview).split(/\s*[·|—-]+\s*/).map((c) => c.trim()).filter(Boolean);
     for (const chunk of chunks) {
-      if (/^address\s*:/i.test(chunk)) {
-        if (!addressPart) addressPart = chunk.replace(/^address\s*:\s*/i, '').trim();
+      if (/^address\s*:/i.test(chunk) || isAddressQuestion(chunk.split(':')[0] || '')) {
+        if (!addressPart) {
+          const raw = chunk.includes(':') ? chunk.replace(/^[^:]+:\s*/, '').trim() : chunk;
+          if (!isBlankAnswer(raw)) addressPart = raw;
+        }
         continue;
       }
       if (/^(source|company|website|type)\s*:/i.test(chunk)) continue;
@@ -178,9 +229,12 @@ function formLeadNotifyBody({ phone, answers, preview, address } = {}) {
       const cleaned = chunk.includes(':')
         ? chunk.replace(/^[^:]+:\s*/, '').trim()
         : chunk;
-      if (cleaned) description = cleaned;
+      if (!isBlankAnswer(cleaned)) description = cleaned;
     }
   }
+
+  if (isBlankAnswer(description)) description = '';
+  if (isBlankAnswer(addressPart)) addressPart = '';
 
   return [phonePart, description, addressPart]
     .filter(Boolean)
@@ -413,6 +467,10 @@ module.exports = {
   answersPreview,
   formLeadNotifyBody,
   displayPhoneForNotify,
+  addressFromFormAnswers,
+  descriptionFromFormAnswers,
+  isAddressQuestion,
+  isBlankAnswer,
   answersFromContact,
   answersFromSubmission,
   coreIdentityAnswers,

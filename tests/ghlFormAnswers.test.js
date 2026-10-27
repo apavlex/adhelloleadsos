@@ -5,6 +5,8 @@ const {
   answersFromContact,
   answersPreview,
   formLeadNotifyBody,
+  addressFromFormAnswers,
+  descriptionFromFormAnswers,
   humanizeLabel,
 } = require('../services/ghlFormAnswers');
 
@@ -139,6 +141,32 @@ describe('ghlFormAnswers', () => {
         preview: 'Source: Website · Address: 98682',
       }),
       /Source:|Website form/i,
+    );
+    // Kaily-style: blank placeholders must not become "N/A" on the lock screen.
+    assert.equal(
+      formLeadNotifyBody({
+        phone: '2384723564',
+        answers: [
+          { q: 'Est Sq Footage', a: 'N/A' },
+          { q: 'Additional Details', a: 'N/A' },
+          { q: 'PROJECT ADDRESS / ZIP', a: 'Camas, WA 98607' },
+        ],
+      }),
+      '(238) 472-3564 · Camas, WA 98607',
+    );
+  });
+
+  it('maps PROJECT ADDRESS / ZIP into Address and skips N/A placeholders', () => {
+    const answers = [
+      { q: 'PROJECT ADDRESS / ZIP', a: 'Camas, WA 98607' },
+      { q: 'EST. SQ FOOTAGE', a: '1,200 sq ft' },
+      { q: 'ADDITIONAL DETAILS', a: 'N/A' },
+    ];
+    assert.equal(addressFromFormAnswers(answers), 'Camas, WA 98607');
+    assert.equal(descriptionFromFormAnswers(answers), '1,200 sq ft');
+    assert.equal(
+      normalizeFormAnswers([{ q: 'Notes', a: 'N/A' }, { q: 'Zip', a: '98682' }]).length,
+      1,
     );
   });
 });
