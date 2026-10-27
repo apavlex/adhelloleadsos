@@ -1,0 +1,22 @@
+<%
+  /* Google-style star row. Locals: rating (0–5), optional size ('sm'|'md'). */
+  const _raw = Number(typeof rating !== 'undefined' ? rating : 0);
+  const _r = Number.isFinite(_raw) ? Math.max(0, Math.min(5, _raw)) : 0;
+  const _size = typeof size !== 'undefined' && size ? String(size) : 'md';
+  const _starPath = 'M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z';
+%>
+<span class="ma-g-stars ma-g-stars--<%= _size %>" aria-label="<%= _r.toFixed(1) %> out of 5 stars">
+  <% for (let i = 1; i <= 5; i++) {
+    const full = Math.floor(_r);
+    let pct = 0;
+    if (i <= full) pct = 100;
+    else if (i === full + 1) pct = Math.round((_r - full) * 100);
+  %>
+  <span class="ma-g-star" aria-hidden="true">
+    <svg class="ma-g-star__empty" viewBox="0 0 24 24" focusable="false"><path d="<%= _starPath %>"/></svg>
+    <span class="ma-g-star__fill" style="width:<%= pct %>%">
+      <svg viewBox="0 0 24 24" focusable="false"><path d="<%= _starPath %>"/></svg>
+    </span>
+  </span>
+  <% } %>
+</span>
