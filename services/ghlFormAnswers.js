@@ -77,11 +77,24 @@ function isSourceQuestion(q) {
   return /^(source|contact\s*source|session\s*source|attribution)$/i.test(String(q || '').trim());
 }
 
+function isAgencyOsSource(value) {
+  const key = String(value || '').toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const compact = key.replace(/\s+/g, '');
+  return (
+    /agency\s*os/.test(key)
+    || compact === 'agencyos'
+    || /^adhello(\s+agency)?$/.test(key)
+    || compact === 'adhelloagency'
+  );
+}
+
 function friendlySourceAnswer(value) {
   const raw = str(value);
   if (!raw) return '';
   const key = raw.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   const compact = key.replace(/\s+/g, '');
+  // Never surface AdHello / Agency OS as the lead source — teammates own the book.
+  if (isAgencyOsSource(raw)) return '';
   if (
     SOURCE_ATTRIBUTION_JUNK.has(key)
     || SOURCE_ATTRIBUTION_JUNK.has(compact)
@@ -91,6 +104,35 @@ function friendlySourceAnswer(value) {
     return 'Website';
   }
   return raw;
+}
+
+/**
+ * Profile Form answers: drop Agency OS source crumbs and surface “Added by” teammate.
+ */
+function presentFormAnswersForProfile(answers, { addedByName } = {}) {
+  const rows = normalizeFormAnswers(answers);
+  const who = str(addedByName).slice(0, 80);
+  const out = [];
+  let addedByShown = false;
+  for (const row of rows) {
+    if (isSourceQuestion(row.q)) {
+      if (isAgencyOsSource(row.a) || !str(row.a)) {
+        if (who && !addedByShown) {
+          out.push({ q: 'Added by', a: who });
+          addedByShown = true;
+        }
+        continue;
+      }
+    }
+    if (/^added by$/i.test(String(row.q || ''))) {
+      addedByShown = true;
+    }
+    out.push(row);
+  }
+  if (who && !addedByShown) {
+    out.unshift({ q: 'Added by', a: who });
+  }
+  return out;
 }
 
 /** GHL / form placeholders that are not real answers. */
@@ -166,7 +208,11 @@ function normalizeFormAnswers(raw) {
     let a = str(row.a != null ? row.a : row.value != null ? row.value : row.answer).slice(0, MAX_A);
     if (!q || isBlankAnswer(a)) continue;
     if (isInternalField(q, row.key || row.id)) continue;
-    if (isSourceQuestion(q)) a = friendlySourceAnswer(a) || a;
+    if (isSourceQuestion(q)) {
+      // Drop AdHello / Agency OS — teammates own the lead, not the platform.
+      if (isAgencyOsSource(a)) continue;
+      a = friendlySourceAnswer(a) || a;
+    }
     if (isBlankAnswer(a)) continue;
     const dedupe = q.toLowerCase();
     if (seen.has(dedupe)) continue;
@@ -469,8 +515,10 @@ module.exports = {
   displayPhoneForNotify,
   addressFromFormAnswers,
   descriptionFromFormAnswers,
+  presentFormAnswersForProfile,
   isAddressQuestion,
   isBlankAnswer,
+  isAgencyOsSource,
   answersFromContact,
   answersFromSubmission,
   coreIdentityAnswers,

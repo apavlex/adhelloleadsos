@@ -166,6 +166,8 @@ async function ensureCustomerForInbound(network, member, customers, row) {
       ghlContactId: fields.ghlContactId || undefined,
       source: inboundCustomerSource('', row && row.type),
       formAnswers: formAnswers.length ? formAnswers : undefined,
+      addedByMemberId: member.id,
+      addedByName: work.memberAddedByLabel(member),
     },
   );
   if (!saved.ok || !saved.customer) return null;

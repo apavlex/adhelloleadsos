@@ -415,7 +415,9 @@ function leadToGhlContactPayload(lead, locationId, { includeTags = true } = {}) 
     city: lead.city ? String(lead.city).trim() : undefined,
     state: lead.state ? String(lead.state).trim() : undefined,
     website: website || undefined,
-    source: 'Agency OS',
+    // Prefer the business / teammate label — never stamp “Agency OS” (shows up as
+    // Form answers → Source and looks like AdHello added the lead).
+    source: String(lead.ghlSource || lead.sourceLabel || lead.companyName || '').trim().slice(0, 80) || undefined,
   };
 
   if (includeTags && tags.length) payload.tags = tags;

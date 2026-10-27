@@ -463,7 +463,7 @@ test('customerSourceLabel covers manual, website form, referral, agency, csv, cr
   assert.equal(work.customerSourceLabel('manual'), 'Manual');
   assert.equal(work.customerSourceLabel('website_form'), 'Website form');
   assert.equal(work.customerSourceLabel('referral'), 'Referral');
-  assert.equal(work.customerSourceLabel('agency'), 'Agency');
+  assert.equal(work.customerSourceLabel('agency'), 'Team');
   assert.equal(work.customerSourceLabel('csv'), 'CSV import');
   assert.equal(work.customerSourceLabel('ghl'), 'CRM');
   assert.equal(work.customerSourceLabel({ source: 'website_form' }), 'Website form');
