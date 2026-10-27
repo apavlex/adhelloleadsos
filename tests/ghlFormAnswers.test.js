@@ -4,6 +4,7 @@ const {
   normalizeFormAnswers,
   answersFromContact,
   answersPreview,
+  formLeadNotifyBody,
   humanizeLabel,
 } = require('../services/ghlFormAnswers');
 
@@ -110,5 +111,34 @@ describe('ghlFormAnswers', () => {
     assert.equal(out.find((a) => a.q === 'Source').a, 'Website');
     assert.equal(out.find((a) => a.q === 'Contact Source').a, 'Website');
     assert.equal(out.find((a) => a.q === 'Project Interest').a, 'Hardwood Collection');
+  });
+
+  it('formLeadNotifyBody is phone · description · address', () => {
+    assert.equal(
+      formLeadNotifyBody({
+        phone: '+15551234567',
+        answers: [
+          { q: 'Source', a: 'Website' },
+          { q: 'Project Interest', a: 'Hardwood floors' },
+          { q: 'Address', a: '98682' },
+        ],
+      }),
+      '(555) 123-4567 · Hardwood floors · 98682',
+    );
+    // Alex-style: only source + zip in preview — no Source clutter, still phone + address.
+    assert.equal(
+      formLeadNotifyBody({
+        phone: '3602611532',
+        preview: 'Website form · Source: Website · Address: 98682',
+      }),
+      '(360) 261-1532 · 98682',
+    );
+    assert.doesNotMatch(
+      formLeadNotifyBody({
+        phone: '+15551234567',
+        preview: 'Source: Website · Address: 98682',
+      }),
+      /Source:|Website form/i,
+    );
   });
 });

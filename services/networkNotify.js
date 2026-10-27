@@ -548,6 +548,7 @@ async function pushMemberFormLeadAlert({
   const workspaceId = network.ownerWorkspaceId;
   const memberAppointmentLink = require('./memberAppointmentLink');
   const { websiteFormLabel } = require('./websiteFormLabel');
+  const { formLeadNotifyBody } = require('./ghlFormAnswers');
   const pkg = workspaceId
     ? await memberAppointmentLink.findPackageForMember(workspaceId, member, network).catch(() => null)
     : null;
@@ -569,13 +570,14 @@ async function pushMemberFormLeadAlert({
   const title = source === 'agency' || source === 'customer_referral'
     ? kind
     : `New website lead: ${who}`;
-  const detail = detailsAllowed
+  const formDetail = formLeadNotifyBody({ phone, preview, answers: [] });
+  const agencyDetail = detailsAllowed
     ? [niceForm, preview].filter(Boolean).join(' — ').slice(0, 160)
     : '';
   const body = detailsAllowed
     ? (source === 'agency' || source === 'customer_referral'
-      ? (detail ? `${who} · ${detail}` : who)
-      : (detail || who))
+      ? (agencyDetail ? `${who} · ${agencyDetail}` : who)
+      : (formDetail || who))
     : `${who} — open the app to unlock details`;
   const tagId = String(ghlContactId || customerId || phone || email || who).slice(0, 48);
   return push.sendMemberPush(
@@ -623,13 +625,20 @@ async function notifyMemberFormLead({
   const memberLeadRequests = require('./memberLeadRequests');
   const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(network, member)
     .catch(() => false);
-  const detail = detailsAllowed
+  const { formLeadNotifyBody } = require('./ghlFormAnswers');
+  const formDetail = formLeadNotifyBody({ phone, preview, answers: [] });
+  const agencyDetail = detailsAllowed
     ? [niceForm, preview].filter(Boolean).join(' — ').slice(0, 160)
     : '';
+  const activityBody = !detailsAllowed
+    ? who
+    : (source === 'agency' || source === 'customer_referral'
+      ? (agencyDetail ? `${who} · ${agencyDetail}` : who)
+      : (formDetail || who));
   recordMemberActivity(network, member, {
     kind: source === 'agency' ? 'agency' : (source === 'customer_referral' ? 'customer_referral' : 'form'),
     title: kind,
-    body: detailsAllowed ? (detail ? `${who} · ${detail}` : who) : who,
+    body: activityBody,
     href: openUrl,
   });
   pushMemberFormLeadAlert({
