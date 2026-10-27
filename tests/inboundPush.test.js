@@ -98,6 +98,33 @@ test('website form leads skip Agency OS workspace push (Reviews-only)', async (t
   assert.equal(again.sent, 0);
 });
 
+test('retries form notify when the first attempt sent zero pushes', async (t) => {
+  const memberGhlAlerts = require('../services/memberGhlAlerts');
+  const { formEventNeedsNotifyRetry } = require('../services/inboundPush');
+  let memberCalls = 0;
+  t.mock.method(memberGhlAlerts, 'notifyEnabledMembers', async () => {
+    memberCalls += 1;
+    return { sent: memberCalls === 1 ? 0 : 1, members: 1 };
+  });
+  const lead = { key: 'lead:form_retry', title: 'Retry Form', ghlContactId: 'ghl_form_retry_1' };
+  const first = await notifyInboundEvent({
+    workspaceId: WID,
+    lead,
+    event: { id: 'form:ghl-sub:sub_retry_1', type: 'form', label: 'Website' },
+  });
+  assert.equal(first.sent, 0);
+  assert.equal(formEventNeedsNotifyRetry(WID, 'form:ghl-sub:sub_retry_1'), true);
+
+  const second = await notifyInboundEvent({
+    workspaceId: WID,
+    lead,
+    event: { id: 'form:ghl-sub:sub_retry_1', type: 'form', label: 'Website' },
+  });
+  assert.equal(memberCalls, 2, 'zero-send must not burn the claim');
+  assert.equal(second.sent, 1);
+  assert.equal(formEventNeedsNotifyRetry(WID, 'form:ghl-sub:sub_retry_1'), false);
+});
+
 test('skips workspace users who paused GHL call/text notifications', async (t) => {
   ghlNotificationPrefs.setPaused('owner@example.com', true);
   const sent = [];

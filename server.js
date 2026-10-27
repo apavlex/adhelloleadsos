@@ -370,6 +370,25 @@ app.get('/api/cron/heartbeat', async (req, res) => {
   }
 });
 
+/** Render cron / external scheduler: website form → Reviews push even when the app is closed */
+app.get('/api/cron/form-lead-sync', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const expectedSecret = process.env.CRON_SECRET || 'fallback-secret-for-setup-only';
+
+  if (!secret || secret !== expectedSecret) {
+    console.warn('[SECURITY] Unauthorized form-lead-sync cron rejected.');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  console.log('[API-CRON] Form lead sync triggered.');
+  setImmediate(() => {
+    require('./services/ghlFormLeadSync').syncAllWorkspaces().catch((e) =>
+      console.error('[API-CRON] form-lead-sync failed:', e && e.message),
+    );
+  });
+  res.json({ success: true, message: 'Form lead sync queued (runs in background).' });
+});
+
 /** Render cron / external scheduler: overnight Maps prep for workspaces with nightly prep enabled */
 app.get('/api/cron/nightly-prep', async (req, res) => {
   const secret = req.headers['x-cron-secret'] || req.query.secret;

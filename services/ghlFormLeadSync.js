@@ -198,8 +198,25 @@ async function stampFormLead({
     console.warn('[ghlFormLeadSync] attach failed:', attachErr && attachErr.message);
   }
 
-  await notifyInboundEvent({ workspaceId: wid, lead: next, event: formEvent });
-  return { synced: 1, notified: 1 };
+  const notifyResult = await notifyInboundEvent({ workspaceId: wid, lead: next, event: formEvent });
+  // Count an attempt unless deduped — push delivery (sent) is tracked on the claim.
+  return { synced: 1, notified: (notifyResult && notifyResult.deduped) ? 0 : 1 };
+}
+
+/**
+ * Re-push when the form event is already on the lead but Reviews never got a
+ * successful phone delivery (claim burned before push, or 0 subscriptions).
+ */
+async function retryFormNotifyIfNeeded(wid, lead, formEventId) {
+  const { formEventNeedsNotifyRetry } = require('./inboundPush');
+  if (!formEventNeedsNotifyRetry(wid, formEventId)) {
+    return { synced: 0, notified: 0 };
+  }
+  const prior = Array.isArray(lead && lead.inboundEvents) ? lead.inboundEvents : [];
+  const formEvent = prior.find((e) => e && e.id === formEventId && String(e.type || '') === 'form');
+  if (!formEvent) return { synced: 0, notified: 0 };
+  const notifyResult = await notifyInboundEvent({ workspaceId: wid, lead, event: formEvent });
+  return { synced: 0, notified: (notifyResult && notifyResult.sent) ? 1 : 0 };
 }
 
 /**
@@ -324,7 +341,16 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     // eslint-disable-next-line no-await-in-loop
     const lead = await resolveLeadForContact(contact, wid, localLeads, integrationEnv);
     if (!lead || !lead.key) continue;
-    if (hasFormEvent(lead, formEventId)) continue;
+    if (hasFormEvent(lead, formEventId)) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const retry = await retryFormNotifyIfNeeded(wid, lead, formEventId);
+        notified += retry.notified;
+      } catch (err) {
+        console.warn('[ghlFormLeadSync] submission notify retry failed:', err && err.message);
+      }
+      continue;
+    }
 
     const answers = answersFromSubmission(sub, fieldCatalog);
     const at = new Date(now).toISOString();
@@ -398,6 +424,15 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     } else if (shouldNotifyTouch && !hasFormEvent(lead, retouchId) && hasFormEvent(lead, formEventId)) {
       // Only retouch when the once-per-contact stamp already exists (true re-fill).
       eventId = retouchId;
+    } else if (shouldNotifyNew && hasFormEvent(lead, formEventId)) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const retry = await retryFormNotifyIfNeeded(wid, lead, formEventId);
+        notified += retry.notified;
+      } catch (err) {
+        console.warn('[ghlFormLeadSync] contact notify retry failed:', err && err.message);
+      }
+      continue;
     } else {
       continue;
     }
