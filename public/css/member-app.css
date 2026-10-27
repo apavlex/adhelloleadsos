@@ -1415,6 +1415,42 @@ html[data-ma-theme="dark"] .ma-quick__btn { border-color: transparent; }
 .ma-titlebar__actions .ma-mark-lead {
   max-width: 100%;
 }
+/* Single stage chip by the customer name (Lead / Customer / Referral). */
+.ma-stage-btn {
+  flex: 0 0 auto;
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  border-radius: 999px;
+  border: 0;
+  box-shadow: none;
+}
+.ma-stage-btn--lead {
+  background: rgba(245, 158, 11, 0.18);
+  color: #b45309;
+}
+.ma-stage-btn--customer {
+  background: color-mix(in srgb, var(--acc) 18%, var(--card));
+  color: var(--ink);
+}
+.ma-stage-btn--referral {
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+  cursor: default;
+}
+.ma-stage-btn--quote {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+  cursor: default;
+}
+html[data-ma-theme="dark"] .ma-stage-btn--lead { color: #fcd34d; }
+html[data-ma-theme="dark"] .ma-stage-btn--referral { color: #93c5fd; }
+html[data-ma-theme="dark"] .ma-stage-btn--quote { color: #6ee7b7; }
+.ma-titlebar__actions .ma-stage-btn {
+  max-width: 100%;
+}
 .ma-voice-btn[data-state='listening'] {
   background: #ef4444 !important;
   border-color: #ef4444 !important;
