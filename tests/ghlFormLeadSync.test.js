@@ -357,6 +357,51 @@ describe('ghlFormLeadSync', () => {
     assert.ok(rows.some((r) => r.type === 'form' && /Reopen/i.test(r.title)));
   });
 
+  it('syncAllWorkspaces pulls form leads without opening the Reviews bell', async () => {
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async (wid) => (
+      wid === WID
+        ? { GHL_API_KEY: 'key', GHL_LOCATION_ID: 'loc_tpr' }
+        : { DEMO_WORKSPACE: true }
+    ));
+    mock.method(ghlClient, 'isConfigured', (env) => !!(env && env.GHL_API_KEY));
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => []);
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({
+      submissions: [{
+        id: 'sub_bg_1',
+        contactId: 'ghl_bg_alex',
+        name: 'Alex Background',
+        phone: '+15550006666',
+        createdAt: new Date().toISOString(),
+      }],
+    }));
+    mock.method(ghlClient, 'listContacts', async () => ({ contacts: [] }));
+    mock.method(ghlClient, 'getContact', async () => ({
+      id: 'ghl_bg_alex',
+      name: 'Alex Background',
+      phone: '+15550006666',
+      source: 'Website',
+      dateAdded: new Date().toISOString(),
+    }));
+
+    await store.saveNetwork({
+      id: NID,
+      name: 'TPR Net',
+      ownerWorkspaceId: WID,
+      ownerEmail: 'owner@example.com',
+    });
+    await dbService.putStorageKey(`wsnetwork:${WID}`, { networkId: NID, role: 'operator' });
+
+    const out = await ghlFormLeadSync.syncAllWorkspaces({ force: true });
+    assert.equal(out.skipped, undefined);
+    const row = (out.results || []).find((r) => r.workspaceId === WID);
+    assert.ok(row);
+    assert.equal(row.synced, 1);
+    assert.equal(row.notified, 1);
+
+    const leads = await dbService.getAllLeads(WID);
+    assert.ok(leads.some((l) => l.ghlContactId === 'ghl_bg_alex'));
+  });
+
   it('listPendingForMember surfaces pulled form leads for network partners', async () => {
     mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
       GHL_API_KEY: 'key',
