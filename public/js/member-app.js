@@ -3348,3 +3348,151 @@
     bootSpeakAddCustomer();
   }
 })();
+
+/* Pull-to-refresh: drag down at top of .ma-shell → spinning refresh icon → reload. */
+(function () {
+  function bootPullToRefresh() {
+    var shell = document.querySelector('main.ma-shell');
+    if (!shell) return;
+    if (document.documentElement.classList.contains('ma-preview')) return;
+    if (window.matchMedia && window.matchMedia('(pointer: fine)').matches && !('ontouchstart' in window)) {
+      /* Desktop mouse: still allow if coarse/touch exists; skip pure mouse desktops. */
+      if (!('ontouchstart' in window) && !(navigator.maxTouchPoints > 0)) return;
+    }
+
+    var THRESHOLD = 70;
+    var MAX_PULL = 110;
+    var pulling = false;
+    var startY = 0;
+    var pull = 0;
+    var armed = false;
+    var refreshing = false;
+
+    var el = document.createElement('div');
+    el.id = 'maPtr';
+    el.className = 'ma-ptr';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML =
+      '<span class="ma-ptr__icon" aria-hidden="true">' +
+        '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width="22" height="22" stroke-width="1.8" stroke="currentColor">' +
+          '<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99"/>' +
+        '</svg>' +
+      '</span>';
+    document.body.appendChild(el);
+
+    var icon = el.querySelector('.ma-ptr__icon');
+
+    function blocked() {
+      if (refreshing) return true;
+      var html = document.documentElement;
+      if (html.classList.contains('ma-nav-loading')) return true;
+      if (html.classList.contains('ma-lr-open') || html.classList.contains('ma-qr-view-open')) return true;
+      if (document.body.classList.contains('ma-lr-open') || document.body.classList.contains('ma-qr-view-open')) return true;
+      var ae = document.activeElement;
+      if (ae && /^(INPUT|TEXTAREA|SELECT)$/i.test(ae.tagName)) return true;
+      return false;
+    }
+
+    function atTop() {
+      return (shell.scrollTop || 0) <= 0;
+    }
+
+    function setPull(px) {
+      pull = Math.max(0, Math.min(MAX_PULL, px));
+      armed = pull >= THRESHOLD;
+      var show = pull > 6;
+      el.classList.toggle('is-visible', show || refreshing);
+      el.classList.toggle('is-armed', armed && !refreshing);
+      el.setAttribute('aria-hidden', show || refreshing ? 'false' : 'true');
+      if (icon && !refreshing) {
+        var turn = Math.min(360, (pull / THRESHOLD) * 210);
+        icon.style.transform = 'rotate(' + turn + 'deg)';
+      }
+      /* Slight content give so the icon feels attached to the drag. */
+      if (!refreshing) {
+        shell.style.transform = pull ? 'translateY(' + Math.round(pull * 0.28) + 'px)' : '';
+      }
+    }
+
+    function resetPull() {
+      pull = 0;
+      armed = false;
+      el.classList.remove('is-visible', 'is-armed');
+      el.setAttribute('aria-hidden', 'true');
+      if (icon && !refreshing) icon.style.transform = '';
+      shell.style.transform = '';
+    }
+
+    function triggerRefresh() {
+      if (refreshing) return;
+      refreshing = true;
+      el.classList.add('is-visible', 'is-refreshing');
+      el.classList.remove('is-armed');
+      el.setAttribute('aria-label', 'Refreshing');
+      if (icon) icon.style.transform = '';
+      shell.style.transform = 'translateY(18px)';
+      if (typeof window.maShowNavLoading === 'function') {
+        try { window.maShowNavLoading(); } catch (_) { /* ignore */ }
+      }
+      setTimeout(function () {
+        try {
+          window.location.reload();
+        } catch (_) {
+          window.location.href = window.location.href;
+        }
+      }, 220);
+    }
+
+    shell.addEventListener(
+      'touchstart',
+      function (e) {
+        if (blocked() || !atTop() || !e.touches || e.touches.length !== 1) {
+          pulling = false;
+          return;
+        }
+        pulling = true;
+        startY = e.touches[0].clientY;
+        pull = 0;
+      },
+      { passive: true }
+    );
+
+    shell.addEventListener(
+      'touchmove',
+      function (e) {
+        if (!pulling || blocked() || !e.touches || e.touches.length !== 1) return;
+        var dy = e.touches[0].clientY - startY;
+        if (!atTop() || dy <= 0) {
+          if (pull) resetPull();
+          return;
+        }
+        /* Resist the drag so it feels intentional. */
+        var resisted = Math.pow(Math.min(dy, 220), 0.85);
+        setPull(resisted);
+        if (pull > 8 && e.cancelable) e.preventDefault();
+      },
+      { passive: false }
+    );
+
+    function endPull() {
+      if (!pulling) return;
+      pulling = false;
+      if (armed && !blocked()) triggerRefresh();
+      else resetPull();
+    }
+
+    shell.addEventListener('touchend', endPull, { passive: true });
+    shell.addEventListener('touchcancel', function () {
+      pulling = false;
+      if (!refreshing) resetPull();
+    }, { passive: true });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootPullToRefresh);
+  } else {
+    bootPullToRefresh();
+  }
+})();
