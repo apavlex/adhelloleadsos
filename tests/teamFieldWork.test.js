@@ -85,6 +85,7 @@ describe('teamFieldWork helpers', () => {
       {
         memberId: 'tpr',
         customerId: 'c1',
+        customerName: 'Zimmerman',
         title: 'Site visit',
         status: 'lead',
         photoCount: 2,
@@ -93,6 +94,7 @@ describe('teamFieldWork helpers', () => {
       {
         memberId: 'tpr',
         customerId: 'c1',
+        customerName: 'Zimmerman',
         title: 'Site visit',
         status: 'estimate',
         photoCount: 1,
@@ -101,6 +103,7 @@ describe('teamFieldWork helpers', () => {
       {
         memberId: 'other',
         customerId: 'c1',
+        customerName: 'Zimmerman',
         title: 'Site visit',
         status: 'lead',
         photoCount: 0,
@@ -111,6 +114,46 @@ describe('teamFieldWork helpers', () => {
     const tpr = rows.find((r) => r.memberId === 'tpr');
     assert.equal(tpr.status, 'estimate');
     assert.ok(rows.some((r) => r.memberId === 'other'));
+  });
+
+  it('merges same-name twins with different customer ids and lists both dates', () => {
+    const rows = teamFieldWork.dedupeFieldRows([
+      {
+        memberId: 'tpr',
+        customerId: 'cust_shared',
+        customerName: 'Zimmerman',
+        title: 'Site visit',
+        status: 'scheduled',
+        date: '2026-10-22',
+        whenLabel: 'Thu, Oct 22',
+        dayLabel: 'Thu, Oct 22',
+        overdue: true,
+        photoCount: 0,
+        latestNote: 'Shared by Greg Arakelyan.',
+        updatedAt: '2026-10-20T00:00:00.000Z',
+      },
+      {
+        memberId: 'tpr',
+        customerId: 'cust_local',
+        customerName: 'Zimmerman',
+        title: 'Site visit',
+        status: 'lead',
+        date: '',
+        whenLabel: '',
+        dayLabel: '',
+        photoCount: 2,
+        photos: [{ id: 'ph1', href: '/p/1' }],
+        latestNote: '',
+        updatedAt: '2026-10-21T00:00:00.000Z',
+      },
+    ]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].status, 'scheduled');
+    assert.equal(rows[0].whenLabel, 'Thu, Oct 22');
+    assert.ok(rows[0].dateLabels.includes('Thu, Oct 22'));
+    assert.ok(rows[0].dateLabels.includes('Unscheduled'));
+    assert.equal(rows[0].photoCount, 2);
+    assert.equal(rows[0].overdue, true);
   });
 });
 

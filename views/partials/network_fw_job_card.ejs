@@ -4,6 +4,13 @@
   const _hasDay = !!(row.dayLabel);
   const _whenMain = _hasTime ? row.timeLabel : (row.whenLabel || 'Unscheduled');
   const _whenSub = _hasTime && _hasDay ? row.dayLabel : (!_hasTime && _hasDay ? '' : '');
+  // Twins collapsed by dedupeFieldRows list every schedule on one card.
+  const _dateLabels = Array.isArray(row.dateLabels)
+    ? row.dateLabels.map(function (d) { return String(d || '').trim(); }).filter(Boolean)
+    : [];
+  const _extraDates = _dateLabels.filter(function (d) {
+    return d && d !== _whenMain && d !== row.whenLabel && d !== _whenSub;
+  });
   const _photos = Array.isArray(row.photos) ? row.photos : [];
   const _photo = _photos.length ? _photos[0] : null;
   const _projectLabel = [row.title, row.customerName].filter(Boolean).join(' · ');
@@ -15,6 +22,9 @@
       <p class="fw-job__when<%= row.overdue ? ' is-overdue' : '' %>">
         <%= _whenMain %>
         <% if (_whenSub) { %><span class="fw-job__when-sub"><%= _whenSub %></span><% } %>
+        <% if (_extraDates.length) { %>
+        <span class="fw-job__when-sub"><%= _extraDates.join(' · ') %></span>
+        <% } %>
       </p>
     </div>
     <div class="fw-job__team" title="Whose Reviews app this project belongs to">
