@@ -49,24 +49,29 @@ describe('member leads + referral notifications', () => {
     assert.match(page, /maMarkCustomerForm/);
     assert.match(page, /ma-titlebar__actions/);
     assert.match(page, /ma-stage-btn/);
-    // One stage button by the name (Lead / Customer / Referral) — no source/Lead pill clutter.
+    // Stage badge + Mark as customer / Mark as lead next to the name — no source pill clutter.
     assert.match(page, /ma-stage-btn--lead/);
     assert.match(page, /ma-stage-btn--customer/);
     assert.match(page, /ma-stage-btn--referral/);
-    assert.match(page, />Lead</);
-    assert.match(page, />Customer</);
+    assert.match(page, /ma-stage-btn--lead[\s\S]*?Mark as customer/);
+    assert.match(page, /ma-stage-btn--customer[\s\S]*?Mark as lead/);
     assert.match(page, /'Referral'|Referral contact/);
     assert.doesNotMatch(page, /How this contact was added/);
-    assert.doesNotMatch(page, /Mark as customer/);
-    assert.doesNotMatch(page, /Mark as lead/);
     assert.match(
       page,
       /ma-titlebar[\s\S]*?ma-titlebar__actions[\s\S]*?ma-stage-btn[\s\S]*?<\/div>\s*<\/div>/,
     );
     assert.doesNotMatch(page, /ma-titlebar__actions"[^>]*justify-content:flex-start/);
     assert.match(page, /mark-lead/);
+    // Contact-lead cards open the profile; Mark as customer lives on the profile titlebar.
+    assert.match(referrals, /ma-card__nav/);
+    assert.match(referrals, /contact-lead-[\s\S]*?ma-card__nav[\s\S]*?lead\.href/);
+    assert.doesNotMatch(
+      referrals,
+      /contact-lead-[\s\S]*?mark-customer[\s\S]*?Mark as customer/,
+    );
     assert.match(referrals, /Mark as customer/);
-    assert.match(referrals, /mark-customer/);
+    assert.match(referrals, /mark-customer|to-customer/);
     assert.match(referrals, /leads\/<%= encodeURIComponent\(lead\.id\) %>\/to-customer/);
     assert.match(referrals, /sourceLabel/);
     assert.match(referrals, /Website form|lead\.sourceLabel/);

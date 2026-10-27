@@ -243,36 +243,34 @@
           <h2>Leads from contacts and online forms</h2>
         </div>
         <% _contactLeads.forEach(function (lead) { %>
-        <article class="ma-card" id="contact-lead-<%= lead.id %>">
-          <div class="ma-card__row">
-            <div style="min-width:0">
-              <p class="ma-card__title"><%= lead.name %></p>
-              <p class="ma-card__meta">
-                <%= (lead.sourceLabel && lead.sourceLabel !== 'Manual') ? lead.sourceLabel : 'Marked from contacts' %>
-                <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
-              </p>
-              <% if (lead.phone || lead.email || lead.address) { %>
-              <p class="ma-card__meta" style="margin-top:6px">
-                <% if (lead.phone) { %><a href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>" style="font-weight:700;color:var(--acc);text-decoration:none"><%= lead.phone %></a><% } %>
-                <% if (lead.phone && lead.email) { %> · <% } %>
-                <% if (lead.email) { %><a href="mailto:<%= lead.email %>" style="color:inherit"><%= lead.email %></a><% } %>
-                <% if ((lead.phone || lead.email) && lead.address) { %> · <% } %>
-                <% if (lead.address) { %><%= lead.address %><% } %>
-              </p>
-              <% } %>
-              <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
+        <article class="ma-card ma-card--nav" id="contact-lead-<%= lead.id %>">
+          <a class="ma-card__nav" href="<%= lead.href %>" aria-label="Open <%= lead.name %>">
+            <div class="ma-card__row">
+              <div style="min-width:0">
+                <p class="ma-card__title"><%= lead.name %></p>
+                <p class="ma-card__meta">
+                  <%= (lead.sourceLabel && lead.sourceLabel !== 'Manual') ? lead.sourceLabel : 'Marked from contacts' %>
+                  <% if (lead.at) { %> · <%= new Date(lead.at).toLocaleString() %><% } %>
+                </p>
+                <% if (lead.phone || lead.email || lead.address) { %>
+                <p class="ma-card__meta" style="margin-top:6px">
+                  <% if (lead.phone) { %><span style="font-weight:700;color:var(--acc)"><%= lead.phone %></span><% } %>
+                  <% if (lead.phone && lead.email) { %> · <% } %>
+                  <% if (lead.email) { %><span><%= lead.email %></span><% } %>
+                  <% if ((lead.phone || lead.email) && lead.address) { %> · <% } %>
+                  <% if (lead.address) { %><%= lead.address %><% } %>
+                </p>
+                <% } %>
+                <% if (lead.preview) { %><p class="ma-card__note"><%= lead.preview %></p><% } %>
+              </div>
+              <span class="ma-pill ma-pill--accepted">Lead</span>
             </div>
-            <span class="ma-pill ma-pill--accepted">Lead</span>
-          </div>
+          </a>
           <div class="ma-actions">
             <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
             <% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.quoteHref || (base + '/quote?customer=' + encodeURIComponent(lead.id)) %>">Quote</a>
             <% } %>
-            <form method="post" action="<%= base %>/customers/c/<%= encodeURIComponent(lead.id) %>/mark-customer">
-              <button type="submit" class="ma-btn ma-btn--sm"><%- icons.customers %> Mark as customer</button>
-            </form>
-            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.href %>">Open</a>
             <form method="post" action="<%= base %>/customers/c/<%= encodeURIComponent(lead.id) %>/remove-lead" data-ma-confirm="Remove <%= lead.name %> from Leads? They’ll stay in Customers.">
               <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Remove</button>
             </form>
