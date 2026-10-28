@@ -57,7 +57,10 @@ const {
   sampleAiVisibilitySnapshot,
   normalizeAiVisibilitySnapshot,
   buildShareEmailStub,
+  buildAiVisibilityClientViewModel,
+  getSnapshotFromLead,
 } = require('../services/aiVisibilityReport');
+const { runAiVisibilityScan, markNextStepDone } = require('../services/aiVisibilityScan');
 const {
   generateAssessment,
   mergeAssessment,
@@ -6438,6 +6441,171 @@ router.post('/:key/ai-tools-report-link', express.json(), async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err && err.message ? err.message : 'Link failed' });
+  }
+});
+
+/**
+ * Run / refresh AI Visibility scan for a lead (domain → scores + next steps).
+ * Uses DataForSEO when configured; otherwise heuristic from lead data.
+ */
+router.post('/:key/ai-visibility/scan', express.json(), async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const website = String(lead.website || lead.url || '').trim();
+    if (!website || website === 'N/A') {
+      return res.status(400).json({
+        success: false,
+        error: 'Add a website/domain on this lead before scanning AI Visibility.',
+      });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const existing = lead.aiVisibilityReport && typeof lead.aiVisibilityReport === 'object'
+      ? lead.aiVisibilityReport
+      : {};
+    const result = await runAiVisibilityScan(lead, { integrationEnv });
+    const priorTrend = Array.isArray(result.snapshot.trend) ? result.snapshot.trend.slice() : [];
+    if (existing.snapshot && existing.snapshot.score != null) {
+      const prevScore = Math.round(Number(existing.snapshot.score) || 0);
+      const label = existing.scannedAt
+        ? String(existing.scannedAt).slice(0, 7)
+        : 'Prior';
+      result.snapshot.trend = [
+        ...priorTrend.filter((p) => p && p.date !== 'Now').slice(-10),
+        { date: label === 'Prior' ? 'Prior' : label, score: prevScore },
+        { date: 'Now', score: result.snapshot.score },
+      ].slice(-12);
+      result.snapshot.scoreDelta = result.snapshot.score - prevScore;
+    }
+
+    const nextReport = {
+      ...existing,
+      snapshot: result.snapshot,
+      source: result.source,
+      warnings: result.warnings || [],
+      jobId: result.jobId,
+      allowSample: false,
+      scannedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      share: existing.share && typeof existing.share === 'object' ? existing.share : undefined,
+    };
+    const updated = await dbService.updateLead(
+      fullKey,
+      { aiVisibilityReport: nextReport },
+      req.workspaceId,
+    );
+    return res.json({
+      success: true,
+      source: result.source,
+      warnings: result.warnings || [],
+      jobId: result.jobId,
+      snapshot: result.snapshot,
+      previewUrl: `/leads/${encodeURIComponent(fullKey)}/ai-visibility/preview`,
+      lead: updated || { key: fullKey, aiVisibilityReport: nextReport },
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'AI Visibility scan failed',
+    });
+  }
+});
+
+/** Authenticated agency preview (Refresh / Share / Mark done). */
+router.get('/:key/ai-visibility/preview', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).send('Lead not found.');
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).send('Forbidden');
+    }
+
+    let report = lead.aiVisibilityReport && typeof lead.aiVisibilityReport === 'object'
+      ? lead.aiVisibilityReport
+      : null;
+    if (!getSnapshotFromLead(lead, { allowSample: false })) {
+      const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+      const result = await runAiVisibilityScan(lead, { integrationEnv });
+      report = {
+        snapshot: result.snapshot,
+        source: result.source,
+        warnings: result.warnings || [],
+        jobId: result.jobId,
+        allowSample: false,
+        scannedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      await dbService.updateLead(fullKey, { aiVisibilityReport: report }, req.workspaceId);
+      lead.aiVisibilityReport = report;
+    }
+
+    const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || {};
+    const vm = buildAiVisibilityClientViewModel(lead, {
+      mode: 'agency',
+      leadKey: fullKey,
+      workspaceAccent: ws.accentColor,
+      agencyName: ws.name || ws.companyName || 'AdHello',
+      source: report && report.source,
+      warnings: report && report.warnings,
+      jobId: report && report.jobId,
+      allowSample: true,
+    });
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.render('ai_visibility_report', {
+      vm,
+      printMode: false,
+      token: null,
+      reportUrl: '',
+      followUpEmail: vm.followUpEmail,
+    });
+  } catch (err) {
+    console.error('[ai-visibility-preview]', err);
+    return res.status(500).send('Could not load AI Visibility preview.');
+  }
+});
+
+/** Mark a prioritized next step done / not done (agency). */
+router.post('/:key/ai-visibility/next-step', express.json(), async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const existing = lead.aiVisibilityReport && typeof lead.aiVisibilityReport === 'object'
+      ? lead.aiVisibilityReport
+      : null;
+    if (!existing || !existing.snapshot) {
+      return res.status(400).json({ success: false, error: 'Run an AI Visibility scan first.' });
+    }
+    const rank = Number(req.body && req.body.rank);
+    const done = !!(req.body && req.body.done);
+    if (!Number.isFinite(rank) || rank < 1) {
+      return res.status(400).json({ success: false, error: 'rank required' });
+    }
+    const snapshot = markNextStepDone(existing.snapshot, rank, done);
+    const nextReport = {
+      ...existing,
+      snapshot,
+      updatedAt: new Date().toISOString(),
+    };
+    await dbService.updateLead(fullKey, { aiVisibilityReport: nextReport }, req.workspaceId);
+    return res.json({ success: true, snapshot });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'Update failed',
+    });
   }
 });
 

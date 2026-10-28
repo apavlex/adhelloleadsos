@@ -79,6 +79,7 @@ function normalizeAiVisibilitySnapshot(raw, lead) {
     impact: cleanStr(s.impact, 20) || 'Med',
     title: cleanStr(s.title || s.action, 160) || 'Improve visibility',
     why: cleanStr(s.why || s.reason, 280),
+    done: !!(s.done || s.completed),
   })).slice(0, 12);
 
   return {
@@ -297,12 +298,24 @@ function buildAiVisibilityClientViewModel(lead, opts) {
   const expiryDate = opts.expiresAt
     ? formatShortDate(opts.expiresAt)
     : formatShortDate(getShareMeta(lead).expiresAt);
+  const mode = opts.mode === 'agency' ? 'agency' : 'client';
+  const report = lead && lead.aiVisibilityReport && typeof lead.aiVisibilityReport === 'object'
+    ? lead.aiVisibilityReport
+    : {};
 
   return {
     ...snapshot,
     accent,
     agencyName,
-    mode: 'client',
+    mode,
+    source: cleanStr(opts.source || report.source, 40) || (mode === 'agency' ? 'unknown' : ''),
+    warnings: Array.isArray(opts.warnings)
+      ? opts.warnings.map((w) => cleanStr(w, 200)).filter(Boolean).slice(0, 8)
+      : Array.isArray(report.warnings)
+        ? report.warnings.map((w) => cleanStr(w, 200)).filter(Boolean).slice(0, 8)
+        : [],
+    jobId: cleanStr(opts.jobId || report.jobId || getShareMeta(lead).jobId, 80),
+    leadKey: cleanStr(opts.leadKey || (lead && (lead.key || lead.id)), 120),
     reportUrl: cleanStr(opts.reportUrl, 500),
     expiresLabel: expiryDate,
     followUpEmail: buildShareEmailStub({
