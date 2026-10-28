@@ -1,0 +1,16 @@
+<%
+  const _seoActive = typeof activePage !== 'undefined' ? activePage : '';
+  const _seoCan = typeof navCan === 'function' ? navCan : function () { return true; };
+%>
+<nav class="mb-6 flex flex-wrap gap-2" aria-label="SEO / Local Rank">
+  <% if (_seoCan('seo-gap')) { %>
+  <a href="/seo-gap" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'seo-gap' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">SEO Gap</a>
+  <% } %>
+  <% if (_seoCan('backlinks')) { %>
+  <a href="/backlinks" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'backlinks' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">Backlinks</a>
+  <% } %>
+  <% if (_seoCan('local-seo')) { %>
+  <a href="/local-seo" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'local-seo' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">Local SEO</a>
+  <% } %>
+  <a href="/workspace/integrations#integration-dataforseo" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest">DataForSEO</a>
+</nav>
