@@ -259,6 +259,179 @@ async function googleMapsLive({
   });
 }
 
+/** Google organic SERP (includes local_pack items). */
+async function googleOrganicLive({
+  keyword,
+  locationName,
+  locationCode = 2840,
+  languageCode = 'en',
+  depth = 20,
+  integrationEnv,
+  fetchImpl,
+}) {
+  const kw = String(keyword || '').trim();
+  if (!kw) {
+    const err = new Error('Keyword required for organic SERP');
+    err.code = 'NO_KEYWORD';
+    throw err;
+  }
+  const task = {
+    keyword: kw.slice(0, 700),
+    language_code: languageCode,
+    depth: Math.min(200, Math.max(10, Number(depth) || 20)),
+  };
+  if (locationName) task.location_name = String(locationName).slice(0, 200);
+  else task.location_code = locationCode;
+
+  return dfsRequest('/v3/serp/google/organic/live/advanced', {
+    method: 'POST',
+    body: [task],
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 90000,
+  });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Poll DataForSEO task_get until ready or timeout.
+ * @param {string} pathTemplate — e.g. /v3/business_data/google/my_business_info/task_get/{id}
+ */
+async function pollTaskGet(pathTemplate, taskId, opts) {
+  const options = opts || {};
+  const maxAttempts = Math.max(3, Number(options.maxAttempts) || 24);
+  const delayMs = Math.max(500, Number(options.delayMs) || 2500);
+  let last = null;
+  for (let i = 0; i < maxAttempts; i += 1) {
+    const path = pathTemplate.replace('{id}', encodeURIComponent(taskId));
+    // eslint-disable-next-line no-await-in-loop
+    last = await dfsRequest(path, {
+      method: 'GET',
+      integrationEnv: options.integrationEnv,
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs || 60000,
+    });
+    const task = Array.isArray(last.tasks) ? last.tasks[0] : null;
+    const code = task && Number(task.status_code);
+    if (code === 20000) return last;
+    if (code && code >= 40000) {
+      const err = new Error(String((task && task.status_message) || 'DataForSEO task failed'));
+      err.code = 'DATAFORSEO_TASK';
+      err.body = last;
+      throw err;
+    }
+    // eslint-disable-next-line no-await-in-loop
+    await sleep(delayMs);
+  }
+  const err = new Error('DataForSEO task timed out waiting for results');
+  err.code = 'DATAFORSEO_TIMEOUT';
+  err.body = last;
+  throw err;
+}
+
+function firstTaskId(apiJson) {
+  const task = Array.isArray(apiJson && apiJson.tasks) ? apiJson.tasks[0] : null;
+  return task && task.id ? String(task.id) : '';
+}
+
+/** GBP / My Business Info (async). */
+async function myBusinessInfoLive({
+  keyword,
+  cid,
+  placeId,
+  locationName,
+  locationCode = 2840,
+  languageCode = 'en',
+  integrationEnv,
+  fetchImpl,
+}) {
+  const task = {
+    language_code: languageCode,
+  };
+  if (locationName) task.location_name = String(locationName).slice(0, 200);
+  else task.location_code = locationCode;
+  if (cid) task.cid = String(cid).trim();
+  else if (placeId) task.place_id = String(placeId).trim();
+  else if (keyword) task.keyword = String(keyword).trim().slice(0, 700);
+  else {
+    const err = new Error('keyword, cid, or place_id required for My Business Info');
+    err.code = 'NO_BUSINESS';
+    throw err;
+  }
+
+  const posted = await dfsRequest('/v3/business_data/google/my_business_info/task_post', {
+    method: 'POST',
+    body: [task],
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 60000,
+  });
+  const id = firstTaskId(posted);
+  if (!id) {
+    const err = new Error('My Business Info task was not created');
+    err.code = 'DATAFORSEO_TASK';
+    err.body = posted;
+    throw err;
+  }
+  return pollTaskGet('/v3/business_data/google/my_business_info/task_get/{id}', id, {
+    integrationEnv,
+    fetchImpl,
+  });
+}
+
+/** Google reviews for a business (async). */
+async function googleReviewsLive({
+  keyword,
+  cid,
+  placeId,
+  locationName,
+  locationCode = 2840,
+  languageCode = 'en',
+  depth = 20,
+  sortBy = 'relevant',
+  integrationEnv,
+  fetchImpl,
+}) {
+  const task = {
+    language_code: languageCode,
+    depth: Math.min(100, Math.max(10, Number(depth) || 20)),
+    sort_by: sortBy,
+  };
+  if (locationName) task.location_name = String(locationName).slice(0, 200);
+  else task.location_code = locationCode;
+  if (cid) task.cid = String(cid).trim();
+  else if (placeId) task.place_id = String(placeId).trim();
+  else if (keyword) task.keyword = String(keyword).trim().slice(0, 700);
+  else {
+    const err = new Error('keyword, cid, or place_id required for Google Reviews');
+    err.code = 'NO_BUSINESS';
+    throw err;
+  }
+
+  const posted = await dfsRequest('/v3/business_data/google/reviews/task_post', {
+    method: 'POST',
+    body: [task],
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 60000,
+  });
+  const id = firstTaskId(posted);
+  if (!id) {
+    const err = new Error('Google Reviews task was not created');
+    err.code = 'DATAFORSEO_TASK';
+    err.body = posted;
+    throw err;
+  }
+  return pollTaskGet('/v3/business_data/google/reviews/task_get/{id}', id, {
+    integrationEnv,
+    fetchImpl,
+    maxAttempts: 30,
+  });
+}
+
 function labsTaskBase({ locationCode = 2840, languageCode = 'en', limit = 100 }) {
   return {
     location_code: locationCode,
@@ -521,6 +694,10 @@ module.exports = {
   searchMentionsLive,
   topMentionedDomainsLive,
   googleMapsLive,
+  googleOrganicLive,
+  myBusinessInfoLive,
+  googleReviewsLive,
+  pollTaskGet,
   keywordsForSiteLive,
   competitorsDomainLive,
   domainIntersectionLive,
