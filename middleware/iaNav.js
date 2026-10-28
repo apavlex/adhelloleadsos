@@ -43,6 +43,8 @@ function iaNav(req, res, next) {
     navPrimary = 'reports';
   } else if (p === '/seo-gap' || p.startsWith('/seo-gap/')) {
     navPrimary = 'seo-gap';
+  } else if (p === '/backlinks' || p.startsWith('/backlinks/')) {
+    navPrimary = 'backlinks';
   } else if (p === '/tasks' || p.startsWith('/tasks/')) {
     navPrimary = 'tasks';
   } else if (
