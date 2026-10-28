@@ -259,6 +259,128 @@ async function googleMapsLive({
   });
 }
 
+function labsTaskBase({ locationCode = 2840, languageCode = 'en', limit = 100 }) {
+  return {
+    location_code: locationCode,
+    language_code: languageCode,
+    limit: Math.min(1000, Math.max(1, Number(limit) || 100)),
+  };
+}
+
+/** Keywords a domain ranks for (Labs). */
+async function keywordsForSiteLive({
+  target,
+  locationCode = 2840,
+  languageCode = 'en',
+  limit = 100,
+  includeSubdomains = true,
+  integrationEnv,
+  fetchImpl,
+}) {
+  const domain = hostFromWebsite(target);
+  if (!domain) {
+    const err = new Error('Domain required for keywords_for_site');
+    err.code = 'NO_DOMAIN';
+    throw err;
+  }
+  const body = [
+    {
+      ...labsTaskBase({ locationCode, languageCode, limit }),
+      target: domain,
+      include_subdomains: !!includeSubdomains,
+    },
+  ];
+  return dfsRequest('/v3/dataforseo_labs/google/keywords_for_site/live', {
+    method: 'POST',
+    body,
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
+/** Domains that compete organically with the seed. */
+async function competitorsDomainLive({
+  target,
+  locationCode = 2840,
+  languageCode = 'en',
+  limit = 10,
+  integrationEnv,
+  fetchImpl,
+}) {
+  const domain = hostFromWebsite(target);
+  if (!domain) {
+    const err = new Error('Domain required for competitors_domain');
+    err.code = 'NO_DOMAIN';
+    throw err;
+  }
+  const body = [
+    {
+      ...labsTaskBase({ locationCode, languageCode, limit }),
+      target: domain,
+    },
+  ];
+  return dfsRequest('/v3/dataforseo_labs/google/competitors_domain/live', {
+    method: 'POST',
+    body,
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
+/**
+ * Domain intersection / gap.
+ * intersections:true → shared SERP keywords
+ * intersections:false → target1 ranks, target2 does not
+ */
+async function domainIntersectionLive({
+  target1,
+  target2,
+  intersections = false,
+  locationCode = 2840,
+  languageCode = 'en',
+  limit = 100,
+  integrationEnv,
+  fetchImpl,
+}) {
+  const a = hostFromWebsite(target1);
+  const b = hostFromWebsite(target2);
+  if (!a || !b) {
+    const err = new Error('Both domains required for domain_intersection');
+    err.code = 'NO_DOMAIN';
+    throw err;
+  }
+  const body = [
+    {
+      ...labsTaskBase({ locationCode, languageCode, limit }),
+      target1: a,
+      target2: b,
+      intersections: !!intersections,
+      item_types: ['organic'],
+    },
+  ];
+  return dfsRequest('/v3/dataforseo_labs/google/domain_intersection/live', {
+    method: 'POST',
+    body,
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
+/** Flatten Labs task result items from a live response. */
+function extractLabsItems(apiJson) {
+  const tasks = Array.isArray(apiJson && apiJson.tasks) ? apiJson.tasks : [];
+  const items = [];
+  for (const t of tasks) {
+    for (const r of Array.isArray(t.result) ? t.result : []) {
+      if (Array.isArray(r.items)) items.push(...r.items);
+    }
+  }
+  return items;
+}
+
 module.exports = {
   API_BASE,
   resolveCredentials,
@@ -269,4 +391,8 @@ module.exports = {
   searchMentionsLive,
   topMentionedDomainsLive,
   googleMapsLive,
+  keywordsForSiteLive,
+  competitorsDomainLive,
+  domainIntersectionLive,
+  extractLabsItems,
 };

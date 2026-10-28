@@ -41,6 +41,8 @@ function iaNav(req, res, next) {
     navPrimary = 'today';
   } else if (p.startsWith('/analytics') || p.startsWith('/insights') || p.startsWith('/reports')) {
     navPrimary = 'reports';
+  } else if (p === '/seo-gap' || p.startsWith('/seo-gap/')) {
+    navPrimary = 'seo-gap';
   } else if (p === '/tasks' || p.startsWith('/tasks/')) {
     navPrimary = 'tasks';
   } else if (

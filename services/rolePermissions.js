@@ -40,6 +40,7 @@ const PAGES = [
   { id: 'social-posts', label: 'Social Posts', group: 'Marketing', paths: ['/social-posts'] },
   { id: 'fb-groups', label: 'FB Groups', group: 'Marketing', paths: ['/fb-groups'] },
   { id: 'reports', label: 'Reports', group: 'Insights', paths: ['/reports', '/analytics'] },
+  { id: 'seo-gap', label: 'SEO Gap', group: 'Insights', paths: ['/seo-gap'] },
   { id: 'resources', label: 'Resources', group: 'Insights', paths: ['/resources', '/sops'] },
   { id: 'settings', label: 'Workspace settings', group: 'Settings', paths: ['/workspace'] },
 ];
