@@ -1628,11 +1628,35 @@
       });
     }
 
+    /** Drop any .vcf URL so sms: drafts keep only the review link for the OG image. */
+    function textWithoutVcardUrl(body) {
+      var msg = String(body || '');
+      var card = String(vcardUrl || '').trim();
+      if (!card) return msg.trim();
+      var out = msg.split(card).join(' ');
+      try {
+        var parsed = new URL(card);
+        var hostPath = (parsed.host + parsed.pathname).replace(/\/$/, '');
+        if (hostPath) out = out.split(hostPath).join(' ');
+        if (parsed.pathname && parsed.pathname.length > 4) out = out.split(parsed.pathname).join(' ');
+      } catch (e) { /* ignore */ }
+      out = out
+        .replace(/https?:\/\/\S*\.vcf\b/gi, ' ')
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\n{3,}/g, '\n\n')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n[ \t]+/g, '\n')
+        .trim();
+      if (reviewLinkForAttach) out = placeReviewLinkAtEnd(out, reviewLinkForAttach);
+      return out;
+    }
+
     function shareText(body, vcardFile) {
       var msg = String(body || '');
       // Phone known → open SMS to that number (thread history). File share can't set To:.
+      // Never paste a .vcf URL into this path — it blocks the review-link preview image.
       if (askPhone) {
-        openSms((vcardFile || attachVcard) ? textWithVcardUrl(msg) : msg, askPhone);
+        openSms(textWithoutVcardUrl(msg), askPhone);
         return;
       }
       if (navigator.share) {
@@ -1662,11 +1686,13 @@
       openSms(vcardFile ? textWithVcardUrl(msg) : msg, askPhone);
     }
 
-    // With a mobile number, always open Messages to that phone (SMS history).
-    // sms: can't attach a .vcf file — put the vCard URL in the body when Attach is on.
+    // With a mobile number, open Messages to that phone (SMS history).
+    // sms: cannot attach a .vcf File — and pasting the .vcf URL in the body
+    // blocks iMessage’s review-link preview image. Keep text = script + review
+    // link only (same preview as Request a review without a recipient). Contact
+    // card File share stays on the no-recipient Share path below.
     if (askPhone) {
-      if (attachVcard && vcardUrl) text = textWithVcardUrl(text);
-      openSms(text, askPhone);
+      openSms(textWithoutVcardUrl(text), askPhone);
       return;
     }
 

@@ -311,6 +311,11 @@ describe('member app install modal and tab bar', () => {
     assert.match(js, /text\/vcard/);
     assert.match(js, /makeVcardFile/);
     assert.match(js, /data\.files\s*=\s*\[vcardFile\]/);
+    // Selected-customer sms: must strip .vcf URLs so the review-link preview image shows.
+    assert.match(js, /function textWithoutVcardUrl/);
+    assert.match(js, /openSms\(textWithoutVcardUrl\(/);
+    assert.doesNotMatch(js, /if \(attachVcard && vcardUrl\) text = textWithVcardUrl\(text\);\s*openSms\(text, askPhone\)/);
+    assert.match(review, /Texting a selected customer keeps only the review link/);
     assert.match(reviewPublicRoute, /noindex kills unfurls/);
     assert.match(reviewPublicRoute, /removeHeader\('X-Robots-Tag'\)/);
     assert.match(js, /review_link is ONLY substituted when the placeholder/);
