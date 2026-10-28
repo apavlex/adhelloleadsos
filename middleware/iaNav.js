@@ -45,6 +45,8 @@ function iaNav(req, res, next) {
     navPrimary = 'seo-gap';
   } else if (p === '/backlinks' || p.startsWith('/backlinks/')) {
     navPrimary = 'backlinks';
+  } else if (p === '/local-seo' || p.startsWith('/local-seo/')) {
+    navPrimary = 'local-seo';
   } else if (p === '/tasks' || p.startsWith('/tasks/')) {
     navPrimary = 'tasks';
   } else if (

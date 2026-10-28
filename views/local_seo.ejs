@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <header class="mb-8 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Local SEO · DataForSEO</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Maps, GBP &amp; reviews</h1>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">
+          Research is scoped to this workspace’s business profile. Update pulls Maps rankings, Google Business Profile completeness, and reviews — then saves the snapshot so you can revisit anytime.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2 shrink-0">
+        <a href="/workspace/integrations#integration-dataforseo" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">DataForSEO settings</a>
+      </div>
+    </header>
+
+    <% if (!dfsReady) { %>
+    <div class="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+      Connect DataForSEO under <a class="underline font-semibold" href="/workspace/integrations#integration-dataforseo">Workspace → Integrations</a> before updating.
+    </div>
+    <% } %>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <section class="xl:col-span-1 space-y-4">
+        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <h2 class="font-display font-bold text-lg mb-3">Business profile</h2>
+          <form id="localSeoProfileForm" class="space-y-3">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business name</label>
+              <input name="businessName" required value="<%= profile.businessName || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
+                <input name="city" value="<%= profile.city || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Vertical</label>
+                <input name="vertical" value="<%= profile.vertical || '' %>" placeholder="Flooring" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Website</label>
+              <input name="website" value="<%= profile.website || '' %>" placeholder="acmeflooring.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Location name</label>
+              <input name="locationName" value="<%= profile.locationName || '' %>" placeholder="Portland,Oregon,United States" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Keywords (one per line)</label>
+              <textarea name="keywordsText" rows="4" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm"><%= (profile.keywords || []).join('\n') %></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Place ID</label>
+                <input name="placeId" value="<%= profile.placeId || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">CID</label>
+                <input name="cid" value="<%= profile.cid || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <button type="button" id="localSeoSaveProfile" class="btn-pill border border-brand-border dark:border-white/20 w-full py-2.5 text-[10px] font-black uppercase tracking-widest">Save profile</button>
+            <button type="button" id="localSeoSyncBtn" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest" <%= !dfsReady ? 'disabled' : '' %>>Update research</button>
+          </form>
+          <p id="localSeoFormMsg" class="text-xs text-brand-muted mt-3 hidden"></p>
+        </div>
+      </section>
+
+      <section class="xl:col-span-2 space-y-4">
+        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h2 class="font-display font-bold text-xl"><%= profile.businessName || 'Business profile' %></h2>
+              <p class="text-xs text-brand-muted mt-1">
+                <%= syncStatus || 'new' %>
+                <% if (lastSyncedAt) { %> · Synced <%= new Date(lastSyncedAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }) %> PT<% } %>
+              </p>
+            </div>
+            <button type="button" id="localSeoAnalyzeBtn" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" <%= !research ? 'disabled' : '' %>>AI action plan</button>
+          </div>
+
+          <% if (!research) { %>
+          <p class="text-sm text-brand-muted">No research saved yet. Confirm the business profile and click <strong>Update research</strong>.</p>
+          <% } else { %>
+            <% const scores = research.scores || {}; const gbp = research.gbp || null; const reviews = research.reviews || null; %>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-brand-muted">Local score</p>
+                <p class="text-2xl font-display font-bold mt-1"><%= scores.overall != null ? scores.overall : '—' %></p>
+              </div>
+              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-brand-muted">Maps</p>
+                <p class="text-2xl font-display font-bold mt-1"><%= scores.mapsScore != null ? scores.mapsScore : '—' %></p>
+                <p class="text-[11px] text-brand-muted">avg #<%= scores.avgMapsRank != null ? scores.avgMapsRank : '—' %></p>
+              </div>
+              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-brand-muted">GBP</p>
+                <p class="text-2xl font-display font-bold mt-1"><%= scores.gbpScore != null ? scores.gbpScore : '—' %></p>
+              </div>
+              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
+                <p class="text-[10px] uppercase tracking-widest text-brand-muted">Reviews</p>
+                <p class="text-2xl font-display font-bold mt-1"><%= scores.reviewScore != null ? scores.reviewScore : '—' %></p>
+              </div>
+            </div>
+
+            <% if ((research.warnings || []).length) { %>
+            <details class="mb-4 text-xs text-amber-700 dark:text-amber-200">
+              <summary><%= research.warnings.length %> warning(s)</summary>
+              <ul class="mt-2 list-disc pl-5 space-y-1"><% research.warnings.forEach(function (w) { %><li><%= w %></li><% }) %></ul>
+            </details>
+            <% } %>
+
+            <h3 class="font-semibold text-sm mb-2">Keyword Maps ranks</h3>
+            <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 mb-6">
+              <table class="min-w-full text-sm">
+                <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
+                  <tr><th class="px-3 py-2">Keyword</th><th class="px-3 py-2">Maps</th><th class="px-3 py-2">Local pack</th><th class="px-3 py-2">Match</th></tr>
+                </thead>
+                <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
+                  <% (research.keywordRanks || []).forEach(function (k) { %>
+                  <tr>
+                    <td class="px-3 py-2"><%= k.keyword %></td>
+                    <td class="px-3 py-2"><%= k.mapsRank != null ? '#' + k.mapsRank : '—' %></td>
+                    <td class="px-3 py-2"><%= k.localPackRank != null ? '#' + k.localPackRank : '—' %></td>
+                    <td class="px-3 py-2 text-brand-muted"><%= k.mapsMatch && k.mapsMatch.title ? k.mapsMatch.title : (k.error || '—') %></td>
+                  </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-4">
+                <h3 class="font-semibold text-sm mb-2">Google Business Profile</h3>
+                <% if (!gbp) { %>
+                <p class="text-sm text-brand-muted">No GBP data yet. Add Place ID/CID or re-run Update.</p>
+                <% } else { %>
+                <p class="text-sm"><%= gbp.title || '—' %> · <%= gbp.category || 'no category' %></p>
+                <p class="text-xs text-brand-muted mt-1"><%= gbp.address || '—' %></p>
+                <p class="text-sm mt-2">Completeness <strong><%= gbp.completeness %>%</strong> · <%= gbp.photos || 0 %> photos · rating <%= gbp.rating != null ? gbp.rating : '—' %> (<%= gbp.votes != null ? gbp.votes : '—' %>)</p>
+                <% } %>
+              </div>
+              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-4">
+                <h3 class="font-semibold text-sm mb-2">Reviews</h3>
+                <% if (!reviews) { %>
+                <p class="text-sm text-brand-muted">No review snapshot yet.</p>
+                <% } else { %>
+                <p class="text-sm">Rating <strong><%= reviews.rating != null ? reviews.rating : '—' %></strong> · <%= reviews.votes != null ? reviews.votes : '—' %> reviews</p>
+                <p class="text-sm mt-1">Unanswered in sample: <strong><%= reviews.unanswered || 0 %></strong> / <%= reviews.fetched || 0 %></p>
+                <% } %>
+              </div>
+            </div>
+          <% } %>
+        </div>
+
+        <% if (actionPlan && actionPlan.steps && actionPlan.steps.length) { %>
+        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <h2 class="font-display font-bold text-lg mb-2">Action plan <span class="text-xs font-normal text-brand-muted">(<%= actionPlan.source %>)</span></h2>
+          <p class="text-sm text-brand-muted mb-4"><%= actionPlan.summary %></p>
+          <ol class="space-y-3">
+            <% actionPlan.steps.forEach(function (s) { %>
+            <li class="rounded-xl border border-brand-border/40 dark:border-white/10 px-4 py-3">
+              <div class="flex flex-wrap gap-2 items-center text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                <span>#<%= s.rank %></span>
+                <span>Impact <%= s.impact %></span>
+                <span>Effort <%= s.effort %></span>
+              </div>
+              <p class="font-semibold mt-1"><%= s.title %></p>
+              <p class="text-sm text-brand-muted mt-1"><%= s.why %></p>
+            </li>
+            <% }) %>
+          </ol>
+        </div>
+        <% } %>
+      </section>
+    </div>
+  </main>
+  <script>
+    (function () {
+      function formPayload() {
+        var form = document.getElementById('localSeoProfileForm');
+        var fd = new FormData(form);
+        return {
+          businessName: fd.get('businessName'),
+          city: fd.get('city'),
+          vertical: fd.get('vertical'),
+          website: fd.get('website'),
+          locationName: fd.get('locationName'),
+          placeId: fd.get('placeId'),
+          cid: fd.get('cid'),
+          keywordsText: fd.get('keywordsText'),
+        };
+      }
+      function msg(text, isErr) {
+        var el = document.getElementById('localSeoFormMsg');
+        el.textContent = text || '';
+        el.classList.toggle('hidden', !text);
+        el.classList.toggle('text-rose-500', !!isErr);
+      }
+
+      var saveBtn = document.getElementById('localSeoSaveProfile');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async function () {
+          msg('');
+          try {
+            var res = await fetch('/local-seo/profile', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(formPayload()),
+            });
+            var data = await res.json();
+            if (!res.ok || !data.success) throw new Error((data && data.error) || 'Save failed');
+            msg('Profile saved.');
+          } catch (err) {
+            msg(err.message || 'Save failed', true);
+          }
+        });
+      }
+
+      var syncBtn = document.getElementById('localSeoSyncBtn');
+      if (syncBtn) {
+        syncBtn.addEventListener('click', async function () {
+          msg('');
+          syncBtn.disabled = true;
+          syncBtn.textContent = 'Updating…';
+          try {
+            var res = await fetch('/local-seo/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(formPayload()),
+            });
+            var data = await res.json();
+            if (!res.ok || !data.success) throw new Error((data && data.error) || 'Update failed');
+            window.location.reload();
+          } catch (err) {
+            msg(err.message || 'Update failed', true);
+            syncBtn.disabled = false;
+            syncBtn.textContent = 'Update research';
+          }
+        });
+      }
+
+      var analyzeBtn = document.getElementById('localSeoAnalyzeBtn');
+      if (analyzeBtn) {
+        analyzeBtn.addEventListener('click', async function () {
+          analyzeBtn.disabled = true;
+          try {
+            var res = await fetch('/local-seo/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+            var data = await res.json();
+            if (!res.ok || !data.success) throw new Error((data && data.error) || 'Analyze failed');
+            window.location.reload();
+          } catch (err) {
+            msg(err.message || 'Analyze failed', true);
+            analyzeBtn.disabled = false;
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

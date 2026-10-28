@@ -42,6 +42,7 @@ const PAGES = [
   { id: 'reports', label: 'Reports', group: 'Insights', paths: ['/reports', '/analytics'] },
   { id: 'seo-gap', label: 'SEO Gap', group: 'Insights', paths: ['/seo-gap'] },
   { id: 'backlinks', label: 'Backlinks', group: 'Insights', paths: ['/backlinks'] },
+  { id: 'local-seo', label: 'Local SEO', group: 'Insights', paths: ['/local-seo'] },
   { id: 'resources', label: 'Resources', group: 'Insights', paths: ['/resources', '/sops'] },
   { id: 'settings', label: 'Workspace settings', group: 'Settings', paths: ['/workspace'] },
 ];
