@@ -608,31 +608,29 @@ async function saveCustomerFormAnswers(network, memberId, customer, answers, add
 
 /**
  * Backfill website form Q&A onto a Reviews customer profile.
- * Only for contacts that actually came from a website form — never invent
- * Company / Type / Address from the GHL contact record for manual leads.
- * Prefers answers already stamped on the workspace lead; otherwise pulls from GHL.
+ * Keeps real form Q&A; strips Company/Type/Address CRM crumbs; never invents
+ * those crumbs for manual contacts. Recovers answers from GHL form submissions
+ * when they were wiped or never saved.
  */
 async function ensureFormAnswersOnCustomer(network, memberId, customer) {
   if (!network || !memberId || !customer || !customer.id) return customer;
   const src = String(customer.source || '').trim().toLowerCase();
+  const isWebsiteForm = src === 'website_form';
   const {
     normalizeFormAnswers,
     fetchContactFormAnswers,
     looksLikeOnlyContactProfileAnswers,
+    realFormAnswers,
   } = require('./ghlFormAnswers');
 
-  // No website form → keep Form answers closed; clear any CRM crumbs we previously saved.
-  if (src !== 'website_form') {
-    if (Array.isArray(customer.formAnswers) && customer.formAnswers.length) {
-      return saveCustomerFormAnswers(network, memberId, customer, []);
-    }
-    return customer;
-  }
-
   const existing = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
-  if (existing.length && !looksLikeOnlyContactProfileAnswers(existing)) {
-    return customer;
-  }
+  const existingReal = realFormAnswers(existing);
+
+  // Already have real estimate-form answers — leave them alone.
+  if (existingReal.length) return customer;
+
+  // CRM-only crumbs (Company / Type / Address) — clear unless we can replace with a real form pull.
+  const hadCrumbs = existing.length > 0 && looksLikeOnlyContactProfileAnswers(existing);
 
   const ghlId = String(customer.ghlContactId || '').trim();
   let answers = [];
@@ -645,17 +643,17 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
         (l) => l && String(l.ghlContactId || '').trim() === ghlId,
       );
       if (lead) {
-        if (Array.isArray(lead.formAnswers) && lead.formAnswers.length
-          && !looksLikeOnlyContactProfileAnswers(lead.formAnswers)) {
-          answers = normalizeFormAnswers(lead.formAnswers);
+        const leadReal = realFormAnswers(lead.formAnswers);
+        if (leadReal.length) {
+          answers = leadReal;
         } else {
           const events = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
           for (let i = events.length - 1; i >= 0; i -= 1) {
             const ev = events[i];
             if (!ev || String(ev.type || '') !== 'form') continue;
-            if (Array.isArray(ev.answers) && ev.answers.length
-              && !looksLikeOnlyContactProfileAnswers(ev.answers)) {
-              answers = normalizeFormAnswers(ev.answers);
+            const evReal = realFormAnswers(ev.answers);
+            if (evReal.length) {
+              answers = evReal;
               break;
             }
           }
@@ -666,7 +664,8 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
     }
   }
 
-  if (!answers.length && ghlId) {
+  // Pull from GHL for website-form contacts, or to replace CRM crumbs with a real submission.
+  if (!answers.length && ghlId && (isWebsiteForm || hadCrumbs)) {
     try {
       const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
       if (ghlClient.isConfigured(integrationEnv)) {
@@ -676,9 +675,10 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
           name: customer.name,
           address: customer.address,
           includeCoreFallback: false,
-          // Custom fields / submissions only — not Company / Type / Address from the contact card.
-          contactFallback: 'custom',
+          // Prefer submissions; custom fields only for known website forms — never Company/Type/Address.
+          contactFallback: isWebsiteForm ? 'custom' : 'none',
         });
+        answers = realFormAnswers(answers);
       }
     } catch (err) {
       console.warn('[memberCustomerGhl] form answers from GHL failed:', err && err.message);
@@ -687,9 +687,9 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
 
   if (looksLikeOnlyContactProfileAnswers(answers)) answers = [];
 
-  // Clear previously invented CRM crumbs when we still have nothing real.
   if (!answers.length) {
-    if (existing.length) {
+    // Strip invented CRM crumbs so Form answers stays closed for non-form contacts.
+    if (hadCrumbs) {
       return saveCustomerFormAnswers(network, memberId, customer, []);
     }
     return customer;

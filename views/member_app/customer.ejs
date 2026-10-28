@@ -382,8 +382,8 @@
       const _formAnswers = Array.isArray(typeof formAnswers !== 'undefined' ? formAnswers : customer.formAnswers)
         ? (typeof formAnswers !== 'undefined' ? formAnswers : customer.formAnswers)
         : [];
-      // Only open Form answers when this contact actually came from a website estimate form.
-      const _showFormBlock = String(customer.source || '') === 'website_form';
+      // Open for website-form contacts, or when we have real form Q&A (not CRM crumbs).
+      const _showFormBlock = String(customer.source || '') === 'website_form' || _formAnswers.length > 0;
       const _isLeadContact = (typeof contactKind !== 'undefined' ? contactKind : (customer.isLead ? 'lead' : 'customer')) === 'lead';
     %>
     <% if (_showFormBlock) { %>

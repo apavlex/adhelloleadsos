@@ -450,4 +450,75 @@ describe('member customer GHL sync', () => {
     assert.equal(cleared.source, 'manual');
     mock.restoreAll();
   });
+
+  it('ensureFormAnswersOnCustomer keeps real form Q&A even when source is not website_form', async () => {
+    mock.restoreAll();
+    const created = await work.saveCustomer(NET.id, MEM, {
+      name: 'Casey',
+      phone: '3605550199',
+    }, {
+      source: 'ghl',
+      ghlContactId: 'ghl_casey_form',
+      formAnswers: [
+        { q: 'Company', a: 'Casey Co' },
+        { q: 'How can we help?', a: 'Need hardwood in living room' },
+      ],
+    });
+    assert.equal(created.ok, true);
+
+    const kept = await memberCustomerGhl.ensureFormAnswersOnCustomer(
+      NET,
+      MEM,
+      created.customer,
+    );
+    assert.ok(kept.formAnswers.some((a) => /hardwood/i.test(a.a)));
+    assert.equal(kept.source, 'ghl');
+    mock.restoreAll();
+  });
+
+  it('ensureFormAnswersOnCustomer recovers GHL form submission when replacing CRM crumbs', async () => {
+    mock.restoreAll();
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'test',
+      GHL_LOCATION_ID: 'loc1',
+    }));
+    mock.method(ghlClient, 'isConfigured', () => true);
+    mock.method(ghlClient, 'listLocationContactCustomFields', async () => ([
+      { id: 'cf_msg', name: 'How can we help?' },
+    ]));
+    mock.method(ghlClient, 'listFormSubmissions', async () => ({
+      submissions: [{
+        contactId: 'ghl_recover_form',
+        name: 'Riley',
+        others: { cf_msg: 'Quote for stairs' },
+      }],
+    }));
+    mock.method(ghlClient, 'getContact', async () => ({
+      id: 'ghl_recover_form',
+      name: 'Riley',
+      companyName: 'Riley LLC',
+      type: 'lead',
+    }));
+
+    const created = await work.saveCustomer(NET.id, MEM, {
+      name: 'Riley',
+      phone: '3605550188',
+    }, {
+      source: 'manual',
+      ghlContactId: 'ghl_recover_form',
+      formAnswers: [
+        { q: 'Company', a: 'Riley LLC' },
+        { q: 'Type', a: 'lead' },
+      ],
+    });
+
+    const recovered = await memberCustomerGhl.ensureFormAnswersOnCustomer(
+      NET,
+      MEM,
+      created.customer,
+    );
+    assert.ok(recovered.formAnswers.some((a) => /stairs/i.test(a.a)));
+    assert.equal(recovered.formAnswers.some((a) => a.q === 'Company'), false);
+    mock.restoreAll();
+  });
 });
