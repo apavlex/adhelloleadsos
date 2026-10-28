@@ -6,18 +6,17 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
   <%- include('partials/navbar') %>
   <main class="max-wide px-6 py-8 md:py-12">
-    <header class="mb-8 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+    <header class="mb-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
       <div>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Local SEO · DataForSEO</p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">SEO / Local Rank · DataForSEO</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Maps, GBP &amp; reviews</h1>
         <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">
           Research is scoped to this workspace’s business profile. Update pulls Maps rankings, Google Business Profile completeness, and reviews — then saves the snapshot so you can revisit anytime.
         </p>
       </div>
-      <div class="flex flex-wrap gap-2 shrink-0">
-        <a href="/workspace/integrations#integration-dataforseo" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">DataForSEO settings</a>
-      </div>
     </header>
+
+    <%- include('partials/seo_local_rank_nav') %>
 
     <% if (!dfsReady) { %>
     <div class="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
