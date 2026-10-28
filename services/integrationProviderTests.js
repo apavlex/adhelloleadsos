@@ -14,6 +14,7 @@ const firecrawl = require('./firecrawl');
 const betterContactClient = require('./betterContactClient');
 const permitStackClient = require('./permitStackClient');
 const { resolvePageSpeedApiKey, PAGESPEED_ENDPOINT } = require('./pageSpeedInsights');
+const dataForSeoClient = require('./dataForSeoClient');
 const { chatCompletion } = require('./llmClient');
 const { FIELD_TO_ENV, INTEGRATION_FIELDS } = require('./workspaceIntegrations');
 const ghlClient = require('./ghlClient');
@@ -64,6 +65,7 @@ const PROVIDERS = {
   firecrawl: { label: 'Firecrawl', fields: ['firecrawlApiKey'] },
   crawl4ai: { label: 'Crawl4AI', fields: ['crawl4aiBaseUrl', 'crawl4aiApiToken'] },
   pagespeed: { label: 'PageSpeed Insights', fields: ['pagespeedApiKey'] },
+  dataforseo: { label: 'DataForSEO', fields: ['dataforseoLogin', 'dataforseoApiPassword'] },
   ghl: { label: 'Go High Level', fields: ['ghlApiKey', 'ghlLocationId'] },
   lob: {
     label: 'Lob Direct Mail',
@@ -311,6 +313,16 @@ async function testPageSpeed(integrationEnv) {
   return { message: 'Connected (PageSpeed API accepted key)' };
 }
 
+async function testDataForSeo(integrationEnv) {
+  if (!dataForSeoClient.isConfigured(integrationEnv)) {
+    throw new Error(
+      'Missing DataForSEO login or API password — paste both and save, or type them before testing.',
+    );
+  }
+  const result = await dataForSeoClient.testConnection(integrationEnv);
+  return { message: result.message || 'Connected' };
+}
+
 async function testGhl(integrationEnv) {
   if (!ghlClient.isConfigured(integrationEnv)) {
     throw new Error('Missing GHL_API_KEY or GHL_LOCATION_ID — paste both and save, or type them before testing.');
@@ -435,6 +447,7 @@ const RUNNERS = {
   moltsets: () => testMoltsets,
   permitstack: () => testPermitStack,
   pagespeed: () => testPageSpeed,
+  dataforseo: () => testDataForSeo,
   ghl: () => testGhl,
   lob: () => testLob,
   comms: () => testComms,
@@ -456,7 +469,9 @@ async function runProviderTest(providerId, integrationEnv) {
   }
   const label = providerLabel(id);
   const timeoutMs =
-    id === 'rapidapi' || id === 'searchapi' || id === 'serpapi' || id === 'oxylabs' ? 90000 : 12000;
+    id === 'rapidapi' || id === 'searchapi' || id === 'serpapi' || id === 'oxylabs' || id === 'dataforseo'
+      ? 90000
+      : 12000;
   const result = await runWithTimeout(label, () => runnerFactory()(integrationEnv), timeoutMs);
   return { ...result, provider: id };
 }

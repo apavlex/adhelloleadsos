@@ -7423,6 +7423,19 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (e.target.closest('#leadPanelAiVisibilityToggle')) {
+      e.preventDefault();
+      const drawer = document.getElementById('leadPanelAiVisibilityDrawer');
+      const btn = document.getElementById('leadPanelAiVisibilityToggle');
+      const ch = document.getElementById('leadPanelAiVisibilityChevron');
+      if (drawer) {
+        const open = drawer.classList.toggle('hidden') === false;
+        if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (ch) ch.classList.toggle('rotate-180', !open);
+      }
+      return;
+    }
+
     const callAiBtn = e.target.closest('#leadCallAiAnalyzeBtn');
     if (callAiBtn) {
       e.preventDefault();
@@ -14118,6 +14131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncContactHuntPanel(row);
     syncLeadPanelEmailReportSection(row);
     syncLeadPanelAiToolsSection(row);
+    syncLeadPanelAiVisibilitySection(row);
 
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
@@ -16796,6 +16810,183 @@ document.addEventListener('DOMContentLoaded', () => {
             ? primeAiToolsLoadingTab()
             : null;
         const runner = window.__adhelloRunAiToolsAction;
+        if (typeof runner !== 'function') {
+          closeAiToolsTab(preOpenedTab);
+          aiToolsToast('App still loading — try again in a moment.', 'error');
+          return;
+        }
+        void runner(action, btn, preOpenedTab);
+      },
+      true,
+    );
+  }
+
+  function getAiVisibilityReportFromRow(row) {
+    if (!row || !row.dataset) return null;
+    const raw = row.dataset.aiVisibilityReport;
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function setAiVisibilityReportOnRow(row, report) {
+    if (!row || !row.dataset) return;
+    if (report && typeof report === 'object') {
+      row.dataset.aiVisibilityReport = JSON.stringify(report);
+      row.dataset.aiVisibilityReportAt = new Date().toISOString();
+    }
+  }
+
+  function syncLeadPanelAiVisibilitySection(row) {
+    const statusEl = document.getElementById('leadPanelAiVisibilityStatus');
+    const report = row ? getAiVisibilityReportFromRow(row) : null;
+    const hasSnap = !!(report && report.snapshot && report.snapshot.score != null);
+    if (statusEl) {
+      if (hasSnap) {
+        const score = Math.round(Number(report.snapshot.score) || 0);
+        statusEl.textContent = `Score ${score}` + (report.source ? ` · ${report.source}` : '');
+        statusEl.classList.remove('hidden');
+      } else {
+        statusEl.textContent = 'Not scanned yet';
+        statusEl.classList.remove('hidden');
+      }
+    }
+    document.querySelectorAll('.js-ai-visibility-trigger[data-ai-visibility-action]').forEach(function (btn) {
+      const action = btn.getAttribute('data-ai-visibility-action');
+      if (action === 'scan') {
+        btn.removeAttribute('aria-disabled');
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        return;
+      }
+      btn.setAttribute('aria-disabled', hasSnap ? 'false' : 'true');
+      btn.classList.toggle('opacity-50', !hasSnap);
+      btn.classList.toggle('cursor-not-allowed', !hasSnap);
+    });
+  }
+
+  function aiVisibilityPreviewUrlForRow(row) {
+    const leadKey = String(row && row.dataset && row.dataset.leadKey ? row.dataset.leadKey : '').trim();
+    if (!leadKey) return '';
+    return `/leads/${encodeURIComponent(leadKey)}/ai-visibility/preview`;
+  }
+
+  async function runAiVisibilityAction(action, triggerBtn, preOpenedTab) {
+    const row = resolveActiveLeadRow();
+    if (!row) {
+      closeAiToolsTab(preOpenedTab);
+      aiToolsToast('Select a lead first.', 'error');
+      return;
+    }
+    const leadKey = String(row.dataset.leadKey || '').trim();
+    if (!leadKey) {
+      closeAiToolsTab(preOpenedTab);
+      aiToolsToast('Lead key missing.', 'error');
+      return;
+    }
+    const originalLabel = triggerBtn ? triggerBtn.textContent : '';
+    try {
+      if (action === 'scan') {
+        if (triggerBtn) triggerBtn.textContent = 'Scanning…';
+        aiToolsToast('Scanning AI + local visibility for this domain…', 'info');
+        const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/ai-visibility/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: '{}',
+          credentials: 'same-origin',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Scan failed');
+        if (data.lead && data.lead.aiVisibilityReport) {
+          setAiVisibilityReportOnRow(row, data.lead.aiVisibilityReport);
+        } else if (data.snapshot) {
+          setAiVisibilityReportOnRow(row, {
+            snapshot: data.snapshot,
+            source: data.source,
+            warnings: data.warnings,
+            jobId: data.jobId,
+          });
+        }
+        syncLeadPanelAiVisibilitySection(row);
+        const url = aiVisibilityPreviewUrlForRow(row);
+        if (!openUrlInNewTab(url, preOpenedTab)) closeAiToolsTab(preOpenedTab);
+        aiToolsToast('AI Visibility report ready.', 'success');
+        return;
+      }
+      if (action === 'preview') {
+        if (triggerBtn) triggerBtn.textContent = 'Opening…';
+        if (!getAiVisibilityReportFromRow(row)) {
+          await runAiVisibilityAction('scan', triggerBtn, preOpenedTab);
+          return;
+        }
+        const url = aiVisibilityPreviewUrlForRow(row);
+        if (!openUrlInNewTab(url, preOpenedTab)) closeAiToolsTab(preOpenedTab);
+        return;
+      }
+      if (action === 'copy') {
+        if (triggerBtn) triggerBtn.textContent = 'Copying…';
+        if (!getAiVisibilityReportFromRow(row)) {
+          const scanRes = await fetch('/leads/' + encodeURIComponent(leadKey) + '/ai-visibility/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: '{}',
+            credentials: 'same-origin',
+          });
+          const scanData = await scanRes.json().catch(() => ({}));
+          if (!scanRes.ok || !scanData.success) {
+            throw new Error((scanData && scanData.error) || 'Scan failed');
+          }
+          if (scanData.lead && scanData.lead.aiVisibilityReport) {
+            setAiVisibilityReportOnRow(row, scanData.lead.aiVisibilityReport);
+          }
+          syncLeadPanelAiVisibilitySection(row);
+        }
+        const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/ai-visibility-report-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: '{}',
+          credentials: 'same-origin',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.reportUrl) throw new Error((data && data.error) || 'Link failed');
+        await copyTextToClipboard(data.reportUrl);
+        aiToolsToast('Client AI Visibility link copied.', 'success');
+      }
+    } catch (err) {
+      closeAiToolsTab(preOpenedTab);
+      aiToolsToast(err && err.message ? err.message : 'AI Visibility action failed', 'error');
+    } finally {
+      if (triggerBtn) triggerBtn.textContent = originalLabel;
+    }
+  }
+  window.__adhelloRunAiVisibilityAction = runAiVisibilityAction;
+  window.syncLeadPanelAiVisibilitySection = syncLeadPanelAiVisibilitySection;
+
+  if (!window.__adhelloAiVisibilityCaptureBound) {
+    window.__adhelloAiVisibilityCaptureBound = true;
+    document.addEventListener(
+      'click',
+      (e) => {
+        const btn =
+          e.target && e.target.closest
+            ? e.target.closest('.js-ai-visibility-trigger[data-ai-visibility-action]')
+            : null;
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (btn.getAttribute('aria-disabled') === 'true') {
+          aiToolsToast('Scan the domain first.', 'error');
+          return;
+        }
+        const action = btn.getAttribute('data-ai-visibility-action');
+        const preOpenedTab =
+          action === 'scan' || action === 'preview'
+            ? primeExternalLoadingTab('AI Visibility', 'Building domain visibility report…')
+            : null;
+        const runner = window.__adhelloRunAiVisibilityAction;
         if (typeof runner !== 'function') {
           closeAiToolsTab(preOpenedTab);
           aiToolsToast('App still loading — try again in a moment.', 'error');

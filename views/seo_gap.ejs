@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <header class="mb-8 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">SEO · DataForSEO</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Keyword gap &amp; action plan</h1>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">
+          Pull rankings and keywords from your DataForSEO account, store them here, then AI turns gaps into concrete steps to rank higher. No crawler — DataForSEO is the data plane.
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2 shrink-0">
+        <a href="/workspace/integrations#integration-dataforseo" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">DataForSEO settings</a>
+      </div>
+    </header>
+
+    <% if (!dfsReady) { %>
+    <div class="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+      Connect DataForSEO under <a class="underline font-semibold" href="/workspace/integrations#integration-dataforseo">Workspace → Integrations</a> before syncing.
+    </div>
+    <% } else { %>
+    <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100">
+      DataForSEO connected. Create a project, sync, then run AI analysis.
+    </div>
+    <% } %>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <section class="xl:col-span-1 space-y-4">
+        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <h2 class="font-display font-bold text-lg mb-3">New project</h2>
+          <form id="seoGapCreateForm" class="space-y-3">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Domain</label>
+              <input name="seedDomain" required placeholder="acmeflooring.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Location code</label>
+                <input name="locationCode" value="2840" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Language</label>
+                <input name="languageCode" value="en" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+              </div>
+            </div>
+            <p class="text-[11px] text-brand-muted">2840 = United States. Competitors are discovered from DataForSEO Labs on sync.</p>
+            <button type="submit" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest">Create project</button>
+          </form>
+        </div>
+
+        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <h2 class="font-display font-bold text-lg mb-3">Projects</h2>
+          <% const _projects = Array.isArray(projects) ? projects : []; %>
+          <% if (!_projects.length) { %>
+          <p class="text-sm text-brand-muted">No projects yet.</p>
+          <% } else { %>
+          <ul class="space-y-2">
+            <% _projects.forEach(function (p) { %>
+            <li>
+              <a href="/seo-gap/<%= encodeURIComponent(p.id) %>" class="block rounded-xl border <%= project && project.id === p.id ? 'border-brand-yellow/50 bg-brand-yellow/10' : 'border-brand-border/50 dark:border-white/10' %> px-3 py-2 hover:border-brand-yellow/40 transition-colors">
+                <div class="font-semibold text-sm"><%= p.seedDomain %></div>
+                <div class="text-[11px] text-brand-muted">
+                  <%= p.syncStatus || 'new' %><% if (p.gapSummary && p.gapSummary.total) { %> · <%= p.gapSummary.total %> gaps<% } %>
+                </div>
+              </a>
+            </li>
+            <% }) %>
+          </ul>
+          <% } %>
+        </div>
+      </section>
+
+      <section class="xl:col-span-2 space-y-4">
+        <% if (!project) { %>
+        <div class="rounded-2xl border border-dashed border-brand-border/70 dark:border-white/15 p-10 text-center text-brand-muted">
+          Select or create a project to sync DataForSEO data and generate an AI action plan.
+        </div>
+        <% } else { %>
+        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h2 class="font-display font-bold text-xl"><%= project.seedDomain %></h2>
+              <p class="text-xs text-brand-muted mt-1">
+                Locale <%= project.locationCode %>/<%= project.languageCode %>
+                <% if (project.lastSyncedAt) { %> · Synced <%= new Date(project.lastSyncedAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }) %> PT<% } %>
+              </p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" id="seoGapSyncBtn" data-id="<%= project.id %>" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest" <%= !dfsReady ? 'disabled' : '' %>>Sync DataForSEO</button>
+              <button type="button" id="seoGapAnalyzeBtn" data-id="<%= project.id %>" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest">AI action plan</button>
+              <a href="/seo-gap/<%= encodeURIComponent(project.id) %>/export.csv" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest">CSV</a>
+            </div>
+          </div>
+
+          <% if ((project.warnings || []).length) { %>
+          <div class="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+            <%= project.warnings[0] %><% if (project.warnings.length > 1) { %> · +<%= project.warnings.length - 1 %> more<% } %>
+          </div>
+          <% } %>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Gaps</p>
+              <p class="font-display font-black text-2xl"><%= (project.gapSummary && project.gapSummary.total) || 0 %></p>
+            </div>
+            <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Missing</p>
+              <p class="font-display font-black text-2xl"><%= (project.gapSummary && project.gapSummary.missing) || 0 %></p>
+            </div>
+            <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Weaker</p>
+              <p class="font-display font-black text-2xl"><%= (project.gapSummary && project.gapSummary.weaker) || 0 %></p>
+            </div>
+            <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Rivals</p>
+              <p class="font-display font-black text-2xl"><%= (project.competitors || []).length %></p>
+            </div>
+          </div>
+
+          <% if ((project.competitors || []).length) { %>
+          <p class="text-[11px] text-brand-muted mb-4">
+            Competitors: <%= project.competitors.map(function (c) { return c.domain; }).join(', ') %>
+          </p>
+          <% } %>
+
+          <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Gap keywords</h3>
+          <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10">
+            <table class="min-w-full text-left text-xs">
+              <thead class="bg-brand-cream/60 dark:bg-slate-800/80 text-[10px] uppercase tracking-widest text-brand-muted">
+                <tr>
+                  <th class="px-3 py-2">Keyword</th>
+                  <th class="px-3 py-2">Type</th>
+                  <th class="px-3 py-2">You</th>
+                  <th class="px-3 py-2">Rival</th>
+                  <th class="px-3 py-2">Vol</th>
+                  <th class="px-3 py-2">Score</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% const _gaps = (project.gapRows || []).slice(0, 80); %>
+                <% if (!_gaps.length) { %>
+                <tr><td colspan="6" class="px-3 py-4 text-brand-muted">No gaps yet — run Sync DataForSEO.</td></tr>
+                <% } %>
+                <% _gaps.forEach(function (g) { %>
+                <tr class="border-t border-brand-border/40 dark:border-white/10">
+                  <td class="px-3 py-2 font-semibold"><%= g.keyword %></td>
+                  <td class="px-3 py-2"><%= g.gapType %></td>
+                  <td class="px-3 py-2"><%= g.youPos != null ? '#' + g.youPos : '—' %></td>
+                  <td class="px-3 py-2">#<%= g.rivalPos %> <span class="text-brand-muted"><%= g.rivalDomain %></span></td>
+                  <td class="px-3 py-2"><%= g.volume || 0 %></td>
+                  <td class="px-3 py-2 font-bold"><%= g.opportunityScore %></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <h3 class="font-display font-bold text-lg mb-2">AI action plan</h3>
+          <% const _plan = project.actionPlan; %>
+          <% if (!_plan) { %>
+          <p class="text-sm text-brand-muted">After sync, click <strong>AI action plan</strong> to generate prioritized steps grounded in the stored gaps.</p>
+          <% } else { %>
+          <% if (_plan.warning) { %>
+          <p class="text-xs text-amber-700 dark:text-amber-200 mb-2"><%= _plan.warning %></p>
+          <% } %>
+          <p class="text-sm mb-4"><%= _plan.summary %></p>
+          <ol class="space-y-3">
+            <% (_plan.steps || []).forEach(function (s) { %>
+            <li class="rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-3">
+              <div class="flex flex-wrap items-center gap-2 mb-1">
+                <span class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-yellow/20"><%= s.impact %></span>
+                <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted">Effort <%= s.effort %></span>
+              </div>
+              <p class="font-semibold text-sm"><%= s.rank %>. <%= s.title %></p>
+              <% if (s.why) { %><p class="text-xs text-brand-muted mt-1"><%= s.why %></p><% } %>
+            </li>
+            <% }) %>
+          </ol>
+          <p class="text-[11px] text-brand-muted mt-3">Source: <%= _plan.source %><% if (_plan.model) { %> · <%= _plan.model %><% } %></p>
+          <% } %>
+        </div>
+        <% } %>
+      </section>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    function toast(msg, variant) {
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: variant || 'info' });
+      else window.alert(msg);
+    }
+    var form = document.getElementById('seoGapCreateForm');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(form);
+        var body = {
+          seedDomain: String(fd.get('seedDomain') || ''),
+          locationCode: Number(fd.get('locationCode') || 2840),
+          languageCode: String(fd.get('languageCode') || 'en'),
+        };
+        fetch('/seo-gap/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(body),
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (!res.ok || !res.j.success) throw new Error((res.j && res.j.error) || 'Create failed');
+            window.location.href = res.j.url;
+          })
+          .catch(function (err) { toast(err.message || 'Create failed', 'error'); });
+      });
+    }
+    var syncBtn = document.getElementById('seoGapSyncBtn');
+    if (syncBtn) {
+      syncBtn.addEventListener('click', function () {
+        var id = syncBtn.getAttribute('data-id');
+        syncBtn.disabled = true;
+        syncBtn.textContent = 'Syncing…';
+        fetch('/seo-gap/' + encodeURIComponent(id) + '/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: '{}',
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (!res.ok || !res.j.success) throw new Error((res.j && res.j.error) || 'Sync failed');
+            toast('Sync complete — ' + ((res.j.summary && res.j.summary.total) || 0) + ' gaps', 'success');
+            window.location.reload();
+          })
+          .catch(function (err) {
+            toast(err.message || 'Sync failed', 'error');
+            syncBtn.disabled = false;
+            syncBtn.textContent = 'Sync DataForSEO';
+          });
+      });
+    }
+    var analyzeBtn = document.getElementById('seoGapAnalyzeBtn');
+    if (analyzeBtn) {
+      analyzeBtn.addEventListener('click', function () {
+        var id = analyzeBtn.getAttribute('data-id');
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = 'Analyzing…';
+        fetch('/seo-gap/' + encodeURIComponent(id) + '/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: '{}',
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (res) {
+            if (!res.ok || !res.j.success) throw new Error((res.j && res.j.error) || 'Analyze failed');
+            toast('Action plan ready', 'success');
+            window.location.reload();
+          })
+          .catch(function (err) {
+            toast(err.message || 'Analyze failed', 'error');
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = 'AI action plan';
+          });
+      });
+    }
+  })();
+  </script>
+</body>
+</html>

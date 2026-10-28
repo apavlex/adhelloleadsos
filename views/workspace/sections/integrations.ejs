@@ -472,6 +472,28 @@
           </div>
           <%- include('../../partials/integration_test_row', { provider: 'pagespeed' }) %>
         </section>
+
+        <section id="integration-dataforseo" class="scroll-mt-28 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">DataForSEO</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://dataforseo.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">DataForSEO</a> — powers <strong>AI Visibility</strong> scans (LLM Mentions across ChatGPT / AI Overviews, Maps / local pack, competitor share of voice). Use your API login email and API password from the DataForSEO dashboard.</p>
+          </header>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API login (email)</label>
+              <% if (masks.dataforseoLogin) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.dataforseoLogin %></p><% } %>
+              <input type="text" name="dataforseoLogin" autocomplete="off" placeholder="login@example.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.dataforseoLogin) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="dataforseoLogin_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API password</label>
+              <% if (masks.dataforseoApiPassword) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.dataforseoApiPassword %></p><% } %>
+              <input type="password" name="dataforseoApiPassword" autocomplete="off" placeholder="API password (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.dataforseoApiPassword) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="dataforseoApiPassword_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'dataforseo' }) %>
+        </section>
       </div>
     </div>
 
