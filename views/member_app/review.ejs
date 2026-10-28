@@ -94,7 +94,7 @@
       >
         <%- icons.sms %> Request a review
       </button>
-      <p class="ma-hint ma-qr__ask-hint">Uses your SMS script. Pick a customer (or enter Mobile under Send review request) so Messages opens their phone thread with the review link last for the preview image. Attach contact card uses Share when no mobile is set.</p>
+      <p class="ma-hint ma-qr__ask-hint">Uses your SMS script. With Attach contact card on, Share opens Messages with the preview image and your contact card (pick the customer to send). Without Attach, a selected mobile opens their SMS thread directly.</p>
       <button type="button" class="ma-qr__thumb" data-ma-qr-open aria-label="View and download QR code">
         <img src="<%= reviewPath %>/qr.png" alt="QR code for your review page" width="220" height="220" decoding="async">
       </button>
@@ -325,7 +325,7 @@
           %>
           <label class="ma-check" style="display:flex;gap:10px;align-items:flex-start;margin:4px 0 12px">
             <input type="checkbox" name="attachVcard" value="1" id="rvAttachVcard" <%= _attachChecked ? 'checked' : '' %> style="margin-top:3px"<%= _vcardLink ? '' : ' disabled' %>>
-            <span><strong>Attach contact card</strong> — when no mobile is picked, iPhone Share sends your .vcf as a contact (falls back to the vCard link above the review link). Texting a selected customer keeps only the review link so the preview image shows<%= _vcardLink ? '' : ' (add a review page slug / profile first)' %></span>
+            <span><strong>Attach contact card</strong> — iPhone Share sends your .vcf as a contact plus the review-link preview image (same whether or not a customer is selected)<%= _vcardLink ? '' : ' (add a review page slug / profile first)' %></span>
           </label>
           <div class="ma-actions" style="margin:0 0 10px;flex-wrap:wrap">
             <button type="button" class="ma-btn ma-btn--sm ma-btn--soft" id="rvInsertKeywords"

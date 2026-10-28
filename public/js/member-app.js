@@ -1653,9 +1653,9 @@
 
     function shareText(body, vcardFile) {
       var msg = String(body || '');
-      // Phone known → open SMS to that number (thread history). File share can't set To:.
-      // Never paste a .vcf URL into this path — it blocks the review-link preview image.
-      if (askPhone) {
+      // sms: can pre-fill To: but cannot attach a .vcf File or show the same
+      // rich preview as Share. Prefer Share whenever we have a contact file.
+      if (askPhone && !vcardFile) {
         openSms(textWithoutVcardUrl(msg), askPhone);
         return;
       }
@@ -1671,8 +1671,13 @@
             restore();
             return;
           }
-          // File share rejected — put the .vcf URL in the body (review link stays last).
-          var fallback = vcardFile ? textWithVcardUrl(msg) : msg;
+          // File share rejected — keep review link last; sms: if we know the phone.
+          var fallback = textWithoutVcardUrl(msg);
+          if (askPhone) {
+            openSms(fallback, askPhone);
+            return;
+          }
+          fallback = vcardFile ? textWithVcardUrl(msg) : msg;
           if (navigator.share) {
             navigator.share({ title: title, text: fallback }).then(restore).catch(function () {
               openSms(fallback, askPhone);
@@ -1683,21 +1688,17 @@
         });
         return;
       }
-      openSms(vcardFile ? textWithVcardUrl(msg) : msg, askPhone);
+      openSms(
+        vcardFile && !askPhone ? textWithVcardUrl(msg) : textWithoutVcardUrl(msg),
+        askPhone
+      );
     }
 
-    // With a mobile number, open Messages to that phone (SMS history).
-    // sms: cannot attach a .vcf File — and pasting the .vcf URL in the body
-    // blocks iMessage’s review-link preview image. Keep text = script + review
-    // link only (same preview as Request a review without a recipient). Contact
-    // card File share stays on the no-recipient Share path below.
-    if (askPhone) {
-      openSms(textWithoutVcardUrl(text), askPhone);
-      return;
-    }
-
+    // Same rich path as standard Request a review: Share .vcf File + review URL
+    // so iMessage shows the preview image and contact card. sms: cannot do that
+    // (even with a selected customer’s phone). Fall back to sms: only when Share
+    // / Attach isn’t available.
     if (attachVcard && vcardUrl && typeof fetch === 'function' && navigator.share) {
-      // No recipient yet — Share can still attach a real .vcf contact file.
       fetch(vcardUrl, { credentials: 'omit' }).then(function (res) {
         if (!res || !res.ok) throw new Error('vcard fetch failed');
         return res.blob();
@@ -1706,8 +1707,17 @@
         if (!file) throw new Error('vcard file unsupported');
         shareText(text, file);
       }).catch(function () {
+        if (askPhone) {
+          openSms(textWithoutVcardUrl(text), askPhone);
+          return;
+        }
         shareText(textWithVcardUrl(text), null);
       });
+      return;
+    }
+
+    if (askPhone) {
+      openSms(textWithoutVcardUrl(text), askPhone);
       return;
     }
 
