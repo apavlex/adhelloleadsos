@@ -381,6 +381,136 @@ function extractLabsItems(apiJson) {
   return items;
 }
 
+function firstTaskResult(apiJson) {
+  const tasks = Array.isArray(apiJson && apiJson.tasks) ? apiJson.tasks : [];
+  for (const t of tasks) {
+    const result = Array.isArray(t.result) ? t.result : [];
+    if (result.length) return result[0];
+  }
+  return null;
+}
+
+/** Domain-level backlink summary (totals, rank, referring domains). */
+async function backlinksSummaryLive({ target, includeSubdomains = true, integrationEnv, fetchImpl }) {
+  const domain = hostFromWebsite(target);
+  if (!domain) {
+    const err = new Error('Domain required for backlinks summary');
+    err.code = 'NO_DOMAIN';
+    throw err;
+  }
+  return dfsRequest('/v3/backlinks/summary/live', {
+    method: 'POST',
+    body: [
+      {
+        target: domain,
+        include_subdomains: !!includeSubdomains,
+        internal_list_limit: 10,
+        backlinks_status_type: 'live',
+      },
+    ],
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
+/** Referring domains pointing at target. */
+async function referringDomainsLive({
+  target,
+  limit = 100,
+  orderBy = ['rank,desc'],
+  includeSubdomains = true,
+  integrationEnv,
+  fetchImpl,
+}) {
+  const domain = hostFromWebsite(target);
+  if (!domain) {
+    const err = new Error('Domain required for referring domains');
+    err.code = 'NO_DOMAIN';
+    throw err;
+  }
+  return dfsRequest('/v3/backlinks/referring_domains/live', {
+    method: 'POST',
+    body: [
+      {
+        target: domain,
+        limit: Math.min(1000, Math.max(1, Number(limit) || 100)),
+        order_by: Array.isArray(orderBy) ? orderBy : ['rank,desc'],
+        include_subdomains: !!includeSubdomains,
+        exclude_internal_backlinks: true,
+        backlinks_status_type: 'live',
+      },
+    ],
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
+/** Anchor text overview for target. */
+async function backlinksAnchorsLive({
+  target,
+  limit = 50,
+  orderBy = ['backlinks,desc'],
+  includeSubdomains = true,
+  integrationEnv,
+  fetchImpl,
+}) {
+  const domain = hostFromWebsite(target);
+  if (!domain) {
+    const err = new Error('Domain required for anchors');
+    err.code = 'NO_DOMAIN';
+    throw err;
+  }
+  return dfsRequest('/v3/backlinks/anchors/live', {
+    method: 'POST',
+    body: [
+      {
+        target: domain,
+        limit: Math.min(1000, Math.max(1, Number(limit) || 50)),
+        order_by: Array.isArray(orderBy) ? orderBy : ['backlinks,desc'],
+        include_subdomains: !!includeSubdomains,
+        backlinks_status_type: 'live',
+      },
+    ],
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
+/** New & lost backlinks / referring domains over time. */
+async function backlinksTimeseriesNewLostLive({
+  target,
+  dateFrom,
+  dateTo,
+  groupRange = 'month',
+  includeSubdomains = true,
+  integrationEnv,
+  fetchImpl,
+}) {
+  const domain = hostFromWebsite(target);
+  if (!domain) {
+    const err = new Error('Domain required for new/lost timeseries');
+    err.code = 'NO_DOMAIN';
+    throw err;
+  }
+  const task = {
+    target: domain,
+    group_range: groupRange,
+    include_subdomains: !!includeSubdomains,
+  };
+  if (dateFrom) task.date_from = String(dateFrom).slice(0, 10);
+  if (dateTo) task.date_to = String(dateTo).slice(0, 10);
+  return dfsRequest('/v3/backlinks/timeseries_new_lost_summary/live', {
+    method: 'POST',
+    body: [task],
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
 module.exports = {
   API_BASE,
   resolveCredentials,
@@ -395,4 +525,9 @@ module.exports = {
   competitorsDomainLive,
   domainIntersectionLive,
   extractLabsItems,
+  firstTaskResult,
+  backlinksSummaryLive,
+  referringDomainsLive,
+  backlinksAnchorsLive,
+  backlinksTimeseriesNewLostLive,
 };

@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <%- include('partials/navbar') %>
+  <main class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <p class="text-xs uppercase tracking-widest text-emerald-400/80">Link intelligence</p>
+        <h1 class="text-2xl font-semibold text-white mt-1">Backlinks</h1>
+        <p class="text-sm text-slate-400 mt-1 max-w-2xl">
+          Your site and competitors via DataForSEO Backlinks — totals, referring domains, anchors, new/lost, and link gaps. Saved on this workspace.
+        </p>
+      </div>
+      <% if (!dfsReady) { %>
+        <a href="/workspace#integrations" class="text-sm text-amber-300 underline">Connect DataForSEO</a>
+      <% } %>
+    </header>
+
+    <section class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 space-y-4">
+      <h2 class="text-sm font-semibold text-slate-200">New project</h2>
+      <form id="blCreate" class="grid gap-3 sm:grid-cols-[1fr_auto] items-end">
+        <label class="block text-xs text-slate-400">
+          Your domain
+          <input name="seedDomain" required placeholder="yourbusiness.com" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" />
+        </label>
+        <button type="submit" class="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-white" <%= dfsReady ? '' : 'disabled' %>>Create</button>
+      </form>
+      <p id="blCreateErr" class="text-sm text-rose-400 hidden"></p>
+    </section>
+
+    <% if (projects && projects.length) { %>
+      <section class="space-y-2">
+        <h2 class="text-sm font-semibold text-slate-300">Saved research</h2>
+        <ul class="divide-y divide-slate-800 rounded-xl border border-slate-800 overflow-hidden">
+          <% projects.forEach(function (p) { %>
+            <li class="flex items-center justify-between gap-3 px-4 py-3 bg-slate-900/40 hover:bg-slate-900/80">
+              <a href="/backlinks/<%= encodeURIComponent(p.id) %>" class="text-sm text-emerald-300 hover:underline">
+                <%= p.seedDomain %>
+                <span class="text-slate-500 ml-2"><%= p.syncStatus || 'new' %><% if (p.lastSyncedAt) { %> · <%= new Date(p.lastSyncedAt).toLocaleString() %><% } %></span>
+              </a>
+              <button type="button" data-bl-delete="<%= p.id %>" class="text-xs text-slate-500 hover:text-rose-400">Delete</button>
+            </li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
+
+    <% if (project) { %>
+      <% const you = project.you || {}; const sum = you.summary || {}; const sm = project.summary || {}; %>
+      <section class="space-y-6" id="blProject" data-id="<%= project.id %>">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-semibold text-white"><%= project.seedDomain %></h2>
+            <p class="text-xs text-slate-500">Status: <%= project.syncStatus || 'new' %><% if (project.lastSyncedAt) { %> · Last sync <%= new Date(project.lastSyncedAt).toLocaleString() %><% } %></p>
+          </div>
+          <button type="button" id="blSyncBtn" class="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2 text-sm font-medium text-white" <%= dfsReady ? '' : 'disabled' %>>Update from DataForSEO</button>
+        </div>
+        <p id="blSyncErr" class="text-sm text-rose-400 hidden"></p>
+        <% if (project.warnings && project.warnings.length) { %>
+          <details class="text-xs text-amber-200/80">
+            <summary><%= project.warnings.length %> sync warning(s)</summary>
+            <ul class="mt-2 list-disc pl-5 space-y-1"><% project.warnings.forEach(function (w) { %><li><%= w %></li><% }) %></ul>
+          </details>
+        <% } %>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p class="text-[10px] uppercase tracking-wide text-slate-500">Backlinks</p>
+            <p class="text-2xl font-semibold text-white mt-1"><%= sm.yourBacklinks != null ? sm.yourBacklinks : (sum.backlinks || 0) %></p>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p class="text-[10px] uppercase tracking-wide text-slate-500">Referring domains</p>
+            <p class="text-2xl font-semibold text-white mt-1"><%= sm.yourReferringDomains != null ? sm.yourReferringDomains : (sum.referringDomains || 0) %></p>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p class="text-[10px] uppercase tracking-wide text-slate-500">Domain rank</p>
+            <p class="text-2xl font-semibold text-white mt-1"><%= sum.rank != null ? sum.rank : '—' %></p>
+          </div>
+          <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+            <p class="text-[10px] uppercase tracking-wide text-slate-500">Link gaps</p>
+            <p class="text-2xl font-semibold text-white mt-1"><%= sm.linkGapCount != null ? sm.linkGapCount : ((project.linkGaps || []).length) %></p>
+          </div>
+        </div>
+
+        <% if (project.comparison && project.comparison.length) { %>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-200 mb-2">Competitor comparison</h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+              <table class="min-w-full text-sm">
+                <thead class="bg-slate-900 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th class="px-3 py-2">Domain</th>
+                    <th class="px-3 py-2">Backlinks</th>
+                    <th class="px-3 py-2">Ref. domains</th>
+                    <th class="px-3 py-2">Rank</th>
+                    <th class="px-3 py-2">vs you (links)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                  <tr class="bg-emerald-950/30">
+                    <td class="px-3 py-2 text-emerald-300"><%= project.seedDomain %> (you)</td>
+                    <td class="px-3 py-2"><%= sum.backlinks || 0 %></td>
+                    <td class="px-3 py-2"><%= sum.referringDomains || 0 %></td>
+                    <td class="px-3 py-2"><%= sum.rank != null ? sum.rank : '—' %></td>
+                    <td class="px-3 py-2">—</td>
+                  </tr>
+                  <% project.comparison.forEach(function (c) { %>
+                    <tr>
+                      <td class="px-3 py-2"><%= c.domain %></td>
+                      <td class="px-3 py-2"><%= c.backlinks %></td>
+                      <td class="px-3 py-2"><%= c.referringDomains %></td>
+                      <td class="px-3 py-2"><%= c.rank != null ? c.rank : '—' %></td>
+                      <td class="px-3 py-2 <%= c.vsYouBacklinks > 0 ? 'text-rose-300' : 'text-emerald-300' %>"><%= c.vsYouBacklinks > 0 ? '+' : '' %><%= c.vsYouBacklinks %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (you.referringDomains && you.referringDomains.length) { %>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-200 mb-2">Your top referring domains</h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-80 overflow-y-auto">
+              <table class="min-w-full text-sm">
+                <thead class="sticky top-0 bg-slate-900 text-left text-xs uppercase text-slate-500">
+                  <tr><th class="px-3 py-2">Domain</th><th class="px-3 py-2">Rank</th><th class="px-3 py-2">Backlinks</th><th class="px-3 py-2">Pages</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                  <% you.referringDomains.slice(0, 50).forEach(function (r) { %>
+                    <tr>
+                      <td class="px-3 py-2"><%= r.domain %></td>
+                      <td class="px-3 py-2"><%= r.rank != null ? r.rank : '—' %></td>
+                      <td class="px-3 py-2"><%= r.backlinks %></td>
+                      <td class="px-3 py-2"><%= r.referringPages %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (you.anchors && you.anchors.length) { %>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-200 mb-2">Anchor text</h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-64 overflow-y-auto">
+              <table class="min-w-full text-sm">
+                <thead class="sticky top-0 bg-slate-900 text-left text-xs uppercase text-slate-500">
+                  <tr><th class="px-3 py-2">Anchor</th><th class="px-3 py-2">Backlinks</th><th class="px-3 py-2">Ref. domains</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                  <% you.anchors.slice(0, 40).forEach(function (a) { %>
+                    <tr>
+                      <td class="px-3 py-2 max-w-md truncate"><%= a.anchor %></td>
+                      <td class="px-3 py-2"><%= a.backlinks %></td>
+                      <td class="px-3 py-2"><%= a.referringDomains %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (you.timeseries && you.timeseries.length) { %>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-200 mb-2">New / lost (monthly)</h3>
+            <div class="overflow-x-auto rounded-xl border border-slate-800">
+              <table class="min-w-full text-sm">
+                <thead class="bg-slate-900 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th class="px-3 py-2">Date</th>
+                    <th class="px-3 py-2">New links</th>
+                    <th class="px-3 py-2">Lost links</th>
+                    <th class="px-3 py-2">New ref. domains</th>
+                    <th class="px-3 py-2">Lost ref. domains</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                  <% you.timeseries.forEach(function (t) { %>
+                    <tr>
+                      <td class="px-3 py-2"><%= t.date || '—' %></td>
+                      <td class="px-3 py-2 text-emerald-300"><%= t.newBacklinks %></td>
+                      <td class="px-3 py-2 text-rose-300"><%= t.lostBacklinks %></td>
+                      <td class="px-3 py-2 text-emerald-300"><%= t.newReferringDomains %></td>
+                      <td class="px-3 py-2 text-rose-300"><%= t.lostReferringDomains %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (project.linkGaps && project.linkGaps.length) { %>
+          <div>
+            <h3 class="text-sm font-semibold text-slate-200 mb-2">Competitor link gaps</h3>
+            <p class="text-xs text-slate-500 mb-2">Referring domains that link to a competitor but not to you (from synced samples).</p>
+            <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-96 overflow-y-auto">
+              <table class="min-w-full text-sm">
+                <thead class="sticky top-0 bg-slate-900 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th class="px-3 py-2">Referring domain</th>
+                    <th class="px-3 py-2">Seen on</th>
+                    <th class="px-3 py-2">Max rank</th>
+                    <th class="px-3 py-2">Score</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                  <% project.linkGaps.slice(0, 80).forEach(function (g) { %>
+                    <tr>
+                      <td class="px-3 py-2"><%= g.domain %></td>
+                      <td class="px-3 py-2 text-slate-400"><%= (g.competitors || []).join(', ') %></td>
+                      <td class="px-3 py-2"><%= g.maxRank != null ? g.maxRank : '—' %></td>
+                      <td class="px-3 py-2"><%= g.opportunityScore %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% } %>
+      </section>
+    <% } %>
+  </main>
+  <script>
+    (function () {
+      var createForm = document.getElementById('blCreate');
+      var createErr = document.getElementById('blCreateErr');
+      if (createForm) {
+        createForm.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          createErr.classList.add('hidden');
+          var fd = new FormData(createForm);
+          try {
+            var res = await fetch('/backlinks/projects', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ seedDomain: fd.get('seedDomain') }),
+            });
+            var data = await res.json();
+            if (!res.ok || !data.success) throw new Error((data && data.error) || 'Create failed');
+            window.location.href = data.url || ('/backlinks/' + encodeURIComponent(data.project.id));
+          } catch (err) {
+            createErr.textContent = err.message || 'Create failed';
+            createErr.classList.remove('hidden');
+          }
+        });
+      }
+
+      document.querySelectorAll('[data-bl-delete]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          var id = btn.getAttribute('data-bl-delete');
+          if (!id || !confirm('Delete this backlinks project?')) return;
+          var res = await fetch('/backlinks/' + encodeURIComponent(id), { method: 'DELETE' });
+          var data = await res.json().catch(function () { return {}; });
+          if (res.ok && data.success) window.location.href = '/backlinks';
+          else alert((data && data.error) || 'Delete failed');
+        });
+      });
+
+      var syncBtn = document.getElementById('blSyncBtn');
+      var syncErr = document.getElementById('blSyncErr');
+      var projectEl = document.getElementById('blProject');
+      if (syncBtn && projectEl) {
+        syncBtn.addEventListener('click', async function () {
+          syncErr.classList.add('hidden');
+          syncBtn.disabled = true;
+          syncBtn.textContent = 'Syncing…';
+          try {
+            var res = await fetch('/backlinks/' + encodeURIComponent(projectEl.dataset.id) + '/sync', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rediscoverCompetitors: true }),
+            });
+            var data = await res.json();
+            if (!res.ok || !data.success) throw new Error((data && data.error) || 'Sync failed');
+            window.location.reload();
+          } catch (err) {
+            syncErr.textContent = err.message || 'Sync failed';
+            syncErr.classList.remove('hidden');
+            syncBtn.disabled = false;
+            syncBtn.textContent = 'Update from DataForSEO';
+          }
+        });
+      }
+    })();
+  </script>
+</body>
+</html>
