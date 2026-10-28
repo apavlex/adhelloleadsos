@@ -75,6 +75,7 @@ const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const auditLandingPublicRoutes = require('./routes/auditLandingPublic');
 const aiToolsReportPublicRoutes = require('./routes/aiToolsReportPublic');
+const aiVisibilityReportPublicRoutes = require('./routes/aiVisibilityReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 const shareInviteRoutes = require('./routes/shareInvite');
 const dbService = require('./services/database');
@@ -528,6 +529,7 @@ app.use('/', shareInviteRoutes);
 app.use('/', auditReportPublicRoutes);
 app.use('/', auditLandingPublicRoutes);
 app.use('/', aiToolsReportPublicRoutes);
+app.use('/', aiVisibilityReportPublicRoutes);
 // Referral network member links (signed token; no session)
 app.use('/', networkPublicRoutes);
 // Member referral app (/m/:token, signed token in path) and public review pages (/rv/:slug)

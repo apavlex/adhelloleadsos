@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AI Visibility — <%= vm.businessName %></title>
+  <meta name="robots" content="noindex, nofollow"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --accent: <%= vm.accent || '#CA8A04' %>;
+      --ink: #14110f;
+      --muted: #6b6560;
+      --paper: #fffdf8;
+      --card: #ffffff;
+      --line: #e8e2d8;
+      --soft: #f3efe8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 500px at 10% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
+        linear-gradient(180deg, #f7f3ec 0%, var(--paper) 40%, #f4f0e8 100%);
+      font-size: 15px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 880px; margin: 0 auto; padding: 28px 18px 64px; }
+    .brand-bar {
+      display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between;
+      gap: 8px; margin-bottom: 22px;
+    }
+    .brand-bar .agency {
+      font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .brand-bar .meta { font-size: 12px; color: var(--muted); }
+    h1 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: clamp(1.75rem, 4vw, 2.35rem);
+      font-weight: 700; line-height: 1.15; margin: 0 0 6px;
+    }
+    .sub { color: var(--muted); margin: 0 0 22px; font-size: 14px; }
+    .grid2 { display: grid; gap: 14px; grid-template-columns: 1fr; }
+    @media (min-width: 720px) {
+      .grid2.score-row { grid-template-columns: 200px 1fr; }
+      .grid2.half { grid-template-columns: 1fr 1fr; }
+      .grid2.local { grid-template-columns: 1fr 1fr; }
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 18px 18px 16px;
+      box-shadow: 0 1px 0 rgba(20,17,15,0.03);
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .score-num {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 3.4rem; font-weight: 700; line-height: 1;
+      color: var(--accent);
+    }
+    .score-label { font-weight: 700; margin-top: 6px; }
+    .score-delta { font-size: 13px; color: var(--muted); margin-top: 4px; }
+    .score-delta.up { color: #3f7d4e; }
+    .blend { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    .engine { display: grid; grid-template-columns: 120px 1fr auto; gap: 8px; align-items: center; margin: 8px 0; }
+    .engine .name { font-size: 13px; font-weight: 600; }
+    .bar {
+      height: 10px; border-radius: 999px; background: var(--soft); overflow: hidden;
+    }
+    .bar > span {
+      display: block; height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, #222), var(--accent));
+    }
+    .engine .pct { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 7.5rem; text-align: right; color: var(--muted); }
+    .local-stat { font-size: 14px; margin: 6px 0; }
+    .local-stat strong { font-weight: 700; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .trend {
+      display: flex; align-items: flex-end; gap: 10px; height: 110px; padding-top: 8px;
+    }
+    .trend .col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+    .trend .col .stem {
+      width: 100%; max-width: 48px; border-radius: 8px 8px 4px 4px;
+      background: color-mix(in srgb, var(--accent) 75%, #333);
+      min-height: 8px;
+    }
+    .trend .col .lbl { font-size: 11px; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    tr.you td { background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+    .steps { list-style: none; margin: 0; padding: 0; }
+    .steps li {
+      display: grid; grid-template-columns: auto 1fr; gap: 10px 12px;
+      padding: 12px 0; border-bottom: 1px solid var(--line);
+    }
+    .steps li:last-child { border-bottom: 0; }
+    .badge {
+      display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 0.04em;
+      text-transform: uppercase; padding: 4px 8px; border-radius: 999px;
+      background: var(--soft); color: var(--ink);
+    }
+    .badge.high { background: color-mix(in srgb, var(--accent) 22%, #fff); }
+    .step-title { font-weight: 700; margin: 0 0 4px; }
+    .step-why { margin: 0; color: var(--muted); font-size: 13px; }
+    .footer {
+      margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--line);
+      font-size: 12px; color: var(--muted);
+    }
+    .gaps { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+    <% if (printMode) { %>
+    body { background: #fff; }
+    .wrap { padding-top: 12px; }
+    <% } %>
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="brand-bar">
+      <div class="agency"><%= vm.agencyName || 'AdHello' %></div>
+      <div class="meta">
+        <% if (vm.expiresLabel) { %>Link expires <%= vm.expiresLabel %> · <% } %>
+        View only
+      </div>
+    </div>
+
+    <h1><%= vm.businessName %></h1>
+    <p class="sub">
+      AI &amp; local visibility · <%= vm.market %>
+      <% if (vm.scannedAt) { %>
+      · Last scanned
+      <%= new Date(vm.scannedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' }) %>
+      <% } %>
+      · <%= vm.promptCount %> tracked prompts
+    </p>
+
+    <div class="grid2 score-row" style="margin-bottom:14px">
+      <section class="card" aria-label="Overall score">
+        <h2>Overall score</h2>
+        <div class="score-num"><%= vm.score %></div>
+        <div class="score-label"><%= vm.scoreLabel %> <span class="muted">/ 100</span></div>
+        <% if (vm.scoreDelta) { %>
+        <div class="score-delta <%= vm.scoreDelta > 0 ? 'up' : '' %>">
+          <%= vm.scoreDelta > 0 ? '▲' : '▼' %>
+          <%= Math.abs(vm.scoreDelta) %> vs prior period
+        </div>
+        <% } %>
+        <div class="blend"><%= vm.blendNote %></div>
+      </section>
+
+      <section class="card" aria-label="Engine breakdown">
+        <h2>Where you appear</h2>
+        <% (vm.engines || []).forEach(function (e) { %>
+        <div class="engine">
+          <div class="name"><%= e.label %></div>
+          <div class="bar" aria-hidden="true"><span style="width:<%= Math.min(100, Math.max(0, e.pct)) %>%"></span></div>
+          <div class="pct">
+            <%= e.pct %>%<% if (e.total) { %> · <%= e.cited %>/<%= e.total %><% } %><% if (e.detail) { %> · <%= e.detail %><% } %>
+          </div>
+        </div>
+        <% }) %>
+      </section>
+    </div>
+
+    <div class="grid2 half" style="margin-bottom:14px">
+      <section class="card" aria-label="Visibility trend">
+        <h2>Visibility trend</h2>
+        <% const _trend = vm.trend || []; const _max = Math.max(1, ..._trend.map(function (p) { return p.score; })); %>
+        <% if (_trend.length) { %>
+        <div class="trend" role="img" aria-label="Score over time">
+          <% _trend.forEach(function (p) { %>
+          <div class="col">
+            <div class="stem" style="height:<%= Math.round((p.score / _max) * 100) %>%"></div>
+            <div class="lbl"><%= p.date %></div>
+          </div>
+          <% }) %>
+        </div>
+        <% } else { %>
+        <p class="muted">Trend data will appear after a few scans.</p>
+        <% } %>
+      </section>
+
+      <section class="card" aria-label="Local SEO">
+        <h2>Local SEO</h2>
+        <div class="local-stat"><strong>Map pack:</strong> <%= vm.local.packPosition %></div>
+        <div class="local-stat"><strong>Maps (city):</strong> <%= vm.local.mapsCityRank %></div>
+        <div class="local-stat"><strong>Maps (ZIP):</strong> <%= vm.local.mapsZipRank %></div>
+        <div class="local-stat"><strong>Business Profile:</strong> <%= vm.local.gbpCompleteness %>% complete</div>
+        <% if (vm.local.gbpSummary) { %><p class="muted"><%= vm.local.gbpSummary %></p><% } %>
+        <div class="local-stat" style="margin-top:10px">
+          <strong>Reviews:</strong>
+          <% if (vm.local.googleRating != null) { %>
+            Google <%= Number(vm.local.googleRating).toFixed(1) %>★ · <%= vm.local.googleReviews %>
+          <% } else { %>
+            Google —
+          <% } %>
+          <% if (vm.local.unansweredReviews) { %>
+            · <%= vm.local.unansweredReviews %> unanswered
+          <% } %>
+        </div>
+        <% if ((vm.local.localKeywordGaps || []).length) { %>
+        <p class="muted" style="margin:10px 0 0">Local keyword gaps</p>
+        <ul class="gaps">
+          <% vm.local.localKeywordGaps.forEach(function (g) { %><li><%= g %></li><% }) %>
+        </ul>
+        <% } %>
+      </section>
+    </div>
+
+    <section class="card" style="margin-bottom:14px" aria-label="Competitors">
+      <h2>Who gets cited / ranked instead</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Business</th>
+            <th>AI share</th>
+            <th>Map pack wins</th>
+            <th>Surfaces</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (vm.competitors || []).forEach(function (c) { %>
+          <tr class="<%= c.isYou ? 'you' : '' %>">
+            <td><%= c.rank %></td>
+            <td><%= c.isYou ? 'You · ' : '' %><%= c.name %></td>
+            <td><%= c.aiSov %>%</td>
+            <td><%= c.mapPackWins %></td>
+            <td><%= c.surfaces || '—' %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" aria-label="Recommended next steps">
+      <h2>Prioritized next steps</h2>
+      <ol class="steps">
+        <% (vm.nextSteps || []).forEach(function (s) { %>
+        <li>
+          <span class="badge <%= String(s.impact).toLowerCase() === 'high' ? 'high' : '' %>"><%= s.impact %></span>
+          <div>
+            <p class="step-title"><%= s.rank %>. <%= s.title %></p>
+            <% if (s.why) { %><p class="step-why"><%= s.why %></p><% } %>
+          </div>
+        </li>
+        <% }) %>
+      </ol>
+    </section>
+
+    <footer class="footer">
+      Prepared for <%= vm.businessName %> by <%= vm.agencyName || 'AdHello' %>.
+      This page is view-only — scores reflect AI answer visibility and local search signals.
+      <% if (vm.followUpEmail && vm.followUpEmail.subject) { %>
+      Questions? Reply to the email that included this link.
+      <% } %>
+    </footer>
+  </main>
+
+  <% if (!printMode && typeof token !== 'undefined' && token) { %>
+  <script>
+  (function () {
+    var token = <%= JSON.stringify(token) %>;
+    var viewId = '';
+    var started = Date.now();
+    function post(body) {
+      try {
+        fetch('/ai-visibility/report/' + encodeURIComponent(token) + '/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body || {}),
+          keepalive: true,
+        }).then(function (r) { return r.json(); }).then(function (j) {
+          if (j && j.view_id) viewId = j.view_id;
+        }).catch(function () {});
+      } catch (e) {}
+    }
+    post({});
+    window.addEventListener('pagehide', function () {
+      var secs = Math.round((Date.now() - started) / 1000);
+      if (viewId) post({ view_id: viewId, duration_seconds: secs });
+    });
+  })();
+  </script>
+  <% } %>
+</body>
+</html>

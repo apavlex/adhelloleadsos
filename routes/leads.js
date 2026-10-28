@@ -51,6 +51,14 @@ const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const pageSpeedInsights = require('../services/pageSpeedInsights');
 const { createAuditReportToken } = require('../services/auditReportSign');
 const {
+  createAiVisibilityShare,
+  revokeShareMeta,
+  getShareMeta,
+  sampleAiVisibilitySnapshot,
+  normalizeAiVisibilitySnapshot,
+  buildShareEmailStub,
+} = require('../services/aiVisibilityReport');
+const {
   generateAssessment,
   mergeAssessment,
   normalizeAssessment,
@@ -6430,6 +6438,115 @@ router.post('/:key/ai-tools-report-link', express.json(), async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ success: false, error: err && err.message ? err.message : 'Link failed' });
+  }
+});
+
+/**
+ * Create / refresh a public AI Visibility share link (signed token; client needs no login).
+ * Persists share meta + ensures a snapshot exists (uses sample if none yet).
+ */
+router.post('/:key/ai-visibility-report-link', express.json(), async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const existing = lead.aiVisibilityReport && typeof lead.aiVisibilityReport === 'object'
+      ? lead.aiVisibilityReport
+      : {};
+    const shareMeta = getShareMeta(lead);
+    const nextVersion = body.regenerate
+      ? Math.max(1, shareMeta.version) + 1
+      : Math.max(1, shareMeta.version || 1);
+
+    let snapshot = existing.snapshot && typeof existing.snapshot === 'object'
+      ? normalizeAiVisibilitySnapshot(existing.snapshot, lead)
+      : null;
+    if (!snapshot) {
+      snapshot = sampleAiVisibilitySnapshot(lead);
+    }
+
+    const base = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
+    const minted = createAiVisibilityShare({
+      leadKey: fullKey,
+      workspaceId: req.workspaceId,
+      jobId: String(body.jobId || existing.jobId || '').trim(),
+      version: nextVersion,
+      baseUrl: base,
+    });
+
+    const nextReport = {
+      ...existing,
+      snapshot,
+      allowSample: !existing.snapshot,
+      jobId: minted.share.jobId,
+      share: minted.share,
+      updatedAt: new Date().toISOString(),
+    };
+    await dbService.saveLead({ ...lead, aiVisibilityReport: nextReport });
+
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const agencyName = (ws && (ws.name || ws.companyName)) || 'AdHello';
+    const contactFirst = String(lead.contactName || lead.firstName || 'there').trim().split(/\s+/)[0] || 'there';
+    const followUpEmail = buildShareEmailStub({
+      businessName: snapshot.businessName,
+      contactFirstName: contactFirst,
+      reportUrl: minted.reportUrl,
+      score: snapshot.score,
+      topNextStep: snapshot.nextSteps[0] ? snapshot.nextSteps[0].title : 'Review your opportunities',
+      expiryDate: minted.share.expiresAt,
+      agencyName,
+    });
+
+    return res.json({
+      success: true,
+      reportUrl: minted.reportUrl,
+      expiresAt: minted.share.expiresAt,
+      version: minted.share.version,
+      followUpEmail,
+      smsSnippet: `Here's your AI & local visibility report for ${snapshot.businessName}: ${minted.reportUrl}`,
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'Link failed',
+    });
+  }
+});
+
+/** Revoke the current AI Visibility share link (bumps version so old tokens fail). */
+router.post('/:key/ai-visibility-report-revoke', express.json(), async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const existing = lead.aiVisibilityReport && typeof lead.aiVisibilityReport === 'object'
+      ? lead.aiVisibilityReport
+      : {};
+    const share = revokeShareMeta(existing.share);
+    await dbService.saveLead({
+      ...lead,
+      aiVisibilityReport: {
+        ...existing,
+        share,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    return res.json({ success: true, version: share.version, revokedAt: share.revokedAt });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'Revoke failed',
+    });
   }
 });
 
