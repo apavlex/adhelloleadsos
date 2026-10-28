@@ -9,6 +9,8 @@ const {
   descriptionFromFormAnswers,
   presentFormAnswersForProfile,
   looksLikeOnlyContactProfileAnswers,
+  realFormAnswers,
+  shouldShowFormAnswersSection,
   humanizeLabel,
 } = require('../services/ghlFormAnswers');
 
@@ -212,6 +214,31 @@ describe('ghlFormAnswers', () => {
         { q: 'How can we help?', a: 'Need floors' },
       ]),
       false,
+    );
+  });
+
+  it('shouldShowFormAnswersSection opens for website_form or real Q&A only', () => {
+    assert.equal(shouldShowFormAnswersSection({ source: 'website_form' }, []), true);
+    assert.equal(
+      shouldShowFormAnswersSection(
+        { source: 'manual' },
+        [{ q: 'Company', a: 'jr' }, { q: 'Type', a: 'lead' }],
+      ),
+      false,
+    );
+    assert.equal(
+      shouldShowFormAnswersSection(
+        { source: 'manual' },
+        [{ q: 'How can we help?', a: 'Need floors' }],
+      ),
+      true,
+    );
+    assert.deepEqual(
+      realFormAnswers([
+        { q: 'Company', a: 'jr' },
+        { q: 'Project Interest', a: 'Hardwood' },
+      ]).map((r) => r.q),
+      ['Project Interest'],
     );
   });
 });

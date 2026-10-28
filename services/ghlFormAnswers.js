@@ -120,6 +120,22 @@ function looksLikeOnlyContactProfileAnswers(answers) {
   return rows.every((row) => isContactProfileQuestion(row.q));
 }
 
+/** Real estimate-form Q&A (not Company / Type / Address CRM crumbs). */
+function realFormAnswers(answers) {
+  const rows = normalizeFormAnswers(answers);
+  return rows.filter((row) => !isContactProfileQuestion(row.q));
+}
+
+/**
+ * Open the Form answers section when this contact used a website form,
+ * or when we already have real form Q&A saved.
+ */
+function shouldShowFormAnswersSection(customer, answers) {
+  const src = String((customer && customer.source) || '').trim().toLowerCase();
+  if (src === 'website_form') return true;
+  return realFormAnswers(answers).length > 0;
+}
+
 /**
  * Profile Form answers: drop Agency OS source crumbs; optionally replace with “Added by”.
  * Does not invent an Added by row when there is no form Q&A (template shows addedByLabel).
@@ -566,6 +582,8 @@ module.exports = {
   isAgencyOsSource,
   isContactProfileQuestion,
   looksLikeOnlyContactProfileAnswers,
+  realFormAnswers,
+  shouldShowFormAnswersSection,
   answersFromContact,
   answersFromSubmission,
   coreIdentityAnswers,

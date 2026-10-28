@@ -1969,18 +1969,20 @@ async function renderCustomerPage(res, ctx, {
     if (!addedByLabel && customer.isLead) {
       addedByLabel = work.memberAddedByLabel(ctx.member);
     }
-    // Form answers section only for real website estimate forms — not every lead/contact.
-    if (String(customer.source || '') === 'website_form') {
-      try {
-        formAnswers = require('../services/ghlFormAnswers').presentFormAnswersForProfile(
-          customer.formAnswers,
-          { addedByName: addedByLabel },
-        );
-      } catch (_) {
-        formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
+    // Real estimate-form Q&A only — never Company/Type/Address CRM crumbs alone.
+    try {
+      const ghlFormAnswers = require('../services/ghlFormAnswers');
+      const presented = ghlFormAnswers.presentFormAnswersForProfile(
+        customer.formAnswers,
+        { addedByName: addedByLabel },
+      );
+      if (ghlFormAnswers.shouldShowFormAnswersSection(customer, presented)) {
+        formAnswers = ghlFormAnswers.realFormAnswers(presented);
+      } else {
+        formAnswers = [];
       }
-    } else {
-      formAnswers = [];
+    } catch (_) {
+      formAnswers = Array.isArray(customer.formAnswers) ? customer.formAnswers : [];
     }
   }
   return render(res, 'customer', ctx, {
