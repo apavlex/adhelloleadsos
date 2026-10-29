@@ -462,6 +462,49 @@ async function migrateLegacyFolders(workspaceId, folders) {
   return { folders: list, stats };
 }
 
+const FOLDER_HYGIENE_TTL_MS = Math.max(
+  60 * 60 * 1000,
+  parseInt(process.env.PIPELINE_FOLDER_HYGIENE_TTL_MS || String(24 * 60 * 60 * 1000), 10) ||
+    24 * 60 * 60 * 1000,
+);
+
+/**
+ * Run migrateLegacyFolders at most once per TTL (default 24h) per workspace.
+ * Prospecting page loads call this so hygiene does not block every dashboard GET.
+ */
+async function maybeMigrateLegacyFolders(workspaceId, folders, opts) {
+  const options = opts || {};
+  const force = !!options.force;
+  const wid = workspaceId || 'default';
+  const list = Array.isArray(folders) ? folders : [];
+
+  if (!force) {
+    try {
+      const ws = (await dbService.getWorkspace(wid)) || null;
+      const lastRaw = ws && ws.pipelineFolderHygieneAt;
+      const lastMs = lastRaw ? Date.parse(String(lastRaw)) : NaN;
+      if (Number.isFinite(lastMs) && Date.now() - lastMs < FOLDER_HYGIENE_TTL_MS) {
+        return { folders: list, stats: { skipped: true, reason: 'ttl' } };
+      }
+    } catch (_) {
+      /* fall through and migrate */
+    }
+  }
+
+  const result = await migrateLegacyFolders(wid, list);
+  try {
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid };
+    await dbService.saveWorkspace(wid, {
+      ...ws,
+      id: wid,
+      pipelineFolderHygieneAt: new Date().toISOString(),
+    });
+  } catch (_) {
+    /* non-fatal */
+  }
+  return result;
+}
+
 async function ensurePipelineFoldersWithTree(workspaceId) {
   const folders = await ensurePipelineFolders(workspaceId);
   const withTrades = await ensureTradeSubfolders(workspaceId, folders);
@@ -800,6 +843,7 @@ module.exports = {
   ensurePipelineFolders,
   ensureTradeSubfolders,
   migrateLegacyFolders,
+  maybeMigrateLegacyFolders,
   migrateLegacyMobileHomesFolder,
   migrateLegacyHomeOwnersFolder,
   consolidateDuplicateFolders,

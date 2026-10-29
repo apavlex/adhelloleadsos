@@ -222,4 +222,27 @@ describe('leadListFilters search', () => {
     ]);
     assert.deepEqual(opts, ['HVAC contractor', 'Landscaper']);
   });
+
+  it('mapLeadPipelineBootstrap omits heavy panel blobs', () => {
+    const { mapLeadPipelineBootstrap } = require('../services/leadListFilters');
+    const m = mapLeadPipelineBootstrap({
+      key: 'k1',
+      title: 'Acme',
+      onPipelineBoard: true,
+      contacts: [{ email: 'a@b.com' }],
+      buyingSignals: ['hiring'],
+      leadLocations: [{ city: 'X' }],
+      alternateTitles: ['Alt'],
+      sequenceState: { step: 1 },
+      updates: [{ note: 'hi' }],
+      logs: [{ type: 'call' }],
+    });
+    assert.equal(m.key, 'k1');
+    assert.equal(m.onPipelineBoard, true);
+    assert.equal(m.contacts, undefined);
+    assert.equal(m.buyingSignals, undefined);
+    assert.equal(m.sequenceState, undefined);
+    assert.equal(m.leadLocations, undefined);
+    assert.equal(m.updates, undefined);
+  });
 });

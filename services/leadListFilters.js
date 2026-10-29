@@ -707,7 +707,10 @@ function mapLeadListJson(l) {
   };
 }
 
-/** Slim client bootstrap — omits heavy audit/chat blobs and activity arrays (loaded via panel-data on demand). */
+/**
+ * Slim client bootstrap — display + stage fields only.
+ * Contacts, updates, logs, sequence blobs load via /leads/:key/panel-data on demand.
+ */
 function mapLeadPipelineBootstrap(l) {
   return {
     key: l.key,
@@ -736,13 +739,10 @@ function mapLeadPipelineBootstrap(l) {
     sourceType: l.sourceType || '',
     reviewsCount: l.reviewsCount ?? 0,
     totalScore: l.totalScore ?? 0,
-    contacts: Array.isArray(l.contacts) ? l.contacts : [],
     decisionMakerName: l.decisionMakerName || '',
     decisionMakerTitle: l.decisionMakerTitle || '',
-    buyingSignals: Array.isArray(l.buyingSignals) ? l.buyingSignals : [],
     aiWebsiteAnalysisScore: l.aiWebsiteAnalysisScore,
     ownerSignal: l.ownerSignal,
-    sequenceState: l.sequenceState,
     lastTouchChannel: l.lastTouchChannel,
     engagementSignalType:
       (l.engagementSignals && l.engagementSignals.lastSignalType) || '',
@@ -750,8 +750,6 @@ function mapLeadPipelineBootstrap(l) {
       (l.engagementSignals && l.engagementSignals.lastSignalAt) || '',
     latitude: l.latitude,
     longitude: l.longitude,
-    leadLocations: Array.isArray(l.leadLocations) ? l.leadLocations : [],
-    alternateTitles: Array.isArray(l.alternateTitles) ? l.alternateTitles : [],
     bookmarked: !!l.bookmarked,
   };
 }

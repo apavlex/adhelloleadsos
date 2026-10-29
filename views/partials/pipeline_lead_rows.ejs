@@ -384,7 +384,7 @@
                 data-reviews="<%= lead.reviewsCount || 0 %>"
                 data-last-review-at="<%= plcEscAttr(String(lead.lastReviewAt || '')) %>"
                 data-reviews-last-30-days="<%= lead.reviewsLast30Days != null && lead.reviewsLast30Days !== '' ? plcEscAttr(String(lead.reviewsLast30Days)) : '' %>"
-                data-review-snippets="<%= plcEscJson(_reviewSnippetsForRow) %>"
+                data-review-snippets="[]"
                 data-sponsored="<%= _sponsoredYes ? 'yes' : (_sponsoredNo ? 'no' : '') %>"
                 <% if (lead.latitude != null && lead.latitude !== '' && lead.longitude != null && lead.longitude !== '') { %>
                 data-latitude="<%= plcEscAttr(String(lead.latitude)) %>"
@@ -414,7 +414,7 @@
                 data-ads-running-google="<%= lead.adsRunningGoogle === true || lead.adsRunningGoogle === 'true' || lead.adsRunningGoogle === 1 ? '1' : '0' %>"
                 data-ads-running-linkedin="<%= lead.adsRunningLinkedin === true || lead.adsRunningLinkedin === 'true' || lead.adsRunningLinkedin === 1 ? '1' : '0' %>"
                 data-ads-checked-at="<%= plcEscAttr(lead.adsCheckedAt || '') %>"
-                data-buying-signals="<%= plcEscJson(lead.buyingSignals || []) %>"
+                data-buying-signals="[]"
                 data-source="<%= plcEscAttr(lead.source || '') %>"
                 data-created-at="<%= plcEscAttr((_createdRaw || '').toString()) %>"
                 data-gbp-claim-status="<%= plcEscAttr(String(lead.gbpClaimStatus || '')) %>"
@@ -434,7 +434,7 @@
                 data-engagement-signal-at="<%= plcEscAttr(_engAt) %>"
                 data-engagement-signal-ms="<%= _engSignalSortMs %>"
                 data-cadence-sort="<%= plcEscAttr(_cadShort || _ltc || '') %>"
-                data-sequence-state="<%= plcEscJson(lead.sequenceState || null) %>"
+                data-sequence-state=""
                 data-owner-first-name="<%= plcEscAttr(String(lead.ownerFirstName || '')) %>"
                 data-do-not-call="<%= lead.doNotCall ? '1' : '' %>"
                 data-primary-service-key="<%= plcEscAttr(_psk) %>"
@@ -451,15 +451,15 @@
                 data-permit-value="<%= Number.isFinite(_permVal) ? _permVal : '' %>"
                 data-permit-status-date="<%= plcEscAttr(_permDateRaw) %>"
                 data-permit-status-date-ms="<%= _permDateSortMs %>"
-                data-contacts="<%= plcEscJson(lead.contacts || []) %>"
+                data-contacts="[]"
                 data-last-contact-hunt-at="<%= plcEscAttr(lead.lastContactHuntAt || '') %>"
-                data-contact-finder="<%= plcEscJson(_finder) %>"
+                data-contact-finder="{}"
                 data-decision-maker-name="<%= plcEscAttr(String(lead.decisionMakerName || '')) %>"
                 data-decision-maker-title="<%= plcEscAttr(String(lead.decisionMakerTitle || '')) %>"
                 data-last-enriched-ms="<%= _lastEnrichedMs %>"
                 data-tags='<%= JSON.stringify(Array.isArray(lead.tags) ? lead.tags : []) %>'
-                data-updates="<%= plcEscJson(Array.isArray(lead.updates) ? lead.updates : []) %>"
-                data-logs-snippet="<%= plcEscJson(Array.isArray(lead.logs) ? lead.logs.slice(-14) : []) %>">
+                data-updates="[]"
+                data-logs-snippet="[]">
               <td data-plc="check" class="lead-sticky-check pl-4 pr-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07]">
                 <div class="flex items-center gap-1.5">
                   <input type="checkbox" class="lead-checkbox w-4 h-4 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>" onclick="event.stopPropagation()">
