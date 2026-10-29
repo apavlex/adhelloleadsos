@@ -26,7 +26,6 @@ const PAGES = [
   { id: 'today', label: 'Today', group: 'General', paths: ['/today'] },
   { id: 'opportunities', label: 'Opportunities', group: 'Sales', paths: ['/opportunities'] },
   { id: 'engagement', label: 'Engagement', group: 'Sales', paths: ['/engagement'] },
-  { id: 'business-reviews', label: 'Business Reviews', group: 'Sales', paths: ['/business-reviews'] },
   { id: 'leads', label: 'Leads (find, queue, pipeline, folders)', group: 'Sales', paths: ['/leads', '/prospecting', '/pipeline', '/history'] },
   { id: 'focus', label: 'Call mode', group: 'Sales', paths: ['/focus'] },
   { id: 'automate', label: 'Automate', group: 'Sales', paths: ['/ceo'] },
@@ -43,6 +42,7 @@ const PAGES = [
   { id: 'seo-gap', label: 'SEO Gap', group: 'SEO / Local Rank', paths: ['/seo-gap'] },
   { id: 'backlinks', label: 'Backlinks', group: 'SEO / Local Rank', paths: ['/backlinks'] },
   { id: 'local-seo', label: 'Local SEO', group: 'SEO / Local Rank', paths: ['/local-seo'] },
+  { id: 'business-reviews', label: 'Business Reviews', group: 'SEO / Local Rank', paths: ['/business-reviews'] },
   { id: 'resources', label: 'Resources', group: 'Insights', paths: ['/resources', '/sops'] },
   { id: 'settings', label: 'Workspace settings', group: 'Settings', paths: ['/workspace'] },
 ];

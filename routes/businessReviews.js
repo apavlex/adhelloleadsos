@@ -20,6 +20,7 @@ async function pageLocals(req) {
   const focusId = String(req.query.review || '').trim();
   return {
     title: 'Business Reviews',
+    activePage: 'business-reviews',
     paid,
     trialStatus: trials.status(ws),
     contact,

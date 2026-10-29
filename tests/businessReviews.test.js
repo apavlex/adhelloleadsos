@@ -141,7 +141,10 @@ describe('businessReviews', () => {
     assert.match(server, /\/business-reviews/);
     assert.match(nav, /\/business-reviews/);
     assert.match(nav, /Business Reviews|Reviews/);
-    assert.match(perms, /business-reviews/);
+    const seoLabelIdx = nav.indexOf('SEO / Local Rank');
+    const reviewsHrefIdx = nav.indexOf('href="/business-reviews"');
+    assert.ok(seoLabelIdx >= 0 && reviewsHrefIdx > seoLabelIdx, 'Reviews link should sit under SEO / Local Rank');
+    assert.match(perms, /id: 'business-reviews', label: 'Business Reviews', group: 'SEO \/ Local Rank'/);
     assert.match(route, /draft-reply/);
     assert.match(route, /PAID_ONLY|paidOnly|isPaidWorkspace/);
     assert.match(view, /Copy reply/);

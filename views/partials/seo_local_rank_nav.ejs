@@ -12,4 +12,7 @@
   <% if (_seoCan('local-seo')) { %>
   <a href="/local-seo" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'local-seo' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">Local SEO</a>
   <% } %>
+  <% if (_seoCan('business-reviews')) { %>
+  <a href="/business-reviews" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'business-reviews' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">Reviews</a>
+  <% } %>
 </nav>
