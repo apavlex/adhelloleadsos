@@ -21,11 +21,12 @@
         <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">Google reviews pulled with Outscraper. Get notified when new ones land, then draft an AI reply and copy it into Google with one click.</p>
       </div>
       <% if (_paid) { %>
-      <div class="flex flex-wrap gap-2 shrink-0">
-        <button type="button" id="brSyncBtn" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest"<%= !_settings.query || !_outConfigured ? ' disabled' : '' %>>Sync reviews</button>
+      <div class="flex flex-wrap gap-2 shrink-0 items-center">
+        <button type="button" id="brSyncBtn" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest"<%= !_outConfigured ? ' disabled' : '' %>>Sync reviews</button>
       </div>
       <% } %>
     </header>
+    <p id="brInlineStatus" class="mb-4 text-sm font-semibold text-brand-muted dark:text-slate-300 min-h-[1.25rem]" role="status" aria-live="polite"></p>
 
     <% if (!_paid) { %>
     <section class="rounded-[2rem] border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/15 via-white to-white dark:from-brand-yellow/10 dark:via-slate-900 dark:to-slate-950 px-8 py-12 text-center shadow-sm" aria-labelledby="brLockedTitle">
@@ -96,10 +97,11 @@
           <input type="checkbox" name="autoSync" value="1" class="rounded border-brand-border"<%= _settings.autoSync !== false ? ' checked' : '' %> />
           <span class="text-sm text-brand-dark dark:text-slate-200">Auto-sync &amp; notify on new reviews</span>
         </label>
-        <div class="sm:col-span-2 flex flex-wrap gap-2">
-          <button type="submit" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Save</button>
+        <div class="sm:col-span-2 flex flex-wrap gap-2 items-center">
+          <button type="submit" id="brSaveBtn" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Save</button>
           <button type="button" id="brSaveSyncBtn" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest"<%= !_outConfigured ? ' disabled' : '' %>>Save &amp; sync now</button>
         </div>
+        <p id="brFormStatus" class="sm:col-span-2 text-xs font-semibold text-brand-muted min-h-[1rem]" role="status" aria-live="polite"></p>
       </form>
     </section>
 
@@ -114,7 +116,7 @@
     <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
       <h3 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No reviews synced yet</h3>
       <p class="text-sm text-brand-muted max-w-md mx-auto mb-6">Save your Google listing above, then sync. New reviews will show here and ping your notification bell.</p>
-      <button type="button" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest" onclick="document.getElementById('brSaveSyncBtn') && document.getElementById('brSaveSyncBtn').click()"<%= !_outConfigured || !_settings.query ? ' disabled' : '' %>>Sync with Outscraper</button>
+      <button type="button" id="brEmptySyncBtn" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest"<%= !_outConfigured ? ' disabled' : '' %>>Sync with Outscraper</button>
     </div>
     <% } else { %>
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Google reviews">
@@ -167,20 +169,41 @@
 
     <script>
     (function () {
-      var statusEl = null;
-      function toast(msg, isErr) {
+      var outConfigured = <%= _outConfigured ? 'true' : 'false' %>;
+      var toastTimer = null;
+      var busy = false;
+
+      function setInline(msg, isErr) {
+        ['brInlineStatus', 'brFormStatus'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.textContent = msg || '';
+          el.classList.toggle('text-rose-600', !!isErr);
+          el.classList.toggle('dark:text-rose-300', !!isErr);
+          el.classList.toggle('text-emerald-700', !isErr && !!msg);
+          el.classList.toggle('dark:text-emerald-300', !isErr && !!msg);
+          el.classList.toggle('text-brand-muted', !msg);
+        });
+      }
+
+      function toast(msg, isErr, sticky) {
         var el = document.getElementById('brPageStatus');
         if (!el) {
           el = document.createElement('p');
           el.id = 'brPageStatus';
-          el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full px-4 py-2 text-xs font-bold shadow-lg';
           document.body.appendChild(el);
         }
+        if (toastTimer) {
+          clearTimeout(toastTimer);
+          toastTimer = null;
+        }
         el.textContent = msg || '';
-        el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-full px-4 py-2 text-xs font-bold shadow-lg ' +
+        el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] rounded-full px-4 py-2 text-xs font-bold shadow-lg max-w-[90vw] ' +
           (isErr ? 'bg-rose-600 text-white' : 'bg-brand-dark text-white dark:bg-white dark:text-brand-dark');
         el.hidden = !msg;
-        if (msg) setTimeout(function () { el.hidden = true; }, 3200);
+        if (msg && !sticky) {
+          toastTimer = setTimeout(function () { el.hidden = true; }, 4200);
+        }
       }
 
       function formPayload() {
@@ -188,30 +211,134 @@
         if (!form) return {};
         var fd = new FormData(form);
         return {
-          query: String(fd.get('query') || ''),
-          businessName: String(fd.get('businessName') || ''),
-          autoSync: form.querySelector('[name=autoSync]') && form.querySelector('[name=autoSync]').checked,
+          query: String(fd.get('query') || '').trim(),
+          businessName: String(fd.get('businessName') || '').trim(),
+          autoSync: !!(form.querySelector('[name=autoSync]') && form.querySelector('[name=autoSync]').checked),
           force: true
         };
       }
 
+      function syncButtons() {
+        return [
+          document.getElementById('brSyncBtn'),
+          document.getElementById('brSaveSyncBtn'),
+          document.getElementById('brEmptySyncBtn'),
+          document.getElementById('brSaveBtn')
+        ].filter(Boolean);
+      }
+
+      function setBusy(on, label) {
+        busy = !!on;
+        syncButtons().forEach(function (btn) {
+          if (!btn.dataset.brLabel) btn.dataset.brLabel = btn.textContent;
+          if (on) {
+            btn.disabled = true;
+            if (btn.id !== 'brSaveBtn' || label) btn.textContent = label || 'Working…';
+          } else {
+            btn.textContent = btn.dataset.brLabel;
+            refreshEnabled();
+          }
+        });
+      }
+
+      function refreshEnabled() {
+        if (busy) return;
+        var q = formPayload().query;
+        var canSync = outConfigured && !!q;
+        ['brSyncBtn', 'brSaveSyncBtn', 'brEmptySyncBtn'].forEach(function (id) {
+          var btn = document.getElementById(id);
+          if (!btn) return;
+          btn.disabled = !canSync;
+          btn.title = !outConfigured
+            ? 'Agency Outscraper is offline'
+            : (!q ? 'Enter a Maps query first' : '');
+        });
+        var saveBtn = document.getElementById('brSaveBtn');
+        if (saveBtn) saveBtn.disabled = false;
+      }
+
+      async function saveSettingsOnly() {
+        var payload = formPayload();
+        if (!payload.query) throw new Error('Enter a Maps query (Place ID, Maps URL, or business name + city).');
+        var res = await fetch('/business-reviews/settings', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            query: payload.query,
+            businessName: payload.businessName,
+            autoSync: payload.autoSync
+          })
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error(data.error || 'Save failed');
+        return data;
+      }
+
       async function syncNow(btn) {
-        if (btn) btn.disabled = true;
-        toast('Syncing with Outscraper…');
+        if (busy) return;
+        var payload = formPayload();
+        if (!outConfigured) {
+          setInline('Agency Outscraper is offline — ask AdHello to configure the agency key.', true);
+          toast('Outscraper offline', true);
+          return;
+        }
+        if (!payload.query) {
+          setInline('Enter a Maps query first (Place ID, Maps URL, or “Business Name City, ST”).', true);
+          toast('Maps query required', true);
+          var input = document.querySelector('#brSettingsForm [name=query]');
+          if (input) input.focus();
+          return;
+        }
+        setBusy(true, 'Syncing…');
+        setInline('Syncing with Outscraper — this can take 15–60 seconds…');
+        toast('Syncing with Outscraper…', false, true);
         try {
           var res = await fetch('/business-reviews/sync', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify(formPayload())
+            body: JSON.stringify(payload)
           });
           var data = await res.json().catch(function () { return {}; });
-          if (!res.ok || !data.success) throw new Error(data.error || 'Sync failed');
-          toast(data.newCount ? (data.newCount + ' new review' + (data.newCount === 1 ? '' : 's')) : (data.skipped ? 'Already up to date' : 'Synced'));
+          if (!res.ok || !data.success) throw new Error(data.error || ('Sync failed (' + res.status + ')'));
+          var okMsg = data.newCount
+            ? (data.newCount + ' new review' + (data.newCount === 1 ? '' : 's') + ' — reloading…')
+            : (data.skipped ? 'Already up to date — reloading…' : 'Synced — reloading…');
+          setInline(okMsg);
+          toast(okMsg, false, true);
           location.reload();
         } catch (e) {
-          toast(e.message || 'Sync failed', true);
-          if (btn) btn.disabled = false;
+          var err = (e && e.message) || 'Sync failed';
+          setInline(err, true);
+          toast(err, true);
+          setBusy(false);
+        }
+      }
+
+      var form = document.getElementById('brSettingsForm');
+      if (form) {
+        form.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          if (busy) return;
+          setBusy(true, 'Saving…');
+          setInline('Saving listing…');
+          toast('Saving…', false, true);
+          try {
+            await saveSettingsOnly();
+            setInline('Saved.');
+            toast('Saved');
+            setBusy(false);
+          } catch (err) {
+            setInline(err.message || 'Save failed', true);
+            toast(err.message || 'Save failed', true);
+            setBusy(false);
+          }
+        });
+        var queryInput = form.querySelector('[name=query]');
+        if (queryInput) {
+          queryInput.addEventListener('input', refreshEnabled);
+          queryInput.addEventListener('change', refreshEnabled);
         }
       }
 
@@ -219,11 +346,15 @@
       if (syncBtn) syncBtn.addEventListener('click', function () { syncNow(syncBtn); });
       var saveSync = document.getElementById('brSaveSyncBtn');
       if (saveSync) saveSync.addEventListener('click', function () { syncNow(saveSync); });
+      var emptySync = document.getElementById('brEmptySyncBtn');
+      if (emptySync) emptySync.addEventListener('click', function () { syncNow(emptySync); });
 
       var markSeen = document.getElementById('brMarkSeenBtn');
       if (markSeen) {
         markSeen.addEventListener('click', async function () {
+          if (busy) return;
           markSeen.disabled = true;
+          setInline('Marking reviews seen…');
           try {
             var res = await fetch('/business-reviews/mark-all-seen', {
               method: 'POST',
@@ -235,6 +366,7 @@
             location.reload();
           } catch (e) {
             toast(e.message || 'Failed', true);
+            setInline(e.message || 'Failed', true);
             markSeen.disabled = false;
           }
         });
@@ -306,6 +438,8 @@
           }
         });
       });
+
+      refreshEnabled();
 
       var focusId = <%= JSON.stringify(_focus) %>;
       if (focusId) {
