@@ -225,7 +225,8 @@
         <% if (actionPlan && actionPlan.steps && actionPlan.steps.length) { %>
         <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
           <h2 class="font-display font-bold text-lg mb-2">Ways to improve <span class="text-xs font-normal text-brand-muted">(<%= actionPlan.source %>)</span></h2>
-          <p class="text-sm text-brand-muted mb-4"><%= actionPlan.summary %></p>
+          <p class="text-sm text-brand-muted mb-1"><%= actionPlan.summary %></p>
+          <p class="text-[11px] text-brand-muted mb-4">Distinct actions with a concrete “Do this” — click <strong>Refresh action plan</strong> after deploy if this still looks like old Maps spam.</p>
           <ol class="space-y-3">
             <% actionPlan.steps.forEach(function (s) { %>
             <li class="rounded-xl border border-brand-border/40 dark:border-white/10 px-4 py-3">
@@ -235,7 +236,8 @@
                 <span>Effort <%= s.effort %></span>
               </div>
               <p class="font-semibold mt-1"><%= s.title %></p>
-              <p class="text-sm text-brand-muted mt-1"><%= s.why %></p>
+              <% if (s.why) { %><p class="text-sm text-brand-muted mt-1"><%= s.why %></p><% } %>
+              <% if (s.how) { %><p class="text-sm text-brand-dark dark:text-slate-200 mt-2"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mr-1">Do this</span><%= s.how %></p><% } %>
             </li>
             <% }) %>
           </ol>
