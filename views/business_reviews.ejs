@@ -173,6 +173,11 @@
       var outConfigured = <%= _outConfigured ? 'true' : 'false' %>;
       var toastTimer = null;
       var busy = false;
+      var BTN_SPINNER =
+        '<svg class="w-3.5 h-3.5 animate-spin shrink-0" viewBox="0 0 24 24" aria-hidden="true">' +
+        '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>' +
+        '<path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>' +
+        '</svg>';
 
       function setInline(msg, isErr) {
         ['brInlineStatus', 'brFormStatus'].forEach(function (id) {
@@ -188,6 +193,9 @@
       }
 
       function toast(msg, isErr, sticky) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg || '', { variant: isErr ? 'error' : 'info' });
+        }
         var el = document.getElementById('brPageStatus');
         if (!el) {
           el = document.createElement('p');
@@ -199,12 +207,22 @@
           toastTimer = null;
         }
         el.textContent = msg || '';
-        el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] rounded-full px-4 py-2 text-xs font-bold shadow-lg max-w-[90vw] ' +
+        el.className = 'fixed bottom-6 left-1/2 -translate-x-1/2 z-[10050] rounded-full px-4 py-2 text-xs font-bold shadow-lg max-w-[90vw] ' +
           (isErr ? 'bg-rose-600 text-white' : 'bg-brand-dark text-white dark:bg-white dark:text-brand-dark');
         el.hidden = !msg;
         if (msg && !sticky) {
           toastTimer = setTimeout(function () { el.hidden = true; }, 4200);
         }
+      }
+
+      function showLoader(ms) {
+        if (typeof window.showNavLoading === 'function') {
+          window.showNavLoading({ failSafeMs: ms || 120000 });
+        }
+      }
+
+      function hideLoader() {
+        if (typeof window.hideNavLoading === 'function') window.hideNavLoading();
       }
 
       function formPayload() {
@@ -231,11 +249,18 @@
       function setBusy(on, label) {
         busy = !!on;
         syncButtons().forEach(function (btn) {
-          if (!btn.dataset.brLabel) btn.dataset.brLabel = btn.textContent;
+          if (!btn.dataset.brLabel) btn.dataset.brLabel = btn.textContent.trim();
           if (on) {
             btn.disabled = true;
-            if (btn.id !== 'brSaveBtn' || label) btn.textContent = label || 'Working…';
+            btn.setAttribute('aria-busy', 'true');
+            var text = label || 'Working…';
+            if (btn.id === 'brSaveBtn' && !label) {
+              btn.textContent = btn.dataset.brLabel;
+            } else {
+              btn.innerHTML = '<span class="inline-flex items-center gap-2">' + BTN_SPINNER + '<span>' + text + '</span></span>';
+            }
           } else {
+            btn.removeAttribute('aria-busy');
             btn.textContent = btn.dataset.brLabel;
             refreshEnabled();
           }
@@ -258,6 +283,15 @@
         if (saveBtn) saveBtn.disabled = false;
       }
 
+      async function parseJson(res) {
+        if (typeof readJsonReply === 'function') {
+          var parsed = await readJsonReply(res);
+          return { ok: parsed.ok, data: parsed.j || {}, status: res.status };
+        }
+        var data = await res.json().catch(function () { return {}; });
+        return { ok: res.ok, data: data, status: res.status };
+      }
+
       async function saveSettingsOnly() {
         var payload = formPayload();
         if (!payload.query) throw new Error('Enter a Maps query (Place ID, Maps URL, or business name + city).');
@@ -271,12 +305,12 @@
             autoSync: payload.autoSync
           })
         });
-        var data = await res.json().catch(function () { return {}; });
-        if (!res.ok || !data.success) throw new Error(data.error || 'Save failed');
-        return data;
+        var parsed = await parseJson(res);
+        if (!parsed.ok || !parsed.data.success) throw new Error(parsed.data.error || 'Save failed');
+        return parsed.data;
       }
 
-      async function syncNow(btn) {
+      async function syncNow() {
         if (busy) return;
         var payload = formPayload();
         if (!outConfigured) {
@@ -292,6 +326,7 @@
           return;
         }
         setBusy(true, 'Syncing…');
+        showLoader(120000);
         setInline('Syncing with Outscraper — this can take 15–60 seconds…');
         toast('Syncing with Outscraper…', false, true);
         try {
@@ -301,18 +336,23 @@
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(payload)
           });
-          var data = await res.json().catch(function () { return {}; });
-          if (!res.ok || !data.success) throw new Error(data.error || ('Sync failed (' + res.status + ')'));
+          var parsed = await parseJson(res);
+          if (!parsed.ok || !parsed.data.success) {
+            throw new Error(parsed.data.error || ('Sync failed (' + parsed.status + ')'));
+          }
+          var data = parsed.data;
           var okMsg = data.newCount
             ? (data.newCount + ' new review' + (data.newCount === 1 ? '' : 's') + ' — reloading…')
             : (data.skipped ? 'Already up to date — reloading…' : 'Synced — reloading…');
           setInline(okMsg);
           toast(okMsg, false, true);
+          showLoader(15000);
           location.reload();
         } catch (e) {
           var err = (e && e.message) || 'Sync failed';
           setInline(err, true);
           toast(err, true);
+          hideLoader();
           setBusy(false);
         }
       }
@@ -323,16 +363,19 @@
           e.preventDefault();
           if (busy) return;
           setBusy(true, 'Saving…');
+          showLoader(30000);
           setInline('Saving listing…');
           toast('Saving…', false, true);
           try {
             await saveSettingsOnly();
             setInline('Saved.');
             toast('Saved');
+            hideLoader();
             setBusy(false);
           } catch (err) {
             setInline(err.message || 'Save failed', true);
             toast(err.message || 'Save failed', true);
+            hideLoader();
             setBusy(false);
           }
         });
@@ -344,17 +387,18 @@
       }
 
       var syncBtn = document.getElementById('brSyncBtn');
-      if (syncBtn) syncBtn.addEventListener('click', function () { syncNow(syncBtn); });
+      if (syncBtn) syncBtn.addEventListener('click', function (e) { e.preventDefault(); syncNow(); });
       var saveSync = document.getElementById('brSaveSyncBtn');
-      if (saveSync) saveSync.addEventListener('click', function () { syncNow(saveSync); });
+      if (saveSync) saveSync.addEventListener('click', function (e) { e.preventDefault(); syncNow(); });
       var emptySync = document.getElementById('brEmptySyncBtn');
-      if (emptySync) emptySync.addEventListener('click', function () { syncNow(emptySync); });
+      if (emptySync) emptySync.addEventListener('click', function (e) { e.preventDefault(); syncNow(); });
 
       var markSeen = document.getElementById('brMarkSeenBtn');
       if (markSeen) {
         markSeen.addEventListener('click', async function () {
           if (busy) return;
           markSeen.disabled = true;
+          showLoader(30000);
           setInline('Marking reviews seen…');
           try {
             var res = await fetch('/business-reviews/mark-all-seen', {
@@ -362,12 +406,13 @@
               credentials: 'same-origin',
               headers: { Accept: 'application/json' }
             });
-            var data = await res.json().catch(function () { return {}; });
-            if (!res.ok || !data.success) throw new Error(data.error || 'Failed');
+            var parsed = await parseJson(res);
+            if (!parsed.ok || !parsed.data.success) throw new Error(parsed.data.error || 'Failed');
             location.reload();
           } catch (e) {
             toast(e.message || 'Failed', true);
             setInline(e.message || 'Failed', true);
+            hideLoader();
             markSeen.disabled = false;
           }
         });

@@ -19,6 +19,9 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.match(js, /function clearNavOverlaysForLeave/);
   assert.match(js, /closeMobileMenu\(\{\s*instant:\s*true\s*\}\)/);
   assert.match(js, /showNavLoading/);
+  assert.match(js, /window\.showNavLoading\s*=\s*showNavLoading/);
+  assert.match(js, /window\.hideNavLoading\s*=\s*hideNavLoading/);
+  assert.match(js, /failSafeMs/);
   assert.match(js, /adhelloNavLoading/);
   assert.match(js, /adhello-nav-loader/);
   assert.match(js, /app-body-portal/);
