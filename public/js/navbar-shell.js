@@ -106,15 +106,26 @@ function readJsonReply(r) {
     if (el) el.classList.remove('is-on');
   }
 
-  function showNavLoading() {
+  /**
+   * Full-page frosted loader (same as sidebar page changes).
+   * @param {number|{failSafeMs?:number}|null} [opts] fail-safe ms (default 6s) or `{ failSafeMs }` —
+   *   pass a higher value for long in-page work (e.g. Outscraper sync) so the spinner stays up.
+   */
+  function showNavLoading(opts) {
     document.documentElement.classList.add('adhello-nav-loading');
     var el = ensureNavLoadingEl();
     void el.offsetWidth;
     el.classList.add('is-on');
     clearTimeout(hideNavLoading._failSafe);
-    // If navigation never leaves, drop the loader so we are not stuck.
-    hideNavLoading._failSafe = setTimeout(hideNavLoading, 6000);
+    var ms = 6000;
+    if (typeof opts === 'number' && opts > 0) ms = opts;
+    else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) ms = opts.failSafeMs;
+    // If the caller never hides / navigation never leaves, drop the loader so we are not stuck.
+    hideNavLoading._failSafe = setTimeout(hideNavLoading, ms);
   }
+
+  window.showNavLoading = showNavLoading;
+  window.hideNavLoading = hideNavLoading;
 
   function clearNavOverlaysForLeave() {
     closeMobileMenu({ instant: true });
