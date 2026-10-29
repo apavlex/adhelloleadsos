@@ -5,6 +5,7 @@ const {
   parseReferringDomainItems,
   parseAnchorItems,
   computeCompetitorLinkGaps,
+  isDirectoryOrPlatformDomain,
 } = require('../services/backlinksParse');
 
 describe('backlinksParse', () => {
@@ -51,5 +52,29 @@ describe('backlinksParse', () => {
     assert.equal(refs[0].domain, 'a.com');
     const anchors = parseAnchorItems([{ anchor: 'best plumber', backlinks: 4, referring_domains: 2 }]);
     assert.equal(anchors[0].anchor, 'best plumber');
+  });
+
+  test('isDirectoryOrPlatformDomain blocks Facebook and Yelp', () => {
+    assert.equal(isDirectoryOrPlatformDomain('facebook.com'), true);
+    assert.equal(isDirectoryOrPlatformDomain('www.yelp.com'), true);
+    assert.equal(isDirectoryOrPlatformDomain('m.facebook.com'), true);
+    assert.equal(isDirectoryOrPlatformDomain('tprflooring.com'), false);
+    assert.equal(isDirectoryOrPlatformDomain('camasflooringpros.com'), false);
+  });
+});
+
+describe('backlinks local competitors wiring', () => {
+  const fs = require('fs');
+  const path = require('path');
+
+  test('routes expose local competitor search and save', () => {
+    const route = fs.readFileSync(path.join(__dirname, '../routes/backlinks.js'), 'utf8');
+    const sync = fs.readFileSync(path.join(__dirname, '../services/backlinksSync.js'), 'utf8');
+    const view = fs.readFileSync(path.join(__dirname, '../views/backlinks.ejs'), 'utf8');
+    assert.match(route, /local-competitors/);
+    assert.match(route, /autoDiscoverCompetitors:\s*false/);
+    assert.match(sync, /Never auto-pick Labs|Labs auto-discover is disabled/);
+    assert.match(view, /Search Google Maps/);
+    assert.match(view, /Local competitors/);
   });
 });

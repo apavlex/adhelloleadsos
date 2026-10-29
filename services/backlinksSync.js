@@ -6,6 +6,7 @@ const dataForSeo = require('./dataForSeoClient');
 const backlinksStore = require('./backlinksStore');
 const {
   hostKey,
+  isDirectoryOrPlatformDomain,
   parseSummaryResult,
   parseReferringDomainItems,
   parseAnchorItems,
@@ -98,33 +99,42 @@ async function syncBacklinksProject(project, { integrationEnv, persist = true } 
   const anchorLimit = Math.min(100, Math.max(10, Number(project.anchorLimit) || 40));
   const warnings = [];
 
+  // Competitors are user-selected (local Maps / manual). Never auto-pick Labs
+  // "competitors_domain" — that returns Facebook/Yelp-style giants, not local rivals.
   let competitors = Array.isArray(project.competitors)
     ? project.competitors
-        .map((c) => ({ domain: hostKey(c.domain || c), source: c.source || 'manual' }))
-        .filter((c) => c.domain && c.domain !== seedDomain)
+        .map((c) => ({
+          domain: hostKey(c.domain || c),
+          source: c.source || 'manual',
+          title: c.title || null,
+        }))
+        .filter(
+          (c) =>
+            c.domain &&
+            c.domain !== seedDomain &&
+            !isDirectoryOrPlatformDomain(c.domain)
+        )
     : [];
 
-  if ((!competitors.length || project.autoDiscoverCompetitors) && project.rediscoverCompetitors !== false) {
-    try {
-      const disc = await dataForSeo.competitorsDomainLive({
-        target: seedDomain,
-        limit: Math.min(5, Math.max(1, Number(project.maxCompetitors) || 3)),
-        locationCode: Number(project.locationCode) || 2840,
-        languageCode: String(project.languageCode || 'en').slice(0, 8),
-        integrationEnv,
-      });
-      const items = dataForSeo.extractLabsItems(disc);
-      const discovered = items
-        .map((it) => hostKey(it.domain || it.target || (it.competitor && it.competitor.domain)))
-        .filter((d) => d && d !== seedDomain)
-        .slice(0, Math.min(5, Math.max(1, Number(project.maxCompetitors) || 3)))
-        .map((domain) => ({ domain, source: 'dataforseo_labs' }));
-      const byDomain = new Map(competitors.map((c) => [c.domain, c]));
-      for (const d of discovered) if (!byDomain.has(d.domain)) byDomain.set(d.domain, d);
-      competitors = Array.from(byDomain.values()).slice(0, 5);
-    } catch (err) {
-      warnings.push(`competitors: ${err && err.message ? err.message : 'discover failed'}`);
-    }
+  if (project.autoDiscoverCompetitors === true && project.rediscoverCompetitors === true) {
+    warnings.push(
+      'competitors: Labs auto-discover is disabled — pick local Google Maps competitors instead.'
+    );
+  }
+
+  const droppedDirs = (Array.isArray(project.competitors) ? project.competitors : [])
+    .map((c) => hostKey(c.domain || c))
+    .filter((d) => d && isDirectoryOrPlatformDomain(d));
+  if (droppedDirs.length) {
+    warnings.push(
+      `competitors: skipped directories/platforms (${droppedDirs.slice(0, 5).join(', ')}) — pick local businesses.`
+    );
+  }
+
+  if (!competitors.length) {
+    warnings.push(
+      'competitors: none selected — syncing your domain only. Search local Google results and select rivals.'
+    );
   }
 
   const you = await fetchDomainProfile(seedDomain, { integrationEnv, referringLimit, anchorLimit });

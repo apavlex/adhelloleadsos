@@ -111,6 +111,50 @@
               </div>
             </div>
 
+            <% const _ls = typeof localSearchDefaults !== 'undefined' && localSearchDefaults ? localSearchDefaults : { keyword: '', city: '', state: '', businessName: '' }; %>
+            <% const _comps = Array.isArray(project.competitors) ? project.competitors : []; %>
+            <section class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 mb-6" aria-labelledby="blCompTitle">
+              <h3 id="blCompTitle" class="font-semibold text-sm mb-1">Local competitors</h3>
+              <p class="text-xs text-brand-muted mb-3">Search Google Maps locally and pick real rivals — not Facebook or Yelp. Selected domains are used for comparison and link gaps.</p>
+              <div class="flex flex-wrap gap-2 mb-3" id="blSelectedComps">
+                <% if (!_comps.length) { %>
+                <p class="text-xs text-amber-800 dark:text-amber-200" id="blSelectedEmpty">No competitors selected yet.</p>
+                <% } else { %>
+                <% _comps.forEach(function (c) { %>
+                <span class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-1 text-xs font-semibold" data-comp-chip="<%= c.domain %>">
+                  <%= c.title ? (c.title + ' · ') : '' %><%= c.domain %>
+                  <button type="button" class="text-brand-muted hover:text-rose-500" data-comp-remove="<%= c.domain %>" aria-label="Remove <%= c.domain %>">×</button>
+                </span>
+                <% }) %>
+                <% } %>
+              </div>
+              <div class="grid gap-2 sm:grid-cols-4 mb-3">
+                <label class="sm:col-span-2 block">
+                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Local search</span>
+                  <input id="blCompKeyword" type="text" value="<%= _ls.keyword %>" placeholder="flooring Camas WA" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+                </label>
+                <label class="block">
+                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">City</span>
+                  <input id="blCompCity" type="text" value="<%= _ls.city %>" placeholder="Camas" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+                </label>
+                <label class="block">
+                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">State</span>
+                  <input id="blCompState" type="text" value="<%= _ls.state %>" placeholder="WA" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+                </label>
+              </div>
+              <div class="flex flex-wrap gap-2 mb-3">
+                <button type="button" id="blCompSearchBtn" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest" <%= !dfsReady ? 'disabled' : '' %>>Search Google Maps</button>
+                <button type="button" id="blCompSaveBtn" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Save selection</button>
+                <label class="inline-flex items-center gap-2 text-xs text-brand-muted ml-auto">
+                  <span>Or add domain</span>
+                  <input id="blCompManual" type="text" placeholder="rivalflooring.com" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-2 py-1.5 text-xs w-40" />
+                  <button type="button" id="blCompAddManual" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Add</button>
+                </label>
+              </div>
+              <p id="blCompStatus" class="text-xs font-semibold text-brand-muted min-h-[1rem] mb-2" role="status" aria-live="polite"></p>
+              <div id="blCompResults" class="space-y-1.5 max-h-64 overflow-y-auto hidden"></div>
+            </section>
+
             <% if (project.comparison && project.comparison.length) { %>
             <h3 class="font-semibold text-sm mb-2">Competitor comparison</h3>
             <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 mb-6">
@@ -144,6 +188,8 @@
                 </tbody>
               </table>
             </div>
+            <% } else if (!_comps.length) { %>
+            <p class="text-sm text-brand-muted mb-6">Select local competitors above, save, then update from DataForSEO to compare backlinks and find link gaps.</p>
             <% } %>
 
             <% if (you.referringDomains && you.referringDomains.length) { %>
@@ -259,7 +305,7 @@
             var res = await fetch('/backlinks/projects', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ seedDomain: fd.get('seedDomain') }),
+              body: JSON.stringify({ seedDomain: fd.get('seedDomain'), autoDiscoverCompetitors: false }),
             });
             var data = await res.json();
             if (!res.ok || !data.success) throw new Error((data && data.error) || 'Create failed');
@@ -290,21 +336,174 @@
           syncErr.classList.add('hidden');
           syncBtn.disabled = true;
           syncBtn.textContent = 'Syncing…';
+          if (typeof window.showNavLoading === 'function') window.showNavLoading({ failSafeMs: 120000 });
           try {
             var res = await fetch('/backlinks/' + encodeURIComponent(projectEl.dataset.id) + '/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ rediscoverCompetitors: true }),
+              body: JSON.stringify({ rediscoverCompetitors: false }),
             });
             var data = await res.json();
             if (!res.ok || !data.success) throw new Error((data && data.error) || 'Sync failed');
             window.location.reload();
           } catch (err) {
+            if (typeof window.hideNavLoading === 'function') window.hideNavLoading();
             syncErr.textContent = err.message || 'Sync failed';
             syncErr.classList.remove('hidden');
             syncBtn.disabled = false;
             syncBtn.textContent = 'Update from DataForSEO';
           }
+        });
+      }
+
+      if (!projectEl) return;
+      var projectId = projectEl.dataset.id;
+      var selected = {};
+      <% (Array.isArray(project && project.competitors) ? project.competitors : []).forEach(function (c) { %>
+      selected[<%= JSON.stringify(c.domain) %>] = { domain: <%= JSON.stringify(c.domain) %>, title: <%= JSON.stringify(c.title || null) %>, source: <%= JSON.stringify(c.source || 'manual') %> };
+      <% }) %>
+
+      var statusEl = document.getElementById('blCompStatus');
+      var resultsEl = document.getElementById('blCompResults');
+      var chipsEl = document.getElementById('blSelectedComps');
+
+      function setStatus(msg, isErr) {
+        if (!statusEl) return;
+        statusEl.textContent = msg || '';
+        statusEl.classList.toggle('text-rose-600', !!isErr);
+        statusEl.classList.toggle('dark:text-rose-300', !!isErr);
+      }
+
+      function renderChips() {
+        if (!chipsEl) return;
+        var keys = Object.keys(selected);
+        if (!keys.length) {
+          chipsEl.innerHTML = '<p class="text-xs text-amber-800 dark:text-amber-200" id="blSelectedEmpty">No competitors selected yet.</p>';
+          return;
+        }
+        chipsEl.innerHTML = keys.map(function (d) {
+          var c = selected[d];
+          var label = (c.title ? c.title + ' · ' : '') + c.domain;
+          return '<span class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-1 text-xs font-semibold" data-comp-chip="' +
+            c.domain.replace(/"/g, '&quot;') + '">' + label.replace(/</g, '&lt;') +
+            '<button type="button" class="text-brand-muted hover:text-rose-500" data-comp-remove="' +
+            c.domain.replace(/"/g, '&quot;') + '" aria-label="Remove">×</button></span>';
+        }).join('');
+      }
+
+      function toggleSelect(row, on) {
+        if (!row || !row.domain) return;
+        if (on) {
+          if (Object.keys(selected).length >= 5 && !selected[row.domain]) {
+            setStatus('Pick up to 5 competitors.', true);
+            return false;
+          }
+          selected[row.domain] = { domain: row.domain, title: row.title || null, source: row.source || 'google_maps' };
+        } else {
+          delete selected[row.domain];
+        }
+        renderChips();
+        return true;
+      }
+
+      chipsEl && chipsEl.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-comp-remove]');
+        if (!btn) return;
+        delete selected[btn.getAttribute('data-comp-remove')];
+        renderChips();
+        var cb = resultsEl && resultsEl.querySelector('input[data-domain="' + btn.getAttribute('data-comp-remove') + '"]');
+        if (cb) cb.checked = false;
+      });
+
+      var searchBtn = document.getElementById('blCompSearchBtn');
+      if (searchBtn) {
+        searchBtn.addEventListener('click', async function () {
+          setStatus('Searching Google Maps…');
+          searchBtn.disabled = true;
+          if (typeof window.showNavLoading === 'function') window.showNavLoading({ failSafeMs: 90000 });
+          try {
+            var res = await fetch('/backlinks/' + encodeURIComponent(projectId) + '/local-competitors', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({
+                keyword: (document.getElementById('blCompKeyword') || {}).value || '',
+                city: (document.getElementById('blCompCity') || {}).value || '',
+                state: (document.getElementById('blCompState') || {}).value || '',
+              }),
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) throw new Error((data && data.error) || 'Search failed');
+            var rows = Array.isArray(data.results) ? data.results : [];
+            if (!resultsEl) return;
+            if (!rows.length) {
+              resultsEl.classList.remove('hidden');
+              resultsEl.innerHTML = '<p class="text-xs text-brand-muted">No local businesses with websites found. Try a more specific search (trade + city).</p>';
+              setStatus('No results — try another local search.');
+              return;
+            }
+            resultsEl.classList.remove('hidden');
+            resultsEl.innerHTML = rows.map(function (r) {
+              var checked = selected[r.domain] ? ' checked' : '';
+              var meta = [r.rating != null ? (r.rating + '★') : '', r.category || ''].filter(Boolean).join(' · ');
+              return '<label class="flex items-start gap-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 cursor-pointer hover:border-brand-yellow/40">' +
+                '<input type="checkbox" class="mt-1" data-domain="' + r.domain.replace(/"/g, '&quot;') + '"' + checked + ' />' +
+                '<span class="min-w-0"><span class="block text-sm font-semibold text-brand-dark dark:text-white">' +
+                String(r.title || r.domain).replace(/</g, '&lt;') + '</span>' +
+                '<span class="block text-xs text-brand-muted">' + r.domain.replace(/</g, '&lt;') +
+                (meta ? ' · ' + meta.replace(/</g, '&lt;') : '') + '</span></span></label>';
+            }).join('');
+            resultsEl.querySelectorAll('input[data-domain]').forEach(function (input) {
+              input.addEventListener('change', function () {
+                var domain = input.getAttribute('data-domain');
+                var row = rows.find(function (x) { return x.domain === domain; }) || { domain: domain };
+                if (!toggleSelect(row, input.checked)) input.checked = false;
+              });
+            });
+            setStatus(rows.length + ' local businesses — check the ones to compare (max 5).');
+          } catch (err) {
+            setStatus(err.message || 'Search failed', true);
+          } finally {
+            if (typeof window.hideNavLoading === 'function') window.hideNavLoading();
+            searchBtn.disabled = false;
+          }
+        });
+      }
+
+      var saveBtn = document.getElementById('blCompSaveBtn');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async function () {
+          setStatus('Saving competitors…');
+          saveBtn.disabled = true;
+          try {
+            var res = await fetch('/backlinks/' + encodeURIComponent(projectId) + '/competitors', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ competitors: Object.keys(selected).map(function (k) { return selected[k]; }) }),
+            });
+            var data = await res.json().catch(function () { return {}; });
+            if (!res.ok || !data.success) throw new Error((data && data.error) || 'Save failed');
+            setStatus('Saved. Click Update from DataForSEO to refresh comparison.');
+          } catch (err) {
+            setStatus(err.message || 'Save failed', true);
+          } finally {
+            saveBtn.disabled = false;
+          }
+        });
+      }
+
+      var addManual = document.getElementById('blCompAddManual');
+      var manualInput = document.getElementById('blCompManual');
+      if (addManual && manualInput) {
+        addManual.addEventListener('click', function () {
+          var raw = String(manualInput.value || '').trim().toLowerCase()
+            .replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+          if (!raw || raw.indexOf('.') < 0) {
+            setStatus('Enter a domain like rivalflooring.com', true);
+            return;
+          }
+          if (!toggleSelect({ domain: raw, title: null, source: 'manual' }, true)) return;
+          manualInput.value = '';
+          setStatus('Added ' + raw + ' — Save selection, then update.');
         });
       }
     })();

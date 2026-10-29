@@ -18,6 +18,68 @@ function hostKey(raw) {
   return s || '';
 }
 
+/** Directories / social / aggregators — never treat as local business competitors. */
+const DIRECTORY_OR_PLATFORM_HOSTS = new Set([
+  'facebook.com',
+  'fb.com',
+  'instagram.com',
+  'yelp.com',
+  'google.com',
+  'maps.google.com',
+  'goo.gl',
+  'bbb.org',
+  'angi.com',
+  'angieslist.com',
+  'thumbtack.com',
+  'nextdoor.com',
+  'yellowpages.com',
+  'yp.com',
+  'tripadvisor.com',
+  'houzz.com',
+  'homeadvisor.com',
+  'bark.com',
+  'mapquest.com',
+  'apple.com',
+  'bing.com',
+  'wikipedia.org',
+  'linkedin.com',
+  'twitter.com',
+  'x.com',
+  'youtube.com',
+  'tiktok.com',
+  'pinterest.com',
+  'craigslist.org',
+  'foursquare.com',
+  'waze.com',
+  'yahoo.com',
+  'msn.com',
+  'amazon.com',
+  'ebay.com',
+  'etsy.com',
+  'reddit.com',
+]);
+
+function registrableHost(domain) {
+  const parts = String(domain || '')
+    .toLowerCase()
+    .split('.')
+    .filter(Boolean);
+  if (parts.length <= 2) return parts.join('.');
+  return parts.slice(-2).join('.');
+}
+
+function isDirectoryOrPlatformDomain(raw) {
+  const d = hostKey(raw);
+  if (!d) return false;
+  if (DIRECTORY_OR_PLATFORM_HOSTS.has(d)) return true;
+  const reg = registrableHost(d);
+  if (DIRECTORY_OR_PLATFORM_HOSTS.has(reg)) return true;
+  for (const blocked of DIRECTORY_OR_PLATFORM_HOSTS) {
+    if (d === blocked || d.endsWith('.' + blocked)) return true;
+  }
+  return false;
+}
+
 function parseSummaryResult(result) {
   if (!result || typeof result !== 'object') {
     return {
@@ -134,6 +196,8 @@ function computeCompetitorLinkGaps({ yourReferring = [], competitorProfiles = []
 
 module.exports = {
   hostKey,
+  isDirectoryOrPlatformDomain,
+  DIRECTORY_OR_PLATFORM_HOSTS,
   parseSummaryResult,
   parseReferringDomainItems,
   parseAnchorItems,
