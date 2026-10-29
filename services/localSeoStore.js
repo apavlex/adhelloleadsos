@@ -4,6 +4,7 @@
  */
 
 const dbService = require('./database');
+const { buildLocationName } = require('./localSeoParse');
 
 function emptyLocalSeo(workspaceId) {
   return {
@@ -11,6 +12,7 @@ function emptyLocalSeo(workspaceId) {
     profile: {},
     research: null,
     actionPlan: null,
+    chat: [],
     lastSyncedAt: null,
     syncStatus: 'new',
     updatedAt: new Date().toISOString(),
@@ -29,6 +31,7 @@ async function load(workspaceId) {
     ...raw,
     workspaceId: wid,
     profile: raw.profile && typeof raw.profile === 'object' ? raw.profile : {},
+    chat: Array.isArray(raw.chat) ? raw.chat : [],
     workspace: ws,
   };
 }
@@ -45,6 +48,7 @@ async function save(workspaceId, patch) {
       ...(prev.profile && typeof prev.profile === 'object' ? prev.profile : {}),
       ...((patch && patch.profile) || {}),
     },
+    chat: Array.isArray(patch && patch.chat) ? patch.chat : prev.chat || [],
     updatedAt: new Date().toISOString(),
   };
   await dbService.saveWorkspace(wid, { ...ws, id: wid, localSeo: next });
@@ -61,9 +65,15 @@ function resolveBusinessProfile(workspace, profileOverrides) {
   const o = profileOverrides && typeof profileOverrides === 'object' ? profileOverrides : {};
   const businessName = String(o.businessName || intake.businessName || ws.name || '').trim();
   const city = String(o.city || ws.icpCity || '').trim();
+  const state = String(o.state || ws.icpState || intake.state || '').trim();
   const vertical = String(o.vertical || intake.vertical || '').trim();
   const website = String(o.website || intake.website || intake.auditLink || '').trim();
-  const locationName = String(o.locationName || (city ? `${city}, United States` : '')).trim();
+  const locationName = buildLocationName({
+    city,
+    state,
+    locationName: o.locationName,
+    country: 'United States',
+  });
   const placeId = String(o.placeId || '').trim();
   const cid = String(o.cid || '').trim();
   const keywords = Array.isArray(o.keywords)
@@ -77,9 +87,10 @@ function resolveBusinessProfile(workspace, profileOverrides) {
   return {
     businessName,
     city,
+    state,
     vertical,
     website,
-    locationName: locationName || 'United States',
+    locationName,
     locationCode: Number(o.locationCode) || 2840,
     languageCode: String(o.languageCode || 'en').slice(0, 8),
     placeId,

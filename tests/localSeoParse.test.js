@@ -7,6 +7,10 @@ const {
   scoreLocalResearch,
   defaultKeywords,
   extractLocalPackFromOrganic,
+  buildLocationName,
+  enrichKeywords,
+  extractMapsCompetitors,
+  summarizeCompetitors,
 } = require('../services/localSeoParse');
 const { fallbackPlan } = require('../services/localSeoPlanner');
 
@@ -103,5 +107,41 @@ describe('localSeoParse', () => {
       reviews: { unanswered: 4, votes: 10 },
     });
     assert.ok(plan.steps.length >= 3);
+  });
+
+  test('buildLocationName avoids bare country when city set', () => {
+    assert.equal(
+      buildLocationName({ city: 'Camas', state: 'Washington', locationName: 'United States' }),
+      'Camas,Washington,United States'
+    );
+    assert.equal(
+      buildLocationName({ city: 'Camas', locationName: 'United States' }),
+      'Camas,United States'
+    );
+  });
+
+  test('enrichKeywords expands thin flooring list', () => {
+    const kws = enrichKeywords({
+      businessName: 'TPR Flooring',
+      vertical: 'Flooring',
+      city: 'Camas',
+      keywords: ['Flooring'],
+    });
+    assert.ok(kws.length >= 3);
+    assert.ok(kws.some((k) => /Camas/i.test(k)));
+  });
+
+  test('extractMapsCompetitors and summarize', () => {
+    const comps = extractMapsCompetitors(
+      [
+        { title: 'TPR Flooring', rank_group: 2, domain: 'tprflooring.com' },
+        { title: 'Rival Floors', rank_group: 1, domain: 'rival.com', rating: { value: 4.9, votes_count: 40 } },
+      ],
+      { businessName: 'TPR Flooring', website: 'tprflooring.com' }
+    );
+    assert.equal(comps.length, 1);
+    assert.equal(comps[0].title, 'Rival Floors');
+    const summary = summarizeCompetitors([{ keyword: 'flooring Camas', competitors: comps }]);
+    assert.equal(summary[0].appearances, 1);
   });
 });
