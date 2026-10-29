@@ -25,6 +25,7 @@ const fieldWorkTools = require('./mcpFieldWork');
 const marketingTools = require('./mcpMarketing');
 const socialTools = require('./mcpSocial');
 const sopTools = require('./mcpSops');
+const seoTools = require('./mcpSeo');
 const mcpOAuth = require('./mcpOAuth');
 const mcpLogger = require('./mcpLogger');
 
@@ -182,6 +183,7 @@ const READ_ONLY_TOOLS = new Set([
   ...marketingTools.READ_ONLY_MARKETING_TOOLS,
   ...socialTools.READ_ONLY_SOCIAL_TOOLS,
   ...sopTools.READ_ONLY_SOP_TOOLS,
+  ...seoTools.READ_ONLY_SEO_TOOLS,
 ]);
 
 // Overwrites or removes data, or pushes it somewhere it can't be pulled back from.
@@ -199,6 +201,7 @@ const DESTRUCTIVE_TOOLS = new Set([
   ...marketingTools.DESTRUCTIVE_MARKETING_TOOLS,
   ...socialTools.DESTRUCTIVE_SOCIAL_TOOLS,
   ...sopTools.DESTRUCTIVE_SOP_TOOLS,
+  ...seoTools.DESTRUCTIVE_SEO_TOOLS,
 ]);
 
 // Reaches outside this app: paid lead searches, enrichment, GHL, texting businesses.
@@ -240,7 +243,7 @@ function createCrmMcpServer(ctx) {
   const server = new McpServer(
     {
       name: 'adhello-ceo-crm',
-      version: '1.9.0',
+      version: '1.10.0',
     },
     multi
       ? {
@@ -689,6 +692,7 @@ function createCrmMcpServer(ctx) {
     ...marketingTools.MARKETING_TOOLS,
     ...socialTools.SOCIAL_TOOLS,
     ...sopTools.SOP_TOOLS,
+    ...seoTools.SEO_TOOLS,
   ]) {
     register(tool.name, { description: tool.description, inputSchema: tool.schema }, async (args) => runTool(ctx, tool.name, args));
   }
@@ -705,7 +709,7 @@ function getOpenAiToolManifest() {
 
   return {
     name: 'adhello-ceo-crm',
-    version: '1.9.0',
+    version: '1.10.0',
     description:
       'AdHello CEO Command Center — full workspace platform for AI managers: CRM and prospecting, referral network and trades pool, team field work, appointment packages, Marketing Studio (direct-mail queue, playbooks, brand kit), Social Posts and Facebook Groups, SOPs, messaging, and Ops agents.',
     authentication: {
@@ -971,6 +975,7 @@ function getOpenAiToolManifest() {
         ...marketingTools.openAiFunctionTools(),
         ...socialTools.openAiFunctionTools(),
         ...sopTools.openAiFunctionTools(),
+        ...seoTools.openAiFunctionTools(),
       ].map(({ function: fn }) => ({
         name: fn.name,
         description: fn.description,

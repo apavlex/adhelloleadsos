@@ -27,6 +27,7 @@ const { triggerGhlProspectSync } = require('../ghlProspectSync');
 const { resolveLeadKey, resolveFolderRef, buildReqLike } = require('./mcpCrmService');
 const { listTeamMembers, matchMember } = require('./mcpPavlexOps');
 const { resolvePerson } = require('./mcpLeadPeople');
+const { buildSeoFocusSnapshot } = require('./mcpSeo');
 
 const MAX_BULK = 100;
 const MAX_DELETE = 50;
@@ -810,6 +811,12 @@ async function getWorkspaceOverview(ctx) {
   const tags = (await dbService.listTags(ctx.workspaceId)).filter((t) => t.isActive !== false);
   const tagCounts = {};
   for (const lead of leads) for (const k of Array.isArray(lead.tags) ? lead.tags : []) tagCounts[k] = (tagCounts[k] || 0) + 1;
+  let seo = null;
+  try {
+    seo = await buildSeoFocusSnapshot(ctx.workspaceId);
+  } catch (_) {
+    seo = null;
+  }
   return {
     workspace: { id: ctx.workspaceId, name: ws.name || '' },
     leads: {
@@ -830,6 +837,33 @@ async function getWorkspaceOverview(ctx) {
     tags: tags.map((t) => ({ name: t.name, lead_count: tagCounts[t.key] || 0 })).sort((a, b) => b.lead_count - a.lead_count),
     folders: (await dbService.listFolders(ctx.workspaceId)).length,
     members: Object.keys(ws.members || {}).length,
+    seo: seo
+      ? {
+          focus_suggestions: seo.focus_suggestions || [],
+          local_seo: {
+            sync_status: seo.local_seo && seo.local_seo.sync_status,
+            last_synced_at: seo.local_seo && seo.local_seo.last_synced_at,
+            scores: seo.local_seo && seo.local_seo.scores,
+            top_actions: (seo.local_seo && seo.local_seo.focus && seo.local_seo.focus.top_actions) || [],
+          },
+          seo_gap: {
+            project_count: seo.seo_gap && seo.seo_gap.project_count,
+            projects: (seo.seo_gap && seo.seo_gap.projects) || [],
+          },
+          backlinks: {
+            project_count: seo.backlinks && seo.backlinks.project_count,
+            projects: (seo.backlinks && seo.backlinks.projects) || [],
+          },
+          business_reviews: seo.business_reviews || null,
+          pages: {
+            local_seo: '/local-seo',
+            seo_gap: '/seo-gap',
+            backlinks: '/backlinks',
+            business_reviews: '/business-reviews',
+          },
+          note: 'For deeper SEO advice use get_seo_overview, get_local_seo, get_seo_gap, get_backlinks, or get_business_reviews_inbox.',
+        }
+      : undefined,
     ...trialSummary(ws),
   };
 }
@@ -860,7 +894,7 @@ const WORKSPACE_TOOLS = [
   {
     name: 'get_workspace_overview',
     description:
-      'One-call snapshot of the whole workspace to plan work: lead totals by status, new this week, assigned to you, replies (last 24h, awaiting our reply), prospecting stage counts, every opportunity pipeline with per-stage card counts and deal value, your open/overdue/due-today tasks, tags with lead counts, folders and members.',
+      'One-call snapshot of the whole workspace to plan work: lead totals by status, new this week, assigned to you, replies (last 24h, awaiting our reply), prospecting stage counts, every opportunity pipeline with per-stage card counts and deal value, your open/overdue/due-today tasks, tags with lead counts, folders and members, plus a compact SEO block (Local SEO scores/actions, SEO Gap, Backlinks, Business Reviews unreplied, and focus_suggestions). For deeper SEO use get_seo_overview.',
     schema: z.object({}),
     run: getWorkspaceOverview,
   },

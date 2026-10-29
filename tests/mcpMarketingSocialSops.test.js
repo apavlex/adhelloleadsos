@@ -59,7 +59,7 @@ describe('Marketing Studio + Social/FB + SOP MCP tools', () => {
       assert.ok(fnNames.includes(name), `inline missing ${name}`);
       assert.ok(manifestNames.includes(name), `manifest missing ${name}`);
     }
-    assert.equal(getOpenAiToolManifest().version, '1.9.0');
+    assert.equal(getOpenAiToolManifest().version, '1.10.0');
     assert.equal(new Set(TOOL_NAMES).size, TOOL_NAMES.length);
   });
 
