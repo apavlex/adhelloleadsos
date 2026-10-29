@@ -5,13 +5,21 @@
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
   <%- include('partials/navbar') %>
+  <%
+    const scores = (research && research.scores) || {};
+    const keywordRanks = (research && research.keywordRanks) || [];
+    const competitors = (research && research.competitors) || [];
+    const gbp = research && research.gbp;
+    const reviews = research && research.reviews;
+    const chatMsgs = Array.isArray(chat) ? chat : [];
+  %>
   <main class="max-wide px-6 py-8 md:py-12">
     <header class="mb-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">SEO / Local Rank · DataForSEO</p>
-        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Maps, GBP &amp; reviews</h1>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Local rank dashboard</h1>
         <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">
-          Research is scoped to this workspace’s business profile. Update pulls Maps rankings, Google Business Profile completeness, and reviews — then saves the snapshot so you can revisit anytime.
+          See where you rank in Maps &amp; local pack, who beats you, and what to do next — plus AI chat grounded in this research.
         </p>
       </div>
     </header>
@@ -24,10 +32,12 @@
     </div>
     <% } %>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-      <section class="xl:col-span-1 space-y-4">
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      <!-- Profile -->
+      <aside class="xl:col-span-3 space-y-4">
         <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
-          <h2 class="font-display font-bold text-lg mb-3">Business profile</h2>
+          <h2 class="font-display font-bold text-lg mb-1">Business profile</h2>
+          <p class="text-[11px] text-brand-muted mb-3">City + state required for real local ranks. Country-only locations return empty Maps data.</p>
           <form id="localSeoProfileForm" class="space-y-3">
             <div>
               <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business name</label>
@@ -36,24 +46,25 @@
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
-                <input name="city" value="<%= profile.city || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+                <input name="city" required value="<%= profile.city || '' %>" placeholder="Camas" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
               </div>
               <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Vertical</label>
-                <input name="vertical" value="<%= profile.vertical || '' %>" placeholder="Flooring" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
+                <input name="state" value="<%= profile.state || '' %>" placeholder="Washington" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
               </div>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Vertical</label>
+              <input name="vertical" value="<%= profile.vertical || '' %>" placeholder="Flooring" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
             </div>
             <div>
               <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Website</label>
-              <input name="website" value="<%= profile.website || '' %>" placeholder="acmeflooring.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Location name</label>
-              <input name="locationName" value="<%= profile.locationName || '' %>" placeholder="Portland,Oregon,United States" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+              <input name="website" value="<%= profile.website || '' %>" placeholder="tprflooring.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
             </div>
             <div>
               <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Keywords (one per line)</label>
-              <textarea name="keywordsText" rows="4" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm"><%= (profile.keywords || []).join('\n') %></textarea>
+              <textarea name="keywordsText" rows="5" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" placeholder="flooring Camas&#10;best flooring Camas&#10;hardwood floors near me"><%= (profile.keywords || []).join('\n') %></textarea>
+              <p class="text-[10px] text-brand-muted mt-1">Include the city in keywords. Thin lists auto-expand on Update.</p>
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
@@ -65,30 +76,35 @@
                 <input name="cid" value="<%= profile.cid || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
               </div>
             </div>
+            <input type="hidden" name="locationName" value="<%= profile.locationName || '' %>" />
             <button type="button" id="localSeoSaveProfile" class="btn-pill border border-brand-border dark:border-white/20 w-full py-2.5 text-[10px] font-black uppercase tracking-widest">Save profile</button>
-            <button type="button" id="localSeoSyncBtn" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest" <%= !dfsReady ? 'disabled' : '' %>>Update research</button>
+            <button type="button" id="localSeoSyncBtn" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest" <%= !dfsReady ? 'disabled' : '' %>>Update ranks</button>
           </form>
           <p id="localSeoFormMsg" class="text-xs text-brand-muted mt-3 hidden"></p>
         </div>
-      </section>
+      </aside>
 
-      <section class="xl:col-span-2 space-y-4">
+      <!-- Main dashboard -->
+      <section class="xl:col-span-6 space-y-4">
         <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
           <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
-              <h2 class="font-display font-bold text-xl"><%= profile.businessName || 'Business profile' %></h2>
+              <h2 class="font-display font-bold text-xl"><%= profile.businessName || 'Your business' %></h2>
               <p class="text-xs text-brand-muted mt-1">
-                <%= syncStatus || 'new' %>
+                Market: <%= profile.locationName || '—' %>
+                · <%= syncStatus || 'new' %>
                 <% if (lastSyncedAt) { %> · Synced <%= new Date(lastSyncedAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }) %> PT<% } %>
               </p>
             </div>
-            <button type="button" id="localSeoAnalyzeBtn" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" <%= !research ? 'disabled' : '' %>>AI action plan</button>
+            <button type="button" id="localSeoAnalyzeBtn" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" <%= !research ? 'disabled' : '' %>>Refresh action plan</button>
           </div>
 
           <% if (!research) { %>
-          <p class="text-sm text-brand-muted">No research saved yet. Confirm the business profile and click <strong>Update research</strong>.</p>
+          <div class="rounded-xl border border-dashed border-brand-border/70 dark:border-white/15 p-8 text-center">
+            <p class="font-semibold mb-2">No ranks yet</p>
+            <p class="text-sm text-brand-muted max-w-md mx-auto">Set <strong>City</strong> + <strong>State</strong>, keep city in your keywords (e.g. “flooring Camas”), then click <strong>Update ranks</strong>.</p>
+          </div>
           <% } else { %>
-            <% const scores = research.scores || {}; const gbp = research.gbp || null; const reviews = research.reviews || null; %>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
               <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
                 <p class="text-[10px] uppercase tracking-widest text-brand-muted">Local score</p>
@@ -97,7 +113,7 @@
               <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
                 <p class="text-[10px] uppercase tracking-widest text-brand-muted">Maps</p>
                 <p class="text-2xl font-display font-bold mt-1"><%= scores.mapsScore != null ? scores.mapsScore : '—' %></p>
-                <p class="text-[11px] text-brand-muted">avg #<%= scores.avgMapsRank != null ? scores.avgMapsRank : '—' %></p>
+                <p class="text-[11px] text-brand-muted">avg #<%= scores.avgMapsRank != null ? scores.avgMapsRank : '—' %> · <%= scores.rankedKeywords || 0 %> ranked</p>
               </div>
               <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
                 <p class="text-[10px] uppercase tracking-widest text-brand-muted">GBP</p>
@@ -110,40 +126,87 @@
             </div>
 
             <% if ((research.warnings || []).length) { %>
-            <details class="mb-4 text-xs text-amber-700 dark:text-amber-200">
-              <summary><%= research.warnings.length %> warning(s)</summary>
+            <details class="mb-4 text-xs text-amber-800 dark:text-amber-200 open:mb-4">
+              <summary class="cursor-pointer font-semibold"><%= research.warnings.length %> note(s) / warning(s)</summary>
               <ul class="mt-2 list-disc pl-5 space-y-1"><% research.warnings.forEach(function (w) { %><li><%= w %></li><% }) %></ul>
             </details>
             <% } %>
 
-            <h3 class="font-semibold text-sm mb-2">Keyword Maps ranks</h3>
+            <h3 class="font-semibold text-sm mb-2">Keyword ranks</h3>
             <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 mb-6">
               <table class="min-w-full text-sm">
                 <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
-                  <tr><th class="px-3 py-2">Keyword</th><th class="px-3 py-2">Maps</th><th class="px-3 py-2">Local pack</th><th class="px-3 py-2">Match</th></tr>
+                  <tr>
+                    <th class="px-3 py-2">Keyword</th>
+                    <th class="px-3 py-2">Maps</th>
+                    <th class="px-3 py-2">Local pack</th>
+                    <th class="px-3 py-2">#1 competitor</th>
+                    <th class="px-3 py-2">Status</th>
+                  </tr>
                 </thead>
                 <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
-                  <% (research.keywordRanks || []).forEach(function (k) { %>
+                  <% if (!keywordRanks.length) { %>
+                  <tr><td colspan="5" class="px-3 py-4 text-brand-muted">No keywords synced yet.</td></tr>
+                  <% } %>
+                  <% keywordRanks.forEach(function (k) { %>
                   <tr>
-                    <td class="px-3 py-2"><%= k.keyword %></td>
+                    <td class="px-3 py-2 font-medium"><%= k.keyword %></td>
                     <td class="px-3 py-2"><%= k.mapsRank != null ? '#' + k.mapsRank : '—' %></td>
                     <td class="px-3 py-2"><%= k.localPackRank != null ? '#' + k.localPackRank : '—' %></td>
-                    <td class="px-3 py-2 text-brand-muted"><%= k.mapsMatch && k.mapsMatch.title ? k.mapsMatch.title : (k.error || '—') %></td>
+                    <td class="px-3 py-2 text-brand-muted">
+                      <% const top = (k.competitors && k.competitors[0]) || null; %>
+                      <%= top ? (top.title + (top.rank != null ? ' (#' + top.rank + ')' : '')) : '—' %>
+                    </td>
+                    <td class="px-3 py-2 text-xs <%= k.mapsRank != null ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300' %>">
+                      <%= k.mapsRank != null ? 'Ranked' : (k.error || 'Not found') %>
+                    </td>
                   </tr>
                   <% }) %>
                 </tbody>
               </table>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <h3 class="font-semibold text-sm mb-2">Competition (Maps)</h3>
+            <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 mb-6">
+              <table class="min-w-full text-sm">
+                <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
+                  <tr>
+                    <th class="px-3 py-2">Competitor</th>
+                    <th class="px-3 py-2">Best rank</th>
+                    <th class="px-3 py-2">Appearances</th>
+                    <th class="px-3 py-2">Rating</th>
+                    <th class="px-3 py-2">Keywords</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
+                  <% if (!competitors.length) { %>
+                  <tr><td colspan="5" class="px-3 py-4 text-brand-muted">No competitor listings yet — update ranks with city-qualified keywords.</td></tr>
+                  <% } %>
+                  <% competitors.forEach(function (c) { %>
+                  <tr>
+                    <td class="px-3 py-2">
+                      <div class="font-medium"><%= c.title %></div>
+                      <% if (c.domain) { %><div class="text-[11px] text-brand-muted"><%= c.domain %></div><% } %>
+                    </td>
+                    <td class="px-3 py-2"><%= c.bestRank != null ? '#' + c.bestRank : '—' %></td>
+                    <td class="px-3 py-2"><%= c.appearances %></td>
+                    <td class="px-3 py-2"><%= c.avgRating != null ? c.avgRating : '—' %></td>
+                    <td class="px-3 py-2 text-brand-muted text-xs"><%= (c.keywords || []).slice(0, 3).join(', ') %></td>
+                  </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-4">
                 <h3 class="font-semibold text-sm mb-2">Google Business Profile</h3>
                 <% if (!gbp) { %>
-                <p class="text-sm text-brand-muted">No GBP data yet. Add Place ID/CID or re-run Update.</p>
+                <p class="text-sm text-brand-muted">No GBP snapshot. Add Place ID/CID or re-run Update after Maps finds your listing.</p>
                 <% } else { %>
                 <p class="text-sm"><%= gbp.title || '—' %> · <%= gbp.category || 'no category' %></p>
                 <p class="text-xs text-brand-muted mt-1"><%= gbp.address || '—' %></p>
-                <p class="text-sm mt-2">Completeness <strong><%= gbp.completeness %>%</strong> · <%= gbp.photos || 0 %> photos · rating <%= gbp.rating != null ? gbp.rating : '—' %> (<%= gbp.votes != null ? gbp.votes : '—' %>)</p>
+                <p class="text-sm mt-2">Completeness <strong><%= gbp.completeness %>%</strong> · <%= gbp.photos || 0 %> photos · <%= gbp.rating != null ? gbp.rating : '—' %> (<%= gbp.votes != null ? gbp.votes : '—' %>)</p>
                 <% } %>
               </div>
               <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-4">
@@ -161,7 +224,7 @@
 
         <% if (actionPlan && actionPlan.steps && actionPlan.steps.length) { %>
         <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
-          <h2 class="font-display font-bold text-lg mb-2">Action plan <span class="text-xs font-normal text-brand-muted">(<%= actionPlan.source %>)</span></h2>
+          <h2 class="font-display font-bold text-lg mb-2">Ways to improve <span class="text-xs font-normal text-brand-muted">(<%= actionPlan.source %>)</span></h2>
           <p class="text-sm text-brand-muted mb-4"><%= actionPlan.summary %></p>
           <ol class="space-y-3">
             <% actionPlan.steps.forEach(function (s) { %>
@@ -179,6 +242,32 @@
         </div>
         <% } %>
       </section>
+
+      <!-- AI chat -->
+      <aside class="xl:col-span-3">
+        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5 flex flex-col min-h-[28rem]">
+          <h2 class="font-display font-bold text-lg mb-1">AI chat · how to rank</h2>
+          <p class="text-[11px] text-brand-muted mb-3">Ask what to do next. Answers use your saved Local SEO research only.</p>
+          <div id="localSeoChatLog" class="flex-1 overflow-y-auto space-y-3 mb-3 max-h-[22rem] pr-1">
+            <% if (!chatMsgs.length) { %>
+            <div class="rounded-xl bg-brand-cream/40 dark:bg-slate-950/60 px-3 py-2 text-sm text-brand-muted">
+              Try: “How do I get into the Map Pack for flooring in Camas?” or “What should I fix this week to beat competitors?”
+            </div>
+            <% } %>
+            <% chatMsgs.forEach(function (m) { %>
+            <div class="rounded-xl px-3 py-2 text-sm <%= m.role === 'user' ? 'bg-brand-yellow/15 ml-4' : 'bg-brand-cream/50 dark:bg-slate-950/70 mr-2' %>">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= m.role === 'user' ? 'You' : 'Coach' %></p>
+              <div class="whitespace-pre-wrap"><%= m.content %></div>
+            </div>
+            <% }) %>
+          </div>
+          <form id="localSeoChatForm" class="space-y-2">
+            <textarea id="localSeoChatInput" rows="3" maxlength="1200" placeholder="Ask how to rank higher…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm"></textarea>
+            <button type="submit" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest">Ask</button>
+          </form>
+          <p id="localSeoChatErr" class="text-xs text-rose-600 dark:text-rose-400 mt-2 hidden"></p>
+        </div>
+      </aside>
     </div>
   </main>
   <script>
@@ -189,6 +278,7 @@
         return {
           businessName: fd.get('businessName'),
           city: fd.get('city'),
+          state: fd.get('state'),
           vertical: fd.get('vertical'),
           website: fd.get('website'),
           locationName: fd.get('locationName'),
@@ -228,7 +318,7 @@
         syncBtn.addEventListener('click', async function () {
           msg('');
           syncBtn.disabled = true;
-          syncBtn.textContent = 'Updating…';
+          syncBtn.textContent = 'Updating ranks…';
           try {
             var res = await fetch('/local-seo/sync', {
               method: 'POST',
@@ -241,7 +331,7 @@
           } catch (err) {
             msg(err.message || 'Update failed', true);
             syncBtn.disabled = false;
-            syncBtn.textContent = 'Update research';
+            syncBtn.textContent = 'Update ranks';
           }
         });
       }
@@ -258,6 +348,42 @@
           } catch (err) {
             msg(err.message || 'Analyze failed', true);
             analyzeBtn.disabled = false;
+          }
+        });
+      }
+
+      var chatForm = document.getElementById('localSeoChatForm');
+      var chatInput = document.getElementById('localSeoChatInput');
+      var chatLog = document.getElementById('localSeoChatLog');
+      var chatErr = document.getElementById('localSeoChatErr');
+      function appendChat(role, content) {
+        var div = document.createElement('div');
+        div.className = 'rounded-xl px-3 py-2 text-sm ' + (role === 'user' ? 'bg-brand-yellow/15 ml-4' : 'bg-brand-cream/50 dark:bg-slate-950/70 mr-2');
+        div.innerHTML = '<p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">' + (role === 'user' ? 'You' : 'Coach') + '</p><div class="whitespace-pre-wrap"></div>';
+        div.querySelector('div').textContent = content;
+        chatLog.appendChild(div);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+      if (chatForm) {
+        chatForm.addEventListener('submit', async function (e) {
+          e.preventDefault();
+          chatErr.classList.add('hidden');
+          var q = (chatInput.value || '').trim();
+          if (!q) return;
+          appendChat('user', q);
+          chatInput.value = '';
+          try {
+            var res = await fetch('/local-seo/chat', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ question: q }),
+            });
+            var data = await res.json();
+            if (!res.ok || !data.success) throw new Error((data && data.error) || 'Chat failed');
+            appendChat('assistant', data.answer || '');
+          } catch (err) {
+            chatErr.textContent = err.message || 'Chat failed';
+            chatErr.classList.remove('hidden');
           }
         });
       }

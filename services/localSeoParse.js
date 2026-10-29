@@ -240,10 +240,119 @@ function defaultKeywords({ businessName, vertical, city }) {
   const name = String(businessName || '').trim();
   const out = [];
   if (vert && cityPart) out.push(`${vert} ${cityPart}`);
+  if (vert && cityPart) out.push(`best ${vert} ${cityPart}`);
+  if (vert && cityPart) out.push(`${vert} near ${cityPart}`);
   if (vert) out.push(`${vert} near me`);
   if (name && cityPart) out.push(`${name} ${cityPart}`);
-  if (vert && cityPart) out.push(`best ${vert} ${cityPart}`);
-  return Array.from(new Set(out.map((k) => k.trim()).filter(Boolean))).slice(0, 6);
+  if (vert && cityPart) out.push(`${vert} contractor ${cityPart}`);
+  return Array.from(new Set(out.map((k) => k.trim()).filter(Boolean))).slice(0, 8);
+}
+
+/** True when keywords are too thin to produce useful local ranks (e.g. just "Flooring"). */
+function keywordsNeedEnrichment(keywords, city) {
+  const list = Array.isArray(keywords) ? keywords.map((k) => String(k || '').trim()).filter(Boolean) : [];
+  if (!list.length) return true;
+  const cityPart = String(city || '').trim().toLowerCase();
+  if (!cityPart) return list.length < 2;
+  const withCity = list.filter((k) => k.toLowerCase().includes(cityPart));
+  return withCity.length === 0 || list.length < 3;
+}
+
+function enrichKeywords(profile) {
+  const base = Array.isArray(profile.keywords) ? profile.keywords.slice() : [];
+  if (!keywordsNeedEnrichment(base, profile.city)) return base.slice(0, 8);
+  const defaults = defaultKeywords(profile);
+  return Array.from(new Set([...base, ...defaults].map((k) => String(k || '').trim()).filter(Boolean))).slice(
+    0,
+    8
+  );
+}
+
+/**
+ * DataForSEO location_name: City,State,Country (no spaces after commas preferred).
+ * Never return bare country when a city is available.
+ */
+function buildLocationName({ city, state, locationName, country = 'United States' }) {
+  const explicit = String(locationName || '').trim();
+  const cityPart = String(city || '').trim();
+  const statePart = String(state || '').trim();
+  const countryPart = String(country || 'United States').trim() || 'United States';
+
+  const looksCountryOnly =
+    !explicit ||
+    /^(united states|usa|us|canada|united kingdom|uk)$/i.test(explicit) ||
+    (!explicit.includes(',') && explicit.toLowerCase() === countryPart.toLowerCase());
+
+  if (explicit && !looksCountryOnly) {
+    // Normalize "Camas, WA, United States" → DFS-ish commas
+    return explicit
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .join(',');
+  }
+  if (cityPart && statePart) return `${cityPart},${statePart},${countryPart}`;
+  if (cityPart) return `${cityPart},${countryPart}`;
+  return explicit || countryPart;
+}
+
+/** Top Maps competitors (excluding your business). */
+function extractMapsCompetitors(items, { businessName, website }, limit = 8) {
+  const list = Array.isArray(items) ? items : [];
+  const out = [];
+  const seen = new Set();
+  for (const it of list) {
+    const title = String(it.title || '').trim();
+    if (!title) continue;
+    if (namesMatch(businessName, title)) continue;
+    const domain = hostKey(it.domain || it.url || it.website || '');
+    if (website && domain && domain === hostKey(website)) continue;
+    const key = domain || normName(title);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      title: title.slice(0, 160),
+      domain: domain || null,
+      rank: num(it.rank_group != null ? it.rank_group : it.rank_absolute, null),
+      rating: num(it.rating && it.rating.value != null ? it.rating.value : it.rating, null),
+      votes: num(it.rating && it.rating.votes_count != null ? it.rating.votes_count : it.reviews_count, null),
+      category: it.category || it.main_category || null,
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+function summarizeCompetitors(keywordRanks) {
+  const byKey = new Map();
+  for (const row of Array.isArray(keywordRanks) ? keywordRanks : []) {
+    for (const c of Array.isArray(row.competitors) ? row.competitors : []) {
+      const key = hostKey(c.domain) || normName(c.title);
+      if (!key) continue;
+      const prev = byKey.get(key) || {
+        title: c.title,
+        domain: c.domain || null,
+        appearances: 0,
+        bestRank: null,
+        avgRating: null,
+        ratingSum: 0,
+        ratingN: 0,
+        keywords: [],
+      };
+      prev.appearances += 1;
+      if (c.rank != null && (prev.bestRank == null || c.rank < prev.bestRank)) prev.bestRank = c.rank;
+      if (c.rating != null) {
+        prev.ratingSum += c.rating;
+        prev.ratingN += 1;
+        prev.avgRating = Math.round((prev.ratingSum / prev.ratingN) * 10) / 10;
+      }
+      if (row.keyword && prev.keywords.length < 6) prev.keywords.push(row.keyword);
+      byKey.set(key, prev);
+    }
+  }
+  return Array.from(byKey.values())
+    .sort((a, b) => b.appearances - a.appearances || (a.bestRank || 99) - (b.bestRank || 99))
+    .slice(0, 12);
 }
 
 module.exports = {
@@ -256,4 +365,9 @@ module.exports = {
   parseReviews,
   scoreLocalResearch,
   defaultKeywords,
+  keywordsNeedEnrichment,
+  enrichKeywords,
+  buildLocationName,
+  extractMapsCompetitors,
+  summarizeCompetitors,
 };

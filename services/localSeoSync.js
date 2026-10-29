@@ -11,7 +11,10 @@ const {
   parseGbpInfo,
   parseReviews,
   scoreLocalResearch,
-  defaultKeywords,
+  enrichKeywords,
+  buildLocationName,
+  extractMapsCompetitors,
+  summarizeCompetitors,
   hostKey,
 } = require('./localSeoParse');
 
@@ -33,15 +36,25 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
     err.code = 'NO_BUSINESS';
     throw err;
   }
-
-  let keywords = profile.keywords && profile.keywords.length
-    ? profile.keywords.slice(0, 6)
-    : defaultKeywords(profile);
-  if (!keywords.length) {
-    keywords = [`${profile.businessName}${profile.city ? ' ' + profile.city : ''}`];
+  if (!profile.city) {
+    const err = new Error('Set a city (e.g. Camas) so Maps ranks are local — country-wide location will not work.');
+    err.code = 'NO_CITY';
+    throw err;
   }
 
+  const locationName = buildLocationName(profile);
+  const keywords = enrichKeywords({ ...profile, keywords: profile.keywords });
+
   const warnings = [];
+  if (!profile.state) {
+    warnings.push(
+      'Tip: add a State (e.g. Washington) so DataForSEO uses City,State,United States — more accurate Maps ranks.'
+    );
+  }
+  if (String(profile.locationName || '').toLowerCase() === 'united states') {
+    warnings.push(`Using local market “${locationName}” instead of country-wide United States.`);
+  }
+
   const keywordRanks = [];
   let discoveredPlaceId = profile.placeId || '';
   let discoveredCid = profile.cid || '';
@@ -53,12 +66,13 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
       mapsMatch: null,
       localPackRank: null,
       localPack: [],
+      competitors: [],
       error: null,
     };
     try {
       const mapsJson = await dataForSeo.googleMapsLive({
         keyword,
-        locationName: profile.locationName,
+        locationName,
         locationCode: profile.locationCode,
         languageCode: profile.languageCode,
         depth: 20,
@@ -74,7 +88,13 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
         row.mapsMatch = match;
         if (!discoveredPlaceId && match.placeId) discoveredPlaceId = String(match.placeId);
         if (!discoveredCid && match.cid) discoveredCid = String(match.cid);
+      } else {
+        row.error = 'Not found in top Maps results for this keyword + market.';
       }
+      row.competitors = extractMapsCompetitors(mapsItems, {
+        businessName: profile.businessName,
+        website: profile.website,
+      });
     } catch (err) {
       row.error = err && err.message ? err.message : 'maps failed';
       warnings.push(`maps:${keyword}: ${row.error}`);
@@ -83,7 +103,7 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
     try {
       const orgJson = await dataForSeo.googleOrganicLive({
         keyword,
-        locationName: profile.locationName,
+        locationName,
         locationCode: profile.locationCode,
         languageCode: profile.languageCode,
         depth: 20,
@@ -95,6 +115,19 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
       });
       row.localPack = pack.pack;
       if (pack.you && pack.you.rank != null) row.localPackRank = pack.you.rank;
+      if (!row.competitors.length && pack.pack.length) {
+        row.competitors = pack.pack
+          .filter((p) => p.title && !String(p.title).toLowerCase().includes(String(profile.businessName).toLowerCase().slice(0, 8)))
+          .slice(0, 5)
+          .map((p) => ({
+            title: p.title,
+            domain: p.domain,
+            rank: p.rank,
+            rating: p.rating,
+            votes: null,
+            category: null,
+          }));
+      }
     } catch (err) {
       warnings.push(`organic:${keyword}: ${err && err.message ? err.message : 'failed'}`);
     }
@@ -105,10 +138,13 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
   let gbp = null;
   try {
     const gbpJson = await dataForSeo.myBusinessInfoLive({
-      keyword: discoveredPlaceId || discoveredCid ? undefined : `${profile.businessName} ${profile.city || ''}`.trim(),
+      keyword:
+        discoveredPlaceId || discoveredCid
+          ? undefined
+          : `${profile.businessName} ${profile.city || ''}`.trim(),
       placeId: discoveredPlaceId || undefined,
       cid: discoveredCid || undefined,
-      locationName: profile.locationName,
+      locationName,
       locationCode: profile.locationCode,
       languageCode: profile.languageCode,
       integrationEnv,
@@ -125,10 +161,13 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
   let reviews = null;
   try {
     const revJson = await dataForSeo.googleReviewsLive({
-      keyword: discoveredPlaceId || discoveredCid ? undefined : `${profile.businessName} ${profile.city || ''}`.trim(),
+      keyword:
+        discoveredPlaceId || discoveredCid
+          ? undefined
+          : `${profile.businessName} ${profile.city || ''}`.trim(),
       placeId: discoveredPlaceId || undefined,
       cid: discoveredCid || undefined,
-      locationName: profile.locationName,
+      locationName,
       languageCode: profile.languageCode,
       depth: 25,
       integrationEnv,
@@ -139,18 +178,21 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
   }
 
   const scores = scoreLocalResearch({ keywordRanks, gbp, reviews });
+  const competitors = summarizeCompetitors(keywordRanks);
   const research = {
     profileSnapshot: {
       businessName: profile.businessName,
       city: profile.city,
+      state: profile.state,
       vertical: profile.vertical,
       website: profile.website ? hostKey(profile.website) : '',
-      locationName: profile.locationName,
+      locationName,
       keywords,
       placeId: discoveredPlaceId || null,
       cid: discoveredCid || null,
     },
     keywordRanks,
+    competitors,
     gbp,
     reviews,
     scores,
@@ -163,9 +205,10 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
     ...(profilePatch || {}),
     businessName: profile.businessName,
     city: profile.city,
+    state: profile.state,
     vertical: profile.vertical,
     website: profile.website,
-    locationName: profile.locationName,
+    locationName,
     locationCode: profile.locationCode,
     languageCode: profile.languageCode,
     keywords,
