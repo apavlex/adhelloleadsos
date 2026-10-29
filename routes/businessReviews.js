@@ -31,6 +31,7 @@ async function pageLocals(req) {
     outscraperConfigured: outscraper.isConfigured(integrationEnv),
     focusReviewId: focusId,
     workspaceName: (ws && ws.name) || 'Your workspace',
+    syncState: (store && store.syncState) || businessReviews.emptySyncState(),
   };
 }
 
@@ -53,9 +54,22 @@ router.get('/inbox.json', async (req, res, next) => {
       summary: locals.summary,
       reviews: locals.paid ? locals.reviews : [],
       outscraperConfigured: locals.outscraperConfigured,
+      syncState: locals.syncState,
     });
   } catch (e) {
     next(e);
+  }
+});
+
+router.get('/sync-status', async (req, res) => {
+  try {
+    if (!businessReviews.isPaidWorkspace(req.workspace)) {
+      return res.status(402).json({ success: false, error: 'Paid plan required.', paidOnly: true });
+    }
+    const status = businessReviews.getSyncStatus(req.workspaceId);
+    return res.json({ success: true, ...status });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e.message || 'Status failed' });
   }
 });
 
@@ -94,6 +108,33 @@ router.post('/sync', async (req, res, next) => {
             : body.autoSync === true || body.autoSync === '1' || body.autoSync === 'true',
       });
     }
+
+    // Default JSON clients to async+poll so Render/proxy timeouts don't kill Outscraper.
+    const preferAsync =
+      wantsJsonResponse(req) && body.async !== false && body.wait !== true && body.wait !== '1';
+
+    if (preferAsync) {
+      try {
+        const kicked = businessReviews.startWorkspaceSyncAsync(req.workspaceId, {
+          workspace: req.workspace,
+          force: body.force === true || body.force === '1' || body.force === 'true' || body.force == null,
+          query: body.query,
+        });
+        return res.json({
+          success: true,
+          started: !!kicked.started,
+          alreadyRunning: !!kicked.alreadyRunning,
+          async: true,
+          syncState: kicked.syncState,
+        });
+      } catch (e) {
+        if (e.code === 'PAID_ONLY' || e.status === 402) {
+          return res.status(402).json({ success: false, error: e.message, paidOnly: true });
+        }
+        return res.status(e.status || 500).json({ success: false, error: e.message, code: e.code });
+      }
+    }
+
     const result = await businessReviews.syncWorkspace(req.workspaceId, {
       workspace: req.workspace,
       force: body.force === true || body.force === '1' || body.force === 'true',

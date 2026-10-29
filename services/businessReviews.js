@@ -208,6 +208,33 @@ function saveSettings(workspaceId, patch) {
   return next;
 }
 
+function emptySyncState() {
+  return {
+    status: 'idle',
+    startedAt: null,
+    finishedAt: null,
+    message: '',
+    error: null,
+    newCount: 0,
+    skipped: false,
+  };
+}
+
+function normalizeSyncState(raw) {
+  const base = emptySyncState();
+  if (!raw || typeof raw !== 'object') return base;
+  const status = ['idle', 'syncing', 'ready', 'error'].includes(raw.status) ? raw.status : 'idle';
+  return {
+    status,
+    startedAt: raw.startedAt ? String(raw.startedAt) : null,
+    finishedAt: raw.finishedAt ? String(raw.finishedAt) : null,
+    message: clean(raw.message, 240),
+    error: raw.error ? clean(raw.error, 400) : null,
+    newCount: Number.isFinite(Number(raw.newCount)) ? Number(raw.newCount) : 0,
+    skipped: !!raw.skipped,
+  };
+}
+
 function emptyStore() {
   return {
     reviews: [],
@@ -217,6 +244,7 @@ function emptyStore() {
     lastSyncedAt: null,
     lastError: null,
     knownIds: [],
+    syncState: emptySyncState(),
   };
 }
 
@@ -248,12 +276,18 @@ function getStore(workspaceId) {
     lastSyncedAt: raw.lastSyncedAt ? String(raw.lastSyncedAt) : null,
     lastError: raw.lastError ? clean(raw.lastError, 400) : null,
     knownIds: Array.isArray(raw.knownIds) ? raw.knownIds.map(String) : [],
+    syncState: normalizeSyncState(raw.syncState),
   };
 }
 
 function saveStore(workspaceId, store) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return;
+  const prevRaw = readJson(storeKey(wid), null) || {};
+  const syncState =
+    store && Object.prototype.hasOwnProperty.call(store, 'syncState')
+      ? normalizeSyncState(store.syncState)
+      : normalizeSyncState(prevRaw.syncState);
   dbService.setKvSync(storeKey(wid), {
     reviews: (store.reviews || []).slice(0, MAX_STORED),
     placeRating: store.placeRating,
@@ -262,7 +296,114 @@ function saveStore(workspaceId, store) {
     lastSyncedAt: store.lastSyncedAt || null,
     lastError: store.lastError || null,
     knownIds: (store.knownIds || []).slice(0, MAX_STORED * 2),
+    syncState,
   });
+}
+
+function patchSyncState(workspaceId, patch) {
+  const store = getStore(workspaceId);
+  const next = {
+    ...store,
+    syncState: normalizeSyncState({ ...(store.syncState || {}), ...(patch || {}) }),
+  };
+  if (patch && patch.error) next.lastError = clean(patch.error, 400);
+  if (patch && patch.status === 'ready') next.lastError = null;
+  saveStore(workspaceId, next);
+  return next.syncState;
+}
+
+/** In-process lock so a workspace cannot stack Outscraper syncs. */
+const syncInflight = new Map();
+
+/**
+ * Start Outscraper sync in the background and return immediately.
+ * Client polls getSyncStatus until status is ready/error.
+ */
+function startWorkspaceSyncAsync(workspaceId, opts = {}) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) {
+    const err = new Error('Workspace required');
+    err.status = 400;
+    throw err;
+  }
+  if (syncInflight.has(wid)) {
+    return {
+      started: false,
+      alreadyRunning: true,
+      syncState: getStore(wid).syncState,
+    };
+  }
+  const current = getStore(wid).syncState;
+  if (current && current.status === 'syncing') {
+    const startedMs = Date.parse(current.startedAt || '') || 0;
+    // Allow resume if a previous worker died mid-flight (>10 min).
+    if (startedMs && Date.now() - startedMs < 10 * 60 * 1000) {
+      return { started: false, alreadyRunning: true, syncState: current };
+    }
+  }
+
+  const syncState = patchSyncState(wid, {
+    status: 'syncing',
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    message: 'Syncing with Outscraper — this can take up to a minute…',
+    error: null,
+    newCount: 0,
+    skipped: false,
+  });
+
+  const job = Promise.resolve()
+    .then(() =>
+      syncWorkspace(wid, {
+        ...opts,
+        force: opts.force !== false,
+      })
+    )
+    .then((result) => {
+      const newCount = result && result.newCount ? Number(result.newCount) || 0 : 0;
+      const skipped = !!(result && result.skipped);
+      patchSyncState(wid, {
+        status: 'ready',
+        finishedAt: new Date().toISOString(),
+        message: skipped
+          ? 'Already up to date'
+          : newCount
+            ? `${newCount} new review${newCount === 1 ? '' : 's'} synced`
+            : 'Synced — reviews updated',
+        error: null,
+        newCount,
+        skipped,
+      });
+      return result;
+    })
+    .catch((err) => {
+      const msg = (err && err.message) || 'Outscraper sync failed';
+      patchSyncState(wid, {
+        status: 'error',
+        finishedAt: new Date().toISOString(),
+        message: msg,
+        error: msg,
+      });
+      throw err;
+    })
+    .finally(() => {
+      syncInflight.delete(wid);
+    });
+
+  syncInflight.set(wid, job);
+  // Detach — route already returned; errors are persisted on syncState.
+  job.catch(() => {});
+
+  return { started: true, alreadyRunning: false, syncState };
+}
+
+function getSyncStatus(workspaceId) {
+  const store = getStore(workspaceId);
+  return {
+    syncState: store.syncState || emptySyncState(),
+    summary: inboxSummary(store),
+    reviewCount: Array.isArray(store.reviews) ? store.reviews.length : 0,
+  };
 }
 
 function reviewFingerprint(raw) {
@@ -1079,6 +1220,7 @@ function inboxSummary(store) {
     placeName: store.placeName || '',
     lastSyncedAt: store.lastSyncedAt,
     lastError: store.lastError,
+    syncState: store.syncState || emptySyncState(),
   };
 }
 
@@ -1112,4 +1254,8 @@ module.exports = {
   notifyNewReviews,
   notifyMemberNewReviews,
   resolveReviewsOutscraperEnv,
+  startWorkspaceSyncAsync,
+  getSyncStatus,
+  patchSyncState,
+  emptySyncState,
 };

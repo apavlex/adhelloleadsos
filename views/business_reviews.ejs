@@ -29,6 +29,14 @@
     <%- include('partials/seo_local_rank_nav') %>
     <p id="brInlineStatus" class="mb-4 text-sm font-semibold text-brand-muted dark:text-slate-300 min-h-[1.25rem]" role="status" aria-live="polite"></p>
 
+    <div id="brBusyOverlay" class="fixed inset-0 z-[10040] hidden items-center justify-center bg-brand-dark/45 dark:bg-black/55 backdrop-blur-sm" role="status" aria-live="polite" aria-hidden="true">
+      <div class="mx-4 max-w-sm w-full rounded-3xl border border-white/15 bg-white dark:bg-slate-900 px-6 py-8 text-center shadow-2xl">
+        <div class="mx-auto mb-4 h-14 w-14 rounded-full border-4 border-brand-yellow/25 border-t-brand-yellow animate-spin" aria-hidden="true"></div>
+        <p id="brBusyTitle" class="font-display font-bold text-lg text-brand-dark dark:text-white">Syncing reviews…</p>
+        <p id="brBusyDetail" class="mt-2 text-sm text-brand-muted">Outscraper can take 15–60 seconds. Keep this tab open.</p>
+      </div>
+    </div>
+
     <% if (!_paid) { %>
     <section class="rounded-[2rem] border-2 border-brand-yellow/40 bg-gradient-to-br from-brand-yellow/15 via-white to-white dark:from-brand-yellow/10 dark:via-slate-900 dark:to-slate-950 px-8 py-12 text-center shadow-sm" aria-labelledby="brLockedTitle">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Paid plan</p>
@@ -114,10 +122,11 @@
     </div>
 
     <% if (!_reviews.length) { %>
-    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
+    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center" id="brEmptyState">
       <h3 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No reviews synced yet</h3>
-      <p class="text-sm text-brand-muted max-w-md mx-auto mb-6">Save your Google listing above, then sync. New reviews will show here and ping your notification bell.</p>
-      <button type="button" id="brEmptySyncBtn" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest"<%= !_outConfigured ? ' disabled' : '' %>>Sync with Outscraper</button>
+      <p class="text-sm text-brand-muted max-w-md mx-auto mb-4">Save your Google listing above, then sync. New reviews will show here and ping your notification bell.</p>
+      <p id="brEmptyProgress" class="hidden mb-4 text-sm font-semibold text-brand-dark dark:text-white" role="status"></p>
+      <button type="button" id="brEmptySyncBtn" class="btn-pill btn-primary inline-flex items-center justify-center gap-2 px-8 py-3 text-xs font-black uppercase tracking-widest"<%= !_outConfigured ? ' disabled' : '' %>>Sync with Outscraper</button>
     </div>
     <% } else { %>
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Google reviews">
@@ -215,14 +224,51 @@
         }
       }
 
-      function showLoader(ms) {
-        if (typeof window.showNavLoading === 'function') {
-          window.showNavLoading({ failSafeMs: ms || 120000 });
+      var pollTimer = null;
+      var initialSyncState = <%= JSON.stringify((typeof syncState !== 'undefined' && syncState) ? syncState : { status: 'idle' }) %>;
+
+      function showLoader(title, detail) {
+        var ov = document.getElementById('brBusyOverlay');
+        var t = document.getElementById('brBusyTitle');
+        var d = document.getElementById('brBusyDetail');
+        if (t) t.textContent = title || 'Syncing reviews…';
+        if (d) d.textContent = detail || 'Outscraper can take 15–60 seconds. Keep this tab open.';
+        if (ov) {
+          ov.classList.remove('hidden');
+          ov.classList.add('flex');
+          ov.setAttribute('aria-hidden', 'false');
         }
+        if (typeof window.showNavLoading === 'function') {
+          window.showNavLoading({ failSafeMs: 180000 });
+        }
+        document.documentElement.classList.add('adhello-nav-loading');
       }
 
       function hideLoader() {
+        var ov = document.getElementById('brBusyOverlay');
+        if (ov) {
+          ov.classList.add('hidden');
+          ov.classList.remove('flex');
+          ov.setAttribute('aria-hidden', 'true');
+        }
         if (typeof window.hideNavLoading === 'function') window.hideNavLoading();
+        document.documentElement.classList.remove('adhello-nav-loading');
+        if (pollTimer) {
+          clearTimeout(pollTimer);
+          pollTimer = null;
+        }
+      }
+
+      function setEmptyProgress(msg) {
+        var el = document.getElementById('brEmptyProgress');
+        if (!el) return;
+        if (!msg) {
+          el.classList.add('hidden');
+          el.textContent = '';
+          return;
+        }
+        el.textContent = msg;
+        el.classList.remove('hidden');
       }
 
       function formPayload() {
@@ -310,6 +356,47 @@
         return parsed.data;
       }
 
+      async function pollSyncStatus(attempt) {
+        var n = attempt || 0;
+        try {
+          var res = await fetch('/business-reviews/sync-status', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' }
+          });
+          var parsed = await parseJson(res);
+          if (!parsed.ok || !parsed.data.success) {
+            throw new Error(parsed.data.error || 'Could not read sync status');
+          }
+          var st = parsed.data.syncState || {};
+          var msg = st.message || 'Syncing with Outscraper…';
+          setInline(msg);
+          setEmptyProgress(msg);
+          var detail = document.getElementById('brBusyDetail');
+          if (detail) detail.textContent = msg + ' · keep this tab open';
+
+          if (st.status === 'ready') {
+            var okMsg = st.message || 'Synced — loading reviews…';
+            setInline(okMsg);
+            setEmptyProgress(okMsg);
+            toast(okMsg, false, true);
+            setTimeout(function () { location.reload(); }, 400);
+            return;
+          }
+          if (st.status === 'error') {
+            throw new Error(st.error || st.message || 'Sync failed');
+          }
+          if (n > 90) throw new Error('Sync is taking too long. Refresh and try again.');
+          pollTimer = setTimeout(function () { pollSyncStatus(n + 1); }, 2000);
+        } catch (e) {
+          var err = (e && e.message) || 'Sync failed';
+          setInline(err, true);
+          setEmptyProgress(err);
+          toast(err, true);
+          hideLoader();
+          setBusy(false);
+        }
+      }
+
       async function syncNow() {
         if (busy) return;
         var payload = formPayload();
@@ -326,19 +413,26 @@
           return;
         }
         setBusy(true, 'Syncing…');
-        showLoader(120000);
+        showLoader('Syncing with Outscraper…', 'Fetching Google reviews — this can take 15–60 seconds.');
         setInline('Syncing with Outscraper — this can take 15–60 seconds…');
+        setEmptyProgress('Syncing with Outscraper…');
         toast('Syncing with Outscraper…', false, true);
         try {
           var res = await fetch('/business-reviews/sync', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(Object.assign({}, payload, { async: true, force: true }))
           });
           var parsed = await parseJson(res);
           if (!parsed.ok || !parsed.data.success) {
             throw new Error(parsed.data.error || ('Sync failed (' + parsed.status + ')'));
+          }
+          // Async path: poll until Outscraper finishes (survives proxy timeouts).
+          if (parsed.data.async) {
+            setInline((parsed.data.syncState && parsed.data.syncState.message) || 'Sync started…');
+            pollSyncStatus(0);
+            return;
           }
           var data = parsed.data;
           var okMsg = data.newCount
@@ -346,11 +440,11 @@
             : (data.skipped ? 'Already up to date — reloading…' : 'Synced — reloading…');
           setInline(okMsg);
           toast(okMsg, false, true);
-          showLoader(15000);
           location.reload();
         } catch (e) {
           var err = (e && e.message) || 'Sync failed';
           setInline(err, true);
+          setEmptyProgress(err);
           toast(err, true);
           hideLoader();
           setBusy(false);
@@ -486,6 +580,18 @@
       });
 
       refreshEnabled();
+
+      // Resume overlay if a sync was already running (refresh mid-flight).
+      if (initialSyncState && initialSyncState.status === 'syncing') {
+        setBusy(true, 'Syncing…');
+        showLoader('Sync still running…', initialSyncState.message || 'Waiting for Outscraper…');
+        setInline(initialSyncState.message || 'Syncing…');
+        setEmptyProgress(initialSyncState.message || 'Syncing…');
+        pollSyncStatus(0);
+      } else if (initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
+        setInline(initialSyncState.error, true);
+        setEmptyProgress(initialSyncState.error);
+      }
 
       var focusId = <%= JSON.stringify(_focus) %>;
       if (focusId) {

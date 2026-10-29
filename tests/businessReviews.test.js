@@ -147,9 +147,13 @@ describe('businessReviews', () => {
     assert.match(perms, /id: 'business-reviews', label: 'Business Reviews', group: 'SEO \/ Local Rank'/);
     assert.match(route, /draft-reply/);
     assert.match(route, /PAID_ONLY|paidOnly|isPaidWorkspace/);
+    assert.match(route, /sync-status/);
+    assert.match(route, /startWorkspaceSyncAsync/);
     assert.match(view, /Copy reply/);
     assert.match(view, /Generate with AI/);
     assert.match(view, /Unlock your Google review inbox/);
+    assert.match(view, /brBusyOverlay/);
+    assert.match(view, /pollSyncStatus/);
     assert.match(sched, /businessReviews\.syncDueWorkspaces/);
   });
 
