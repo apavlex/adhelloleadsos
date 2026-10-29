@@ -346,7 +346,7 @@ function startWorkspaceSyncAsync(workspaceId, opts = {}) {
     status: 'syncing',
     startedAt: new Date().toISOString(),
     finishedAt: null,
-    message: 'Syncing with Outscraper — this can take up to a minute…',
+    message: 'Background sync with Outscraper — usually 15–60 seconds…',
     error: null,
     newCount: 0,
     skipped: false,
@@ -362,18 +362,34 @@ function startWorkspaceSyncAsync(workspaceId, opts = {}) {
     .then((result) => {
       const newCount = result && result.newCount ? Number(result.newCount) || 0 : 0;
       const skipped = !!(result && result.skipped);
+      const message = skipped
+        ? 'Already up to date'
+        : newCount
+          ? `${newCount} new review${newCount === 1 ? '' : 's'} synced`
+          : 'Synced — reviews updated';
       patchSyncState(wid, {
         status: 'ready',
         finishedAt: new Date().toISOString(),
-        message: skipped
-          ? 'Already up to date'
-          : newCount
-            ? `${newCount} new review${newCount === 1 ? '' : 's'} synced`
-            : 'Synced — reviews updated',
+        message,
         error: null,
         newCount,
         skipped,
       });
+      // Always ping the bell so background sync is visible even with 0 new reviews.
+      try {
+        notificationLog.add(
+          wid,
+          {
+            title: skipped ? 'Business Reviews already up to date' : 'Business Reviews sync finished',
+            body: message,
+            href: '/business-reviews',
+            linkLabel: 'Open inbox',
+          },
+          ''
+        );
+      } catch (_) {
+        /* ignore */
+      }
       return result;
     })
     .catch((err) => {
@@ -384,6 +400,20 @@ function startWorkspaceSyncAsync(workspaceId, opts = {}) {
         message: msg,
         error: msg,
       });
+      try {
+        notificationLog.add(
+          wid,
+          {
+            title: 'Business Reviews sync failed',
+            body: msg,
+            href: '/business-reviews',
+            linkLabel: 'Try again',
+          },
+          ''
+        );
+      } catch (_) {
+        /* ignore */
+      }
       throw err;
     })
     .finally(() => {
@@ -391,7 +421,7 @@ function startWorkspaceSyncAsync(workspaceId, opts = {}) {
     });
 
   syncInflight.set(wid, job);
-  // Detach — route already returned; errors are persisted on syncState.
+  // Detach — route already returned; work continues after the HTTP response.
   job.catch(() => {});
 
   return { started: true, alreadyRunning: false, syncState };
