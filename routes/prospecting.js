@@ -20,7 +20,10 @@ const {
 const { normalizeProspectingSettings } = require('../services/prospectGapLabels');
 const teamActivity = require('../services/teamActivity');
 const { listAutomationsForWorkspace } = require('../services/automationsRegistry');
-const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
+const {
+  ensurePipelineFolders,
+  maybeMigrateLegacyFolders,
+} = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
 const {
   buildFolderTree,
@@ -46,6 +49,18 @@ const PIPELINE_SSR_ROW_CAP = Math.min(
   Math.max(25, parseInt(process.env.PIPELINE_SSR_ROW_CAP || '50', 10) || 50),
 );
 
+/**
+ * Max leads embedded as window.INITIAL_SAVED_LEADS.
+ * Includes the SSR table slice plus on-board leads (kanban), hard-capped for HTML size.
+ */
+const PIPELINE_BOOTSTRAP_CAP = Math.min(
+  800,
+  Math.max(
+    PIPELINE_SSR_ROW_CAP,
+    parseInt(process.env.PIPELINE_BOOTSTRAP_CAP || '150', 10) || 150,
+  ),
+);
+
 router.get('/', async (req, res, next) => {
   try {
     const tab = String(req.query.tab || 'pipeline').toLowerCase();
@@ -64,7 +79,7 @@ router.get('/', async (req, res, next) => {
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
     let folders = foldersInitial;
-    const migrated = await migrateLegacyFolders(wid, folders);
+    const migrated = await maybeMigrateLegacyFolders(wid, folders);
     folders = migrated.folders;
     let folderTree = buildFolderTree(folders);
     const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
@@ -224,17 +239,27 @@ router.get('/', async (req, res, next) => {
       };
     };
     const ssrLeads = needPipelineDecorate ? leads.slice(0, ssrCap).map(decorateLead) : [];
-    // Full filtered list for client bootstrap / kanban (slim map — no full panel normalize).
-    const bootstrapSource = needPipelineDecorate
-      ? leads.map((l) => {
-          const sid = pipelineStagesService.resolveStageIdForLead(l, stageRows);
-          return {
-            ...l,
-            stageId: sid,
-            pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
-          };
-        })
-      : [];
+    // Cap bootstrap: SSR slice + on-board leads (for kanban), not the entire filtered folder.
+    let bootstrapSource = [];
+    if (needPipelineDecorate) {
+      const byKey = new Map();
+      const addBootstrap = (l) => {
+        if (!l || !l.key || byKey.has(l.key)) return;
+        const sid = pipelineStagesService.resolveStageIdForLead(l, stageRows);
+        byKey.set(l.key, {
+          ...l,
+          stageId: sid,
+          pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
+        });
+      };
+      leads.slice(0, ssrCap).forEach(addBootstrap);
+      for (const l of leads) {
+        if (byKey.size >= PIPELINE_BOOTSTRAP_CAP) break;
+        if (l && l.onPipelineBoard) addBootstrap(l);
+      }
+      // Prefer keeping SSR order first, then extra board leads.
+      bootstrapSource = Array.from(byKey.values()).slice(0, PIPELINE_BOOTSTRAP_CAP);
+    }
     leads = ssrLeads;
 
     let importNotice = null;
@@ -286,7 +311,16 @@ router.get('/', async (req, res, next) => {
       safeTab === 'pipeline'
         ? visible
             .filter((lead) => lead && String(lead.opportunityPipelineId || '').trim())
-            .map((lead) => ({ ...mapLeadPipelineBootstrap(lead), oppCard: cardSummaryLines(lead) }))
+            .slice(0, PIPELINE_BOOTSTRAP_CAP)
+            .map((lead) => {
+              const sid = pipelineStagesService.resolveStageIdForLead(lead, stageRows);
+              const staged = {
+                ...lead,
+                stageId: sid,
+                pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
+              };
+              return { ...mapLeadPipelineBootstrap(staged), oppCard: cardSummaryLines(lead) };
+            })
         : [];
 
     const directFolderCounts = {};
@@ -443,7 +477,7 @@ router.get('/table-rows', async (req, res, next) => {
     ]);
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
-    const migrated = await migrateLegacyFolders(wid, foldersInitial);
+    const migrated = await maybeMigrateLegacyFolders(wid, foldersInitial);
     const folders = migrated.folders;
     const folderTree = buildFolderTree(folders);
 
