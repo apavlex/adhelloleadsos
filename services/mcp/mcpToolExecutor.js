@@ -18,6 +18,7 @@ const fieldWorkTools = require('./mcpFieldWork');
 const marketingTools = require('./mcpMarketing');
 const socialTools = require('./mcpSocial');
 const sopTools = require('./mcpSops');
+const seoTools = require('./mcpSeo');
 const botActivity = require('./mcpBotActivity');
 const mcpLogger = require('./mcpLogger');
 const pavlexLogger = require('../pavlex/pavlexLogger');
@@ -66,6 +67,7 @@ const TOOL_NAMES = [
   ...marketingTools.MARKETING_TOOL_NAMES,
   ...socialTools.SOCIAL_TOOL_NAMES,
   ...sopTools.SOP_TOOL_NAMES,
+  ...seoTools.SEO_TOOL_NAMES,
 ];
 
 const LIST_LEADS_DESCRIPTION =
@@ -252,6 +254,10 @@ async function executeCrmTool(rawCtx, toolName, args) {
           result = await sopTools.executeSopTool(ctx, name, input);
           break;
         }
+        if (seoTools.SEO_TOOL_NAMES.includes(name)) {
+          result = await seoTools.executeSeoTool(ctx, name, input);
+          break;
+        }
         const err = new Error(`Unknown tool: ${name}`);
         err.code = 'UNKNOWN_TOOL';
         throw err;
@@ -370,6 +376,15 @@ function summarizeToolResult(toolName, payload) {
   }
   if (toolName === 'update_ops_agent' && Array.isArray(payload.agents)) {
     return 'settings updated';
+  }
+  if (toolName === 'get_seo_overview' && Array.isArray(payload.focus_suggestions)) {
+    return `${payload.focus_suggestions.length} seo focus tips`;
+  }
+  if (toolName === 'get_local_seo') {
+    return payload.has_research ? 'local seo ready' : 'no local seo research';
+  }
+  if (toolName === 'get_business_reviews_inbox' && payload.summary) {
+    return `${payload.summary.unreplied || 0} unreplied reviews`;
   }
   return 'ok';
 }
@@ -598,6 +613,7 @@ function getOpenAiFunctionTools() {
     ...marketingTools.openAiFunctionTools(),
     ...socialTools.openAiFunctionTools(),
     ...sopTools.openAiFunctionTools(),
+    ...seoTools.openAiFunctionTools(),
     {
       type: 'function',
       function: {
