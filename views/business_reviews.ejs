@@ -29,11 +29,14 @@
     <%- include('partials/seo_local_rank_nav') %>
     <p id="brInlineStatus" class="mb-4 text-sm font-semibold text-brand-muted dark:text-slate-300 min-h-[1.25rem]" role="status" aria-live="polite"></p>
 
-    <div id="brBusyOverlay" class="fixed inset-0 z-[10040] hidden items-center justify-center bg-brand-dark/45 dark:bg-black/55 backdrop-blur-sm" role="status" aria-live="polite" aria-hidden="true">
-      <div class="mx-4 max-w-sm w-full rounded-3xl border border-white/15 bg-white dark:bg-slate-900 px-6 py-8 text-center shadow-2xl">
-        <div class="mx-auto mb-4 h-14 w-14 rounded-full border-4 border-brand-yellow/25 border-t-brand-yellow animate-spin" aria-hidden="true"></div>
-        <p id="brBusyTitle" class="font-display font-bold text-lg text-brand-dark dark:text-white">Syncing reviews…</p>
-        <p id="brBusyDetail" class="mt-2 text-sm text-brand-muted">Outscraper can take 15–60 seconds. Keep this tab open.</p>
+    <div id="brBgBanner" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-[10040] hidden max-w-[min(92vw,28rem)] w-full" role="status" aria-live="polite" aria-hidden="true">
+      <div class="rounded-2xl border border-brand-yellow/40 bg-brand-dark text-white shadow-2xl px-4 py-3 flex items-start gap-3">
+        <div class="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-brand-yellow/30 border-t-brand-yellow animate-spin" aria-hidden="true"></div>
+        <div class="min-w-0 flex-1">
+          <p id="brBusyTitle" class="text-sm font-bold">Syncing in background…</p>
+          <p id="brBusyDetail" class="text-xs text-white/70 mt-0.5">Safe to leave this page. We’ll ping your notification bell when reviews are ready.</p>
+        </div>
+        <button type="button" id="brBgBannerDismiss" class="shrink-0 text-[10px] font-black uppercase tracking-widest text-white/60 hover:text-white px-1" aria-label="Dismiss">Hide</button>
       </div>
     </div>
 
@@ -228,35 +231,41 @@
       var initialSyncState = <%= JSON.stringify((typeof syncState !== 'undefined' && syncState) ? syncState : { status: 'idle' }) %>;
 
       function showLoader(title, detail) {
-        var ov = document.getElementById('brBusyOverlay');
+        var ov = document.getElementById('brBgBanner');
         var t = document.getElementById('brBusyTitle');
         var d = document.getElementById('brBusyDetail');
-        if (t) t.textContent = title || 'Syncing reviews…';
-        if (d) d.textContent = detail || 'Outscraper can take 15–60 seconds. Keep this tab open.';
+        if (t) t.textContent = title || 'Syncing in background…';
+        if (d) {
+          d.textContent = detail || 'Safe to leave this page. We’ll ping your notification bell when reviews are ready.';
+        }
         if (ov) {
           ov.classList.remove('hidden');
-          ov.classList.add('flex');
           ov.setAttribute('aria-hidden', 'false');
         }
-        if (typeof window.showNavLoading === 'function') {
-          window.showNavLoading({ failSafeMs: 180000 });
-        }
-        document.documentElement.classList.add('adhello-nav-loading');
       }
 
       function hideLoader() {
-        var ov = document.getElementById('brBusyOverlay');
+        var ov = document.getElementById('brBgBanner');
         if (ov) {
           ov.classList.add('hidden');
-          ov.classList.remove('flex');
           ov.setAttribute('aria-hidden', 'true');
         }
-        if (typeof window.hideNavLoading === 'function') window.hideNavLoading();
-        document.documentElement.classList.remove('adhello-nav-loading');
         if (pollTimer) {
           clearTimeout(pollTimer);
           pollTimer = null;
         }
+      }
+
+      var dismissBtn = document.getElementById('brBgBannerDismiss');
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', function () {
+          var ov = document.getElementById('brBgBanner');
+          if (ov) {
+            ov.classList.add('hidden');
+            ov.setAttribute('aria-hidden', 'true');
+          }
+          // Keep polling quietly so the page can refresh when ready.
+        });
       }
 
       function setEmptyProgress(msg) {
@@ -413,10 +422,13 @@
           return;
         }
         setBusy(true, 'Syncing…');
-        showLoader('Syncing with Outscraper…', 'Fetching Google reviews — this can take 15–60 seconds.');
-        setInline('Syncing with Outscraper — this can take 15–60 seconds…');
-        setEmptyProgress('Syncing with Outscraper…');
-        toast('Syncing with Outscraper…', false, true);
+        showLoader(
+          'Syncing in background…',
+          'Outscraper is fetching Google reviews. Safe to leave — check the notification bell when done.'
+        );
+        setInline('Background sync started — safe to leave this page.');
+        setEmptyProgress('Background sync running…');
+        toast('Sync started in background', false, true);
         try {
           var res = await fetch('/business-reviews/sync', {
             method: 'POST',
@@ -428,9 +440,20 @@
           if (!parsed.ok || !parsed.data.success) {
             throw new Error(parsed.data.error || ('Sync failed (' + parsed.status + ')'));
           }
-          // Async path: poll until Outscraper finishes (survives proxy timeouts).
+          // Async path: server keeps working; soft-poll only while this tab stays open.
           if (parsed.data.async) {
-            setInline((parsed.data.syncState && parsed.data.syncState.message) || 'Sync started…');
+            var startMsg = (parsed.data.alreadyRunning ? 'Sync already running…' : 'Background sync started…');
+            setInline(startMsg);
+            setEmptyProgress(startMsg);
+            // Re-enable buttons so the page is usable; banner still shows progress.
+            setBusy(false);
+            ['brSyncBtn', 'brSaveSyncBtn', 'brEmptySyncBtn'].forEach(function (id) {
+              var b = document.getElementById(id);
+              if (b) {
+                b.disabled = true;
+                b.textContent = 'Syncing…';
+              }
+            });
             pollSyncStatus(0);
             return;
           }
@@ -457,19 +480,16 @@
           e.preventDefault();
           if (busy) return;
           setBusy(true, 'Saving…');
-          showLoader(30000);
           setInline('Saving listing…');
           toast('Saving…', false, true);
           try {
             await saveSettingsOnly();
             setInline('Saved.');
             toast('Saved');
-            hideLoader();
             setBusy(false);
           } catch (err) {
             setInline(err.message || 'Save failed', true);
             toast(err.message || 'Save failed', true);
-            hideLoader();
             setBusy(false);
           }
         });
@@ -492,7 +512,6 @@
         markSeen.addEventListener('click', async function () {
           if (busy) return;
           markSeen.disabled = true;
-          showLoader(30000);
           setInline('Marking reviews seen…');
           try {
             var res = await fetch('/business-reviews/mark-all-seen', {
@@ -506,7 +525,6 @@
           } catch (e) {
             toast(e.message || 'Failed', true);
             setInline(e.message || 'Failed', true);
-            hideLoader();
             markSeen.disabled = false;
           }
         });
@@ -583,10 +601,17 @@
 
       // Resume overlay if a sync was already running (refresh mid-flight).
       if (initialSyncState && initialSyncState.status === 'syncing') {
-        setBusy(true, 'Syncing…');
-        showLoader('Sync still running…', initialSyncState.message || 'Waiting for Outscraper…');
-        setInline(initialSyncState.message || 'Syncing…');
-        setEmptyProgress(initialSyncState.message || 'Syncing…');
+        showLoader('Still syncing in background…', initialSyncState.message || 'Outscraper is still working.');
+        setInline(initialSyncState.message || 'Background sync still running…');
+        setEmptyProgress(initialSyncState.message || 'Background sync still running…');
+        ['brSyncBtn', 'brSaveSyncBtn', 'brEmptySyncBtn'].forEach(function (id) {
+          var b = document.getElementById(id);
+          if (b) {
+            b.disabled = true;
+            if (!b.dataset.brLabel) b.dataset.brLabel = b.textContent.trim();
+            b.textContent = 'Syncing…';
+          }
+        });
         pollSyncStatus(0);
       } else if (initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
         setInline(initialSyncState.error, true);

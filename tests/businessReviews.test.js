@@ -152,8 +152,9 @@ describe('businessReviews', () => {
     assert.match(view, /Copy reply/);
     assert.match(view, /Generate with AI/);
     assert.match(view, /Unlock your Google review inbox/);
-    assert.match(view, /brBusyOverlay/);
+    assert.match(view, /brBgBanner/);
     assert.match(view, /pollSyncStatus/);
+    assert.match(view, /Syncing in background/);
     assert.match(sched, /businessReviews\.syncDueWorkspaces/);
   });
 
