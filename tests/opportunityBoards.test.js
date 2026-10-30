@@ -295,3 +295,22 @@ test('opportunity cards show Focus label without script body', () => {
   });
   assert.equal(board.stages[0].cards[0].note, 'Money · call script');
 });
+
+test('compactLimit keeps stage totals but only allocates visible cards', () => {
+  const { boards } = normalizeBoards(null);
+  const pipelineId = boards.pipelines[0].id;
+  const stageId = boards.pipelines[0].stages[0].id;
+  const leads = Array.from({ length: 40 }, (_, i) => ({
+    key: `lead:compact-${i}`,
+    title: `Biz ${i}`,
+    source: 'manual',
+    opportunityPipelineId: pipelineId,
+    opportunityStageId: stageId,
+    opportunityValue: 100,
+  }));
+  const board = buildOpportunityBoard({ boards, leads, tasks: [], compactLimit: 2 });
+  assert.equal(board.stages[0].count, 40);
+  assert.equal(board.stages[0].cards.length, 2);
+  assert.equal(board.stages[0].hiddenCount, 38);
+  assert.equal(board.stages[0].valueLabel, '$4,000.00');
+});

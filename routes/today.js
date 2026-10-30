@@ -274,8 +274,8 @@ router.get('/', async (req, res, next) => {
         leads: businessLeads,
         tasks: rawTasks,
         pipelineId: req.query && req.query.pipeline,
-        // Today shows every card; columns scroll after ~2 visible.
-        compactLimit: 0,
+        // Today is compact: keep stage totals, only render ~2 cards per column (rest via Opportunities).
+        compactLimit: 2,
       });
     } catch (err) {
       console.warn('[today] opportunity board failed:', err && err.message);

@@ -57,9 +57,23 @@ function isLeadStorageKey(key) {
   return typeof key === 'string' && /^lead:/i.test(key);
 }
 
+/**
+ * Sort key for newest-first lead lists.
+ * - Legacy/test keys: `lead:<decimal ms>`
+ * - Production saveLead keys: `lead:${Date.now().toString(36)}${random6}`
+ */
 function leadKeySortTs(key) {
-  const ts = parseInt(String(String(key || '').split(':')[1] || ''), 10);
-  return Number.isFinite(ts) ? ts : 0;
+  const raw = String(String(key || '').split(':')[1] || '');
+  if (/^\d+$/.test(raw)) {
+    const ts = parseInt(raw, 10);
+    return Number.isFinite(ts) ? ts : 0;
+  }
+  // Base36 epoch ms is 8 chars through ~2059; random suffix is appended after.
+  if (/^[0-9a-z]{8,}$/i.test(raw)) {
+    const ts = parseInt(raw.slice(0, 8), 36);
+    return Number.isFinite(ts) ? ts : 0;
+  }
+  return 0;
 }
 
 /** Legacy `default`/empty lead workspace → alias id (same rule as getAllLeads filtering). */
@@ -74,24 +88,55 @@ function readLegacyDefaultAlias() {
   return typeof aliasVal === 'string' ? aliasVal.trim() : '';
 }
 
-/** Keep cached workspace lead lists in sync with a lead row write (value = stored JSON) or delete (null). */
-function patchLeadsListCacheForRow(key, value) {
+/** O(1) key → index lookup for warm list-cache patches (enrichment of 1k+ leads). */
+function rebuildLeadsByKey(entry) {
+  const byKey = new Map();
+  const leads = entry.leads;
+  for (let i = 0; i < leads.length; i++) {
+    const l = leads[i];
+    if (l && l.key) byKey.set(l.key, i);
+  }
+  entry.byKey = byKey;
+  return byKey;
+}
+
+function leadsByKeyFor(entry) {
+  if (entry.byKey instanceof Map && entry.byKey.size === entry.leads.length) return entry.byKey;
+  return rebuildLeadsByKey(entry);
+}
+
+/**
+ * Keep cached workspace lead lists in sync with a lead row write (value = stored JSON) or delete (null).
+ * @param {string} key
+ * @param {string|null} value
+ * @param {object|null} [parsedHint] already-parsed lead object — skips a second JSON.parse on hot write paths
+ */
+function patchLeadsListCacheForRow(key, value, parsedHint) {
   if (_leadsListCache.size === 0) return;
   let parsed = null;
   if (value != null) {
-    try {
-      parsed = JSON.parse(value);
-    } catch {
-      parsed = null;
+    if (parsedHint && typeof parsedHint === 'object') {
+      parsed = parsedHint;
+    } else {
+      try {
+        parsed = typeof value === 'string' ? JSON.parse(value) : value;
+      } catch {
+        parsed = null;
+      }
     }
     if (!parsed || typeof parsed !== 'object') parsed = null;
   }
   const targetWid = parsed ? normalizeLeadWorkspaceWithAlias(parsed.workspaceId, readLegacyDefaultAlias()) : null;
   for (const [wid, entry] of _leadsListCache) {
     const leads = entry.leads;
-    const idx = leads.findIndex((l) => l.key === key);
+    const byKey = leadsByKeyFor(entry);
+    const idx = byKey.has(key) ? byKey.get(key) : -1;
     if (wid === targetWid) {
+      // Match JSON.parse(JSON.stringify(lead)) shape — drop undefined so hint objects equal cold scans.
       const row = { ...parsed, key, workspaceId: wid };
+      for (const k of Object.keys(row)) {
+        if (row[k] === undefined) delete row[k];
+      }
       if (idx >= 0) {
         leads[idx] = row;
       } else {
@@ -99,19 +144,21 @@ function patchLeadsListCacheForRow(key, value) {
         let at = leads.findIndex((l) => leadKeySortTs(l.key) < ts);
         if (at < 0) at = leads.length;
         leads.splice(at, 0, row);
+        rebuildLeadsByKey(entry);
       }
     } else if (idx >= 0) {
       leads.splice(idx, 1);
+      rebuildLeadsByKey(entry);
     }
   }
 }
 
-function onKvWrite(key, value) {
+function onKvWrite(key, value, parsedHint) {
   if (key === LEGACY_DEFAULT_WORKSPACE_KEY) {
     _leadsListCache.clear();
     return;
   }
-  if (isLeadStorageKey(key)) patchLeadsListCacheForRow(key, value);
+  if (isLeadStorageKey(key)) patchLeadsListCacheForRow(key, value, parsedHint);
 }
 
 function getPersistenceStats() {
@@ -145,6 +192,8 @@ function getPersistenceStats() {
 const sqlite = new Database(DB_PATH);
 sqlite.pragma('journal_mode = WAL');
 sqlite.pragma('foreign_keys = ON');
+// Enrichment / search can write hundreds of lead rows; wait briefly instead of failing under load.
+sqlite.pragma('busy_timeout = 5000');
 // Shrink the WAL back down after checkpoints instead of leaving it at its high-water mark on the small disk.
 sqlite.pragma('journal_size_limit = 67108864');
 
@@ -430,9 +479,9 @@ function kvGet(key) {
   return row ? row.value : null;
 }
 
-function kvSet(key, value) {
+function kvSet(key, value, parsedHint) {
   sqlite.prepare('INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, datetime(\'now\'))').run(key, value);
-  onKvWrite(key, value);
+  onKvWrite(key, value, parsedHint);
 }
 
 function kvList(prefix = '') {
@@ -676,7 +725,7 @@ module.exports = {
       console.warn('[saveLead] phone line type refresh skipped:', e && e.message);
     }
 
-    kvSet(key, JSON.stringify(newLead));
+    kvSet(key, JSON.stringify(newLead), newLead);
     return { key, merged: false, lead: { key, ...newLead } };
   },
 
@@ -797,7 +846,13 @@ module.exports = {
             )
             .all(wid);
       const leads = [];
-      for (const row of rows) {
+      // Yield every chunk so Today / nav requests stay responsive while a large workspace cold-loads.
+      const YIELD_EVERY = 200;
+      for (let i = 0; i < rows.length; i++) {
+        if (i > 0 && i % YIELD_EVERY === 0) {
+          await new Promise((r) => setImmediate(r));
+        }
+        const row = rows[i];
         const key = row && row.key;
         const raw = row && row.value;
         if (!key || raw == null) continue;
@@ -812,7 +867,9 @@ module.exports = {
         leads.push({ ...parsed, key, workspaceId: wid });
       }
       leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
-      _leadsListCache.set(wid, { at: Date.now(), leads });
+      const entry = { at: Date.now(), leads };
+      rebuildLeadsByKey(entry);
+      _leadsListCache.set(wid, entry);
       return leads;
     })();
 
@@ -828,11 +885,7 @@ module.exports = {
   async getAllLeadsUnscoped() {
     // One scan instead of kvList + getLead per key (each getLead re-resolved and re-read its row).
     const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%' ORDER BY key").all();
-    rows.sort((a, b) => {
-      const tsA = parseInt(a.key.split(':')[1]);
-      const tsB = parseInt(b.key.split(':')[1]);
-      return tsB - tsA;
-    });
+    rows.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
     const leads = [];
     for (const row of rows) {
       let parsed;
@@ -857,7 +910,8 @@ module.exports = {
   },
   setKvSync(key, value) {
     const payload = typeof value === 'string' ? value : JSON.stringify(value);
-    kvSet(key, payload);
+    const hint = typeof value === 'string' ? undefined : value;
+    kvSet(key, payload, hint);
   },
   deleteKvSync(key) {
     kvDelete(key);
@@ -876,7 +930,8 @@ module.exports = {
 
   async putStorageKey(key, value) {
     const payload = typeof value === 'string' ? value : JSON.stringify(value);
-    kvSet(key, payload);
+    const hint = typeof value === 'string' ? undefined : value;
+    kvSet(key, payload, hint);
   },
 
   /**
@@ -1112,7 +1167,7 @@ module.exports = {
       console.warn('[updateLead] phone line type refresh skipped:', e && e.message);
     }
 
-    kvSet(storageKey, JSON.stringify(updated));
+    kvSet(storageKey, JSON.stringify(updated), updated);
     return {
       ...updated,
       key: updated.key || storageKey,

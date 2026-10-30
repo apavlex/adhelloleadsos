@@ -399,17 +399,24 @@ function buildOpportunityBoard(input) {
   const keys = followUpKeys(input && input.tasks);
   const leads = Array.isArray(input && input.leads) ? input.leads : [];
   const compactLimit = Number(input && input.compactLimit) > 0 ? Number(input.compactLimit) : 0;
-  const grouped = new Map(pipeline.stages.map((stage) => [stage.id, []]));
+  const grouped = new Map(
+    pipeline.stages.map((stage) => [stage.id, { cards: [], count: 0, value: 0 }]),
+  );
 
   leads.forEach((lead) => {
     const stageId = stageForLead(lead, pipeline, homePipelineId, keys);
     if (!stageId || !grouped.has(stageId)) return;
+    const bucket = grouped.get(stageId);
     const value = cardValue(lead);
+    bucket.count += 1;
+    bucket.value += value;
+    // Today compact mode: keep column totals, but only allocate the visible card set.
+    if (compactLimit && bucket.cards.length >= compactLimit) return;
     const phone = usableContact(lead.phone || lead.mobile || lead.telephone);
     const email = usableContact(lead.email);
     const status = statusLabel(lead);
     const note = latestNote(lead);
-    grouped.get(stageId).push({
+    bucket.cards.push({
       key: String(lead.key),
       title: leadTitle(lead),
       href: focusHref(lead),
@@ -432,16 +439,15 @@ function buildOpportunityBoard(input) {
   });
 
   const stages = pipeline.stages.map((stage) => {
-    const cards = grouped.get(stage.id) || [];
-    const value = cards.reduce((sum, card) => sum + card.value, 0);
+    const bucket = grouped.get(stage.id) || { cards: [], count: 0, value: 0 };
     return {
       id: stage.id,
       name: stage.name,
-      count: cards.length,
-      value,
-      valueLabel: money(value),
-      cards: compactLimit ? cards.slice(0, compactLimit) : cards,
-      hiddenCount: compactLimit ? Math.max(0, cards.length - compactLimit) : 0,
+      count: bucket.count,
+      value: bucket.value,
+      valueLabel: money(bucket.value),
+      cards: bucket.cards,
+      hiddenCount: compactLimit ? Math.max(0, bucket.count - bucket.cards.length) : 0,
     };
   });
 

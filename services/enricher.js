@@ -133,6 +133,8 @@ module.exports = {
               }
             }),
           );
+          // Let Today / nav HTTP handlers run between enrichment batches on large workspaces.
+          await new Promise((r) => setImmediate(r));
         }
       }
     }
@@ -186,6 +188,7 @@ module.exports = {
           console.error(`[ENRICHER] [BATCH] Enrich failed for ${lead.title}:`, err.message);
         }
       }));
+      await new Promise((r) => setImmediate(r));
     }
 
     console.log('[ENRICHER] Deep enrichment pass complete.');

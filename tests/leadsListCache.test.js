@@ -19,6 +19,20 @@ const WS_A = 'ws_cache_a';
 const WS_B = 'ws_cache_b';
 const ALIAS_KEY = 'sys:legacy_default_workspace_id';
 
+/** Mirrors services/database.js leadKeySortTs — decimal test keys + base36 saveLead keys. */
+function leadKeySortTs(key) {
+  const raw = String(String(key || '').split(':')[1] || '');
+  if (/^\d+$/.test(raw)) {
+    const ts = parseInt(raw, 10);
+    return Number.isFinite(ts) ? ts : 0;
+  }
+  if (/^[0-9a-z]{8,}$/i.test(raw)) {
+    const ts = parseInt(raw.slice(0, 8), 36);
+    return Number.isFinite(ts) ? ts : 0;
+  }
+  return 0;
+}
+
 /** What a cold getAllLeads scan returns, read straight from SQLite (bypasses the in-memory cache). */
 function freshScan(wid) {
   const db = new Database(path.join(tmpDataDir, 'app.db'), { readonly: true });
@@ -39,8 +53,7 @@ function freshScan(wid) {
       if (lw !== wid) continue;
       out.push({ ...parsed, key: row.key, workspaceId: wid });
     }
-    const ts = (k) => parseInt(String(k).split(':')[1], 10) || 0;
-    return out.sort((a, b) => ts(b.key) - ts(a.key));
+    return out.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
   } finally {
     db.close();
   }
@@ -146,16 +159,38 @@ test('leads list cache stays in sync with lead writes', async (t) => {
     assert.ok(!again.some((l) => l.key === 'lead:1'));
   });
 
+  await t.test('many sequential updates stay cache-correct (O(1) key index path)', async () => {
+    const keys = [];
+    for (let i = 0; i < 80; i++) {
+      const key = `lead:${10000 + i}`;
+      keys.push(key);
+      await put(key, { title: `Bulk ${i}`, workspaceId: WS_A, status: 'New', touch: 0 });
+    }
+    await dbService.getAllLeads(WS_A);
+    for (let round = 0; round < 3; round++) {
+      for (const key of keys) {
+        await dbService.updateLead(key, { touch: round + 1, status: `R${round}` }, WS_A);
+      }
+    }
+    const leads = await assertMatchesFresh(WS_A);
+    for (const key of keys) {
+      const hit = leads.find((l) => l.key === key);
+      assert.ok(hit, key);
+      assert.equal(hit.touch, 3);
+      assert.equal(hit.status, 'R2');
+    }
+  });
+
   await t.test('getAllLeadsUnscoped returns every lead newest-first and skips corrupt rows', async () => {
     await put('lead:5000', '{broken');
     const all = await dbService.getAllLeadsUnscoped();
     const keys = all.map((l) => l.key);
     const expected = [...freshScan(WS_A), ...freshScan(WS_B)]
       .map((l) => l.key)
-      .sort((x, y) => parseInt(y.split(':')[1], 10) - parseInt(x.split(':')[1], 10));
+      .sort((x, y) => leadKeySortTs(y) - leadKeySortTs(x));
     assert.ok(!keys.includes('lead:5000'));
     for (const k of expected) assert.ok(keys.includes(k), `missing ${k}`);
-    const ts = keys.map((k) => parseInt(k.split(':')[1], 10));
+    const ts = keys.map((k) => leadKeySortTs(k));
     assert.deepEqual(ts, [...ts].sort((x, y) => y - x));
     assert.equal(all.find((l) => l.key === 'lead:2000').title, 'B two');
     await dbService.deleteLead('lead:5000');

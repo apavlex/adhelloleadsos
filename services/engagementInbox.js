@@ -221,24 +221,44 @@ function summarizeEvents(events) {
   };
 }
 
+/** True when a lead has an SMS/email reply signal inside the window (fields or timeline). */
+function leadHasWarmReplyInWindow(lead, cutoffMs) {
+  if (!lead) return false;
+  const s = normalizeEngagementSignals(lead.engagementSignals);
+  for (const field of ['smsRepliedAt', 'emailRepliedAt']) {
+    const atMs = Date.parse(s[field] || '');
+    if (Number.isFinite(atMs) && atMs >= cutoffMs) return true;
+  }
+  const updates = Array.isArray(lead.updates) ? lead.updates : [];
+  for (const u of updates) {
+    if (!u || u.type !== 'engagement_signal') continue;
+    const atMs = Date.parse(u.timestamp || '');
+    if (!Number.isFinite(atMs) || atMs < cutoffMs) continue;
+    const signalType = inferSignalTypeFromUpdate(u) || '';
+    if (REPLY_SIGNALS.has(signalType)) return true;
+  }
+  return false;
+}
+
 /**
  * Unique leads with a recent SMS/email reply signal — same window as /engagement.
  * Use this for Today “replies waiting” so the count matches the inbox (not historic logs).
+ * Fast path: does not build the full engagement inbox (important for 1k+ lead workspaces).
  * @param {object[]} leads
  * @param {{ windowDays?: number, now?: Date }} [opts]
  * @returns {number}
  */
 function countWarmReplyLeads(leads, opts = {}) {
-  const inbox = buildEngagementInbox(leads, {
-    windowDays: opts.windowDays,
-    now: opts.now,
-    limit: 5000,
-  });
-  const replyLeads = new Set();
-  for (const ev of inbox.events || []) {
-    if (REPLY_SIGNALS.has(ev.signalType) && ev.leadKey) replyLeads.add(ev.leadKey);
+  const now = opts.now instanceof Date ? opts.now : new Date(opts.now || Date.now());
+  const windowDays =
+    typeof opts.windowDays === 'number' ? opts.windowDays : DEFAULT_WINDOW_DAYS;
+  const cutoffMs = now.getTime() - windowDays * 86400000;
+  let count = 0;
+  for (const lead of Array.isArray(leads) ? leads : []) {
+    if (!lead || !lead.key) continue;
+    if (leadHasWarmReplyInWindow(lead, cutoffMs)) count += 1;
   }
-  return replyLeads.size;
+  return count;
 }
 
 /**
