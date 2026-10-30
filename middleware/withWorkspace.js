@@ -49,8 +49,10 @@ async function withWorkspace(req, res, next) {
     const workspaceSwitchFastPath =
       path === '/workspaces/switch' ||
       path === '/workspaces/open' ||
+      path === '/workspaces/warm' ||
       /\/workspaces\/switch(?:\/|$|\?)/.test(original) ||
-      /\/workspaces\/open(?:\/|$|\?)/.test(original);
+      /\/workspaces\/open(?:\/|$|\?)/.test(original) ||
+      /\/workspaces\/warm(?:\/|$|\?)/.test(original);
     const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
 
     // API key auth — no session, use 'default' workspace directly

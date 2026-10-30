@@ -289,24 +289,24 @@
 
         <div id="todayPanelNext30" role="tabpanel" aria-labelledby="<%= _hasAgentOps ? 'todayTabNext30' : '' %>" data-today-panel="next30" class="today-main-panel">
           <div class="flex flex-col lg:flex-row lg:items-center gap-8">
-            <div class="flex-1 min-w-0">
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3"><%= _roi && _roi.eyebrow ? _roi.eyebrow : 'Best ROI · next 30 min' %></p>
-              <h2 class="font-display font-extrabold text-xl md:text-3xl text-brand-dark dark:text-white mb-2 leading-tight">
+            <div class="flex-1 min-w-0" id="todayRoiHero">
+              <p id="todayRoiEyebrow" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3"><%= _roi && _roi.eyebrow ? _roi.eyebrow : 'Best ROI · next 30 min' %></p>
+              <h2 id="todayRoiHeadline" class="font-display font-extrabold text-xl md:text-3xl text-brand-dark dark:text-white mb-2 leading-tight">
                 <% if (_roi && _roi.headline) { %>
                 <%= _roi.headline %>
                 <% } else { %>
                 You have <span class="tabular-nums" data-today-count="<%= _q %>"><%= _q %></span> prospects queued for action today.
                 <% } %>
               </h2>
-              <p class="text-sm text-brand-muted mb-5 max-w-xl"><%= _roi && _roi.detail ? _roi.detail : 'Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.' %></p>
+              <p id="todayRoiDetail" class="text-sm text-brand-muted mb-5 max-w-xl"><%= _roi && _roi.detail ? _roi.detail : 'Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.' %></p>
               <div class="flex flex-col sm:flex-row flex-wrap gap-3 mb-5">
-                <a href="<%= _roi && _roi.primaryHref ? _roi.primaryHref : '/focus' %>" data-nav-prefetch="<%= _roi && _roi.primaryHref ? _roi.primaryHref : '/focus' %>" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center inline-flex items-center justify-center gap-2">
+                <a id="todayRoiPrimary" href="<%= _roi && _roi.primaryHref ? _roi.primaryHref : '/focus' %>" data-nav-prefetch="<%= _roi && _roi.primaryHref ? _roi.primaryHref : '/focus' %>" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center inline-flex items-center justify-center gap-2">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3l14 9-14 9V3z"/></svg>
-                  <%= _roi && _roi.primaryLabel ? _roi.primaryLabel : 'Start session' %>
+                  <span id="todayRoiPrimaryLabel"><%= _roi && _roi.primaryLabel ? _roi.primaryLabel : 'Start session' %></span>
                 </a>
-                <a href="<%= _roi && _roi.secondaryHref ? _roi.secondaryHref : '/network?tab=referrals' %>" data-nav-prefetch="<%= _roi && _roi.secondaryHref ? _roi.secondaryHref : '/network?tab=referrals' %>" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
+                <a id="todayRoiSecondary" href="<%= _roi && _roi.secondaryHref ? _roi.secondaryHref : '/network?tab=referrals' %>" data-nav-prefetch="<%= _roi && _roi.secondaryHref ? _roi.secondaryHref : '/network?tab=referrals' %>" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h10M4 18h7"/></svg>
-                  <%= _roi && _roi.secondaryLabel ? _roi.secondaryLabel : 'Network leads' %>
+                  <span id="todayRoiSecondaryLabel"><%= _roi && _roi.secondaryLabel ? _roi.secondaryLabel : 'Network leads' %></span>
                 </a>
                 <% if (_roi && _roi.altHref && _roi.altLabel) { %>
                 <a href="<%= _roi.altHref %>" data-nav-prefetch="<%= _roi.altHref %>" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center inline-flex items-center justify-center gap-2">
@@ -843,6 +843,7 @@
       </div>
     </section>
 
+    <div id="todaySourcesSlot">
     <% if (_combinedHome.length) { %>
     <section class="today-viz today-viz-reveal mb-8 md:mb-10" aria-label="Lead and team sources">
       <div class="flex items-baseline justify-between gap-3 mb-3">
@@ -867,6 +868,7 @@
       </div>
     </section>
     <% } %>
+    </div>
 
     <% const _bmRaw = typeof bookmarkSessions !== 'undefined' && bookmarkSessions ? bookmarkSessions : null; %>
     <% const _bm = { total: (_bmRaw && _bmRaw.total) || 0, callable: (_bmRaw && _bmRaw.callable) || 0, href: (_bmRaw && _bmRaw.href) || '/focus', folders: Array.isArray(_bmRaw && _bmRaw.folders) ? _bmRaw.folders : [] }; %>
@@ -989,8 +991,18 @@
     </section>
     <% } %>
 
-    <%- include('/partials/opportunity_board') %>
+    <div id="todayOppBoardSlot">
+      <% if (typeof opportunityBoard !== 'undefined' && opportunityBoard) { %>
+      <%- include('/partials/opportunity_board') %>
+      <% } else if (typeof todayExtrasDeferred !== 'undefined' && todayExtrasDeferred) { %>
+      <div id="todayOppBoardSkeleton" class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/50 p-6 md:p-8 animate-pulse" aria-busy="true">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Pipeline</p>
+        <p class="text-sm text-brand-muted">Loading opportunity board…</p>
+      </div>
+      <% } %>
+    </div>
 
+    <div id="todayWeekReviewSlot">
     <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
     <% if (_wr) { %>
     <% const _wrLeads = Array.isArray(_wr.topLeads) ? _wr.topLeads.slice(0, 5) : []; %>
@@ -1028,6 +1040,7 @@
       </div>
     </div>
     <% } %>
+    </div>
 
     <%- include('/partials/today_touches_hub') %>
 
@@ -1303,16 +1316,14 @@
   </main>
 
   <% const _eq = typeof outreachCoach !== 'undefined' && outreachCoach && outreachCoach.entrepreneurQuote ? outreachCoach.entrepreneurQuote : null; %>
+  <footer id="todayQuoteFooter" class="max-wide mx-auto px-6 pb-10 md:pb-14">
   <% if (_eq) { %>
-  <footer class="max-wide mx-auto px-6 pb-10 md:pb-14">
     <blockquote class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 px-5 py-5 md:px-6 md:py-6 text-brand-dark dark:text-slate-100">
       <p class="font-display font-bold text-base md:text-lg leading-snug">“<%= _eq.text %>”</p>
       <footer class="mt-3 text-sm font-bold text-brand-muted dark:text-slate-400">— <%= _eq.author %></footer>
     </blockquote>
-  </footer>
-  <% } else { %>
-  <footer class="max-wide mx-auto px-6 pb-10 md:pb-14"></footer>
   <% } %>
+  </footer>
 
   <% const _icpF = typeof icpForm !== 'undefined' && icpForm ? icpForm : { keyword: '', city: '', state: '', qty: 50 }; %>
   <div id="todayIcpModal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4 bg-brand-dark/50 dark:bg-black/60" role="dialog" aria-modal="true" aria-labelledby="today-icp-title">
@@ -1379,6 +1390,153 @@
   })();
   </script>
   <%- include('/partials/opportunity_company_panel') %>
+  <% if (typeof todayExtrasDeferred !== 'undefined' && todayExtrasDeferred) { %>
+  <script>
+  (function () {
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+    function setText(id, text) {
+      var el = document.getElementById(id);
+      if (el && text != null) el.textContent = text;
+    }
+    function setHref(id, href) {
+      var el = document.getElementById(id);
+      if (el && href) {
+        el.setAttribute('href', href);
+        el.setAttribute('data-nav-prefetch', href);
+      }
+    }
+    function applyRoi(roi) {
+      if (!roi) return;
+      setText('todayRoiEyebrow', roi.eyebrow || 'Best ROI · next 30 min');
+      setText('todayRoiHeadline', roi.headline || '');
+      setText('todayRoiDetail', roi.detail || '');
+      setHref('todayRoiPrimary', roi.primaryHref);
+      setText('todayRoiPrimaryLabel', roi.primaryLabel || 'Start session');
+      setHref('todayRoiSecondary', roi.secondaryHref);
+      setText('todayRoiSecondaryLabel', roi.secondaryLabel || 'Network leads');
+    }
+    function sourcesHtml(leadSources, fieldWorkHome) {
+      var srcList = leadSources && Array.isArray(leadSources.sources) ? leadSources.sources : [];
+      var fwSrc = fieldWorkHome && Array.isArray(fieldWorkHome.sources) ? fieldWorkHome.sources : [];
+      var combined = srcList.map(function (s) {
+        return { kind: 'lead', count: s.count, label: s.label, hint: s.hint, href: s.href, hot: false };
+      }).concat(fwSrc.map(function (s) {
+        return { kind: 'team', count: s.count, label: s.label, hint: s.hint, href: s.href, hot: !!(s.id === 'overdue' && s.count) };
+      }));
+      if (!combined.length) return '';
+      var need = (Number(leadSources && leadSources.needYou) || 0) + (Number(fieldWorkHome && fieldWorkHome.needAttention) || 0);
+      var cards = combined.map(function (s) {
+        return (
+          '<a href="' + esc(s.href) + '" class="group rounded-2xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0' +
+          (s.hot ? ' border-rose-300/60 dark:border-rose-400/30' : '') + '">' +
+          '<p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">' + (s.kind === 'lead' ? 'Lead' : 'Team') + '</p>' +
+          '<p class="font-display font-extrabold text-2xl tabular-nums text-brand-dark dark:text-white leading-none mb-1">' + esc(s.count) + '</p>' +
+          '<p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white">' + esc(s.label) + '</p>' +
+          '<p class="text-[11px] font-semibold text-brand-muted truncate mt-0.5">' + esc(s.hint) + '</p></a>'
+        );
+      }).join('');
+      return (
+        '<section class="today-viz today-viz-reveal mb-8 md:mb-10" aria-label="Lead and team sources">' +
+        '<div class="flex items-baseline justify-between gap-3 mb-3"><div>' +
+        '<p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Active numbers</p>' +
+        '<h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white leading-tight">' +
+        '<span class="tabular-nums">' + esc(need) + '</span> need attention' +
+        '<span class="text-brand-muted font-semibold text-sm md:text-base"> · leads &amp; field work</span></h2></div>' +
+        '<a href="/network?tab=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a></div>' +
+        '<div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">' + cards + '</div></section>'
+      );
+    }
+    function weekReviewHtml(wr) {
+      if (!wr) return '';
+      var leads = Array.isArray(wr.topLeads) ? wr.topLeads.slice(0, 5) : [];
+      var lis = leads.length
+        ? leads.map(function (L) {
+            var short = String(L.key || '').replace(/^lead:/i, '');
+            return '<li><a href="/focus?lead=' + encodeURIComponent(short) + '" class="font-semibold hover:text-brand-yellow">' +
+              esc(L.title) + '</a> <span class="text-brand-muted">· ' + esc(L.touches) + ' events</span></li>';
+          }).join('')
+        : '<li class="text-brand-muted">No activity this week yet — log touches from Focus or the pipeline.</li>';
+      var cadence = wr.cadence && wr.cadence.label ? esc(wr.cadence.label) : '—';
+      var cadenceCount = wr.cadence && wr.cadence.count
+        ? ' <span class="text-brand-muted font-sans font-semibold text-sm">(' + esc(wr.cadence.count) + ' touches logged)</span>'
+        : '';
+      return (
+        '<div id="weekReviewCard" class="today-viz today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm">' +
+        '<div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5"><div>' +
+        '<p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">This week\'s review</p>' +
+        '<p class="text-sm text-brand-muted">Cadence performance and who engaged most.</p></div></div>' +
+        '<div class="space-y-5 max-w-3xl"><div>' +
+        '<p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Best-performing cadence</p>' +
+        '<p class="font-display font-bold text-brand-dark dark:text-white">' + cadence + cadenceCount + '</p></div>' +
+        '<div><p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Top leads by engagement</p>' +
+        '<ol class="list-decimal list-inside space-y-1.5 text-sm text-brand-dark dark:text-slate-200">' + lis + '</ol></div>' +
+        '<div class="rounded-2xl border border-brand-yellow/30 bg-brand-yellow/10 dark:bg-brand-yellow/5 px-4 py-3">' +
+        '<p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-1">Suggested experiment</p>' +
+        '<p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed">' + esc(wr.experiment || '') + '</p></div></div></div>'
+      );
+    }
+    fetch('/today/extras.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.success) return;
+        applyRoi(data.bestRoiActivity);
+        var oppSlot = document.getElementById('todayOppBoardSlot');
+        if (oppSlot && data.opportunityBoardHtml) oppSlot.innerHTML = data.opportunityBoardHtml;
+        else {
+          var sk = document.getElementById('todayOppBoardSkeleton');
+          if (sk) sk.remove();
+        }
+        var srcSlot = document.getElementById('todaySourcesSlot');
+        if (srcSlot && !srcSlot.querySelector('section')) {
+          srcSlot.innerHTML = sourcesHtml(data.leadSources, data.fieldWorkHome);
+        }
+        var wrSlot = document.getElementById('todayWeekReviewSlot');
+        if (wrSlot && !document.getElementById('weekReviewCard')) {
+          wrSlot.innerHTML = weekReviewHtml(data.weekReview);
+        }
+        if (data.actionPlanHtml) {
+          var hub = document.getElementById('today-touches-hub');
+          var host = hub && hub.querySelector('.divide-y');
+          if (host && !document.getElementById('today-hub-action-plan')) {
+            var wrap = document.createElement('details');
+            wrap.id = 'today-hub-action-plan';
+            wrap.className = 'today-hub-panel group bg-white dark:bg-slate-900/90';
+            wrap.innerHTML =
+              '<summary class="today-hub-panel-summary bg-white dark:bg-slate-900/90">' +
+              '<span class="min-w-0"><span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Daily action plan tracker</span>' +
+              '<span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5">' +
+              esc(data.actionPlan && data.actionPlan.monthLabel) + '</span></span>' +
+              '<span class="flex items-center gap-2 shrink-0"><span class="text-[10px] font-black uppercase tracking-wider text-brand-muted tabular-nums">' +
+              esc(data.actionPlan && data.actionPlan.monthlyTotal) + ' this month</span>' +
+              '<span class="today-hub-chevron text-brand-muted" aria-hidden="true">▼</span></span></summary>' +
+              '<div class="today-hub-panel-body today-hub-panel-body--flush"><div class="today-hub-panel-inner today-hub-panel-inner--flush">' +
+              data.actionPlanHtml + '</div></div>';
+            host.appendChild(wrap);
+          }
+        }
+        if (data.entrepreneurQuote && data.entrepreneurQuote.text) {
+          var foot = document.getElementById('todayQuoteFooter');
+          if (foot && !foot.querySelector('blockquote')) {
+            foot.innerHTML =
+              '<blockquote class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 px-5 py-5 md:px-6 md:py-6 text-brand-dark dark:text-slate-100">' +
+              '<p class="font-display font-bold text-base md:text-lg leading-snug">“' + esc(data.entrepreneurQuote.text) + '”</p>' +
+              '<footer class="mt-3 text-sm font-bold text-brand-muted dark:text-slate-400">— ' + esc(data.entrepreneurQuote.author) + '</footer></blockquote>';
+          }
+        }
+      })
+      .catch(function () {
+        var sk = document.getElementById('todayOppBoardSkeleton');
+        if (sk) sk.remove();
+      });
+  })();
+  </script>
+  <% } %>
   <%- include('/partials/app_shell_close') %>
 </body>
 </html>

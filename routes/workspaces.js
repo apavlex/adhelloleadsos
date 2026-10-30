@@ -865,6 +865,27 @@ router.get('/storage.json', async (req, res, next) => {
   }
 });
 
+/**
+ * Pre-warm lead list cache for a workspace the user can access.
+ * Fired when the switcher opens so switch→Today shares an in-flight/cold scan.
+ */
+router.post('/warm', express.json({ limit: '4kb' }), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) return res.status(401).json({ success: false, error: 'Sign in required.' });
+    const raw = String((req.body && req.body.workspaceId) || '').trim();
+    if (!raw) return res.status(400).json({ success: false, error: 'workspaceId is required.' });
+    const ws = await dbService.getWorkspace(raw);
+    if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
+      return res.status(403).json({ success: false, error: 'You do not have access to that workspace.' });
+    }
+    void dbService.getAllLeads(raw).catch(() => {});
+    return res.json({ success: true, warming: true, workspaceId: raw });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/switch', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {
     const email = userEmail(req);

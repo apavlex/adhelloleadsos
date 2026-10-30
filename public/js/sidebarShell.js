@@ -185,11 +185,47 @@
       if (chev) chev.classList.remove('rotate-180');
     }
 
+    var warmedIds = Object.create(null);
+    function warmSwitcherWorkspaces() {
+      var current = '';
+      try {
+        var active = wsm.querySelector('button[aria-current="true"]');
+        var activeForm = active && active.closest('form');
+        var activeInput = activeForm && activeForm.querySelector('input[name="workspaceId"]');
+        if (activeInput) current = String(activeInput.value || '').trim();
+      } catch (_) {}
+      var inputs = wsm.querySelectorAll('form[action="/workspaces/switch"] input[name="workspaceId"]');
+      for (var i = 0; i < inputs.length; i++) {
+        var id = String(inputs[i].value || '').trim();
+        if (!id || id === current || warmedIds[id]) continue;
+        warmedIds[id] = 1;
+        try {
+          fetch('/workspaces/warm', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ workspaceId: id }),
+            keepalive: true,
+          }).catch(function () {});
+        } catch (_) {}
+      }
+    }
+
+    wsb.addEventListener('pointerenter', function () {
+      warmSwitcherWorkspaces();
+    });
+    wsb.addEventListener('focus', function () {
+      warmSwitcherWorkspaces();
+    });
+
     wsb.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
       var open = wsm.classList.contains('hidden');
-      if (open) positionWsMenu();
+      if (open) {
+        positionWsMenu();
+        warmSwitcherWorkspaces();
+      }
       wsm.classList.toggle('hidden');
       wsb.setAttribute('aria-expanded', open ? 'true' : 'false');
       var chev = wsb.querySelector('.ws-switcher-chevron');

@@ -11,9 +11,6 @@ const { loadDailyTouchGoal } = require('../services/touchGoalPrefs');
 const { computeOutreachStreakWithLeads } = require('../services/trackerAutoFill');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const activationService = require('../services/activationService');
-const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
-const { buildConversionSnapshot } = require('../services/conversionMetrics');
-const { buildWeekReview } = require('../services/weekReview');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { buildCadenceQueue } = require('../services/cadenceQueue');
 const { buildTodayContactQueue, contactQueueSortBlurb } = require('../services/todayContactQueue');
@@ -25,16 +22,17 @@ const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks, clearOpenAutomationTasks, filterManualUserTasks } = require('../services/userTasks');
 const { pauseActiveSequencesForWorkspace } = require('../services/sequenceEngine');
 const actionPlanTracker = require('../services/actionPlanTracker');
-const { buildOpportunityBoard, selectPipeline } = require('../services/opportunityBoards');
 const { buildBookmarkSessions, buildRecentlyWorked } = require('../services/todayResumeQueue');
 const { countWarmReplyLeads, DEFAULT_WINDOW_DAYS: ENGAGEMENT_WINDOW_DAYS } = require('../services/engagementInbox');
 const agentOps = require('../services/agentOps');
-const workspaceLeadOverview = require('../services/workspaceLeadOverview');
-const appointmentPackages = require('../services/appointmentPackages');
-const networkStore = require('../services/networkStore');
-const teamFieldWork = require('../services/teamFieldWork');
 const { buildBestRoiActivity } = require('../services/bestRoiActivity');
-const { canAssignWork, roleForEmail } = require('../services/workspaceService');
+const {
+  loadTodayDeferredPanels,
+  countQueueNeedingAction,
+  enrichTasksWithLeadsForToday,
+  followUpTasksNeedingAttention,
+} = require('../services/todayDeferred');
+
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -50,38 +48,13 @@ function greetingWord() {
   return 'Evening';
 }
 
-function countQueueNeedingAction(leads) {
-  return leads.filter((l) => {
-    const ps = parseInt(l.pipelineStage, 10);
-    const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
-    return n <= 2;
-  }).length;
-}
-
-function enrichTasksWithLeadsForToday(tasks, leads) {
-  const leadMap = Object.fromEntries(
-    (Array.isArray(leads) ? leads : []).filter((l) => l && l.key).map((l) => [l.key, l]),
-  );
-  return (Array.isArray(tasks) ? tasks : []).map((t) => {
-    const L = t && t.leadKey && leadMap[t.leadKey];
-    const leadTitle = L ? String(L.title || L.company || L.email || 'Lead').slice(0, 120) : null;
-    return { ...t, leadTitle };
+function renderView(res, view, locals) {
+  return new Promise((resolve, reject) => {
+    res.render(view, locals, (err, html) => {
+      if (err) reject(err);
+      else resolve(html || '');
+    });
   });
-}
-
-/** Scheduled follow-ups not marked done: overdue or due before end of today (server local calendar). */
-function followUpTasksNeedingAttention(tasksEnriched) {
-  const now = new Date();
-  const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
-  return tasksEnriched
-    .filter((t) => {
-      if (!t.scheduledAt || t.column === 'done') return false;
-      const ts = Date.parse(t.scheduledAt);
-      if (!Number.isFinite(ts)) return false;
-      return ts < endToday;
-    })
-    .sort((a, b) => Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt))
-    .slice(0, 15);
 }
 
 /** Same set as /tasks “Due & overdue” — manual tasks only (not cadence / lead nextActionAt). */
@@ -124,35 +97,29 @@ router.get('/', async (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     const wid = req.workspaceId;
     const workspaceDoc = req.workspace || null;
-    const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
-    const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
     const searchInProgressNotice = req.query.searchInProgress === '1';
     const scheduleSavedNotice = req.query.scheduleSaved === '1';
 
-    // Parallelize independent reads — sequential awaits were the main mobile white-screen TTFB.
-    const [all, history, touchGoal, activation, workspaceFolders, reportViewsRaw, opportunityTags] =
-      await Promise.all([
-        dbService.getAllLeads(wid),
-        dbService.listDailyTrackers(wid, email, 62),
-        loadDailyTouchGoal(req),
-        activationService.getState(email, workspaceDoc || wid),
-        dbService.listFolders(wid).catch(() => []),
-        dbService.listReportViewsForWorkspaceSince(wid, since24, 600),
-        dbService.listTags(wid).catch(() => []),
-      ]);
+    // First paint: leads + light chrome only. Coach / board / sources / network hydrate via /today/extras.json.
+    const [all, history, touchGoal, activation, workspaceFolders, rawTasks] = await Promise.all([
+      dbService.getAllLeads(wid),
+      dbService.listDailyTrackers(wid, email, 62),
+      loadDailyTouchGoal(req),
+      activationService.getState(email, workspaceDoc || wid),
+      dbService.listFolders(wid).catch(() => []),
+      dedupeOpenLeadTasks(wid, email)
+        .then(() => dbService.listUserTasks(wid, email))
+        .catch(() => []),
+    ]);
 
     const workspaceLeads = filterLeadsForRequest(req, all);
     const businessLeads = filterBusinessPipelineLeads(workspaceLeads);
     const streak = computeOutreachStreakWithLeads(history, today, workspaceLeads);
     const touchesToday = countUniqueLeadsTouchedToday(workspaceLeads, workspaceDoc);
-    // Same 7-day inbound reply window as /engagement — not historic log text matches.
     const repliesWaiting = countWarmReplyLeads(businessLeads, { windowDays: ENGAGEMENT_WINDOW_DAYS });
     const queueNeedingAction = countQueueNeedingAction(businessLeads);
 
-    const conversionSnapshot = buildConversionSnapshot(workspaceLeads, workspaceDoc);
-    const weekReview = buildWeekReview(workspaceLeads, conversionSnapshot);
     const icp = getWorkspaceIcp(workspaceDoc);
     const icpCityState = [icp.city, icp.state].filter(Boolean).join(', ');
     const icpLabelParts = [icp.keyword, icpCityState].filter((s) => s && String(s).trim());
@@ -178,118 +145,40 @@ router.get('/', async (req, res, next) => {
       ...roiOpts,
     });
     const contactQueueBlurb = contactQueueSortBlurb(roiOpts.roiProfile);
-    // continue_list so retry-deferred bookmarks still show up in the session.
     const bookmarkSessions = buildBookmarkSessions(businessLeads, workspaceFolders, {
       queueMode: 'continue_list',
       ...roiOpts,
     });
     const recentlyWorked = buildRecentlyWorked(businessLeads, workspaceFolders, { limit: 8, sinceDays: 14 });
-    const byLead = new Map();
-    for (const v of reportViewsRaw) {
-      const prev = byLead.get(v.lead_id);
-      if (!prev || Date.parse(v.viewed_at || '') > Date.parse(prev.viewed_at || '')) {
-        byLead.set(v.lead_id, v);
-      }
-    }
-    const dedupedViews = [...byLead.values()].sort(
-      (a, b) => Date.parse(b.viewed_at || 0) - Date.parse(a.viewed_at || 0),
-    );
-    const leadMapForViews = Object.fromEntries(
-      (workspaceLeads || []).filter((l) => l && l.key).map((l) => [l.key, l]),
-    );
-    const reportsOpened24h = dedupedViews.slice(0, 25).map((v) => {
-      const L = leadMapForViews[v.lead_id];
-      const short = String(v.lead_id || '').replace(/^lead:/i, '');
-      return {
-        leadKey: v.lead_id,
-        focusLeadParam: short,
-        leadTitle: L ? String(L.title || L.company || L.email || 'Lead').slice(0, 120) : short || 'Lead',
-        lastViewedAt: v.viewed_at,
-        durationSeconds: Number(v.duration_seconds) || 0,
-      };
-    });
-
-    let outreachCoach = null;
-    let actionPlan = null;
-    let rawTasks = [];
-    try {
-      [outreachCoach, actionPlan, rawTasks] = await Promise.all([
-        buildOutreachCoachSnapshot(req, {
-          businessesOnly: true,
-          leads: all,
-          workspace: workspaceDoc,
-          touchGoal,
-          history,
-        }),
-        actionPlanTracker.loadMonthView({
-          workspaceId: wid,
-          email,
-          year: apYear,
-          month: apMonth,
-          leads: workspaceLeads,
-        }),
-        dedupeOpenLeadTasks(wid, email).then(() => dbService.listUserTasks(wid, email)),
-      ]);
-    } catch (err) {
-      console.warn('[today] coach/plan/tasks failed:', err && err.message);
-      try {
-        actionPlan = await actionPlanTracker.loadMonthView({
-          workspaceId: wid,
-          email,
-          year: apYear,
-          month: apMonth,
-          leads: workspaceLeads,
-        });
-      } catch (_) {
-        actionPlan = {
-          year: apYear,
-          month: apMonth,
-          categories: [],
-          completions: {},
-          dailyTotals: {},
-          monthlyTotal: 0,
-          clientsAcquiredYtd: 0,
-        };
-      }
-      try {
-        rawTasks = await dbService.listUserTasks(wid, email);
-      } catch (_) {
-        rawTasks = [];
-      }
-    }
-    if (!Array.isArray(rawTasks)) rawTasks = [];
 
     const tasksEnriched = enrichTasksWithLeadsForToday(rawTasks, workspaceLeads);
     const followUpTasksToday = followUpTasksNeedingAttention(tasksEnriched);
     const todayTasks = manualTasksDueToday(tasksEnriched);
-    let opportunityBoard = null;
-    try {
-      const selectedBoards = selectPipeline(workspaceDoc && workspaceDoc.opportunityBoards, req.query && req.query.pipeline);
-      if (selectedBoards.changed && workspaceDoc) {
-        workspaceDoc.opportunityBoards = selectedBoards.boards;
-        await dbService.saveWorkspace(wid, workspaceDoc);
-      }
-      opportunityBoard = buildOpportunityBoard({
-        boards: (workspaceDoc && workspaceDoc.opportunityBoards) || selectedBoards.boards,
-        leads: businessLeads,
-        tasks: rawTasks,
-        pipelineId: req.query && req.query.pipeline,
-        // Today is compact: keep stage totals, only render ~2 cards per column (rest via Opportunities).
-        compactLimit: 2,
-      });
-    } catch (err) {
-      console.warn('[today] opportunity board failed:', err && err.message);
-      opportunityBoard = null;
-    }
     const callWarmQueue = buildCallQueue(businessLeads, { limit: 20 });
     const nextActions = buildNextActionsQueue({
       tasks: tasksEnriched,
       leads: businessLeads,
       cadenceQueue,
-      reportsOpened24h,
+      reportsOpened24h: [],
       engagementQueue: callWarmQueue,
       baseUrl,
       limit: 30,
+    });
+
+    let agentOpsDash = null;
+    try {
+      agentOpsDash = agentOps.dashboardForWorkspace(wid);
+    } catch (_) {
+      agentOpsDash = null;
+    }
+
+    // Hero uses replies + queue + follow-ups immediately; extras may refine after paint.
+    const bestRoiActivity = buildBestRoiActivity({
+      repliesWaiting,
+      queueNeedingAction,
+      nextActions,
+      followUpTasksToday,
+      callWarmQueue,
     });
 
     const navYear = new Date().getFullYear();
@@ -297,60 +186,9 @@ router.get('/', async (req, res, next) => {
       short,
       month: i + 1,
       year: navYear,
-      active: !!(actionPlan && navYear === actionPlan.year && i + 1 === actionPlan.month),
+      active: false,
     }));
-    let agentOpsDash = null;
-    try {
-      agentOpsDash = agentOps.dashboardForWorkspace(wid);
-    } catch (_) {
-      agentOpsDash = null;
-    }
-    let leadSources = null;
-    try {
-      const apptView = await appointmentPackages.loadTodayView(wid);
-      leadSources = await workspaceLeadOverview.buildOverview({
-        workspaceId: wid,
-        leads: workspaceLeads,
-        apptView,
-      });
-    } catch (_) {
-      leadSources = null;
-    }
-    let fieldWorkHome = null;
-    let networkMemberCount = 0;
-    let pendingApplications = 0;
-    const role = roleForEmail(req.workspace, userEmail(req));
-    const canSeeFieldWork = canAssignWork(role) || req.canAssignWork === true || req.canManageWorkspace === true;
-    try {
-      const network = await networkStore.getOrCreateNetworkForWorkspace(wid, {
-        name: req.workspace && req.workspace.name ? `${req.workspace.name} network` : 'Referral network',
-        ownerEmail: userEmail(req),
-      });
-      const [members, applications] = await Promise.all([
-        networkStore.listMembers(network.id),
-        networkStore.listApplications(network.id).catch(() => []),
-      ]);
-      networkMemberCount = Array.isArray(members) ? members.length : 0;
-      pendingApplications = (applications || []).filter((a) => a && a.status === 'pending').length;
-      if (canSeeFieldWork) {
-        fieldWorkHome = await teamFieldWork.summarizeTeamFieldWork(network.id, members);
-      }
-    } catch (err) {
-      console.warn('[today] network / field-work summary:', err && err.message);
-      fieldWorkHome = null;
-    }
-    const bestRoiActivity = buildBestRoiActivity({
-      repliesWaiting,
-      queueNeedingAction,
-      nextActions,
-      followUpTasksToday,
-      leadSources,
-      opportunityBoard,
-      fieldWorkHome,
-      callWarmQueue,
-      networkMemberCount,
-      pendingApplications,
-    });
+
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -368,25 +206,25 @@ router.get('/', async (req, res, next) => {
       repliesWaiting,
       queueNeedingAction,
       bestRoiActivity,
-      leadSources,
-      fieldWorkHome,
+      leadSources: null,
+      fieldWorkHome: null,
       totalLeads: businessLeads.length,
-      outreachCoach,
+      outreachCoach: null,
       activation,
       activationComplete,
       activationAutoHide,
       showActivationRibbon,
-      conversionSnapshot,
-      weekReview,
+      conversionSnapshot: null,
+      weekReview: null,
       icpLabel,
       icpForm: icp,
       seededNotice,
       searchInProgressNotice,
       scheduleSavedNotice,
       followUpTasksToday,
-      opportunityBoard,
+      opportunityBoard: null,
       opportunityCompact: true,
-      opportunityTags,
+      opportunityTags: [],
       nextActions,
       todayTasks,
       callWarmQueue,
@@ -395,10 +233,88 @@ router.get('/', async (req, res, next) => {
       contactQueueBlurb,
       bookmarkSessions,
       recentlyWorked,
-      reportsOpened24h,
-      actionPlan,
+      reportsOpened24h: [],
+      actionPlan: null,
       actionPlanMonthNav,
       agentOpsDash,
+      todayExtrasDeferred: true,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Below-fold Today panels (opportunity board, sources, week review, action plan, quote).
+ * Keeps switch→Today first paint fast; client hydrates after paint.
+ */
+router.get('/extras.json', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const email = userEmail(req);
+    const wid = req.workspaceId;
+    const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
+    const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
+    const [all, history, touchGoal] = await Promise.all([
+      dbService.getAllLeads(wid),
+      dbService.listDailyTrackers(wid, email, 62).catch(() => []),
+      loadDailyTouchGoal(req),
+    ]);
+    const workspaceLeads = filterLeadsForRequest(req, all);
+    const businessLeads = filterBusinessPipelineLeads(workspaceLeads);
+    const deferred = await loadTodayDeferredPanels(req, {
+      leads: all,
+      workspaceLeads,
+      businessLeads,
+      touchGoal,
+      history,
+      apYear,
+      apMonth,
+      pipelineQuery: req.query && req.query.pipeline,
+    });
+
+    let opportunityBoardHtml = '';
+    if (deferred.opportunityBoard) {
+      try {
+        opportunityBoardHtml = await renderView(res, 'partials/opportunity_board', {
+          opportunityBoard: deferred.opportunityBoard,
+          opportunityCompact: true,
+          opportunityTags: deferred.opportunityTags || [],
+          ghlOpportunitySync: null,
+        });
+      } catch (err) {
+        console.warn('[today/extras] opportunity board render:', err && err.message);
+      }
+    }
+
+    let actionPlanHtml = '';
+    if (deferred.actionPlan) {
+      try {
+        actionPlanHtml = await renderView(res, 'partials/action_plan_tracker', {
+          actionPlan: deferred.actionPlan,
+          actionPlanMonthNav: deferred.actionPlanMonthNav,
+          hubEmbed: true,
+        });
+      } catch (err) {
+        console.warn('[today/extras] action plan render:', err && err.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      bestRoiActivity: deferred.bestRoiActivity,
+      leadSources: deferred.leadSources,
+      fieldWorkHome: deferred.fieldWorkHome,
+      weekReview: deferred.weekReview,
+      entrepreneurQuote: deferred.entrepreneurQuote,
+      actionPlan: deferred.actionPlan
+        ? {
+            monthLabel: deferred.actionPlan.monthLabel,
+            monthlyTotal: deferred.actionPlan.monthlyTotal,
+          }
+        : null,
+      opportunityBoardHtml,
+      actionPlanHtml,
     });
   } catch (e) {
     next(e);
