@@ -13,8 +13,9 @@ const ghlNotificationPrefs = require('../services/ghlNotificationPrefs');
 const { catchUpReviewed } = require('../services/taskPushReminders');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 
-async function workspaceLeads(req) {
-  return filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId));
+/** Bell / inbound / GHL activity only need leads that already carry inboundEvents. */
+async function workspaceInboundLeads(req) {
+  return filterLeadsForRequest(req, await dbService.listLeadsWithInboundEvents(req.workspaceId));
 }
 
 async function ghlLinkContext(workspaceId) {
@@ -28,7 +29,11 @@ async function ghlLinkContext(workspaceId) {
 async function historyForRequest(req, { kind, limit } = {}) {
   const wid = req.workspaceId;
   const email = userEmail(req);
-  const [leads, allSearches] = await Promise.all([workspaceLeads(req), dbService.getAllSearches()]);
+  // Inbound history only reads inboundEvents — do not load every prospect on each bell poll.
+  const [leads, allSearches] = await Promise.all([
+    workspaceInboundLeads(req),
+    dbService.getAllSearches(),
+  ]);
   const history = buildNotificationHistory({
     leads,
     searches: allSearches.filter((s) => (s.workspaceId || 'default') === wid),
@@ -113,7 +118,7 @@ router.get('/inbound', async (req, res, next) => {
     const ghl = await ghlLinkContext(req.workspaceId);
     const email = userEmail(req);
     const ghlPaused = ghlNotificationPrefs.isPaused(email);
-    let items = pendingInboundItems(await workspaceLeads(req), ghl);
+    let items = pendingInboundItems(await workspaceInboundLeads(req), ghl);
     if (ghlPaused) {
       items = items.filter((it) => !it || !GHL_ACTIVITY_TYPES.has(it.type));
     }
@@ -157,7 +162,7 @@ router.post('/ghl-alerts', express.json({ limit: '4kb' }), (req, res, next) => {
 router.get('/ghl', async (req, res, next) => {
   try {
     const ghl = await ghlLinkContext(req.workspaceId);
-    const items = listGhlCallSmsItems(await workspaceLeads(req), ghl);
+    const items = listGhlCallSmsItems(await workspaceInboundLeads(req), ghl);
     const openCount = items.filter((i) => !i.handled).length;
     res.render('ghl_activity', {
       title: 'GHL calls & texts',
@@ -179,7 +184,7 @@ router.get('/ghl.json', async (req, res, next) => {
     const ghl = await ghlLinkContext(req.workspaceId);
     res.json({
       success: true,
-      items: listGhlCallSmsItems(await workspaceLeads(req), ghl),
+      items: listGhlCallSmsItems(await workspaceInboundLeads(req), ghl),
       locationId: ghl.locationId || '',
     });
   } catch (e) {

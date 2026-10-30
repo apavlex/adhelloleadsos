@@ -159,6 +159,35 @@ test('leads list cache stays in sync with lead writes', async (t) => {
     assert.ok(!again.some((l) => l.key === 'lead:1'));
   });
 
+  await t.test('listLeadsWithInboundEvents skips prospects without inbound activity', async () => {
+    await put('lead:6100', {
+      title: 'Has inbound',
+      workspaceId: WS_A,
+      inboundEvents: [{ id: 'sms:1', type: 'sms', at: '2026-10-01T00:00:00Z', preview: 'hi' }],
+    });
+    await put('lead:6200', { title: 'No inbound', workspaceId: WS_A, inboundEvents: [] });
+    await put('lead:6300', { title: 'Missing inbound', workspaceId: WS_A });
+    // Cold path (no warm cache for a fresh workspace id) — use WS_B empty then WS_A after clear via TTL bypass:
+    // warm WS_A first so filter path is covered, then assert SQL-shaped results match.
+    const warm = await dbService.listLeadsWithInboundEvents(WS_A);
+    assert.ok(warm.some((l) => l.key === 'lead:6100'));
+    assert.ok(!warm.some((l) => l.key === 'lead:6200'));
+    assert.ok(!warm.some((l) => l.key === 'lead:6300'));
+    // Force cold SQL path by writing a new workspace that never warmed the full list.
+    const coldWid = 'ws_inbound_cold';
+    await put('lead:6400', {
+      title: 'Cold inbound',
+      workspaceId: coldWid,
+      inboundEvents: [{ id: 'form:1', type: 'form', at: '2026-10-02T00:00:00Z' }],
+    });
+    await put('lead:6500', { title: 'Cold quiet', workspaceId: coldWid });
+    const cold = await dbService.listLeadsWithInboundEvents(coldWid);
+    assert.deepEqual(
+      cold.map((l) => l.key),
+      ['lead:6400'],
+    );
+  });
+
   await t.test('many sequential updates stay cache-correct (O(1) key index path)', async () => {
     const keys = [];
     for (let i = 0; i < 80; i++) {

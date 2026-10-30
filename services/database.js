@@ -882,6 +882,71 @@ module.exports = {
     }
   },
 
+  /**
+   * Leads that carry inboundEvents — for navbar bell / inbound feed.
+   * Uses the warm list cache when present; otherwise SQL-filters so a 1k+ workspace
+   * does not JSON.parse every prospect on every poll.
+   */
+  async listLeadsWithInboundEvents(workspaceId) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'listLeadsWithInboundEvents');
+    const cached = _leadsListCache.get(wid);
+    if (cached && Date.now() - cached.at < LEADS_LIST_CACHE_TTL_MS) {
+      return cached.leads.filter(
+        (l) => l && Array.isArray(l.inboundEvents) && l.inboundEvents.length > 0,
+      );
+    }
+
+    const aliasStr = readLegacyDefaultAlias();
+    const normLeadW = (lw) => normalizeLeadWorkspaceWithAlias(lw, aliasStr);
+    const includeLegacyDefault = !!(aliasStr && aliasStr === wid);
+    const leadWs =
+      "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
+    const inboundLen =
+      "json_array_length(json_extract(CASE WHEN json_valid(value) THEN value END, '$.inboundEvents'))";
+    const rows = includeLegacyDefault
+      ? sqlite
+          .prepare(
+            `SELECT key, value FROM kv
+             WHERE key LIKE 'lead:%'
+               AND ${inboundLen} > 0
+               AND (
+                 ${leadWs} = ?
+                 OR ${leadWs} IS NULL
+                 OR ${leadWs} = ''
+                 OR ${leadWs} = 'default'
+               )`,
+          )
+          .all(wid)
+      : sqlite
+          .prepare(
+            `SELECT key, value FROM kv
+             WHERE key LIKE 'lead:%'
+               AND ${inboundLen} > 0
+               AND ${leadWs} = ?`,
+          )
+          .all(wid);
+
+    const leads = [];
+    for (const row of rows) {
+      const key = row && row.key;
+      const raw = row && row.value;
+      if (!key || raw == null) continue;
+      let parsed;
+      try {
+        parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch {
+        continue;
+      }
+      if (!parsed || typeof parsed !== 'object') continue;
+      if (normLeadW(parsed.workspaceId) !== wid) continue;
+      if (!Array.isArray(parsed.inboundEvents) || !parsed.inboundEvents.length) continue;
+      leads.push({ ...parsed, key, workspaceId: wid });
+    }
+    leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
+    return leads;
+  },
+
   async getAllLeadsUnscoped() {
     // One scan instead of kvList + getLead per key (each getLead re-resolved and re-read its row).
     const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%' ORDER BY key").all();
