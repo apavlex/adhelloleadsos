@@ -215,6 +215,7 @@ const OPEN_WORLD_TOOLS = new Set([
   ...prospectingTools.OPEN_WORLD_PROSPECTING_TOOLS,
   ...leadSourceTools.OPEN_WORLD_LEAD_SOURCE_TOOLS,
   ...appointmentTools.OPEN_WORLD_APPOINTMENT_TOOLS,
+  ...seoTools.OPEN_WORLD_SEO_TOOLS,
 ]);
 
 function toolAnnotations(name) {

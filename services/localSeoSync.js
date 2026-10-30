@@ -135,6 +135,48 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
     keywordRanks.push(row);
   }
 
+  // Local search volume for tracked keywords (Google Ads via DataForSEO)
+  try {
+    const volJson = await dataForSeo.searchVolumeLive({
+      keywords,
+      locationCode: profile.locationCode,
+      languageCode: profile.languageCode,
+      integrationEnv,
+    });
+    const volMap = dataForSeo.parseSearchVolumeMap(volJson);
+    for (const row of keywordRanks) {
+      const hit = volMap.get(String(row.keyword || '').trim().toLowerCase());
+      if (!hit) continue;
+      row.searchVolume = hit.searchVolume;
+      row.competition = hit.competition;
+      row.competitionLevel = hit.competitionLevel;
+      row.cpc = hit.cpc;
+    }
+  } catch (err) {
+    warnings.push(`search_volume: ${err && err.message ? err.message : 'failed'}`);
+  }
+
+  // Category / vertical research volume (related keywords around the trade)
+  let categoryKeywords = [];
+  const categorySeed = String(profile.vertical || '').trim() || `${profile.businessName} ${profile.city || ''}`.trim();
+  if (categorySeed) {
+    try {
+      const relJson = await dataForSeo.relatedKeywordsLive({
+        keyword: profile.vertical
+          ? `${profile.vertical}${profile.city ? ` ${profile.city}` : ''}`.trim()
+          : categorySeed,
+        locationCode: profile.locationCode,
+        languageCode: profile.languageCode,
+        limit: 30,
+        depth: 2,
+        integrationEnv,
+      });
+      categoryKeywords = dataForSeo.parseRelatedKeywordRows(relJson, 30);
+    } catch (err) {
+      warnings.push(`category_keywords: ${err && err.message ? err.message : 'failed'}`);
+    }
+  }
+
   let gbp = null;
   try {
     const gbpJson = await dataForSeo.myBusinessInfoLive({
@@ -193,6 +235,8 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
     },
     keywordRanks,
     competitors,
+    categoryKeywords,
+    categorySeed: profile.vertical || categorySeed || null,
     gbp,
     reviews,
     scores,

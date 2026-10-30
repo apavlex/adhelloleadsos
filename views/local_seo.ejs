@@ -8,6 +8,7 @@
   <%
     const scores = (research && research.scores) || {};
     const keywordRanks = (research && research.keywordRanks) || [];
+    const categoryKeywords = (research && research.categoryKeywords) || [];
     const competitors = (research && research.competitors) || [];
     const gbp = research && research.gbp;
     const reviews = research && research.reviews;
@@ -138,24 +139,32 @@
                 <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
                   <tr>
                     <th class="px-3 py-2">Keyword</th>
+                    <th class="px-3 py-2">Local vol</th>
                     <th class="px-3 py-2">Maps</th>
                     <th class="px-3 py-2">Local pack</th>
+                    <th class="px-3 py-2">Your rating</th>
                     <th class="px-3 py-2">#1 competitor</th>
                     <th class="px-3 py-2">Status</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
                   <% if (!keywordRanks.length) { %>
-                  <tr><td colspan="5" class="px-3 py-4 text-brand-muted">No keywords synced yet.</td></tr>
+                  <tr><td colspan="7" class="px-3 py-4 text-brand-muted">No keywords synced yet.</td></tr>
                   <% } %>
                   <% keywordRanks.forEach(function (k) { %>
                   <tr>
                     <td class="px-3 py-2 font-medium"><%= k.keyword %></td>
+                    <td class="px-3 py-2"><%= k.searchVolume != null ? Number(k.searchVolume).toLocaleString() : '—' %></td>
                     <td class="px-3 py-2"><%= k.mapsRank != null ? '#' + k.mapsRank : '—' %></td>
                     <td class="px-3 py-2"><%= k.localPackRank != null ? '#' + k.localPackRank : '—' %></td>
+                    <td class="px-3 py-2 text-brand-muted text-xs">
+                      <% const ym = k.mapsMatch || null; %>
+                      <%= ym && ym.rating != null ? ym.rating + '★' : '—' %><%= ym && ym.votes != null ? ' · ' + ym.votes : '' %>
+                    </td>
                     <td class="px-3 py-2 text-brand-muted">
                       <% const top = (k.competitors && k.competitors[0]) || null; %>
                       <%= top ? (top.title + (top.rank != null ? ' (#' + top.rank + ')' : '')) : '—' %>
+                      <% if (top && top.votes != null) { %><span class="text-[11px]"> · <%= top.votes %> rev</span><% } %>
                     </td>
                     <td class="px-3 py-2 text-xs <%= k.mapsRank != null ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300' %>">
                       <%= k.mapsRank != null ? 'Ranked' : (k.error || 'Not found') %>
@@ -175,12 +184,14 @@
                     <th class="px-3 py-2">Best rank</th>
                     <th class="px-3 py-2">Appearances</th>
                     <th class="px-3 py-2">Rating</th>
+                    <th class="px-3 py-2">Reviews</th>
+                    <th class="px-3 py-2">Category</th>
                     <th class="px-3 py-2">Keywords</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
                   <% if (!competitors.length) { %>
-                  <tr><td colspan="5" class="px-3 py-4 text-brand-muted">No competitor listings yet — update ranks with city-qualified keywords.</td></tr>
+                  <tr><td colspan="7" class="px-3 py-4 text-brand-muted">No competitor listings yet — update ranks with city-qualified keywords.</td></tr>
                   <% } %>
                   <% competitors.forEach(function (c) { %>
                   <tr>
@@ -191,7 +202,38 @@
                     <td class="px-3 py-2"><%= c.bestRank != null ? '#' + c.bestRank : '—' %></td>
                     <td class="px-3 py-2"><%= c.appearances %></td>
                     <td class="px-3 py-2"><%= c.avgRating != null ? c.avgRating : '—' %></td>
+                    <td class="px-3 py-2"><%= c.reviews != null ? Number(c.reviews).toLocaleString() : '—' %></td>
+                    <td class="px-3 py-2 text-brand-muted text-xs"><%= c.category || '—' %></td>
                     <td class="px-3 py-2 text-brand-muted text-xs"><%= (c.keywords || []).slice(0, 3).join(', ') %></td>
+                  </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+
+            <h3 class="font-semibold text-sm mb-2">Category research volume<% if (research.categorySeed) { %> · <%= research.categorySeed %><% } %></h3>
+            <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 mb-6">
+              <table class="min-w-full text-sm">
+                <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
+                  <tr>
+                    <th class="px-3 py-2">Related keyword</th>
+                    <th class="px-3 py-2">Search vol</th>
+                    <th class="px-3 py-2">Competition</th>
+                    <th class="px-3 py-2">CPC</th>
+                    <th class="px-3 py-2">Difficulty</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
+                  <% if (!categoryKeywords.length) { %>
+                  <tr><td colspan="5" class="px-3 py-4 text-brand-muted">Set a vertical/trade on the profile and Update ranks to pull related category keyword volumes.</td></tr>
+                  <% } %>
+                  <% categoryKeywords.forEach(function (ck) { %>
+                  <tr>
+                    <td class="px-3 py-2 font-medium"><%= ck.keyword %></td>
+                    <td class="px-3 py-2"><%= ck.searchVolume != null ? Number(ck.searchVolume).toLocaleString() : '—' %></td>
+                    <td class="px-3 py-2"><%= ck.competition != null ? ck.competition : '—' %></td>
+                    <td class="px-3 py-2"><%= ck.cpc != null ? '$' + Number(ck.cpc).toFixed(2) : '—' %></td>
+                    <td class="px-3 py-2"><%= ck.keywordDifficulty != null ? ck.keywordDifficulty : '—' %></td>
                   </tr>
                   <% }) %>
                 </tbody>
@@ -206,7 +248,10 @@
                 <% } else { %>
                 <p class="text-sm"><%= gbp.title || '—' %> · <%= gbp.category || 'no category' %></p>
                 <p class="text-xs text-brand-muted mt-1"><%= gbp.address || '—' %></p>
-                <p class="text-sm mt-2">Completeness <strong><%= gbp.completeness %>%</strong> · <%= gbp.photos || 0 %> photos · <%= gbp.rating != null ? gbp.rating : '—' %> (<%= gbp.votes != null ? gbp.votes : '—' %>)</p>
+                <p class="text-sm mt-2">Completeness <strong><%= gbp.completeness %>%</strong> · <%= gbp.photos || 0 %> photos · <%= gbp.rating != null ? gbp.rating : '—' %>★ (<%= gbp.votes != null ? gbp.votes : '—' %> reviews)</p>
+                <% if (gbp.phone || gbp.website) { %>
+                <p class="text-xs text-brand-muted mt-2"><%= gbp.phone || '' %><%= gbp.phone && gbp.website ? ' · ' : '' %><%= gbp.website || '' %></p>
+                <% } %>
                 <% } %>
               </div>
               <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-4">
