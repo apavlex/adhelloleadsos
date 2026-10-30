@@ -75,6 +75,7 @@ describe('SEO Q&A Pages', () => {
     const seoNav = fs.readFileSync(path.join(__dirname, '../views/partials/seo_local_rank_nav.ejs'), 'utf8');
     const perms = fs.readFileSync(path.join(__dirname, '../services/rolePermissions.js'), 'utf8');
     const publicRoute = fs.readFileSync(path.join(__dirname, '../routes/seoQaPublic.js'), 'utf8');
+    const iaNav = fs.readFileSync(path.join(__dirname, '../middleware/iaNav.js'), 'utf8');
     assert.match(server, /\/seo-qa/);
     assert.match(server, /seoQaPublicRoutes/);
     assert.match(publicRoute, /\/api\/public\/seo-qa\/:token\/feed\.json/);
@@ -82,6 +83,7 @@ describe('SEO Q&A Pages', () => {
     assert.match(nav, /href="\/seo-qa"/);
     assert.match(seoNav, /href="\/seo-qa"/);
     assert.match(perms, /id: 'seo-qa'/);
+    assert.match(iaNav, /navPrimary = 'seo-qa'/);
     const seoLabelIdx = nav.indexOf('SEO / Local Rank');
     const qaHrefIdx = nav.indexOf('href="/seo-qa"');
     assert.ok(seoLabelIdx >= 0 && qaHrefIdx > seoLabelIdx);
