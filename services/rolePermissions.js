@@ -43,6 +43,7 @@ const PAGES = [
   { id: 'backlinks', label: 'Backlinks', group: 'SEO / Local Rank', paths: ['/backlinks'] },
   { id: 'local-seo', label: 'Local SEO', group: 'SEO / Local Rank', paths: ['/local-seo'] },
   { id: 'business-reviews', label: 'Business Reviews', group: 'SEO / Local Rank', paths: ['/business-reviews'] },
+  { id: 'seo-qa', label: 'Q&A Pages', group: 'SEO / Local Rank', paths: ['/seo-qa'] },
   { id: 'resources', label: 'Resources', group: 'Insights', paths: ['/resources', '/sops'] },
   { id: 'settings', label: 'Workspace settings', group: 'Settings', paths: ['/workspace'] },
 ];

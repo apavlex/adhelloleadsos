@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <% const _summary = typeof summary !== 'undefined' && summary ? summary : { total: 0, open: 0, answered: 0, published: 0 }; %>
+    <% const _settings = typeof settings !== 'undefined' && settings ? settings : {}; %>
+    <% const _questions = Array.isArray(questions) ? questions : []; %>
+    <% const _focus = typeof focusQuestionId !== 'undefined' ? String(focusQuestionId || '') : ''; %>
+    <% const _feedUrl = typeof feedUrl !== 'undefined' ? feedUrl : ''; %>
+    <% const _submitUrl = typeof submitUrl !== 'undefined' ? submitUrl : ''; %>
+
+    <header class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">SEO / Local Rank · Website Q&amp;A</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Q&amp;A Pages</h1>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">Import questions from your site, answer them here, and publish crawlable FAQ content. Visitors submit on your page — you get a notification bell ping.</p>
+      </div>
+    </header>
+    <%- include('partials/seo_local_rank_nav') %>
+
+    <p id="sqaStatus" class="mb-4 text-sm font-semibold text-brand-muted dark:text-slate-300 min-h-[1.25rem]" role="status" aria-live="polite"></p>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Total</p>
+        <p class="font-display font-black text-2xl"><%= _summary.total %></p>
+      </div>
+      <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">Needs answer</p>
+        <p class="font-display font-black text-2xl"><%= _summary.open %></p>
+      </div>
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Answered</p>
+        <p class="font-display font-black text-2xl"><%= _summary.answered %></p>
+      </div>
+      <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Published</p>
+        <p class="font-display font-black text-2xl"><%= _summary.published %></p>
+      </div>
+    </div>
+
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="sqaConnectTitle">
+      <h2 id="sqaConnectTitle" class="font-display font-bold text-lg mb-1">Connect your Q&amp;A page</h2>
+      <p class="text-xs text-brand-muted mb-4">Import existing content, then point your site at the public feed so published answers stay in HTML + FAQ schema for SEO.</p>
+      <form id="sqaImportForm" class="grid gap-3 sm:grid-cols-[1fr_auto] mb-5">
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Page URL to import</span>
+          <input type="url" name="pageUrl" id="sqaImportUrl" required placeholder="https://tprflooring.com/flooring-questions" value="<%= _settings.pageUrl || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <div class="flex items-end">
+          <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest w-full sm:w-auto">Import from page</button>
+        </div>
+      </form>
+
+      <form id="sqaSettingsForm" class="grid gap-3 sm:grid-cols-2 border-t border-brand-border/40 dark:border-white/10 pt-5">
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Page title</span>
+          <input type="text" name="pageTitle" value="<%= _settings.pageTitle || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Business name on answers</span>
+          <input type="text" name="businessName" value="<%= _settings.businessName || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Categories (comma or new line)</span>
+          <textarea name="categories" rows="2" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm"><%= Array.isArray(_settings.categories) ? _settings.categories.join(', ') : '' %></textarea>
+        </label>
+        <label class="flex items-center gap-2 sm:col-span-2 text-sm">
+          <input type="checkbox" name="notifyOnSubmit" value="1" <%= _settings.notifyOnSubmit !== false ? 'checked' : '' %> class="rounded border-brand-border" />
+          Ping notification bell when a visitor submits a question
+        </label>
+        <div class="sm:col-span-2 flex flex-wrap gap-2">
+          <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Save settings</button>
+          <button type="button" id="sqaRotateToken" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Rotate publish token</button>
+        </div>
+      </form>
+
+      <% if (_feedUrl) { %>
+      <div class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 space-y-3">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Public feed (published answers + FAQ schema)</p>
+          <code class="block text-[11px] break-all text-brand-dark dark:text-slate-200"><%= _feedUrl %></code>
+        </div>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Submit endpoint (POST JSON: question, category, author, context)</p>
+          <code class="block text-[11px] break-all text-brand-dark dark:text-slate-200"><%= _submitUrl %></code>
+        </div>
+        <p class="text-xs text-brand-muted leading-relaxed">SEO tip: your site should render the feed’s questions/answers in HTML and inject <code class="text-[10px]">faq_schema</code> as JSON-LD. Browser-only posts don’t rank — published HTML does.</p>
+      </div>
+      <% } %>
+    </section>
+
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="sqaAddTitle">
+      <h2 id="sqaAddTitle" class="font-display font-bold text-lg mb-3">Add a question manually</h2>
+      <form id="sqaCreateForm" class="grid gap-3 sm:grid-cols-2">
+        <label class="block sm:col-span-2">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Question</span>
+          <input type="text" name="question" required maxlength="500" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Category</span>
+          <input type="text" name="category" list="sqaCats" value="General" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+          <datalist id="sqaCats">
+            <% (Array.isArray(_settings.categories) ? _settings.categories : []).forEach(function (c) { %>
+            <option value="<%= c %>"></option>
+            <% }) %>
+          </datalist>
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Author label</span>
+          <input type="text" name="author" value="Team" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Answer (optional — publish if filled)</span>
+          <textarea name="answer" rows="3" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm"></textarea>
+        </label>
+        <label class="flex items-center gap-2 text-sm sm:col-span-2">
+          <input type="checkbox" name="published" value="1" checked class="rounded border-brand-border" />
+          Publish when answered
+        </label>
+        <div>
+          <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Save question</button>
+        </div>
+      </form>
+    </section>
+
+    <section aria-labelledby="sqaInboxTitle">
+      <div class="flex items-end justify-between gap-3 mb-4">
+        <h2 id="sqaInboxTitle" class="font-display font-bold text-xl">Inbox</h2>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= _questions.length %> items</p>
+      </div>
+
+      <% if (!_questions.length) { %>
+      <div class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/15 px-6 py-12 text-center">
+        <p class="font-display font-bold text-lg mb-2">No questions yet</p>
+        <p class="text-sm text-brand-muted max-w-md mx-auto">Import from your live Q&amp;A page, or wait for a visitor submit once the site posts to the public endpoint.</p>
+      </div>
+      <% } else { %>
+      <div class="space-y-4">
+        <% _questions.forEach(function (q) { %>
+        <article id="sqa-<%= q.id %>" class="rounded-2xl border <%= q.status === 'open' ? 'border-amber-500/40 bg-amber-500/5' : 'border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80' %> p-4 sm:p-5 <%= _focus === q.id ? 'ring-2 ring-brand-yellow' : '' %>">
+          <div class="flex flex-wrap items-center gap-2 mb-2 text-[10px] font-black uppercase tracking-widest">
+            <span class="text-brand-muted"><%= q.category || 'General' %></span>
+            <span class="<%= q.status === 'open' ? 'text-amber-700 dark:text-amber-300' : q.status === 'hidden' ? 'text-rose-600' : 'text-emerald-700 dark:text-emerald-300' %>"><%= q.status %></span>
+            <% if (q.published) { %><span class="text-brand-yellow">Published</span><% } %>
+            <span class="text-brand-muted font-semibold normal-case tracking-normal"><%= q.author || 'Visitor' %></span>
+          </div>
+          <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1"><%= q.question %></h3>
+          <% if (q.context) { %><p class="text-sm text-brand-muted mb-3"><%= q.context %></p><% } %>
+          <% if (q.answer) { %>
+          <div class="rounded-xl bg-brand-cream/40 dark:bg-slate-950/50 px-3 py-3 mb-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= q.answerBy || _settings.businessName || 'Answer' %></p>
+            <p class="text-sm leading-relaxed"><%= q.answer %></p>
+            <% if (q.answerDetail) { %><p class="text-xs text-brand-muted mt-2"><%= q.answerDetail %></p><% } %>
+          </div>
+          <% } %>
+          <form class="sqa-answer-form grid gap-2 sm:grid-cols-[1fr_auto]" data-id="<%= q.id %>">
+            <textarea name="answer" rows="2" placeholder="Write or edit the answer…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/40 px-3 py-2 text-sm"><%= q.answer || '' %></textarea>
+            <div class="flex flex-col gap-2">
+              <button type="submit" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest"><%= q.answer ? 'Update & publish' : 'Answer & publish' %></button>
+              <% if (q.status === 'answered' && !q.published) { %>
+              <button type="button" class="sqa-publish btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Publish</button>
+              <% } else if (q.published) { %>
+              <button type="button" class="sqa-unpublish btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Unpublish</button>
+              <% } %>
+              <% if (q.status !== 'hidden') { %>
+              <button type="button" class="sqa-hide btn-pill border border-rose-500/30 text-rose-700 dark:text-rose-300 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Hide</button>
+              <% } %>
+            </div>
+          </form>
+        </article>
+        <% }) %>
+      </div>
+      <% } %>
+    </section>
+  </main>
+  <%- include('partials/scripts') %>
+  <script>
+  (function () {
+    var statusEl = document.getElementById('sqaStatus');
+    function setStatus(msg, isErr) {
+      if (!statusEl) return;
+      statusEl.textContent = msg || '';
+      statusEl.classList.toggle('text-rose-600', !!isErr);
+      statusEl.classList.toggle('dark:text-rose-300', !!isErr);
+    }
+    function params() {
+      return new URLSearchParams(window.location.search);
+    }
+    var p = params();
+    if (p.get('ok') === 'imported') setStatus('Imported — added ' + (p.get('added') || '0') + ', updated ' + (p.get('updated') || '0') + '.');
+    else if (p.get('ok') === 'saved') setStatus('Settings saved.');
+    else if (p.get('ok') === 'answered') setStatus('Answer published to the public feed.');
+    else if (p.get('ok') === 'created') setStatus('Question saved.');
+    else if (p.get('err')) setStatus(p.get('err'), true);
+    var focus = p.get('q');
+    if (focus) {
+      var el = document.getElementById('sqa-' + focus);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    async function postJson(url, body) {
+      var res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body || {}),
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok || data.success === false) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+
+    var importForm = document.getElementById('sqaImportForm');
+    if (importForm) {
+      importForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        setStatus('Importing…');
+        try {
+          var url = document.getElementById('sqaImportUrl').value;
+          var data = await postJson('/seo-qa/import', { pageUrl: url });
+          setStatus('Imported ' + data.imported + ' rows (added ' + data.added + ', updated ' + data.updated + '). Reloading…');
+          window.location.href = '/seo-qa?ok=imported&added=' + data.added + '&updated=' + data.updated;
+        } catch (err) {
+          setStatus(err.message || 'Import failed', true);
+        }
+      });
+    }
+
+    var settingsForm = document.getElementById('sqaSettingsForm');
+    if (settingsForm) {
+      settingsForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var fd = new FormData(settingsForm);
+        try {
+          await postJson('/seo-qa/settings', {
+            pageTitle: fd.get('pageTitle'),
+            businessName: fd.get('businessName'),
+            categories: fd.get('categories'),
+            pageUrl: document.getElementById('sqaImportUrl') && document.getElementById('sqaImportUrl').value,
+            notifyOnSubmit: fd.get('notifyOnSubmit') === '1',
+          });
+          setStatus('Settings saved.');
+          window.location.href = '/seo-qa?ok=saved';
+        } catch (err) {
+          setStatus(err.message || 'Save failed', true);
+        }
+      });
+    }
+
+    var rotateBtn = document.getElementById('sqaRotateToken');
+    if (rotateBtn) {
+      rotateBtn.addEventListener('click', async function () {
+        if (!window.confirm('Rotate the publish token? Update your website feed URL after.')) return;
+        try {
+          await postJson('/seo-qa/settings', {
+            pageTitle: settingsForm.pageTitle.value,
+            businessName: settingsForm.businessName.value,
+            categories: settingsForm.categories.value,
+            pageUrl: document.getElementById('sqaImportUrl').value,
+            notifyOnSubmit: settingsForm.notifyOnSubmit && settingsForm.notifyOnSubmit.checked,
+            rotate_token: true,
+          });
+          window.location.href = '/seo-qa?ok=saved';
+        } catch (err) {
+          setStatus(err.message || 'Rotate failed', true);
+        }
+      });
+    }
+
+    var createForm = document.getElementById('sqaCreateForm');
+    if (createForm) {
+      createForm.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var fd = new FormData(createForm);
+        try {
+          var data = await postJson('/seo-qa/questions', {
+            question: fd.get('question'),
+            category: fd.get('category'),
+            author: fd.get('author'),
+            answer: fd.get('answer'),
+            published: fd.get('published') === '1',
+          });
+          window.location.href = '/seo-qa?q=' + encodeURIComponent(data.question.id) + '&ok=created';
+        } catch (err) {
+          setStatus(err.message || 'Create failed', true);
+        }
+      });
+    }
+
+    document.querySelectorAll('.sqa-answer-form').forEach(function (form) {
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var id = form.getAttribute('data-id');
+        var answer = form.answer.value;
+        try {
+          await postJson('/seo-qa/questions/' + encodeURIComponent(id) + '/answer', {
+            answer: answer,
+            publish: true,
+          });
+          window.location.href = '/seo-qa?q=' + encodeURIComponent(id) + '&ok=answered';
+        } catch (err) {
+          setStatus(err.message || 'Answer failed', true);
+        }
+      });
+    });
+
+    document.querySelectorAll('.sqa-publish').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        try {
+          await postJson('/seo-qa/questions/' + encodeURIComponent(btn.getAttribute('data-id')) + '/publish', { published: true });
+          window.location.reload();
+        } catch (err) {
+          setStatus(err.message || 'Publish failed', true);
+        }
+      });
+    });
+    document.querySelectorAll('.sqa-unpublish').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        try {
+          await postJson('/seo-qa/questions/' + encodeURIComponent(btn.getAttribute('data-id')) + '/publish', { published: false });
+          window.location.reload();
+        } catch (err) {
+          setStatus(err.message || 'Unpublish failed', true);
+        }
+      });
+    });
+    document.querySelectorAll('.sqa-hide').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        if (!window.confirm('Hide this question from the inbox feed?')) return;
+        try {
+          await postJson('/seo-qa/questions/' + encodeURIComponent(btn.getAttribute('data-id')) + '/hide', {});
+          window.location.reload();
+        } catch (err) {
+          setStatus(err.message || 'Hide failed', true);
+        }
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

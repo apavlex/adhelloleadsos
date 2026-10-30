@@ -15,4 +15,7 @@
   <% if (_seoCan('business-reviews')) { %>
   <a href="/business-reviews" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'business-reviews' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">Reviews</a>
   <% } %>
+  <% if (_seoCan('seo-qa')) { %>
+  <a href="/seo-qa" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'seo-qa' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">Q&amp;A</a>
+  <% } %>
 </nav>
