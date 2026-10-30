@@ -53,6 +53,10 @@ describe('SEO / Local Rank MCP tools', () => {
     assert.equal(getOpenAiToolManifest().version, '1.10.0');
     assert.equal(new Set(TOOL_NAMES).size, TOOL_NAMES.length);
     assert.ok(CRM_COMMAND_HINTS.includes('get_seo_overview'));
+    assert.ok(CRM_COMMAND_HINTS.includes('research_seo_keyword'));
+    assert.ok(SEO_TOOL_NAMES.includes('research_seo_keyword'));
+    assert.ok(SEO_TOOL_NAMES.includes('research_local_business'));
+    assert.ok(SEO_TOOL_NAMES.includes('research_category_keywords'));
   });
 
   it('get_seo_overview returns focus suggestions when Local SEO is empty', async () => {

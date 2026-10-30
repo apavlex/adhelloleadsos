@@ -337,6 +337,8 @@ function summarizeCompetitors(keywordRanks) {
         avgRating: null,
         ratingSum: 0,
         ratingN: 0,
+        reviews: null,
+        category: c.category || null,
         keywords: [],
       };
       prev.appearances += 1;
@@ -346,6 +348,8 @@ function summarizeCompetitors(keywordRanks) {
         prev.ratingN += 1;
         prev.avgRating = Math.round((prev.ratingSum / prev.ratingN) * 10) / 10;
       }
+      if (c.votes != null && (prev.reviews == null || c.votes > prev.reviews)) prev.reviews = c.votes;
+      if (c.category && !prev.category) prev.category = c.category;
       if (row.keyword && prev.keywords.length < 6) prev.keywords.push(row.keyword);
       byKey.set(key, prev);
     }

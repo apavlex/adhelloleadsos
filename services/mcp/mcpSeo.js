@@ -9,6 +9,15 @@ const localSeoStore = require('../localSeoStore');
 const seoGapStore = require('../seoGapStore');
 const backlinksStore = require('../backlinksStore');
 const businessReviews = require('../businessReviews');
+const dataForSeo = require('../dataForSeoClient');
+const workspaceIntegrations = require('../workspaceIntegrations');
+const {
+  flattenSerpItems,
+  findBusinessInMapsItems,
+  parseGbpInfo,
+  parseReviews,
+  buildLocationName,
+} = require('../localSeoParse');
 
 function toolError(message, code = 'SEO_ERROR') {
   const err = new Error(message);
@@ -229,8 +238,13 @@ async function getLocalSeo(ctx, input) {
     keyword_ranks: includeKeywords
       ? (research.keywordRanks || []).slice(0, 20).map((k) => ({
           keyword: k.keyword,
+          search_volume: k.searchVolume != null ? k.searchVolume : null,
+          competition: k.competition != null ? k.competition : null,
+          cpc: k.cpc != null ? k.cpc : null,
           maps_rank: k.mapsRank,
           local_pack_rank: k.localPackRank,
+          your_rating: k.mapsMatch && k.mapsMatch.rating != null ? k.mapsMatch.rating : null,
+          your_reviews: k.mapsMatch && k.mapsMatch.votes != null ? k.mapsMatch.votes : null,
         }))
       : undefined,
     competitors: includeCompetitors
@@ -240,12 +254,25 @@ async function getLocalSeo(ctx, input) {
           best_rank: c.bestRank,
           appearances: c.appearances,
           avg_rating: c.avgRating,
+          reviews: c.reviews != null ? c.reviews : null,
+          category: c.category || null,
         }))
       : undefined,
+    category_keywords: (research.categoryKeywords || []).slice(0, 20).map((ck) => ({
+      keyword: ck.keyword,
+      search_volume: ck.searchVolume,
+      competition: ck.competition,
+      cpc: ck.cpc,
+      keyword_difficulty: ck.keywordDifficulty,
+    })),
+    category_seed: research.categorySeed || null,
     gbp: research.gbp
       ? {
           title: research.gbp.title || null,
           category: research.gbp.category || null,
+          address: research.gbp.address || null,
+          phone: research.gbp.phone || null,
+          website: research.gbp.website || null,
           completeness: research.gbp.completeness,
           photos: research.gbp.photos,
           rating: research.gbp.rating,
@@ -271,6 +298,218 @@ async function getLocalSeo(ctx, input) {
     focus: focusPrioritiesFromLocal(research, local.actionPlan),
     warnings: Array.isArray(research.warnings) ? research.warnings.slice(0, 12) : [],
     pages: { app: '/local-seo' },
+  };
+}
+
+async function resolveDfsEnv(ctx) {
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(ctx.workspaceId);
+  if (!dataForSeo.isConfigured(integrationEnv)) {
+    throw toolError(
+      'DataForSEO is not connected for this workspace. Ask the user to add login + API password under Workspace → Integrations.',
+      'DATAFORSEO_NOT_CONFIGURED'
+    );
+  }
+  return integrationEnv;
+}
+
+async function profileForResearch(ctx) {
+  const local = await localSeoStore.load(ctx.workspaceId);
+  const profile = localSeoStore.resolveBusinessProfile(local.workspace || { id: ctx.workspaceId }, local.profile);
+  return { local, profile, locationName: buildLocationName(profile) };
+}
+
+/** Live DataForSEO keyword research (search volume + optional Maps rank). */
+async function researchKeyword(ctx, input) {
+  const integrationEnv = await resolveDfsEnv(ctx);
+  const { profile, locationName } = await profileForResearch(ctx);
+  const keywords = (Array.isArray(input.keywords) && input.keywords.length
+    ? input.keywords
+    : [input.keyword]
+  )
+    .map((k) => String(k || '').trim())
+    .filter(Boolean)
+    .slice(0, 20);
+  if (!keywords.length) throw toolError('Provide keyword or keywords.', 'INVALID_ARGUMENTS');
+
+  const locationCode = Number(input.location_code) || profile.locationCode || 2840;
+  const languageCode = String(input.language_code || profile.languageCode || 'en').slice(0, 8);
+  const locName = input.location_name || locationName;
+
+  const volJson = await dataForSeo.searchVolumeLive({
+    keywords,
+    locationCode,
+    languageCode,
+    integrationEnv,
+  });
+  const volMap = dataForSeo.parseSearchVolumeMap(volJson);
+  const rows = [];
+  for (const keyword of keywords) {
+    const vol = volMap.get(keyword.toLowerCase()) || null;
+    const row = {
+      keyword,
+      search_volume: vol ? vol.searchVolume : null,
+      competition: vol ? vol.competition : null,
+      competition_level: vol ? vol.competitionLevel : null,
+      cpc: vol ? vol.cpc : null,
+      maps_rank: null,
+      maps_match: null,
+    };
+    if (input.include_maps !== false && (profile.city || locName)) {
+      try {
+        const mapsJson = await dataForSeo.googleMapsLive({
+          keyword,
+          locationName: locName,
+          locationCode,
+          languageCode,
+          depth: 15,
+          integrationEnv,
+        });
+        const match = findBusinessInMapsItems(flattenSerpItems(mapsJson), {
+          businessName: profile.businessName,
+          website: profile.website,
+        });
+        if (match) {
+          row.maps_rank = match.rank;
+          row.maps_match = {
+            title: match.title,
+            rating: match.rating,
+            reviews: match.votes,
+            category: match.category,
+          };
+        }
+      } catch (err) {
+        row.maps_error = err && err.message ? err.message : 'maps failed';
+      }
+    }
+    rows.push(row);
+  }
+  return {
+    message: 'Live DataForSEO keyword research for this workspace.',
+    location_name: locName || null,
+    location_code: locationCode,
+    results: rows,
+    pages: { app: '/local-seo', integrations: '/workspace/integrations#integration-dataforseo' },
+  };
+}
+
+/** Live GBP + reviews lookup via DataForSEO Business Data. */
+async function researchBusiness(ctx, input) {
+  const integrationEnv = await resolveDfsEnv(ctx);
+  const { profile, locationName } = await profileForResearch(ctx);
+  const query =
+    String(input.query || '').trim() ||
+    [profile.businessName, profile.city, profile.state].filter(Boolean).join(' ').trim();
+  if (!query && !input.place_id && !input.cid) {
+    throw toolError('Provide query, place_id, or cid (or set the Local SEO business profile).', 'INVALID_ARGUMENTS');
+  }
+  const locationCode = Number(input.location_code) || profile.locationCode || 2840;
+  const languageCode = String(input.language_code || profile.languageCode || 'en').slice(0, 8);
+  const locName = input.location_name || locationName;
+
+  let gbp = null;
+  let reviews = null;
+  const warnings = [];
+  try {
+    const gbpJson = await dataForSeo.myBusinessInfoLive({
+      keyword: input.place_id || input.cid ? undefined : query,
+      placeId: input.place_id || profile.placeId || undefined,
+      cid: input.cid || profile.cid || undefined,
+      locationName: locName,
+      locationCode,
+      languageCode,
+      integrationEnv,
+    });
+    gbp = parseGbpInfo(gbpJson);
+  } catch (err) {
+    warnings.push(`gbp: ${err && err.message ? err.message : 'failed'}`);
+  }
+  if (input.include_reviews !== false) {
+    try {
+      const revJson = await dataForSeo.googleReviewsLive({
+        keyword: input.place_id || input.cid || (gbp && (gbp.placeId || gbp.cid)) ? undefined : query,
+        placeId: input.place_id || (gbp && gbp.placeId) || profile.placeId || undefined,
+        cid: input.cid || (gbp && gbp.cid) || profile.cid || undefined,
+        locationName: locName,
+        languageCode,
+        depth: Math.min(40, Math.max(5, Number(input.max_reviews) || 15)),
+        integrationEnv,
+      });
+      reviews = parseReviews(revJson);
+    } catch (err) {
+      warnings.push(`reviews: ${err && err.message ? err.message : 'failed'}`);
+    }
+  }
+  return {
+    message: 'Live DataForSEO business info / reviews.',
+    query: query || null,
+    business: gbp
+      ? {
+          title: gbp.title,
+          category: gbp.category,
+          address: gbp.address,
+          phone: gbp.phone,
+          website: gbp.website,
+          rating: gbp.rating,
+          reviews: gbp.votes,
+          photos: gbp.photos,
+          completeness: gbp.completeness,
+          place_id: gbp.placeId,
+          cid: gbp.cid,
+        }
+      : null,
+    reviews_summary: reviews
+      ? {
+          rating: reviews.rating,
+          votes: reviews.votes,
+          unanswered: reviews.unanswered,
+          fetched: reviews.fetched,
+          sample: Array.isArray(reviews.sample)
+            ? reviews.sample.slice(0, 5).map((r) => ({
+                rating: r.rating,
+                text: String(r.snippet || '').slice(0, 200),
+                has_owner_reply: !!r.hasReply,
+              }))
+            : [],
+        }
+      : null,
+    warnings,
+    pages: { app: '/local-seo', integrations: '/workspace/integrations#integration-dataforseo' },
+  };
+}
+
+/** Live related / category keyword volumes around a seed phrase or workspace vertical. */
+async function researchCategoryKeywords(ctx, input) {
+  const integrationEnv = await resolveDfsEnv(ctx);
+  const { profile } = await profileForResearch(ctx);
+  const seed =
+    String(input.seed || input.category || input.vertical || '').trim() ||
+    String(profile.vertical || '').trim() ||
+    String(profile.businessName || '').trim();
+  if (!seed) throw toolError('Provide a seed/category/vertical to research.', 'INVALID_ARGUMENTS');
+  const locationCode = Number(input.location_code) || profile.locationCode || 2840;
+  const languageCode = String(input.language_code || profile.languageCode || 'en').slice(0, 8);
+  const limit = Math.min(50, Math.max(5, Number(input.limit) || 25));
+  const relJson = await dataForSeo.relatedKeywordsLive({
+    keyword: seed,
+    locationCode,
+    languageCode,
+    limit,
+    depth: 2,
+    integrationEnv,
+  });
+  const rows = dataForSeo.parseRelatedKeywordRows(relJson, limit);
+  return {
+    message: 'Live DataForSEO related / category keyword volumes.',
+    seed,
+    location_code: locationCode,
+    keywords: rows.map((r) => ({
+      keyword: r.keyword,
+      search_volume: r.searchVolume,
+      competition: r.competition,
+      cpc: r.cpc,
+      keyword_difficulty: r.keywordDifficulty,
+    })),
+    pages: { app: '/local-seo', integrations: '/workspace/integrations#integration-dataforseo' },
   };
 }
 
@@ -444,13 +683,57 @@ const SEO_TOOLS = [
   {
     name: 'get_local_seo',
     description:
-      'Detailed Local SEO research for the workspace business profile: Maps ranks, competitors, GBP completeness, reviews, scores, and the Ways to improve action plan (with Do-this steps). Use for Map Pack advice, GBP fixes, or local competition.',
+      'Detailed Local SEO research for the workspace business profile: Maps ranks, local search volumes, category keyword volumes, competitors (ratings/reviews), GBP completeness, reviews, scores, and the Ways to improve action plan. Use for Map Pack advice, GBP fixes, or local competition.',
     schema: z.object({
       include_keywords: z.boolean().optional().describe('Include keyword rank rows (default true).'),
       include_competitors: z.boolean().optional().describe('Include competitor summary (default true).'),
       max_steps: z.number().int().min(1).max(12).optional().describe('Max action-plan steps (default 8).'),
     }),
     run: getLocalSeo,
+  },
+  {
+    name: 'research_seo_keyword',
+    description:
+      'Live DataForSEO research for one or more keywords: local search volume, competition, CPC, and optional Google Maps rank for the workspace business. Use when the user asks about search volume, demand, or ranking for a phrase that may not be in saved Local SEO data yet.',
+    schema: z.object({
+      keyword: z.string().optional().describe('Single keyword (or use keywords[]).'),
+      keywords: z.array(z.string()).max(20).optional(),
+      include_maps: z.boolean().optional().describe('Also check Maps rank (default true).'),
+      location_name: z.string().optional().describe('Override market, e.g. Camas,Washington,United States'),
+      location_code: z.number().int().optional(),
+      language_code: z.string().optional(),
+    }),
+    run: researchKeyword,
+  },
+  {
+    name: 'research_local_business',
+    description:
+      'Live DataForSEO Google Business Profile + reviews lookup (business info, category, rating, review sample). Defaults to the workspace Local SEO profile; pass query/place_id/cid to research any business.',
+    schema: z.object({
+      query: z.string().optional().describe('Business name + city, or leave blank to use workspace profile.'),
+      place_id: z.string().optional(),
+      cid: z.string().optional(),
+      include_reviews: z.boolean().optional().describe('Fetch reviews sample (default true).'),
+      max_reviews: z.number().int().min(5).max(40).optional(),
+      location_name: z.string().optional(),
+      location_code: z.number().int().optional(),
+      language_code: z.string().optional(),
+    }),
+    run: researchBusiness,
+  },
+  {
+    name: 'research_category_keywords',
+    description:
+      'Live DataForSEO related/category keyword volumes around a seed phrase (trade, vertical, or topic). Use for category research volume tables and content ideas. Defaults to the workspace vertical if seed omitted.',
+    schema: z.object({
+      seed: z.string().optional().describe('Category / vertical / phrase seed.'),
+      category: z.string().optional(),
+      vertical: z.string().optional(),
+      limit: z.number().int().min(5).max(50).optional(),
+      location_code: z.number().int().optional(),
+      language_code: z.string().optional(),
+    }),
+    run: researchCategoryKeywords,
   },
   {
     name: 'get_seo_gap',
@@ -490,6 +773,12 @@ const SEO_TOOLS = [
 
 const BY_NAME = Object.fromEntries(SEO_TOOLS.map((t) => [t.name, t]));
 const SEO_TOOL_NAMES = SEO_TOOLS.map((t) => t.name);
+const OPEN_WORLD_SEO_TOOLS = [
+  'research_seo_keyword',
+  'research_local_business',
+  'research_category_keywords',
+];
+const READ_ONLY_SEO_TOOLS = SEO_TOOL_NAMES.filter((n) => !OPEN_WORLD_SEO_TOOLS.includes(n));
 
 async function executeSeoTool(ctx, name, input) {
   const tool = BY_NAME[name];
@@ -512,9 +801,9 @@ function openAiFunctionTools() {
 module.exports = {
   SEO_TOOLS,
   SEO_TOOL_NAMES,
-  READ_ONLY_SEO_TOOLS: SEO_TOOL_NAMES.slice(),
+  READ_ONLY_SEO_TOOLS,
   DESTRUCTIVE_SEO_TOOLS: [],
-  OPEN_WORLD_SEO_TOOLS: [],
+  OPEN_WORLD_SEO_TOOLS,
   executeSeoTool,
   openAiFunctionTools,
   buildSeoFocusSnapshot,

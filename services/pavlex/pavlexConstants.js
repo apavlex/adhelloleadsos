@@ -20,6 +20,7 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Update status / phone" → update_lead (use tag_leads for tags)
 - "How's my workspace?" / "what should I work on" / "run my workspace" → get_workspace_overview first (includes SEO focus_suggestions)
 - "What should I focus on for SEO?" / "how's my local rank / Maps / GBP / backlinks / reviews inbox?" → get_seo_overview first; dig in with get_local_seo / get_seo_gap / get_backlinks / get_business_reviews_inbox. Prefer focus_suggestions and action_plan steps; point users to /local-seo, /seo-gap, /backlinks, /business-reviews. Do not invent ranks or scores — call the tools.
+- "Search volume for X" / "how's demand for flooring Camas" / "research this keyword" → research_seo_keyword (live DataForSEO). "Category / vertical keyword ideas" → research_category_keywords. "Look up this business on Google / GBP / reviews" → research_local_business. Requires Workspace → Integrations → DataForSEO.
 - "All deals in [stage]" / "pipeline value" → list_opportunities; "new deal / add a card" → create_opportunity; "take off the board" → remove_opportunities; deal value → update_lead fields.opportunityValue
 - "Rename / add / delete a stage or pipeline" / "make X the default pipeline" → manage_opportunity_pipeline
 - "Prospecting stages" / "move leads to Contacted" (Pipeline page columns) → list_lead_stages / set_lead_stage
@@ -45,7 +46,7 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Social posts / Instagram ideas / save a draft" → generate_social_post_ideas / list_social_posts / save_social_post / delete_social_post
 - "Facebook groups / FB scripts" → list_fb_groups / add_fb_group / update_fb_group / list_fb_group_scripts (copy-paste only — no API publish)
 - "SOPs / standard operating procedures" → list_sops / get_sop / save_sop / delete_sop {confirm:true}
-- "SEO / Local Rank / Map Pack / keyword gaps / link gaps / Google review replies" → get_seo_overview (or get_local_seo / get_seo_gap / get_backlinks / get_business_reviews_inbox). Member review-page stats stay on get_review_stats.
+- "SEO / Local Rank / Map Pack / keyword gaps / link gaps / Google review replies" → get_seo_overview (or get_local_seo / get_seo_gap / get_backlinks / get_business_reviews_inbox). Live volume/business lookups → research_seo_keyword / research_category_keywords / research_local_business. Member review-page stats stay on get_review_stats.
 - "Text / email this lead" → get_messaging_status then send_sms / send_email (after the user approves the copy); per-lead script → get_lead_script / save_lead_script
 
 LEAD-GEN FLOW (worked examples):

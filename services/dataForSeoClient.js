@@ -440,6 +440,142 @@ function labsTaskBase({ locationCode = 2840, languageCode = 'en', limit = 100 })
   };
 }
 
+/**
+ * Google Ads search volume for a list of keywords (live).
+ * @returns {Promise<object>} raw API JSON
+ */
+async function searchVolumeLive({
+  keywords,
+  locationCode = 2840,
+  languageCode = 'en',
+  integrationEnv,
+  fetchImpl,
+}) {
+  const list = (Array.isArray(keywords) ? keywords : [keywords])
+    .map((k) => String(k || '').trim())
+    .filter(Boolean)
+    .slice(0, 1000);
+  if (!list.length) {
+    const err = new Error('Keywords required for search volume');
+    err.code = 'NO_KEYWORDS';
+    throw err;
+  }
+  const body = [
+    {
+      keywords: list,
+      location_code: locationCode,
+      language_code: languageCode,
+    },
+  ];
+  return dfsRequest('/v3/keywords_data/google_ads/search_volume/live', {
+    method: 'POST',
+    body,
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
+/** Parse search_volume/live into a Map keyword → { searchVolume, competition, cpc, monthlySearches }. */
+function parseSearchVolumeMap(apiJson) {
+  const map = new Map();
+  const tasks = Array.isArray(apiJson && apiJson.tasks) ? apiJson.tasks : [];
+  for (const t of tasks) {
+    for (const row of Array.isArray(t.result) ? t.result : []) {
+      const kw = String(row.keyword || '').trim().toLowerCase();
+      if (!kw) continue;
+      map.set(kw, {
+        keyword: String(row.keyword || '').trim(),
+        searchVolume: numOrNull(row.search_volume),
+        competition: numOrNull(row.competition),
+        competitionLevel: row.competition_level != null ? String(row.competition_level) : null,
+        cpc: numOrNull(row.cpc),
+        monthlySearches: Array.isArray(row.monthly_searches)
+          ? row.monthly_searches
+              .slice(0, 12)
+              .map((m) => ({
+                year: numOrNull(m.year),
+                month: numOrNull(m.month),
+                searchVolume: numOrNull(m.search_volume),
+              }))
+          : [],
+      });
+    }
+  }
+  return map;
+}
+
+function numOrNull(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Related / category-style keyword ideas from a seed (vertical, category, or phrase).
+ * Uses DataForSEO Labs related_keywords.
+ */
+async function relatedKeywordsLive({
+  keyword,
+  locationCode = 2840,
+  languageCode = 'en',
+  limit = 40,
+  depth = 2,
+  integrationEnv,
+  fetchImpl,
+}) {
+  const kw = String(keyword || '').trim();
+  if (!kw) {
+    const err = new Error('Seed keyword required for related keywords');
+    err.code = 'NO_KEYWORD';
+    throw err;
+  }
+  const body = [
+    {
+      ...labsTaskBase({ locationCode, languageCode, limit }),
+      keyword: kw.slice(0, 200),
+      depth: Math.min(4, Math.max(1, Number(depth) || 2)),
+      include_seed_keyword: true,
+      include_serp_info: false,
+    },
+  ];
+  return dfsRequest('/v3/dataforseo_labs/google/related_keywords/live', {
+    method: 'POST',
+    body,
+    integrationEnv,
+    fetchImpl,
+    timeoutMs: 120000,
+  });
+}
+
+/** Flatten related_keywords/live into compact rows with volume. */
+function parseRelatedKeywordRows(apiJson, limit = 40) {
+  const out = [];
+  const tasks = Array.isArray(apiJson && apiJson.tasks) ? apiJson.tasks : [];
+  for (const t of tasks) {
+    for (const result of Array.isArray(t.result) ? t.result : []) {
+      const items = Array.isArray(result.items) ? result.items : [];
+      for (const item of items) {
+        const info = item.keyword_data || item;
+        const kwInfo = info.keyword_info || {};
+        const keyword = String(info.keyword || item.keyword || '').trim();
+        if (!keyword) continue;
+        out.push({
+          keyword,
+          searchVolume: numOrNull(kwInfo.search_volume),
+          competition: numOrNull(kwInfo.competition),
+          cpc: numOrNull(kwInfo.cpc),
+          keywordDifficulty: numOrNull(
+            (info.keyword_properties && info.keyword_properties.keyword_difficulty) ||
+              kwInfo.keyword_difficulty
+          ),
+        });
+        if (out.length >= limit) return out;
+      }
+    }
+  }
+  return out;
+}
+
 /** Keywords a domain ranks for (Labs). */
 async function keywordsForSiteLive({
   target,
@@ -698,6 +834,10 @@ module.exports = {
   myBusinessInfoLive,
   googleReviewsLive,
   pollTaskGet,
+  searchVolumeLive,
+  parseSearchVolumeMap,
+  relatedKeywordsLive,
+  parseRelatedKeywordRows,
   keywordsForSiteLive,
   competitorsDomainLive,
   domainIntersectionLive,
