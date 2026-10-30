@@ -373,6 +373,68 @@ router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
 });
 
 /**
+ * POST /api/webhooks/question
+ * Public Q&A question intake (e.g. GHL form -> Custom Webhook on the TPR Q&A page).
+ * Body: { name, email, question, page_url }. Auth: x-webhook-secret === QA_WEBHOOK_SECRET.
+ * Saves the asker as an inbound lead (category "Q&A question") with the question as a timeline note.
+ */
+const qaRate = new Map();
+router.post('/webhooks/question', express.json(), async (req, res, next) => {
+  try {
+    const secret = process.env.QA_WEBHOOK_SECRET;
+    const got = req.headers['x-webhook-secret'];
+    if (!secret || !got || String(got) !== secret) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const ip = req.ip || 'unknown';
+    const now = Date.now();
+    const hits = (qaRate.get(ip) || []).filter((t) => now - t < 60 * 60 * 1000);
+    if (hits.length >= 20) return res.status(429).json({ error: 'Too many requests' });
+    hits.push(now);
+    qaRate.set(ip, hits);
+
+    const b = req.body || {};
+    const email = String(b.email || '').toLowerCase().trim();
+    const question = String(b.question || '').trim().slice(0, 4000);
+    const name = String(b.name || '').trim().slice(0, 200);
+    const pageUrl = String(b.page_url || b.pageUrl || '').trim().slice(0, 500);
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ error: 'valid email is required.' });
+    if (!question) return res.status(400).json({ error: 'question is required.' });
+
+    const workspaceId = workspaceIdFromReq(req);
+    const ts = new Date().toISOString();
+    const note = `Q&A question${pageUrl ? ` (from ${pageUrl})` : ''}: ${question}`;
+    const key = await dbService.saveLead({
+      title: name || email,
+      email,
+      phone: 'N/A',
+      website: 'N/A',
+      categoryName: 'Q&A question',
+      source: 'qa_question',
+      pipelineStage: clampPipelineStage(2),
+      status: 'Lead Captured',
+      buyingSignals: ['Q&A question'],
+      signalMetadata: { subscriberName: name || undefined, pageUrl: pageUrl || undefined },
+      workspaceId,
+    });
+    const lead = await dbService.getLead(key, workspaceId).catch(() => null);
+    const prior = lead && Array.isArray(lead.updates) ? lead.updates : [];
+    await dbService.updateLead(
+      key,
+      {
+        updates: [...prior, { type: 'note', value: note, timestamp: ts, source: 'qa_question', by: name || email, byEmail: email }],
+        logs: [{ type: 'note', message: note, timestamp: ts, by: name || email, byEmail: email, source: 'qa_question' }],
+      },
+      workspaceId,
+    );
+    await routeLeadAfterIngest(key, workspaceId, 'qa_question');
+    res.json({ success: true, key });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
  * POST /api/webhooks/ghl
  * Go High Level ContactCreate / ContactUpdate + InboundMessage / OutboundMessage (SMS, Email, Call)
  * + EmailOpened / LinkClicked engagement events
