@@ -220,6 +220,8 @@ app.use((req, res, next) => {
 // Public live demo: throwaway sandboxes for visitors without an account.
 require('./lib/guestEgress').install();
 app.use(require('./middleware/demoGuest'));
+// Cheap-out document prefetch before any heavy HTML route work.
+app.use(require('./middleware/skipDocumentPrefetch'));
 app.use('/live-demo', require('./routes/liveDemo'));
 app.use('/', require('./routes/signup'));
 /** Public free member app (reviews / customers) — not a workspace trial. */

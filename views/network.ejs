@@ -719,7 +719,75 @@
           <span class="font-display font-bold">Add a member</span>
           <span class="net-btn net-btn-ghost">From referral partners</span>
         </summary>
-        <% if (!candidates.length) { %>
+        <% if (typeof deferMemberCandidates !== 'undefined' && deferMemberCandidates) { %>
+        <div id="netAddMemberMount" class="mt-3" data-prefill="<%= prefillLeadKey || '' %>" data-has-zones="<%= zones.length ? '1' : '0' %>">
+          <% if (!zones.length) { %>
+          <p class="text-sm text-brand-muted"><a class="underline" href="/network?tab=setup">Add a zone</a> first so members can hold seats.</p>
+          <% } else { %>
+          <p class="text-sm text-brand-muted" data-net-candidates-status>Loading referral partners…</p>
+          <form method="post" action="/network/members" class="mt-3 space-y-3 hidden" data-net-add-form>
+            <div>
+              <label class="net-label" for="netMemberLead">Partner</label>
+              <select id="netMemberLead" name="leadKey" class="net-input" required disabled>
+                <option value="">Pick a referral partner…</option>
+              </select>
+            </div>
+            <div>
+              <span class="net-label">Trades</span>
+              <div class="net-checks"><%- tradeChecks('trades', prefillTrade ? [prefillTrade] : []) %></div>
+            </div>
+            <div>
+              <span class="net-label">Zones</span>
+              <div class="net-checks"><%- zoneChecks('zoneIds', zones.length === 1 ? [zones[0].id] : []) %></div>
+            </div>
+            <button type="submit" class="net-btn net-btn-yellow" disabled>Add to network</button>
+          </form>
+          <% } %>
+        </div>
+        <script>
+        (function () {
+          var mount = document.getElementById('netAddMemberMount');
+          if (!mount || !window.fetch || mount.getAttribute('data-has-zones') !== '1') return;
+          var prefill = mount.getAttribute('data-prefill') || '';
+          var status = mount.querySelector('[data-net-candidates-status]');
+          var form = mount.querySelector('[data-net-add-form]');
+          var select = form && form.querySelector('#netMemberLead');
+          var submit = form && form.querySelector('button[type="submit"]');
+          var url = '/network/member-candidates' + (prefill ? ('?leadKey=' + encodeURIComponent(prefill)) : '');
+          fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+            .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+            .then(function (res) {
+              var list = (res.j && res.j.candidates) || [];
+              if (!res.ok) {
+                if (status) status.textContent = (res.j && res.j.error) || 'Could not load partners.';
+                return;
+              }
+              if (!list.length) {
+                if (form) form.classList.add('hidden');
+                if (status) {
+                  status.innerHTML = 'No referral partners to add. <a class="underline" href="/referrals">Add partners</a> first, then make them network members.';
+                }
+                return;
+              }
+              if (!select || !form) return;
+              list.forEach(function (c) {
+                var opt = document.createElement('option');
+                opt.value = c.key;
+                opt.textContent = (c.title || c.key) + (c.where ? (' — ' + c.where) : '');
+                if (c.key === prefill) opt.selected = true;
+                select.appendChild(opt);
+              });
+              select.disabled = false;
+              if (submit) submit.disabled = false;
+              form.classList.remove('hidden');
+              if (status) status.remove();
+            })
+            .catch(function () {
+              if (status) status.textContent = 'Could not load partners.';
+            });
+        })();
+        </script>
+        <% } else if (!candidates.length) { %>
         <p class="mt-3 text-sm text-brand-muted">No referral partners to add. <a class="underline" href="/referrals">Add partners</a> first, then make them network members.</p>
         <% } else if (!zones.length) { %>
         <p class="mt-3 text-sm text-brand-muted"><a class="underline" href="/network?tab=setup">Add a zone</a> first so members can hold seats.</p>
