@@ -220,8 +220,9 @@ app.use((req, res, next) => {
 // Public live demo: throwaway sandboxes for visitors without an account.
 require('./lib/guestEgress').install();
 app.use(require('./middleware/demoGuest'));
-// Cheap-out document prefetch before any heavy HTML route work.
-app.use(require('./middleware/skipDocumentPrefetch'));
+// Do NOT short-circuit document Prefetch with 204 — browsers can reuse that
+// empty response as the next navigation document (blank page after nav spinner).
+// Document warm is disabled in public/js/nav-prefetch.js instead.
 app.use('/live-demo', require('./routes/liveDemo'));
 app.use('/', require('./routes/signup'));
 /** Public free member app (reviews / customers) — not a workspace trial. */
