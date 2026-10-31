@@ -42,16 +42,6 @@
   }
 
   function rowHtml(it) {
-    var reply = it.type === 'sms' || it.type === 'email';
-    var lc = !!it.callOpensLeadConnector;
-    var callLabel = lc
-      ? (reply ? 'Lead Connector' : 'Call in LC')
-      : reply
-        ? 'Reply'
-        : it.type === 'form'
-          ? 'Call now'
-          : 'Call back';
-    var callAttrs = lc ? ' target="_blank" rel="noopener noreferrer"' : '';
     var meta = esc(it.typeLabel) +
       (it.label ? ' · ' + esc(it.label) : '') +
       (it.count > 1 ? ' · ' + it.count + ' events' : '');
@@ -66,9 +56,7 @@
       '<p class="text-[10px] font-bold text-brand-muted truncate">' + meta + '</p>' +
       (it.preview ? '<p class="text-[11px] text-brand-dark dark:text-slate-300 mt-0.5 line-clamp-2">' + esc(it.preview) + '</p>' : '') +
       '<div class="mt-1.5 flex items-center gap-1">' +
-      '<a href="' + esc(it.callHref) + '"' + callAttrs + ' class="btn-pill btn-primary px-3 py-1 text-[9px] font-black uppercase tracking-widest">' +
-      callLabel + '</a>' +
-      '<a href="' + esc(it.openHref) + '" class="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow px-2 py-1">Open</a>' +
+      '<a href="' + esc(it.openHref) + '" class="btn-pill btn-primary px-3 py-1 text-[9px] font-black uppercase tracking-widest">Open</a>' +
       '<button type="button" class="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow px-2 py-1" data-nav-inbound-done="' + esc(it.leadKey) + '">Done</button>' +
       '</div></div></li>'
     );

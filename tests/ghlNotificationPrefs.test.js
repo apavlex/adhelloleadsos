@@ -59,6 +59,11 @@ describe('ghlNotificationPrefs', () => {
     assert.match(js, /\/notifications\/ghl-alerts/);
     assert.match(js, /setGhlPaused/);
     assert.match(js, /Paused/);
+    // Inbound rows: Open + Done only (no Call in LC / Lead Connector pill).
+    assert.match(js, /btn-primary[^>]*>Open</);
+    assert.match(js, /data-nav-inbound-done/);
+    assert.doesNotMatch(js, /Call in LC/);
+    assert.doesNotMatch(js, /callHref/);
     assert.match(route, /ghlNotificationPrefs/);
     assert.match(route, /router\.post\('\/ghl-alerts'/);
     assert.match(route, /ghlNotificationsPaused/);
