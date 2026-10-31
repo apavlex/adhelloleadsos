@@ -89,6 +89,58 @@ describe('SEO Q&A Pages', () => {
     assert.ok(seoLabelIdx >= 0 && qaHrefIdx > seoLabelIdx);
   });
 
+  it('dashboard template closes the app shell with a real footer partial', async () => {
+    const viewPath = path.join(__dirname, '../views/seo_qa.ejs');
+    const src = fs.readFileSync(viewPath, 'utf8');
+    assert.doesNotMatch(src, /include\(['"]partials\/scripts['"]\)/);
+    assert.match(src, /include\(['"]partials\/footer['"]\)/);
+    assert.ok(fs.existsSync(path.join(__dirname, '../views/partials/footer.ejs')));
+    assert.equal(fs.existsSync(path.join(__dirname, '../views/partials/scripts.ejs')), false);
+
+    const ejs = require('ejs');
+    const views = path.join(__dirname, '../views');
+    const { safeJsonForScript } = require('../services/safeJson');
+    const html = await ejs.renderFile(
+      viewPath,
+      {
+        title: 'Q&A Pages',
+        activePage: 'seo-qa',
+        navPrimary: 'seo-qa',
+        settings: {
+          pageUrl: '',
+          pageTitle: '',
+          businessName: 'T',
+          categories: [],
+          publicToken: 't',
+          notifyOnSubmit: true,
+        },
+        questions: [],
+        summary: { total: 0, open: 0, answered: 0, published: 0 },
+        feedUrl: '',
+        submitUrl: '',
+        focusQuestionId: '',
+        workspaceName: 'T',
+        faqPreview: {},
+        user: { email: 't@t.com', name: 'T' },
+        workspace: { id: WID, name: 'T' },
+        workspaceId: WID,
+        workspaceAccent: '#CA8A04',
+        workspaceSwitcherList: [],
+        scriptSignOffProfile: null,
+        safeJsonForScript,
+        assetVersion: '1',
+        canAccess: () => true,
+        hasRole: () => true,
+        canManageWorkspace: true,
+        canAssignWork: true,
+        whiteLabel: null,
+      },
+      { filename: viewPath, root: views, views: [views], cache: false }
+    );
+    assert.match(html, /Q&amp;A Pages/);
+    assert.match(html, /AdHello\.ai/);
+  });
+
   it('parses FAQ schema and article markup from HTML', () => {
     const faq = seoQaImport.extractFaqSchema(SAMPLE_HTML);
     assert.ok(faq.length >= 2);
