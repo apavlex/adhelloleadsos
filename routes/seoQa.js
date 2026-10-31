@@ -35,15 +35,6 @@ async function pageLocals(req) {
   const origin = baseUrlFromReq(req);
   const feedUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/feed.json` : '';
   const submitUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/questions` : '';
-  const pageBuilderPrompt = buildSeoQaPagePrompt({
-    siteUrl: 'https://adhello.io',
-    pagePath: '/questions',
-    businessName: bundle.settings.businessName || (ws && ws.name) || 'Your Business',
-    pageTitle: bundle.settings.pageTitle || 'Questions & Answers',
-    categories: bundle.settings.categories,
-    feedUrl,
-    submitUrl,
-  });
   return {
     title: 'Q&A Pages',
     activePage: 'seo-qa',
@@ -52,19 +43,27 @@ async function pageLocals(req) {
     summary,
     feedUrl,
     submitUrl,
-    pageBuilderPrompt,
     focusQuestionId: String(req.query.q || '').trim(),
     workspaceName: (ws && ws.name) || 'Your workspace',
-    faqPreview: seoQaPublic.buildFaqSchema(
-      questions.filter((q) => q.published && q.status === 'answered'),
-      bundle.settings.pageUrl
-    ),
   };
 }
 
 router.get('/', async (req, res, next) => {
   try {
     const locals = await pageLocals(req);
+    locals.pageBuilderPrompt = buildSeoQaPagePrompt({
+      siteUrl: 'https://adhello.io',
+      pagePath: '/questions',
+      businessName: locals.settings.businessName || locals.workspaceName || 'Your Business',
+      pageTitle: locals.settings.pageTitle || 'Questions & Answers',
+      categories: locals.settings.categories,
+      feedUrl: locals.feedUrl,
+      submitUrl: locals.submitUrl,
+    });
+    locals.faqPreview = seoQaPublic.buildFaqSchema(
+      locals.questions.filter((q) => q.published && q.status === 'answered'),
+      locals.settings.pageUrl
+    );
     res.render('seo_qa', locals);
   } catch (e) {
     next(e);
