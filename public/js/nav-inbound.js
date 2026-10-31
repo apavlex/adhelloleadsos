@@ -41,7 +41,17 @@
     return Math.round(h / 24) + 'd ago';
   }
 
+  function moneyModeHref(it) {
+    var key = String((it && (it.short || it.leadKey)) || '').replace(/^lead:/i, '').trim();
+    if (!key) return (it && (it.focusHref || it.openHref)) || '/focus';
+    if (typeof window.__adhelloMoneyModeLeadUrl === 'function') {
+      try { return window.__adhelloMoneyModeLeadUrl(key); } catch (e) { /* fall through */ }
+    }
+    return (it && it.focusHref) || ('/focus?lead=' + encodeURIComponent(key));
+  }
+
   function rowHtml(it) {
+    var href = moneyModeHref(it);
     var meta = esc(it.typeLabel) +
       (it.label ? ' · ' + esc(it.label) : '') +
       (it.count > 1 ? ' · ' + it.count + ' events' : '');
@@ -51,12 +61,12 @@
       '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">' + (ICONS[it.type] || ICONS.sms) + '</svg></span>' +
       '<div class="min-w-0 flex-1">' +
       '<div class="flex items-baseline gap-2">' +
-      '<a href="' + esc(it.openHref) + '" class="text-[12px] font-bold text-brand-dark dark:text-white hover:text-brand-yellow truncate min-w-0">' + esc(it.title) + '</a>' +
+      '<a href="' + esc(href) + '" class="text-[12px] font-bold text-brand-dark dark:text-white hover:text-brand-yellow truncate min-w-0">' + esc(it.title) + '</a>' +
       '<span class="ml-auto text-[10px] font-bold text-brand-muted whitespace-nowrap tabular-nums">' + esc(ago(it.at)) + '</span></div>' +
       '<p class="text-[10px] font-bold text-brand-muted truncate">' + meta + '</p>' +
       (it.preview ? '<p class="text-[11px] text-brand-dark dark:text-slate-300 mt-0.5 line-clamp-2">' + esc(it.preview) + '</p>' : '') +
       '<div class="mt-1.5 flex items-center gap-1">' +
-      '<a href="' + esc(it.openHref) + '" class="btn-pill btn-primary px-3 py-1 text-[9px] font-black uppercase tracking-widest">Open</a>' +
+      '<a href="' + esc(href) + '" class="btn-pill btn-primary px-3 py-1 text-[9px] font-black uppercase tracking-widest">Open</a>' +
       '<button type="button" class="text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow px-2 py-1" data-nav-inbound-done="' + esc(it.leadKey) + '">Done</button>' +
       '</div></div></li>'
     );

@@ -62,6 +62,8 @@ describe('ghlNotificationPrefs', () => {
     // Inbound rows: Open + Done only (no Call in LC / Lead Connector pill).
     assert.match(js, /btn-primary[^>]*>Open</);
     assert.match(js, /data-nav-inbound-done/);
+    assert.match(js, /moneyModeHref|__adhelloMoneyModeLeadUrl/);
+    assert.doesNotMatch(js, /pipeline\?focusLead/);
     assert.doesNotMatch(js, /Call in LC/);
     assert.doesNotMatch(js, /callHref/);
     assert.match(route, /ghlNotificationPrefs/);
