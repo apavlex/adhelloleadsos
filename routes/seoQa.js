@@ -7,6 +7,7 @@ const dbService = require('../services/database');
 const seoQaStore = require('../services/seoQaStore');
 const seoQaImport = require('../services/seoQaImport');
 const seoQaPublic = require('../services/seoQaPublic');
+const { buildSeoQaPagePrompt } = require('../services/seoQaPagePrompt');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
 function baseUrlFromReq(req) {
@@ -34,6 +35,15 @@ async function pageLocals(req) {
   const origin = baseUrlFromReq(req);
   const feedUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/feed.json` : '';
   const submitUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/questions` : '';
+  const pageBuilderPrompt = buildSeoQaPagePrompt({
+    siteUrl: 'https://adhello.io',
+    pagePath: '/questions',
+    businessName: bundle.settings.businessName || (ws && ws.name) || 'Your Business',
+    pageTitle: bundle.settings.pageTitle || 'Questions & Answers',
+    categories: bundle.settings.categories,
+    feedUrl,
+    submitUrl,
+  });
   return {
     title: 'Q&A Pages',
     activePage: 'seo-qa',
@@ -42,6 +52,7 @@ async function pageLocals(req) {
     summary,
     feedUrl,
     submitUrl,
+    pageBuilderPrompt,
     focusQuestionId: String(req.query.q || '').trim(),
     workspaceName: (ws && ws.name) || 'Your workspace',
     faqPreview: seoQaPublic.buildFaqSchema(

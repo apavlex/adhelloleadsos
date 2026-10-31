@@ -92,6 +92,21 @@
         <p class="text-xs text-brand-muted leading-relaxed">SEO tip: your site should render the feed’s questions/answers in HTML and inject <code class="text-[10px]">faq_schema</code> as JSON-LD. Browser-only posts don’t rank — published HTML does.</p>
       </div>
       <% } %>
+
+      <% const _prompt = typeof pageBuilderPrompt !== 'undefined' ? String(pageBuilderPrompt || '') : ''; %>
+      <% if (_prompt) { %>
+      <div class="mt-5 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-4 space-y-3" id="sqaPageBuilderPromptCard">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Page-builder prompt</h3>
+            <p class="text-xs text-brand-muted mt-1 max-w-2xl">Copy into Cursor (or your site builder) to recreate the TPR-style Q&amp;A layout on another site — e.g. adhello.io — already wired to <em>this</em> workspace’s feed + submit URLs.</p>
+          </div>
+          <button type="button" id="sqaCopyPromptBtn" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest shrink-0">Copy prompt</button>
+        </div>
+        <textarea id="sqaPageBuilderPrompt" readonly rows="12" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/60 px-3 py-3 text-[11px] leading-relaxed font-mono text-brand-dark dark:text-slate-200 resize-y min-h-[12rem]"><%= _prompt %></textarea>
+        <p class="text-[11px] text-brand-muted">Edit the target site URL in the prompt if you’re not building for adhello.io. Use a different workspace’s Q&amp;A page when the other site needs its own inbox.</p>
+      </div>
+      <% } %>
     </section>
 
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="sqaAddTitle">
@@ -247,6 +262,30 @@
           window.location.href = '/seo-qa?ok=saved';
         } catch (err) {
           setStatus(err.message || 'Save failed', true);
+        }
+      });
+    }
+
+    var copyPromptBtn = document.getElementById('sqaCopyPromptBtn');
+    var promptEl = document.getElementById('sqaPageBuilderPrompt');
+    if (copyPromptBtn && promptEl) {
+      copyPromptBtn.addEventListener('click', function () {
+        var text = promptEl.value || '';
+        function done() {
+          var prev = copyPromptBtn.textContent;
+          copyPromptBtn.textContent = 'Copied';
+          setTimeout(function () { copyPromptBtn.textContent = prev; }, 1600);
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {
+            promptEl.focus();
+            promptEl.select();
+            try { document.execCommand('copy'); done(); } catch (_) { /* ignore */ }
+          });
+        } else {
+          promptEl.focus();
+          promptEl.select();
+          try { document.execCommand('copy'); done(); } catch (_) { /* ignore */ }
         }
       });
     }
