@@ -38,6 +38,7 @@ describe('Workspace settings responsiveness', () => {
     const js = read('public/js/nav-prefetch.js');
     assert.match(js, /wsSettingsNav/);
     assert.match(js, /\/workspace\/team/);
+    assert.match(js, /idleWarmWorkspaceSiblings/);
   });
 
   it('defers section settings scripts', () => {

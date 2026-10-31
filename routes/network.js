@@ -199,19 +199,11 @@ router.get('/', async (req, res, next) => {
       .slice(0, 200)
       .map((ref) => presentReferral(ref, membersById, zonesById, network));
 
-    let candidates = [];
-    if (tab === 'members') {
-      const memberLeadKeys = new Set(members.map((m) => m.leadKey));
-      const leads = filterBusinessPipelineLeads(filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId)));
-      candidates = referralNetwork.listPartners(leads, '')
-        .filter((card) => !memberLeadKeys.has(card.key))
-        .map((card) => ({ key: card.key, title: card.title, where: [card.category, card.city].filter(Boolean).join(' · ') }));
-      const prefill = String(req.query.leadKey || '').trim();
-      if (prefill && !memberLeadKeys.has(prefill) && !candidates.some((c) => c.key === prefill)) {
-        const lead = await dbService.getLead(prefill, req.workspaceId);
-        if (lead && lead.key) candidates.unshift({ key: lead.key, title: lead.title || 'Untitled', where: lead.city || '' });
-      }
-    }
+    // Partner candidates for "Add a member" load after paint via
+    // GET /network/member-candidates — a full lead scan on SSR
+    // stalled Members navigations under the global nav spinner.
+    const candidates = [];
+    const deferMemberCandidates = tab === 'members' && canManage(req);
 
     let fieldWork = null;
     let fieldWorkSummary = null;
@@ -383,6 +375,7 @@ router.get('/', async (req, res, next) => {
       prefillLeadKey: String(req.query.leadKey || '').trim(),
       prefillTrade: networkTrades.some((t) => t.slug === req.query.trade) ? String(req.query.trade) : '',
       candidates,
+      deferMemberCandidates,
       fieldWork,
       fieldWorkSummary,
       fieldWorkView,
@@ -602,6 +595,35 @@ function seatNotice(prefix, conflicts, network) {
   if (network.seatLimit === 1) return `${prefix} Already taken by another member: ${list}.`;
   return `${prefix} Already full (${network.seatLimit || 'no limit'} per trade): ${list}. Raise "Partners per trade" in Setup to add more.`;
 }
+
+/** Partner pick-list for Add a member — loaded after paint so Members SSR stays light. */
+router.get('/member-candidates', async (req, res) => {
+  if (!canManage(req)) return res.status(403).json({ success: false, error: 'Forbidden', candidates: [] });
+  try {
+    const network = await loadNetwork(req);
+    const members = await store.listMembers(network.id);
+    const memberLeadKeys = new Set(members.map((m) => m.leadKey));
+    const leads = filterBusinessPipelineLeads(filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId)));
+    const candidates = referralNetwork.listPartners(leads, '')
+      .filter((card) => !memberLeadKeys.has(card.key))
+      .map((card) => ({ key: card.key, title: card.title, where: [card.category, card.city].filter(Boolean).join(' · ') }));
+    const prefill = String(req.query.leadKey || '').trim();
+    if (prefill && !memberLeadKeys.has(prefill) && !candidates.some((c) => c.key === prefill)) {
+      const lead = await dbService.getLead(prefill, req.workspaceId);
+      if (lead && lead.key) {
+        candidates.unshift({
+          key: lead.key,
+          title: lead.title || 'Untitled',
+          where: [lead.category, lead.city].filter(Boolean).join(' · ') || lead.city || '',
+        });
+      }
+    }
+    return res.json({ success: true, candidates, zones: (await store.listZones(network.id)).length });
+  } catch (err) {
+    console.error('[network] member-candidates failed:', err && err.message);
+    return res.status(500).json({ success: false, error: 'Could not load partners.', candidates: [] });
+  }
+});
 
 router.post('/members', async (req, res) => {
   if (!canManage(req)) return reply(req, res, { ok: false, tab: 'members', notice: 'Only owners and admins can add members.', status: 403 });

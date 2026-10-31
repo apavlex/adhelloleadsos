@@ -1,8 +1,11 @@
 /**
- * Warm heavy routes on hover / pointerdown so Today → Focus / Pipeline feels faster.
+ * Warm destinations on hover / pointerdown so sidebar hops feel faster.
+ * Do NOT idle-prefetch a pile of lead-heavy HTML routes — that jammed the
+ * server after every page hop and left the nav spinner looking stuck.
  */
 (function () {
   var warmed = Object.create(null);
+  var controllers = [];
 
   // GETs with side effects: warming them would sign the user out on hover.
   var NEVER_WARM = /^\/(logout|live-demo)(\/|\?|$)/;
@@ -36,12 +39,22 @@
     } catch (e) {}
     try {
       if (window.fetch) {
+        var ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        if (ac) controllers.push(ac);
         fetch(url, {
           credentials: 'same-origin',
           headers: { Purpose: 'prefetch', 'Sec-Purpose': 'prefetch' },
+          signal: ac ? ac.signal : undefined,
         }).catch(function () {});
       }
     } catch (e2) {}
+  }
+
+  function abortPendingWarms() {
+    while (controllers.length) {
+      var ac = controllers.pop();
+      try { ac.abort(); } catch (e) {}
+    }
   }
 
   function onIntent(e) {
@@ -53,53 +66,55 @@
   document.addEventListener('pointerdown', onIntent, true);
   document.addEventListener('mouseover', onIntent, true);
   document.addEventListener('touchstart', onIntent, { capture: true, passive: true });
+  // Leaving the page: drop in-flight prefetch so it cannot race the real nav.
+  window.addEventListener('pagehide', abortPendingWarms);
+  window.addEventListener('beforeunload', abortPendingWarms);
 
-  // Idle-warm common destinations from Today and the shell.
-  function idleWarmDefaults() {
+  // Idle-warm only Workspace settings sibling tabs (light locals). No global
+  // pile of /today /prospecting /focus /… — those are lead-scan HTML pages.
+  function idleWarmWorkspaceSiblings() {
     var path = window.location.pathname || '';
-    var common = [
-      '/today',
-      '/opportunities',
-      '/focus',
-      '/prospecting?tab=pipeline',
-      '/prospecting?tab=folders',
-      '/prospecting?tab=queue',
-      '/tasks',
-      '/engagement',
-      '/activity',
-      '/referrals',
-    ];
-    common.forEach(function (url) {
-      if (path === url || (url.indexOf('?') === -1 && path.indexOf(url) === 0)) return;
-      warm(url);
-    });
+    if (path.indexOf('/workspace') !== 0) return;
 
-    // On Workspace settings, warm sibling tabs so switches feel snappy.
-    if (path.indexOf('/workspace') === 0) {
-      var nav = document.getElementById('wsSettingsNav');
-      if (nav) {
-        var links = nav.querySelectorAll('a.ws-nav-item[href]');
-        for (var i = 0; i < links.length; i++) {
-          warm(resolveHref(links[i]));
+    var urls = [];
+    var nav = document.getElementById('wsSettingsNav');
+    if (nav) {
+      var links = nav.querySelectorAll('a.ws-nav-item[href]');
+      for (var i = 0; i < links.length; i++) {
+        var href = resolveHref(links[i]);
+        if (href) urls.push(href);
+      }
+    } else {
+      urls = [
+        '/workspace/team',
+        '/workspace/white-label',
+        '/workspace/pipeline',
+        '/workspace/integrations',
+        '/workspace/ai-apps',
+        '/workspace/phones',
+        '/workspace/routing',
+        '/workspace/revenue',
+      ];
+    }
+
+    var idx = 0;
+    function next() {
+      if (idx >= urls.length) return;
+      warm(urls[idx++]);
+      if (idx < urls.length) {
+        if ('requestIdleCallback' in window) {
+          window.requestIdleCallback(next, { timeout: 1500 });
+        } else {
+          setTimeout(next, 200);
         }
-      } else {
-        [
-          '/workspace/team',
-          '/workspace/white-label',
-          '/workspace/pipeline',
-          '/workspace/integrations',
-          '/workspace/ai-apps',
-          '/workspace/phones',
-          '/workspace/routing',
-          '/workspace/revenue',
-        ].forEach(warm);
       }
     }
+    next();
   }
 
   if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(idleWarmDefaults, { timeout: 2500 });
+    window.requestIdleCallback(idleWarmWorkspaceSiblings, { timeout: 2500 });
   } else {
-    setTimeout(idleWarmDefaults, 1200);
+    setTimeout(idleWarmWorkspaceSiblings, 1200);
   }
 })();
