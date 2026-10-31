@@ -136,6 +136,18 @@
   const _needGcal = true; /* softphone + lead panel follow-up pickers are global */
   const _needDmQueue = true; /* softphone Mail tab is global — always load queue helpers */
   const _needReviews = true; /* softphone keypad shows stars on every page */
+  /* Maps only on pages that show lead/location maps — skip on SEO, network, settings, etc. */
+  const _needMaps =
+    _needPipeline ||
+    _np === 'focus' ||
+    _np === 'today' ||
+    _np === 'find' ||
+    _rp.startsWith('/focus') ||
+    _rp.startsWith('/today') ||
+    _rp.startsWith('/leads') ||
+    _rp.startsWith('/prospecting') ||
+    _rp.startsWith('/pipeline') ||
+    _rp.startsWith('/opportunities');
   const _av = typeof assetVersion !== 'undefined' ? assetVersion : '1';
 %>
 <%# Shared helpers — defer unless Focus/Scripts inline code needs AdHelloScripts during parse %>
@@ -173,8 +185,10 @@
 <script src="/js/review-freshness.js?v=<%= _av %>" defer></script>
 <% } %>
 <script>window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__ = <%- JSON.stringify(typeof googleMapsStaticKey === 'string' ? googleMapsStaticKey : '') %>; window.__ADHELLO_LEAD_PANEL_JS_MAP__ = false;</script>
+<% if (_needMaps) { %>
 <script src="/js/googleMapsLoader.js?v=<%= _av %>" defer></script>
 <script src="/js/osmLeafletMap.js?v=<%= _av %>" defer></script>
+<% } %>
 <script src="/js/money-mode-link.js?v=<%= _av %>" defer></script>
 <script src="/js/keyboard-nav-shortcuts.js?v=<%= _av %>" defer></script>
 <script src="/js/nav-prefetch.js?v=<%= _av %>" defer></script>

@@ -34,11 +34,12 @@ describe('Workspace settings responsiveness', () => {
     assert.match(css, /html\.ws-settings-navigating/);
   });
 
-  it('does not document-prefetch workspace tabs (prefetch disabled globally)', () => {
+  it('does not idle-warm a pile of workspace tabs (intent-only prefetch)', () => {
     const js = read('public/js/nav-prefetch.js');
+    assert.doesNotMatch(js, /idleWarmWorkspaceSiblings/);
     assert.doesNotMatch(js, /wsSettingsNav/);
-    assert.doesNotMatch(js, /rel\s*=\s*['"]prefetch['"]/);
-    assert.match(js, /intentionally empty/);
+    assert.match(js, /pointerdown/);
+    assert.match(js, /MAX_INFLIGHT/);
   });
 
   it('defers section settings scripts', () => {
