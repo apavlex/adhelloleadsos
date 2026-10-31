@@ -2713,6 +2713,9 @@ a.website-link.website-link--holding {
   isolation: isolate;
   opacity: 1 !important;
   position: fixed;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-shadow:
     0 20px 40px -12px rgba(17, 24, 39, 0.18),
     0 8px 16px -8px rgba(17, 24, 39, 0.1);
@@ -2720,10 +2723,15 @@ a.website-link.website-link--holding {
 
 .pipeline-columns-popover__header {
   background-color: var(--brand-cream, #faf7ed) !important;
+  flex-shrink: 0;
 }
 
 .pipeline-columns-popover__body {
   background-color: inherit;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .dark .pipeline-columns-popover__header,

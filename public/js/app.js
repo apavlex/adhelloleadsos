@@ -2252,13 +2252,32 @@ document.addEventListener('DOMContentLoaded', () => {
           document.body.appendChild(pop);
         }
         const rect = colBtn.getBoundingClientRect();
+        const pad = 12;
+        const width = Math.min(window.innerWidth - pad * 2, 17 * 16);
+        // Prefer aligning under the button; clamp so the panel never leaves the viewport
+        // (right-anchoring shoved it off-screen left on mobile when Columns sits left).
+        let left = rect.left;
+        if (left + width > window.innerWidth - pad) left = window.innerWidth - width - pad;
+        if (left < pad) left = pad;
+
+        let top = rect.bottom + 8;
+        const maxH = Math.max(200, window.innerHeight - top - pad);
+        // Measure after width is set so flip-above uses real height.
         pop.style.position = 'fixed';
-        pop.style.top = `${Math.round(rect.bottom + 8)}px`;
-        pop.style.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
-        pop.style.left = 'auto';
+        pop.style.width = `${Math.round(width)}px`;
+        pop.style.maxHeight = `${Math.round(maxH)}px`;
+        pop.style.left = `${Math.round(left)}px`;
+        pop.style.right = 'auto';
         pop.style.bottom = 'auto';
         pop.style.zIndex = '10050';
-        pop.style.width = 'min(calc(100vw - 2rem), 17rem)';
+        pop.style.top = `${Math.round(top)}px`;
+        const popH = pop.offsetHeight || Math.min(maxH, 360);
+        if (top + popH > window.innerHeight - pad) {
+          const above = Math.max(pad, rect.top - popH - 8);
+          top = above;
+          pop.style.top = `${Math.round(top)}px`;
+          pop.style.maxHeight = `${Math.round(Math.max(200, window.innerHeight - top - pad))}px`;
+        }
       }
 
       function repositionColumnsPopoverIfOpen() {
