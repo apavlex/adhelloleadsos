@@ -219,6 +219,7 @@ test('pendingInboundItems: handled, old, and answered-call events are excluded',
   const rows = pendingInboundItems(leads, { now });
   assert.deepEqual(rows.map((r) => r.leadKey), ['lead:a']);
   assert.equal(rows[0].focusHref, '/focus?lead=a');
+  assert.equal(rows[0].openHref, '/focus?lead=a');
 });
 
 test('appendInboundEvent dedupes by id and caps the list', () => {

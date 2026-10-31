@@ -213,7 +213,8 @@ function pendingInboundItems(leads, opts = {}) {
       count: open.length,
       otherTypes: types.filter((t) => t !== latest.type).map((t) => TYPE_LABELS[t]),
       focusHref: focusHrefFor(short),
-      openHref: `/pipeline?focusLead=${encodeURIComponent(short)}`,
+      // Open → Money Mode (/focus), not pipeline sheet.
+      openHref: focusHrefFor(short),
       handled: false,
     };
     rows.push(
@@ -267,7 +268,8 @@ function listGhlCallSmsItems(leads, opts = {}) {
         source: e.source || 'ghl',
         handled: t <= handledMs,
         focusHref: focusHrefFor(short),
-        openHref: `/pipeline?focusLead=${encodeURIComponent(short)}`,
+        // Open → Money Mode (/focus), not pipeline sheet.
+        openHref: focusHrefFor(short),
       };
       rows.push(
         withLeadConnectorLinks(base, {
