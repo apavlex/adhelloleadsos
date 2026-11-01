@@ -1,7 +1,7 @@
 /* AdHello Agency OS PWA — cache shell assets; network-first for app pages.
  * Reviews (/m/sw.js) and contractor portal (/p/sw.js) use separate workers so
  * workspace search/task pushes do not show on those home-screen apps. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.674';
+const CACHE_VERSION = 'adhello-pwa-v1.0.675';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -14,7 +14,13 @@ const SHELL = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting())
+    caches
+      .open(CACHE_VERSION)
+      .then((cache) =>
+        // Per-URL so one failure does not block skipWaiting / activation.
+        Promise.all(SHELL.map((url) => cache.add(url).catch(() => undefined)))
+      )
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -147,28 +153,23 @@ self.addEventListener('fetch', (event) => {
   }
 
   // HTML / navigation: network first, offline fallback.
-  // Cap wait so a hung origin does not leave iOS on a pure white void forever.
+  // Pass the request through unchanged — Safari/iOS rejects modified navigation
+  // Requests (e.g. adding a signal) and the catch path falsely shows the Retry
+  // screen while Wi‑Fi is fine. Frost overlay covers slow SSR instead.
   if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
     event.respondWith(
-      (async () => {
-        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const timer = setTimeout(() => {
+      fetch(req)
+        .then((res) => res)
+        .catch(async () => {
           try {
-            if (ctrl) ctrl.abort();
+            const current = await caches.open(CACHE_VERSION);
+            const fresh = await current.match('/offline.html');
+            if (fresh) return fresh;
           } catch (_) {
             /* ignore */
           }
-        }, 28000);
-        try {
-          const res = await fetch(req, ctrl ? { signal: ctrl.signal } : undefined);
-          return res;
-        } catch (_) {
-          const offline = await caches.match('/offline.html');
-          return offline || Response.error();
-        } finally {
-          clearTimeout(timer);
-        }
-      })()
+          return (await caches.match('/offline.html')) || Response.error();
+        })
     );
   }
 });
