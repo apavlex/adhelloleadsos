@@ -807,6 +807,11 @@ module.exports = {
     return this.getAllLeads(workspaceId);
   },
 
+  /** How many workspace lead cold-scans are running (for warm/switch backpressure). */
+  countLeadsListInflight() {
+    return _leadsListInflight.size;
+  },
+
   async getAllLeads(workspaceId) {
     const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
     assertLeadScopedWorkspaceId(wid, 'getAllLeads');
@@ -846,8 +851,8 @@ module.exports = {
             )
             .all(wid);
       const leads = [];
-      // Yield every chunk so Today / nav requests stay responsive while a large workspace cold-loads.
-      const YIELD_EVERY = 200;
+      // Yield often so switch/nav requests stay responsive while a large workspace cold-loads.
+      const YIELD_EVERY = 80;
       for (let i = 0; i < rows.length; i++) {
         if (i > 0 && i % YIELD_EVERY === 0) {
           await new Promise((r) => setImmediate(r));

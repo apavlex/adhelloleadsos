@@ -879,6 +879,14 @@ router.post('/warm', express.json({ limit: '4kb' }), async (req, res, next) => {
     if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
       return res.status(403).json({ success: false, error: 'You do not have access to that workspace.' });
     }
+    // Skip kicking off another cold scan while one is already running — N parallel
+    // getAllLeads calls starved the event loop and froze workspace Switching….
+    const inflight = typeof dbService.countLeadsListInflight === 'function'
+      ? dbService.countLeadsListInflight()
+      : 0;
+    if (inflight >= 1) {
+      return res.json({ success: true, warming: false, skipped: true, workspaceId: raw });
+    }
     void dbService.getAllLeads(raw).catch(() => {});
     return res.json({ success: true, warming: true, workspaceId: raw });
   } catch (e) {

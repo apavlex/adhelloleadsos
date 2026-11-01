@@ -185,47 +185,40 @@
       if (chev) chev.classList.remove('rotate-180');
     }
 
+    // Warm only the workspace the user is about to open — never every row on
+    // menu open (that jammed SQLite with N cold getAllLeads and froze Switching…).
     var warmedIds = Object.create(null);
-    function warmSwitcherWorkspaces() {
-      var current = '';
+    function warmOneWorkspace(id) {
+      id = String(id || '').trim();
+      if (!id || warmedIds[id]) return;
+      warmedIds[id] = 1;
       try {
-        var active = wsm.querySelector('button[aria-current="true"]');
-        var activeForm = active && active.closest('form');
-        var activeInput = activeForm && activeForm.querySelector('input[name="workspaceId"]');
-        if (activeInput) current = String(activeInput.value || '').trim();
+        fetch('/workspaces/warm', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ workspaceId: id }),
+          keepalive: true,
+        }).catch(function () {});
       } catch (_) {}
-      var inputs = wsm.querySelectorAll('form[action="/workspaces/switch"] input[name="workspaceId"]');
-      for (var i = 0; i < inputs.length; i++) {
-        var id = String(inputs[i].value || '').trim();
-        if (!id || id === current || warmedIds[id]) continue;
-        warmedIds[id] = 1;
-        try {
-          fetch('/workspaces/warm', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ workspaceId: id }),
-            keepalive: true,
-          }).catch(function () {});
-        } catch (_) {}
-      }
     }
 
-    wsb.addEventListener('pointerenter', function () {
-      warmSwitcherWorkspaces();
-    });
-    wsb.addEventListener('focus', function () {
-      warmSwitcherWorkspaces();
-    });
+    wsm.addEventListener(
+      'pointerdown',
+      function (e) {
+        var form = e.target && e.target.closest ? e.target.closest('form[action="/workspaces/switch"]') : null;
+        if (!form || form.getAttribute('data-ws-switching') === '1') return;
+        var input = form.querySelector('input[name="workspaceId"]');
+        if (input) warmOneWorkspace(input.value);
+      },
+      true,
+    );
 
     wsb.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
       var open = wsm.classList.contains('hidden');
-      if (open) {
-        positionWsMenu();
-        warmSwitcherWorkspaces();
-      }
+      if (open) positionWsMenu();
       wsm.classList.toggle('hidden');
       wsb.setAttribute('aria-expanded', open ? 'true' : 'false');
       var chev = wsb.querySelector('.ws-switcher-chevron');
@@ -248,6 +241,35 @@
 
   bindWsSwitcher('wsSwitcherBtnSidebar', 'wsSwitcherMenuSidebar', 'wsSwitcherWrapSidebar');
   bindWsSwitcher('wsSwitcherBtn', 'wsSwitcherMenu', 'wsSwitcherWrap');
+
+  var switchBusyTimer = null;
+
+  function clearWorkspaceSwitchBusy() {
+    if (switchBusyTimer) {
+      clearTimeout(switchBusyTimer);
+      switchBusyTimer = null;
+    }
+    var menus = document.querySelectorAll('#wsSwitcherMenu, #wsSwitcherMenuSidebar');
+    for (var i = 0; i < menus.length; i++) {
+      menus[i].removeAttribute('aria-busy');
+      menus[i].classList.remove('opacity-70', 'pointer-events-none');
+    }
+    var forms = document.querySelectorAll('form[action="/workspaces/switch"]');
+    for (var j = 0; j < forms.length; j++) {
+      forms[j].removeAttribute('data-ws-switching');
+      var buttons = forms[j].querySelectorAll('button[type="submit"]');
+      for (var k = 0; k < buttons.length; k++) {
+        buttons[k].disabled = false;
+        buttons[k].removeAttribute('aria-disabled');
+        var label = buttons[k].querySelector('.truncate') || buttons[k];
+        var prev = label && label.getAttribute('data-ws-switch-label');
+        if (prev != null) {
+          label.textContent = prev;
+          label.removeAttribute('data-ws-switch-label');
+        }
+      }
+    }
+  }
 
   function markWorkspaceSwitchBusy(form) {
     if (!form || form.getAttribute('data-ws-switching') === '1') return;
@@ -273,6 +295,18 @@
         label.textContent = 'Switching…';
       }
     }
+    // If the POST hangs (server busy on lead scans), unlock so the user can retry.
+    if (switchBusyTimer) clearTimeout(switchBusyTimer);
+    switchBusyTimer = setTimeout(function () {
+      switchBusyTimer = null;
+      clearWorkspaceSwitchBusy();
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Workspace switch is taking too long — try again.', {
+          variant: 'error',
+          duration: 5000,
+        });
+      }
+    }, 12000);
   }
 
   document.addEventListener(
@@ -285,6 +319,8 @@
     },
     true,
   );
+
+  window.addEventListener('pagehide', clearWorkspaceSwitchBusy);
 
   window.__adhelloGetSidebarState = getState;
   window.__adhelloSetSidebarState = applyState;
