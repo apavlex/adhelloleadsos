@@ -6,7 +6,6 @@ const router = express.Router();
 const dbService = require('../services/database');
 const seoQaStore = require('../services/seoQaStore');
 const seoQaImport = require('../services/seoQaImport');
-const seoQaPublic = require('../services/seoQaPublic');
 const { buildSeoQaPagePrompt } = require('../services/seoQaPagePrompt');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
@@ -16,41 +15,64 @@ function baseUrlFromReq(req) {
   return `${proto}://${host}`.replace(/\/$/, '');
 }
 
-async function pageLocals(req) {
+/** Cap SSR inbox cards — huge imports + one textarea each froze mobile Safari. */
+const INBOX_SSR_LIMIT = 40;
+
+async function pageLocals(req, { inboxLimit = null } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
   let bundle = await seoQaStore.ensurePublicToken(req.workspaceId);
-  if (!bundle.settings.businessName) {
+  // Only seed a real name. Saving '' every GET rewrote the whole workspace doc and
+  // lagged/froze /seo-qa uniquely (other SEO tabs do not write on read).
+  if (!String(bundle.settings.businessName || '').trim()) {
     const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
-    bundle = await seoQaStore.save(req.workspaceId, {
-      settings: {
-        ...bundle.settings,
-        businessName: intake.businessName || ws.name || '',
-      },
-      questions: bundle.questions,
-    });
+    const seedName = String(intake.businessName || ws.name || '').trim();
+    if (seedName) {
+      bundle = await seoQaStore.save(req.workspaceId, {
+        settings: {
+          ...bundle.settings,
+          businessName: seedName,
+        },
+        questions: bundle.questions,
+      });
+    }
   }
-  const questions = seoQaStore.listQuestions(bundle);
+  const allQuestions = seoQaStore.listQuestions(bundle);
   const summary = seoQaStore.inboxSummary(bundle);
   const token = bundle.settings.publicToken;
   const origin = baseUrlFromReq(req);
   const feedUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/feed.json` : '';
   const submitUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/questions` : '';
+  const focusQuestionId = String(req.query.q || '').trim();
+  let questions = allQuestions;
+  let inboxTruncated = false;
+  if (inboxLimit != null && Number.isFinite(inboxLimit) && allQuestions.length > inboxLimit) {
+    questions = allQuestions.slice(0, inboxLimit);
+    if (focusQuestionId) {
+      const focused = allQuestions.find((q) => q && q.id === focusQuestionId);
+      if (focused && !questions.some((q) => q.id === focusQuestionId)) {
+        questions = [focused, ...questions].slice(0, inboxLimit);
+      }
+    }
+    inboxTruncated = true;
+  }
   return {
     title: 'Q&A Pages',
     activePage: 'seo-qa',
     settings: bundle.settings,
     questions,
+    questionsTotal: allQuestions.length,
+    inboxTruncated,
     summary,
     feedUrl,
     submitUrl,
-    focusQuestionId: String(req.query.q || '').trim(),
+    focusQuestionId,
     workspaceName: (ws && ws.name) || 'Your workspace',
   };
 }
 
 router.get('/', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req);
+    const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT });
     locals.pageBuilderPrompt = buildSeoQaPagePrompt({
       siteUrl: 'https://adhello.io',
       pagePath: '/questions',
@@ -60,10 +82,6 @@ router.get('/', async (req, res, next) => {
       feedUrl: locals.feedUrl,
       submitUrl: locals.submitUrl,
     });
-    locals.faqPreview = seoQaPublic.buildFaqSchema(
-      locals.questions.filter((q) => q.published && q.status === 'answered'),
-      locals.settings.pageUrl
-    );
     res.render('seo_qa', locals);
   } catch (e) {
     next(e);
