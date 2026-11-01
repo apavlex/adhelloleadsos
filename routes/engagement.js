@@ -15,8 +15,9 @@ const {
 const { signalLabel } = require('../services/engagementSignals');
 
 async function visibleBusinessLeads(req) {
-  const all = await dbService.getAllLeads(req.workspaceId);
-  const visible = filterLeadsForRequest(req, all);
+  /* Do not cold-scan every prospect — inbox only needs leads with signal history. */
+  const candidates = await dbService.listLeadsForEngagementInbox(req.workspaceId);
+  const visible = filterLeadsForRequest(req, candidates);
   return filterBusinessPipelineLeads(visible);
 }
 

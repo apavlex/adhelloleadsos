@@ -94,6 +94,7 @@ function readJsonReply(r) {
         '</svg>' +
         '<img class="adhello-nav-loader-icon" src="' + NAV_LOADING_ICON_SRC +
           '" alt="" width="48" height="48" decoding="sync" />' +
+        '<button type="button" class="adhello-nav-loader-retry hidden" id="adhelloNavLoadingRetry">Still loading — tap to retry</button>' +
       '</div>';
     // Tap frost to dismiss if nav stalled (overlay must receive pointer events when on).
     // During a real leave, early taps must NOT clear the frost — iOS already discarded the
@@ -101,6 +102,12 @@ function readJsonReply(r) {
     el.addEventListener('click', function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
+      if (ev.target && ev.target.id === 'adhelloNavLoadingRetry') {
+        try {
+          window.location.reload();
+        } catch (e) { /* ignore */ }
+        return;
+      }
       if (showNavLoading._leaving) {
         var started = showNavLoading._shownAt || 0;
         if (Date.now() - started < 8000) return;
@@ -118,7 +125,11 @@ function readJsonReply(r) {
     showNavLoading._shownAt = 0;
     document.documentElement.classList.remove('adhello-nav-loading');
     var el = document.getElementById('adhelloNavLoading');
-    if (el) el.classList.remove('is-on');
+    if (el) {
+      el.classList.remove('is-on', 'is-stalled');
+      var retry = el.querySelector('#adhelloNavLoadingRetry');
+      if (retry) retry.classList.add('hidden');
+    }
   }
 
   /**
@@ -126,12 +137,14 @@ function readJsonReply(r) {
    * @param {number|{failSafeMs?:number,untilPageShow?:boolean}|null} [opts]
    *   - default / number / `{ failSafeMs }`: in-page work (short failsafe, default 3.5s)
    *   - `{ untilPageShow: true }`: real document navigation — keep frost until the next
-   *     pageshow/load. A short failsafe was clearing the spinner mid-nav on iOS and left
-   *     a blank white screen while the next HTML was still loading.
+   *     pageshow/load. After 12s show Retry so a hung SSR does not feel infinite.
    */
   function showNavLoading(opts) {
     document.documentElement.classList.add('adhello-nav-loading');
     var el = ensureNavLoadingEl();
+    el.classList.remove('is-stalled');
+    var retryBtn = el.querySelector('#adhelloNavLoadingRetry');
+    if (retryBtn) retryBtn.classList.add('hidden');
     void el.offsetWidth;
     el.classList.add('is-on');
     clearTimeout(hideNavLoading._failSafe);
@@ -140,8 +153,8 @@ function readJsonReply(r) {
     showNavLoading._shownAt = Date.now();
     var ms = 3500;
     if (untilPageShow) {
-      // Cover the iOS white void for slow SSR; pageshow/load clear sooner.
-      ms = 45000;
+      // Cover the iOS white void; offer Retry before this feels endless.
+      ms = 12000;
     } else if (typeof opts === 'number' && opts > 0) {
       ms = opts;
     } else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) {
@@ -149,14 +162,25 @@ function readJsonReply(r) {
     }
     // Cap runaway overlays.
     if (untilPageShow) {
-      ms = Math.min(ms, 60000);
+      ms = Math.min(ms, 15000);
     } else if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
       ms = Math.min(ms, 3500);
     } else {
       ms = Math.min(ms, 120000);
     }
-    // If the caller never hides / navigation never leaves, drop the loader so we are not stuck.
-    hideNavLoading._failSafe = setTimeout(hideNavLoading, ms);
+    // If leave nav stalls, surface Retry instead of a blank white void.
+    hideNavLoading._failSafe = setTimeout(function () {
+      if (untilPageShow && showNavLoading._leaving) {
+        var stallEl = document.getElementById('adhelloNavLoading');
+        if (stallEl) {
+          stallEl.classList.add('is-stalled');
+          var btn = stallEl.querySelector('#adhelloNavLoadingRetry');
+          if (btn) btn.classList.remove('hidden');
+          return;
+        }
+      }
+      hideNavLoading();
+    }, ms);
   }
 
   window.showNavLoading = showNavLoading;

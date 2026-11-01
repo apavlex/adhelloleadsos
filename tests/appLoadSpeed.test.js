@@ -66,6 +66,43 @@ test('light pages skip softphone helper scripts in head (lazy on dialer open)', 
   assert.match(head, /_needGcal = !_lightChrome/);
   assert.match(head, /_needDmQueue = !_lightChrome/);
   assert.match(head, /_needReviews = !_lightChrome/);
+  /* Sales items after Opportunities must stay light — those hops felt starved. */
+  assert.match(head, /_np === 'engagement'/);
+  assert.match(head, /_np === 'opportunities'/);
+  assert.match(head, /_rp\.startsWith\('\/engagement'\)/);
   assert.match(js, /function ensureSoftphoneHelperScripts/);
   assert.match(js, /ensureSoftphoneHelperScripts\(\)/);
+});
+
+test('opportunities board does not load maps scripts', () => {
+  const head = fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8');
+  const needMapsAt = head.indexOf('const _needMaps');
+  assert.ok(needMapsAt > -1);
+  const chunk = head.slice(needMapsAt, needMapsAt + 450);
+  assert.doesNotMatch(chunk, /\/opportunities/);
+  assert.match(chunk, /\/pipeline/);
+});
+
+test('tasks page does not SSR every lead into the picker', () => {
+  const route = fs.readFileSync(path.join(root, 'routes/tasks.js'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'views/tasks.ejs'), 'utf8');
+  assert.match(route, /getLeadTitlesByKeys/);
+  assert.match(route, /leadChoices:\s*\[\]/);
+  assert.doesNotMatch(route, /getAllLeads/);
+  assert.match(page, /\/leads\/search\.json/);
+  assert.doesNotMatch(page, /leadChoices\.forEach/);
+});
+
+test('engagement and activity skip full-workspace lead scans on first paint', () => {
+  const eng = fs.readFileSync(path.join(root, 'routes/engagement.js'), 'utf8');
+  const act = fs.readFileSync(path.join(root, 'routes/activity.js'), 'utf8');
+  const ceo = fs.readFileSync(path.join(root, 'routes/ceo.js'), 'utf8');
+  const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
+  assert.match(db, /listLeadsForEngagementInbox/);
+  assert.match(db, /listLeadsWithActivityTail/);
+  assert.match(eng, /listLeadsForEngagementInbox/);
+  assert.doesNotMatch(eng, /getAllLeads/);
+  assert.match(act, /listLeadsWithActivityTail/);
+  assert.doesNotMatch(act, /getAllLeads/);
+  assert.match(ceo, /light:\s*true/);
 });

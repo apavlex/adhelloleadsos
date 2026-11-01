@@ -169,11 +169,11 @@
       window.WORKSPACE_TAGS = [];
     }
   </script>
-  <script src="/js/lead-panel-merges.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-  <script src="/js/lead-note-attribution.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-  <script src="/js/lead-panel-notes.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-  <script src="/js/lead-panel-paint.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-  <script src="/js/app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/lead-panel-merges.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+  <script src="/js/lead-note-attribution.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+  <script src="/js/lead-panel-notes.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+  <script src="/js/lead-panel-paint.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+  <script src="/js/app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 
   <script>
     window.__ACTIVITY_PAGE = {
@@ -185,7 +185,7 @@
       sinceDays: <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %>,
     };
   </script>
-  <script src="/js/activity-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/activity-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
   <%- include('partials/footer') %>
 </body>
 </html>

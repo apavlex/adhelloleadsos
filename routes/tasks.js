@@ -13,9 +13,6 @@ const {
 } = require('../services/userTasks');
 const teamActivity = require('../services/teamActivity');
 
-/** Same ordering as localeCompare(b, undefined, { sensitivity: 'base' }) without a new collator per compare. */
-const LABEL_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base' });
-
 function taskDueLabel(iso) {
   if (!iso) return '';
   const d = new Date(iso);
@@ -51,7 +48,7 @@ async function listTasksForRequest(req) {
   return filterManualUserTasks(all);
 }
 
-function sanitizeLeadKey(raw, allowedSet) {
+function sanitizeLeadKey(raw) {
   if (raw == null || raw === '') return null;
   let s = String(raw).trim();
   if (!s.startsWith('lead:')) {
@@ -60,46 +57,68 @@ function sanitizeLeadKey(raw, allowedSet) {
     s = `lead:${frag}`;
   }
   if (s.length > 200) return null;
-  if (allowedSet && !allowedSet.has(s)) return null;
   return s;
 }
 
-function enrichTasksWithLeads(tasks, leads) {
-  const leadMap = Object.fromEntries(leads.map((l) => [l.key, l]));
+/** Resolve one lead for linking without cold-scanning the whole workspace list. */
+async function resolveVisibleLead(req, rawKey) {
+  const key = sanitizeLeadKey(rawKey);
+  if (!key) return null;
+  const lead = await dbService.getLead(key, req.workspaceId);
+  if (!lead) return null;
+  const visible = filterLeadsForRequest(req, [lead]);
+  return visible[0] || null;
+}
+
+function enrichTasksWithTitleMap(tasks, titleMap) {
   return tasks.map((t) => {
-    const L = t.leadKey && leadMap[t.leadKey];
-    const leadTitle = L ? String(L.title || L.company || L.email || 'Lead').slice(0, 120) : null;
+    const meta = t.leadKey && titleMap.get(t.leadKey);
+    const leadTitle = meta ? String(meta.title || '').slice(0, 120) || null : null;
     return { ...t, leadTitle };
   });
+}
+
+function titleMapForTasks(tasks, extraKeys) {
+  const keys = [];
+  (tasks || []).forEach((t) => {
+    if (t && t.leadKey) keys.push(t.leadKey);
+  });
+  (extraKeys || []).forEach((k) => {
+    if (k) keys.push(k);
+  });
+  return dbService.getLeadTitlesByKeys(keys);
 }
 
 router.get('/', async (req, res, next) => {
   try {
     const email = userEmail(req);
     const rawTasks = await listTasksForRequest(req);
-    const allLeads = await dbService.getAllLeads(req.workspaceId);
-    const leads = filterLeadsForRequest(req, allLeads);
-    const allowedLeadKeys = new Set(leads.map((l) => l.key));
-    const tasks = enrichTasksWithLeads(rawTasks, leads);
-    const leadChoices = leads
-      .map((l) => ({
-        key: l.key,
-        label: String(l.title || l.company || l.email || l.key).slice(0, 100),
-      }))
-      .sort((a, b) => LABEL_COLLATOR.compare(a.label, b.label));
     let initialLeadKey = String(req.query.leadKey || '').trim();
     if (initialLeadKey && !initialLeadKey.startsWith('lead:')) {
       initialLeadKey = `lead:${initialLeadKey.replace(/^lead:/i, '')}`;
     }
-    if (initialLeadKey && !allowedLeadKeys.has(initialLeadKey)) initialLeadKey = '';
+    const titleMap = titleMapForTasks(rawTasks, initialLeadKey ? [initialLeadKey] : []);
+    const tasks = enrichTasksWithTitleMap(rawTasks, titleMap);
+    let initialLeadLabel = '';
+    if (initialLeadKey) {
+      const meta = titleMap.get(initialLeadKey);
+      if (meta && String(meta.title || '').trim()) {
+        initialLeadLabel = String(meta.title || '').slice(0, 100);
+      } else {
+        /* Unknown / invisible lead — don't prefill a broken link. */
+        initialLeadKey = '';
+      }
+    }
     res.render('tasks', {
       title: 'Tasks | Agency OS',
       activePage: 'tasks',
       tasks,
       taskColumns: COLUMNS,
       taskTitleMaxLength: TASK_TITLE_MAX_LENGTH,
-      leadChoices,
+      /* Lead picker searches /leads/search.json — do not SSR thousands of <option>s. */
+      leadChoices: [],
       initialLeadKey,
+      initialLeadLabel,
       taskOwnerEmail: String(email || '').trim().toLowerCase(),
     });
   } catch (e) {
@@ -109,11 +128,9 @@ router.get('/', async (req, res, next) => {
 
 router.get('/api', async (req, res, next) => {
   try {
-    const email = userEmail(req);
     const rawTasks = await listTasksForRequest(req);
-    const allLeads = await dbService.getAllLeads(req.workspaceId);
-    const leads = filterLeadsForRequest(req, allLeads);
-    const tasks = enrichTasksWithLeads(rawTasks, leads);
+    const titleMap = titleMapForTasks(rawTasks);
+    const tasks = enrichTasksWithTitleMap(rawTasks, titleMap);
     res.json({ success: true, tasks });
   } catch (e) {
     next(e);
@@ -126,10 +143,8 @@ router.post('/api', express.json(), async (req, res, next) => {
     if (!titleCheck.ok) return res.status(400).json({ success: false, error: titleCheck.error });
     const { title } = titleCheck;
     const email = userEmail(req);
-    const allLeads = await dbService.getAllLeads(req.workspaceId);
-    const leads = filterLeadsForRequest(req, allLeads);
-    const allowedLeadKeys = new Set(leads.map((l) => l.key));
-    const leadKey = sanitizeLeadKey(req.body.leadKey, allowedLeadKeys);
+    const lead = await resolveVisibleLead(req, req.body.leadKey);
+    const leadKey = lead ? lead.key : null;
     const scheduledAt = normScheduledAt(req.body.scheduledAt);
     const remindMinutesBefore =
       req.body.remindMinutesBefore != null && req.body.remindMinutesBefore !== ''
@@ -143,14 +158,17 @@ router.post('/api', express.json(), async (req, res, next) => {
       remindMinutesBefore,
       source: TASK_SOURCE_LEAD_TASK,
     });
-    const [enriched] = enrichTasksWithLeads([saved], leads);
+    const leadTitle = lead
+      ? String(lead.title || lead.company || lead.email || 'Lead').slice(0, 120)
+      : null;
+    const enriched = { ...saved, leadTitle };
     if (leadKey) {
       teamActivity.record(req, {
         category: 'notes',
         action: 'task_create',
         summary: `Task: ${title.slice(0, 160)}${taskDueLabel(scheduledAt)}`,
         leadKey,
-        leadTitle: (enriched && enriched.leadTitle) || '',
+        leadTitle: leadTitle || '',
       });
     }
     res.json({ success: true, task: enriched });
@@ -164,19 +182,25 @@ router.patch('/api/:taskId', express.json(), async (req, res, next) => {
     const taskId = String(req.params.taskId || '').trim();
     if (!taskId) return res.status(400).json({ success: false, error: 'Invalid task.' });
     const email = userEmail(req);
-    const allLeads = await dbService.getAllLeads(req.workspaceId);
-    const leads = filterLeadsForRequest(req, allLeads);
-    const allowedLeadKeys = new Set(leads.map((l) => l.key));
     const existing = await listTasksForRequest(req);
     const cur = existing.find((t) => t.id === taskId);
     if (!cur) return res.status(404).json({ success: false, error: 'Task not found.' });
     const patch = { ...req.body };
-    if (patch.leadKey !== undefined) patch.leadKey = sanitizeLeadKey(patch.leadKey, allowedLeadKeys);
+    if (patch.leadKey !== undefined) {
+      if (patch.leadKey == null || patch.leadKey === '') {
+        patch.leadKey = null;
+      } else {
+        const lead = await resolveVisibleLead(req, patch.leadKey);
+        if (!lead) return res.status(400).json({ success: false, error: 'Lead not found.' });
+        patch.leadKey = lead.key;
+      }
+    }
     const edit = applyTaskEdits(cur, patch, { normColumn, normScheduledAt });
     if (!edit.ok) return res.status(400).json({ success: false, error: edit.error });
     const nextTask = edit.task;
     const saved = await dbService.saveUserTask(req.workspaceId, email, nextTask);
-    const [enriched] = enrichTasksWithLeads([saved], leads);
+    const titleMap = titleMapForTasks([saved]);
+    const [enriched] = enrichTasksWithTitleMap([saved], titleMap);
     if (nextTask.leadKey && nextTask.column === 'done' && cur.column !== 'done') {
       teamActivity.record(req, {
         category: 'notes',

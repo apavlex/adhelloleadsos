@@ -133,8 +133,9 @@
     _rp.startsWith('/leads') ||
     _rp.startsWith('/prospecting') ||
     _rp.startsWith('/pipeline');
-  /* Core dialer pages keep softphone helper scripts in <head>. SEO / settings / network
-     pages skip them so those hops are not stuck behind gcal + DM + reviews JS — softphone
+  /* Core dialer pages keep softphone helper scripts in <head>. Sales items after
+     Opportunities (engagement / tasks / activity / automate) + SEO / network / settings
+     skip them so those hops are not stuck behind gcal + DM + reviews JS — softphone
      lazy-loads the same files when opened (navbar-shell ensureSoftphoneHelperScripts). */
   const _lightChrome =
     _np === 'seo-qa' ||
@@ -143,8 +144,13 @@
     _np === 'local-seo' ||
     _np === 'business-reviews' ||
     _np === 'network' ||
+    _np === 'opportunities' ||
+    _np === 'engagement' ||
     _np === 'tasks' ||
     _np === 'activity' ||
+    _np === 'messages' ||
+    _np === 'referrals' ||
+    _np === 'appointments' ||
     _np === 'resources' ||
     _np === 'sops' ||
     _np === 'fb-groups' ||
@@ -157,12 +163,17 @@
     _rp.startsWith('/backlinks') ||
     _rp.startsWith('/business-reviews') ||
     _rp.startsWith('/network') ||
+    _rp.startsWith('/opportunities') ||
+    _rp.startsWith('/engagement') ||
+    _rp.startsWith('/referrals') ||
+    _rp.startsWith('/appointments') ||
+    _rp.startsWith('/messages') ||
     _rp.startsWith('/workspace') ||
     _rp.startsWith('/settings');
   const _needGcal = !_lightChrome;
   const _needDmQueue = !_lightChrome;
   const _needReviews = !_lightChrome;
-  /* Maps only on pages that show lead/location maps — skip on SEO, network, settings, etc. */
+  /* Maps only on pages that show lead/location maps — Opportunities board does not. */
   const _needMaps =
     _needPipeline ||
     _np === 'focus' ||
@@ -172,8 +183,7 @@
     _rp.startsWith('/today') ||
     _rp.startsWith('/leads') ||
     _rp.startsWith('/prospecting') ||
-    _rp.startsWith('/pipeline') ||
-    _rp.startsWith('/opportunities');
+    _rp.startsWith('/pipeline');
   const _av = typeof assetVersion !== 'undefined' ? assetVersion : '1';
 %>
 <script>window.__ADHELLO_ASSET_VERSION__ = <%- JSON.stringify(String(_av)) %>;</script>

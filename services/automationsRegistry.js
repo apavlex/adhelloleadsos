@@ -266,15 +266,17 @@ function listCadenceEnrolledLeads(leads) {
 
 /**
  * @param {string} workspaceId
+ * @param {{ light?: boolean }} [opts] — light skips getAllLeads (first-paint /ceo); enrolled counts hydrate via /ceo/automations
  * @returns {Promise<{ automations: object[], summary: object }>}
  */
-async function listAutomationsForWorkspace(workspaceId) {
+async function listAutomationsForWorkspace(workspaceId, opts = {}) {
   const wid = String(workspaceId || 'default').trim() || 'default';
+  const light = !!(opts && opts.light);
   const [folders, ws, allSchedules, leads] = await Promise.all([
     dbService.listFolders(wid),
     dbService.getWorkspace(wid),
     dbService.listSchedules(),
-    dbService.getAllLeads(wid),
+    light ? Promise.resolve([]) : dbService.getAllLeads(wid),
   ]);
 
   const automations = [];
