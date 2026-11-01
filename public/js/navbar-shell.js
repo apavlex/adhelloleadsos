@@ -95,12 +95,19 @@ function readJsonReply(r) {
         '<img class="adhello-nav-loader-icon" src="' + NAV_LOADING_ICON_SRC +
           '" alt="" width="48" height="48" decoding="sync" />' +
       '</div>';
+    // Tap frost to dismiss if nav stalled (overlay must receive pointer events when on).
+    el.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      hideNavLoading();
+    });
     document.body.appendChild(el);
     return el;
   }
 
   function hideNavLoading() {
     clearTimeout(hideNavLoading._failSafe);
+    hideNavLoading._failSafe = null;
     document.documentElement.classList.remove('adhello-nav-loading');
     var el = document.getElementById('adhelloNavLoading');
     if (el) el.classList.remove('is-on');
@@ -108,7 +115,7 @@ function readJsonReply(r) {
 
   /**
    * Full-page frosted loader (same as sidebar page changes).
-   * @param {number|{failSafeMs?:number}|null} [opts] fail-safe ms (default 6s) or `{ failSafeMs }` —
+   * @param {number|{failSafeMs?:number}|null} [opts] fail-safe ms (default 3.5s) or `{ failSafeMs }` —
    *   pass a higher value for long in-page work (e.g. Outscraper sync) so the spinner stays up.
    */
   function showNavLoading(opts) {
@@ -117,15 +124,24 @@ function readJsonReply(r) {
     void el.offsetWidth;
     el.classList.add('is-on');
     clearTimeout(hideNavLoading._failSafe);
-    var ms = 6000;
+    var ms = 3500;
     if (typeof opts === 'number' && opts > 0) ms = opts;
     else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) ms = opts.failSafeMs;
+    // Cap runaway overlays — never leave the frost up for more than 8s on normal nav.
+    if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
+      ms = Math.min(ms, 3500);
+    } else {
+      ms = Math.min(ms, 120000);
+    }
     // If the caller never hides / navigation never leaves, drop the loader so we are not stuck.
     hideNavLoading._failSafe = setTimeout(hideNavLoading, ms);
   }
 
   window.showNavLoading = showNavLoading;
   window.hideNavLoading = hideNavLoading;
+
+  // Boot / restore: never leave a stuck frost from bfcache or a prior hop.
+  hideNavLoading();
 
   function clearNavOverlaysForLeave() {
     closeMobileMenu({ instant: true });
@@ -198,6 +214,20 @@ function readJsonReply(r) {
     hideNavLoading();
     closeMobileMenu({ instant: true });
   });
+  window.addEventListener('load', hideNavLoading);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) hideNavLoading();
+  });
+  // In-app link clicks that never leave (preventDefault later) used to leave the frost up.
+  document.addEventListener(
+    'click',
+    function (e) {
+      if (!e.defaultPrevented) return;
+      var el = document.getElementById('adhelloNavLoading');
+      if (el && el.classList.contains('is-on')) hideNavLoading();
+    },
+    false
+  );
 
   // Get the app / Share → native share or copy. Never navigate to /today as a fallback.
   document.addEventListener('click', function (e) {
