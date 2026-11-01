@@ -9,6 +9,8 @@
     <% const _summary = typeof summary !== 'undefined' && summary ? summary : { total: 0, open: 0, answered: 0, published: 0 }; %>
     <% const _settings = typeof settings !== 'undefined' && settings ? settings : {}; %>
     <% const _questions = Array.isArray(questions) ? questions : []; %>
+    <% const _questionsTotal = typeof questionsTotal === 'number' ? questionsTotal : _questions.length; %>
+    <% const _inboxTruncated = typeof inboxTruncated !== 'undefined' && !!inboxTruncated; %>
     <% const _focus = typeof focusQuestionId !== 'undefined' ? String(focusQuestionId || '') : ''; %>
     <% const _feedUrl = typeof feedUrl !== 'undefined' ? feedUrl : ''; %>
     <% const _submitUrl = typeof submitUrl !== 'undefined' ? submitUrl : ''; %>
@@ -95,17 +97,19 @@
 
       <% const _prompt = typeof pageBuilderPrompt !== 'undefined' ? String(pageBuilderPrompt || '') : ''; %>
       <% if (_prompt) { %>
-      <div class="mt-5 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-4 space-y-3" id="sqaPageBuilderPromptCard">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0">
-            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Page-builder prompt</h3>
-            <p class="text-xs text-brand-muted mt-1 max-w-2xl">Copy into Cursor (or your site builder) to recreate the TPR-style Q&amp;A layout on another site — e.g. adhello.io — already wired to <em>this</em> workspace’s feed + submit URLs.</p>
-          </div>
-          <button type="button" id="sqaCopyPromptBtn" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest shrink-0">Copy prompt</button>
+      <details class="mt-5 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-4" id="sqaPageBuilderPromptCard">
+        <summary class="cursor-pointer font-display font-bold text-base text-brand-dark dark:text-white list-none flex flex-wrap items-center justify-between gap-2">
+          <span>Page-builder prompt</span>
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Tap to expand</span>
+        </summary>
+        <div class="mt-3 space-y-3">
+          <p class="text-xs text-brand-muted max-w-2xl">Copy into Cursor (or your site builder) to recreate the TPR-style Q&amp;A layout on another site — e.g. adhello.io — already wired to <em>this</em> workspace’s feed + submit URLs.</p>
+          <button type="button" id="sqaCopyPromptBtn" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Copy prompt</button>
+          <textarea id="sqaPageBuilderPrompt" readonly rows="12" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/60 px-3 py-3 text-[11px] leading-relaxed font-mono text-brand-dark dark:text-slate-200 resize-y min-h-[12rem]"></textarea>
+          <p class="text-[11px] text-brand-muted">Edit the target site URL in the prompt if you’re not building for adhello.io. Use a different workspace’s Q&amp;A page when the other site needs its own inbox.</p>
         </div>
-        <textarea id="sqaPageBuilderPrompt" readonly rows="12" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/60 px-3 py-3 text-[11px] leading-relaxed font-mono text-brand-dark dark:text-slate-200 resize-y min-h-[12rem]"><%= _prompt %></textarea>
-        <p class="text-[11px] text-brand-muted">Edit the target site URL in the prompt if you’re not building for adhello.io. Use a different workspace’s Q&amp;A page when the other site needs its own inbox.</p>
-      </div>
+      </details>
+      <script type="text/plain" id="sqaPromptRaw"><%- String(_prompt).replace(/<\/script/gi, '<\\/script') %></script>
       <% } %>
     </section>
 
@@ -146,7 +150,9 @@
     <section aria-labelledby="sqaInboxTitle">
       <div class="flex items-end justify-between gap-3 mb-4">
         <h2 id="sqaInboxTitle" class="font-display font-bold text-xl">Inbox</h2>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= _questions.length %> items</p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">
+          <%= _inboxTruncated ? ('Showing ' + _questions.length + ' of ' + _questionsTotal) : (_questionsTotal + ' items') %>
+        </p>
       </div>
 
       <% if (!_questions.length) { %>
@@ -190,6 +196,9 @@
         </article>
         <% }) %>
       </div>
+      <% if (_inboxTruncated) { %>
+      <p class="mt-4 text-sm text-brand-muted text-center">Showing the latest <%= _questions.length %> of <%= _questionsTotal %> questions for a faster load. Answer or hide items above, then refresh to see the next batch.</p>
+      <% } %>
       <% } %>
     </section>
   </main>
@@ -216,6 +225,21 @@
     if (focus) {
       var el = document.getElementById('sqa-' + focus);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Defer filling the large prompt textarea until expand (keeps first paint light on iOS).
+    var promptDetails = document.getElementById('sqaPageBuilderPromptCard');
+    var promptEl = document.getElementById('sqaPageBuilderPrompt');
+    var promptRaw = document.getElementById('sqaPromptRaw');
+    function fillPrompt() {
+      if (!promptEl || !promptRaw || promptEl.dataset.filled === '1') return;
+      promptEl.value = promptRaw.textContent || '';
+      promptEl.dataset.filled = '1';
+    }
+    if (promptDetails) {
+      promptDetails.addEventListener('toggle', function () {
+        if (promptDetails.open) fillPrompt();
+      });
     }
 
     async function postJson(url, body) {
@@ -267,10 +291,10 @@
     }
 
     var copyPromptBtn = document.getElementById('sqaCopyPromptBtn');
-    var promptEl = document.getElementById('sqaPageBuilderPrompt');
     if (copyPromptBtn && promptEl) {
       copyPromptBtn.addEventListener('click', function () {
-        var text = promptEl.value || '';
+        fillPrompt();
+        var text = promptEl.value || (promptRaw && promptRaw.textContent) || '';
         function done() {
           var prev = copyPromptBtn.textContent;
           copyPromptBtn.textContent = 'Copied';
