@@ -66,6 +66,29 @@ test('light pages skip softphone helper scripts in head (lazy on dialer open)', 
   assert.match(head, /_needGcal = !_lightChrome/);
   assert.match(head, /_needDmQueue = !_lightChrome/);
   assert.match(head, /_needReviews = !_lightChrome/);
+  /* Sales items after Opportunities must stay light — those hops felt starved. */
+  assert.match(head, /_np === 'engagement'/);
+  assert.match(head, /_np === 'opportunities'/);
+  assert.match(head, /_rp\.startsWith\('\/engagement'\)/);
   assert.match(js, /function ensureSoftphoneHelperScripts/);
   assert.match(js, /ensureSoftphoneHelperScripts\(\)/);
+});
+
+test('opportunities board does not load maps scripts', () => {
+  const head = fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8');
+  const needMapsAt = head.indexOf('const _needMaps');
+  assert.ok(needMapsAt > -1);
+  const chunk = head.slice(needMapsAt, needMapsAt + 450);
+  assert.doesNotMatch(chunk, /\/opportunities/);
+  assert.match(chunk, /\/pipeline/);
+});
+
+test('tasks page does not SSR every lead into the picker', () => {
+  const route = fs.readFileSync(path.join(root, 'routes/tasks.js'), 'utf8');
+  const page = fs.readFileSync(path.join(root, 'views/tasks.ejs'), 'utf8');
+  assert.match(route, /getLeadTitlesByKeys/);
+  assert.match(route, /leadChoices:\s*\[\]/);
+  assert.doesNotMatch(route, /getAllLeads/);
+  assert.match(page, /\/leads\/search\.json/);
+  assert.doesNotMatch(page, /leadChoices\.forEach/);
 });

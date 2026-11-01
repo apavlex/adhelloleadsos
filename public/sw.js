@@ -2,7 +2,7 @@
  * Do NOT intercept HTML navigations (iOS blank / false offline).
  * Versioned ?v= assets are cache-first: the query string already busts on deploy,
  * so network-first was making every in-app hop wait on ~CSS+JS again. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.678';
+const CACHE_VERSION = 'adhello-pwa-v1.0.679';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
