@@ -857,8 +857,14 @@ html.ws-settings-navigating .ws-settings-main {
         box-sizing: border-box !important;
     }
 }
-#adhelloNavLoading.is-on {
+#adhelloNavLoading.is-on,
+body.app-with-sidebar > #adhelloNavLoading.is-on {
     opacity: 1;
+    /* Must capture taps — pointer-events:none let clicks hit links under the
+       frost, which re-fired showNavLoading and kept the spinner cycling forever.
+       Beat the desktop crush rule's pointer-events:none !important. */
+    pointer-events: auto !important;
+    cursor: progress;
 }
 #adhelloNavLoading .adhello-nav-loader {
     /* Absolute center as a backup if the overlay box is ever height-collapsed */
