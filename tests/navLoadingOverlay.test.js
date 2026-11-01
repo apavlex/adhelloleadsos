@@ -1,7 +1,5 @@
 /**
- * Nav frost overlay must not let clicks restart the spinner forever,
- * and must not clear mid-leave (that left a blank white iOS screen).
- * SW must not AbortController-modify navigation fetches (false offline on iOS).
+ * Nav frost + service worker guards for iOS blank / false-offline.
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -25,18 +23,17 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /visibilitychange/);
     assert.match(js, /!showNavLoading\._leaving/);
     assert.match(js, /el\.addEventListener\('click'/);
-    // Accidental taps during leave must not reveal the white void.
     assert.match(js, /Date\.now\(\) - started < 8000/);
   });
 
-  it('service worker does not AbortController-poison navigation fetches', () => {
+  it('service worker never intercepts HTML navigations', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.675/);
+    assert.match(sw, /adhello-pwa-v1\.0\.676/);
     assert.doesNotMatch(sw, /AbortController/);
-    assert.doesNotMatch(sw, /signal:\s*ctrl/);
-    assert.match(sw, /fetch\(req\)/);
-    assert.match(sw, /offline\.html/);
-    // Prefer current cache version for offline shell.
-    assert.match(sw, /caches\.open\(CACHE_VERSION\)/);
+    // Must bail out of fetch handler for documents — no respondWith on navigate.
+    assert.match(sw, /req\.mode === 'navigate'\) return/);
+    assert.match(sw, /accept\.includes\('text\/html'\)\) return/);
+    assert.doesNotMatch(sw, /mode === 'navigate'[\s\S]{0,200}respondWith/);
+    assert.match(sw, /CLEAR_CACHES/);
   });
 });

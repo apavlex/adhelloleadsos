@@ -5,12 +5,24 @@
     navigator.serviceWorker
       .register(swUrl)
       .then(function (reg) {
-        // Pick up CACHE_VERSION bumps (blank-screen / frost hotfixes) without waiting
-        // for the browser's 24h SW update check.
         try {
           reg.update();
         } catch (_) {
           /* ignore */
+        }
+        // Drop poisoned caches from older SW builds that intercepted navigations.
+        var worker = reg.active || reg.waiting || reg.installing;
+        if (worker) {
+          try {
+            worker.postMessage({ type: 'CLEAR_CACHES' });
+          } catch (_) {
+            /* ignore */
+          }
+          try {
+            worker.postMessage({ type: 'SKIP_WAITING' });
+          } catch (_) {
+            /* ignore */
+          }
         }
         if (reg.waiting) {
           try {
