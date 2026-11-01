@@ -1,7 +1,8 @@
-/* AdHello Agency OS PWA — cache shell assets; network-first for app pages.
- * Reviews (/m/sw.js) and contractor portal (/p/sw.js) use separate workers so
- * workspace search/task pushes do not show on those home-screen apps. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.675';
+/* AdHello Agency OS PWA — push + shell assets only.
+ * Do NOT intercept HTML navigations. Owning document fetches on iOS standalone
+ * caused blank white screens and false offline/Retry pages (1.0.673–675).
+ * Reviews (/m/sw.js) and contractor portal (/p/sw.js) stay separate. */
+const CACHE_VERSION = 'adhello-pwa-v1.0.676';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -17,7 +18,6 @@ self.addEventListener('install', (event) => {
     caches
       .open(CACHE_VERSION)
       .then((cache) =>
-        // Per-URL so one failure does not block skipWaiting / activation.
         Promise.all(SHELL.map((url) => cache.add(url).catch(() => undefined)))
       )
       .then(() => self.skipWaiting())
@@ -26,9 +26,10 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
   );
 });
 
@@ -65,12 +66,17 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-/** Clear stacked phone/desktop alerts when the user marks notifications reviewed. */
 self.addEventListener('message', (event) => {
   const data = event && event.data;
   if (!data) return;
   if (data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+    return;
+  }
+  if (data.type === 'CLEAR_CACHES') {
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+    );
     return;
   }
   if (data.type !== 'CLEAR_NOTIFICATIONS') return;
@@ -112,7 +118,11 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  // Never intercept API / auth / telephony
+  // Critical: never intercept documents. Browser must own HTML navigations.
+  if (req.mode === 'navigate') return;
+  const accept = req.headers.get('accept') || '';
+  if (accept.includes('text/html')) return;
+
   if (
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/auth/') ||
@@ -121,13 +131,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (isStaticAsset(url)) {
-    // Versioned assets (?v=): network-first so CSS/JS deploys aren't stuck on an old SW cache.
-    // Unversioned: cache-first for offline shell.
-    const versioned = url.searchParams.has('v');
-    event.respondWith(
-      (versioned
-        ? fetch(req)
+  if (!isStaticAsset(url)) return;
+
+  // Versioned assets (?v=): network-first so CSS/JS deploys aren't stuck on an old SW cache.
+  // Unversioned: cache-first for offline shell.
+  const versioned = url.searchParams.has('v');
+  event.respondWith(
+    versioned
+      ? fetch(req)
+          .then((res) => {
+            if (res && res.ok) {
+              const copy = res.clone();
+              caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
+            }
+            return res;
+          })
+          .catch(() => caches.match(req))
+      : caches.match(req).then((cached) => {
+          const fetchPromise = fetch(req)
             .then((res) => {
               if (res && res.ok) {
                 const copy = res.clone();
@@ -135,41 +156,8 @@ self.addEventListener('fetch', (event) => {
               }
               return res;
             })
-            .catch(() => caches.match(req))
-        : caches.match(req).then((cached) => {
-            const fetchPromise = fetch(req)
-              .then((res) => {
-                if (res && res.ok) {
-                  const copy = res.clone();
-                  caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
-                }
-                return res;
-              })
-              .catch(() => cached);
-            return cached || fetchPromise;
-          }))
-    );
-    return;
-  }
-
-  // HTML / navigation: network first, offline fallback.
-  // Pass the request through unchanged — Safari/iOS rejects modified navigation
-  // Requests (e.g. adding a signal) and the catch path falsely shows the Retry
-  // screen while Wi‑Fi is fine. Frost overlay covers slow SSR instead.
-  if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
-    event.respondWith(
-      fetch(req)
-        .then((res) => res)
-        .catch(async () => {
-          try {
-            const current = await caches.open(CACHE_VERSION);
-            const fresh = await current.match('/offline.html');
-            if (fresh) return fresh;
-          } catch (_) {
-            /* ignore */
-          }
-          return (await caches.match('/offline.html')) || Response.error();
+            .catch(() => cached);
+          return cached || fetchPromise;
         })
-    );
-  }
+  );
 });

@@ -1,20 +1,29 @@
 (function () {
   if (!('serviceWorker' in navigator)) return;
   var swUrl = '/sw.js';
+  var NAV_FIX = '676';
   window.addEventListener('load', function () {
     navigator.serviceWorker
       .register(swUrl)
       .then(function (reg) {
-        // Pick up CACHE_VERSION bumps (blank-screen / frost hotfixes) without waiting
-        // for the browser's 24h SW update check.
         try {
           reg.update();
         } catch (_) {
           /* ignore */
         }
-        if (reg.waiting) {
+        var worker = reg.waiting || reg.installing || reg.active;
+        if (worker) {
           try {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            worker.postMessage({ type: 'SKIP_WAITING' });
+          } catch (_) {
+            /* ignore */
+          }
+          // One-shot: drop caches from SW builds that intercepted navigations.
+          try {
+            if (localStorage.getItem('adhello-sw-nav-fix') !== NAV_FIX) {
+              worker.postMessage({ type: 'CLEAR_CACHES' });
+              localStorage.setItem('adhello-sw-nav-fix', NAV_FIX);
+            }
           } catch (_) {
             /* ignore */
           }
