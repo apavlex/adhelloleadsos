@@ -1,6 +1,7 @@
 (function () {
   if (!('serviceWorker' in navigator)) return;
   var swUrl = '/sw.js';
+  var NAV_FIX = '676';
   window.addEventListener('load', function () {
     navigator.serviceWorker
       .register(swUrl)
@@ -10,23 +11,19 @@
         } catch (_) {
           /* ignore */
         }
-        // Drop poisoned caches from older SW builds that intercepted navigations.
-        var worker = reg.active || reg.waiting || reg.installing;
+        var worker = reg.waiting || reg.installing || reg.active;
         if (worker) {
-          try {
-            worker.postMessage({ type: 'CLEAR_CACHES' });
-          } catch (_) {
-            /* ignore */
-          }
           try {
             worker.postMessage({ type: 'SKIP_WAITING' });
           } catch (_) {
             /* ignore */
           }
-        }
-        if (reg.waiting) {
+          // One-shot: drop caches from SW builds that intercepted navigations.
           try {
-            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            if (localStorage.getItem('adhello-sw-nav-fix') !== NAV_FIX) {
+              worker.postMessage({ type: 'CLEAR_CACHES' });
+              localStorage.setItem('adhello-sw-nav-fix', NAV_FIX);
+            }
           } catch (_) {
             /* ignore */
           }
