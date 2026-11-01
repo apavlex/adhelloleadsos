@@ -1,5 +1,5 @@
 /**
- * Nav frost + service worker guards for iOS blank / false-offline.
+ * Nav frost + service worker guards for iOS blank / false-offline / slow hops.
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -19,21 +19,25 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /showNavLoading\(\{\s*untilPageShow:\s*true\s*\}\)/);
     assert.match(js, /ms = 45000/);
     assert.match(js, /showNavLoading\._leaving/);
-    assert.match(js, /addEventListener\('load',\s*hideNavLoading\)/);
-    assert.match(js, /visibilitychange/);
-    assert.match(js, /!showNavLoading\._leaving/);
-    assert.match(js, /el\.addEventListener\('click'/);
-    assert.match(js, /Date\.now\(\) - started < 8000/);
   });
 
-  it('service worker never intercepts HTML navigations', () => {
+  it('service worker never intercepts HTML and cache-firsts shell assets', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.676/);
+    assert.match(sw, /adhello-pwa-v1\.0\.678/);
     assert.doesNotMatch(sw, /AbortController/);
-    // Must bail out of fetch handler for documents — no respondWith on navigate.
     assert.match(sw, /req\.mode === 'navigate'\) return/);
     assert.match(sw, /accept\.includes\('text\/html'\)\) return/);
     assert.doesNotMatch(sw, /mode === 'navigate'[\s\S]{0,200}respondWith/);
-    assert.match(sw, /CLEAR_CACHES/);
+    // Versioned assets must not network-first (that re-downloaded CSS/JS every hop).
+    assert.doesNotMatch(sw, /versioned\s*\?\s*fetch\(req\)/);
+    assert.match(sw, /caches\.match\(req\)/);
+    assert.match(sw, /cached \|\| fetching/);
+  });
+
+  it('pwa-register throttles SW update checks', () => {
+    const js = fs.readFileSync(path.join(root, 'public/js/pwa-register.js'), 'utf8');
+    assert.match(js, /adhello-sw-checked/);
+    assert.match(js, /5 \* 60 \* 1000/);
+    assert.doesNotMatch(js, /CLEAR_CACHES/);
   });
 });

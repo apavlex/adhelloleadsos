@@ -1,29 +1,34 @@
 (function () {
   if (!('serviceWorker' in navigator)) return;
   var swUrl = '/sw.js';
-  var NAV_FIX = '676';
   window.addEventListener('load', function () {
     navigator.serviceWorker
       .register(swUrl)
       .then(function (reg) {
+        // Throttle update checks — calling update + skipWaiting on every page
+        // re-claimed clients and made hops feel slow.
+        var now = Date.now();
+        var last = 0;
         try {
-          reg.update();
+          last = parseInt(sessionStorage.getItem('adhello-sw-checked') || '0', 10) || 0;
         } catch (_) {
           /* ignore */
         }
-        var worker = reg.waiting || reg.installing || reg.active;
-        if (worker) {
+        if (!last || now - last > 5 * 60 * 1000) {
           try {
-            worker.postMessage({ type: 'SKIP_WAITING' });
+            sessionStorage.setItem('adhello-sw-checked', String(now));
           } catch (_) {
             /* ignore */
           }
-          // One-shot: drop caches from SW builds that intercepted navigations.
           try {
-            if (localStorage.getItem('adhello-sw-nav-fix') !== NAV_FIX) {
-              worker.postMessage({ type: 'CLEAR_CACHES' });
-              localStorage.setItem('adhello-sw-nav-fix', NAV_FIX);
-            }
+            reg.update();
+          } catch (_) {
+            /* ignore */
+          }
+        }
+        if (reg.waiting) {
+          try {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
           } catch (_) {
             /* ignore */
           }
