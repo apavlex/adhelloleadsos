@@ -1,6 +1,7 @@
 /**
  * Nav frost overlay must not let clicks restart the spinner forever,
  * and must not clear mid-leave (that left a blank white iOS screen).
+ * SW must not AbortController-modify navigation fetches (false offline on iOS).
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -28,11 +29,14 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /Date\.now\(\) - started < 8000/);
   });
 
-  it('service worker times out hung HTML navigations', () => {
+  it('service worker does not AbortController-poison navigation fetches', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.674/);
-    assert.match(sw, /AbortController/);
-    assert.match(sw, /28000/);
+    assert.match(sw, /adhello-pwa-v1\.0\.675/);
+    assert.doesNotMatch(sw, /AbortController/);
+    assert.doesNotMatch(sw, /signal:\s*ctrl/);
+    assert.match(sw, /fetch\(req\)/);
     assert.match(sw, /offline\.html/);
+    // Prefer current cache version for offline shell.
+    assert.match(sw, /caches\.open\(CACHE_VERSION\)/);
   });
 });
