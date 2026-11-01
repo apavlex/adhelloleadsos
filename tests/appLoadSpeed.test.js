@@ -92,3 +92,17 @@ test('tasks page does not SSR every lead into the picker', () => {
   assert.match(page, /\/leads\/search\.json/);
   assert.doesNotMatch(page, /leadChoices\.forEach/);
 });
+
+test('engagement and activity skip full-workspace lead scans on first paint', () => {
+  const eng = fs.readFileSync(path.join(root, 'routes/engagement.js'), 'utf8');
+  const act = fs.readFileSync(path.join(root, 'routes/activity.js'), 'utf8');
+  const ceo = fs.readFileSync(path.join(root, 'routes/ceo.js'), 'utf8');
+  const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
+  assert.match(db, /listLeadsForEngagementInbox/);
+  assert.match(db, /listLeadsWithActivityTail/);
+  assert.match(eng, /listLeadsForEngagementInbox/);
+  assert.doesNotMatch(eng, /getAllLeads/);
+  assert.match(act, /listLeadsWithActivityTail/);
+  assert.doesNotMatch(act, /getAllLeads/);
+  assert.match(ceo, /light:\s*true/);
+});

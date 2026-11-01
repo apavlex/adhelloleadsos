@@ -57,6 +57,43 @@ function isLeadStorageKey(key) {
   return typeof key === 'string' && /^lead:/i.test(key);
 }
 
+/** Cheap prefilter for Engagement inbox — avoids full-workspace JSON.parse on cold hops. */
+function leadLikelyHasEngagement(lead) {
+  if (!lead || typeof lead !== 'object') return false;
+  if (Array.isArray(lead.inboundEvents) && lead.inboundEvents.length) return true;
+  const sig = lead.engagementSignals;
+  if (sig && typeof sig === 'object') {
+    if (sig.lastSignalAt) return true;
+    if (
+      sig.smsRepliedAt ||
+      sig.emailRepliedAt ||
+      sig.emailOpenedAt ||
+      sig.linkClickedAt ||
+      sig.auditOpenedAt ||
+      sig.mailScannedAt
+    ) {
+      return true;
+    }
+  }
+  const updates = lead.updates;
+  if (Array.isArray(updates)) {
+    for (let i = 0; i < updates.length; i++) {
+      const u = updates[i];
+      if (u && u.type === 'engagement_signal') return true;
+    }
+  }
+  return false;
+}
+
+/** Cheap prefilter for Activity feed — skips empty prospects. */
+function leadLikelyHasActivityTail(lead) {
+  if (!lead || typeof lead !== 'object') return false;
+  if (Array.isArray(lead.updates) && lead.updates.length) return true;
+  if (Array.isArray(lead.logs) && lead.logs.length) return true;
+  if (Array.isArray(lead.inboundEvents) && lead.inboundEvents.length) return true;
+  return false;
+}
+
 /**
  * Sort key for newest-first lead lists.
  * - Legacy/test keys: `lead:<decimal ms>`
@@ -946,6 +983,140 @@ module.exports = {
       if (!parsed || typeof parsed !== 'object') continue;
       if (normLeadW(parsed.workspaceId) !== wid) continue;
       if (!Array.isArray(parsed.inboundEvents) || !parsed.inboundEvents.length) continue;
+      leads.push({ ...parsed, key, workspaceId: wid });
+    }
+    leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
+    return leads;
+  },
+
+  /**
+   * Leads that may appear in the Engagement inbox — SQL-prefiltered so a cold
+   * /engagement hop does not JSON.parse every prospect in the workspace.
+   * Warm list cache: filter in memory.
+   */
+  async listLeadsForEngagementInbox(workspaceId) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'listLeadsForEngagementInbox');
+    const cached = _leadsListCache.get(wid);
+    if (cached && Date.now() - cached.at < LEADS_LIST_CACHE_TTL_MS) {
+      return cached.leads.filter((l) => leadLikelyHasEngagement(l));
+    }
+
+    const aliasStr = readLegacyDefaultAlias();
+    const normLeadW = (lw) => normalizeLeadWorkspaceWithAlias(lw, aliasStr);
+    const includeLegacyDefault = !!(aliasStr && aliasStr === wid);
+    const leadWs =
+      "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
+    const inboundLen =
+      "json_array_length(json_extract(CASE WHEN json_valid(value) THEN value END, '$.inboundEvents'))";
+    const lastSignal =
+      "json_extract(CASE WHEN json_valid(value) THEN value END, '$.engagementSignals.lastSignalAt')";
+    /* updates / field blobs — instr is cheap vs parsing every prospect. */
+    const engHint =
+      `(${inboundLen} > 0 OR ${lastSignal} IS NOT NULL OR instr(value, 'engagement_signal') > 0 OR instr(value, 'engagementSignals') > 0)`;
+    const rows = includeLegacyDefault
+      ? sqlite
+          .prepare(
+            `SELECT key, value FROM kv
+             WHERE key LIKE 'lead:%'
+               AND ${engHint}
+               AND (
+                 ${leadWs} = ?
+                 OR ${leadWs} IS NULL
+                 OR ${leadWs} = ''
+                 OR ${leadWs} = 'default'
+               )`,
+          )
+          .all(wid)
+      : sqlite
+          .prepare(
+            `SELECT key, value FROM kv
+             WHERE key LIKE 'lead:%'
+               AND ${engHint}
+               AND ${leadWs} = ?`,
+          )
+          .all(wid);
+
+    const leads = [];
+    for (const row of rows) {
+      const key = row && row.key;
+      const raw = row && row.value;
+      if (!key || raw == null) continue;
+      let parsed;
+      try {
+        parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch {
+        continue;
+      }
+      if (!parsed || typeof parsed !== 'object') continue;
+      if (normLeadW(parsed.workspaceId) !== wid) continue;
+      if (!leadLikelyHasEngagement(parsed)) continue;
+      leads.push({ ...parsed, key, workspaceId: wid });
+    }
+    leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
+    return leads;
+  },
+
+  /**
+   * Leads that may contribute to Recent Activity — skips empty prospects on cold load.
+   */
+  async listLeadsWithActivityTail(workspaceId) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'listLeadsWithActivityTail');
+    const cached = _leadsListCache.get(wid);
+    if (cached && Date.now() - cached.at < LEADS_LIST_CACHE_TTL_MS) {
+      return cached.leads.filter((l) => leadLikelyHasActivityTail(l));
+    }
+
+    const aliasStr = readLegacyDefaultAlias();
+    const normLeadW = (lw) => normalizeLeadWorkspaceWithAlias(lw, aliasStr);
+    const includeLegacyDefault = !!(aliasStr && aliasStr === wid);
+    const leadWs =
+      "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
+    const updatesLen =
+      "json_array_length(json_extract(CASE WHEN json_valid(value) THEN value END, '$.updates'))";
+    const logsLen =
+      "json_array_length(json_extract(CASE WHEN json_valid(value) THEN value END, '$.logs'))";
+    const inboundLen =
+      "json_array_length(json_extract(CASE WHEN json_valid(value) THEN value END, '$.inboundEvents'))";
+    const actHint = `(${updatesLen} > 0 OR ${logsLen} > 0 OR ${inboundLen} > 0)`;
+    const rows = includeLegacyDefault
+      ? sqlite
+          .prepare(
+            `SELECT key, value FROM kv
+             WHERE key LIKE 'lead:%'
+               AND ${actHint}
+               AND (
+                 ${leadWs} = ?
+                 OR ${leadWs} IS NULL
+                 OR ${leadWs} = ''
+                 OR ${leadWs} = 'default'
+               )`,
+          )
+          .all(wid)
+      : sqlite
+          .prepare(
+            `SELECT key, value FROM kv
+             WHERE key LIKE 'lead:%'
+               AND ${actHint}
+               AND ${leadWs} = ?`,
+          )
+          .all(wid);
+
+    const leads = [];
+    for (const row of rows) {
+      const key = row && row.key;
+      const raw = row && row.value;
+      if (!key || raw == null) continue;
+      let parsed;
+      try {
+        parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch {
+        continue;
+      }
+      if (!parsed || typeof parsed !== 'object') continue;
+      if (normLeadW(parsed.workspaceId) !== wid) continue;
+      if (!leadLikelyHasActivityTail(parsed)) continue;
       leads.push({ ...parsed, key, workspaceId: wid });
     }
     leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));

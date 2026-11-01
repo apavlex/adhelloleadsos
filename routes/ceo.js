@@ -25,8 +25,9 @@ router.get('/', async (req, res) => {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     const ghlConfigured = ghlClient.isConfigured(integrationEnv);
 
+    /* Light: skip full-workspace lead scan so Automate first paint is not blocked. */
     const { automations, summary: automationsSummary, reportStats } =
-      await listAutomationsForWorkspace(wid);
+      await listAutomationsForWorkspace(wid, { light: true });
 
     const recentAutomationActivity = automations
       .filter((a) => a.lastActivity)

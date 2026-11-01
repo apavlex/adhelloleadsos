@@ -69,21 +69,34 @@ function attachTeammates(req, groups) {
   } catch (err) {
     console.warn('[activity] attribution lookup failed:', err && err.message);
   }
+  /* One workspace-wide pull instead of N+1 listTeamActivity per card (was stalling SSR). */
+  let allRows = [];
+  try {
+    const times = [];
+    groups.forEach((g) => {
+      (Array.isArray(g.events) ? g.events : []).forEach((e) => {
+        if (e && e.tsMs > 0) times.push(e.tsMs);
+      });
+    });
+    allRows = dbService.listTeamActivity({
+      workspaceId: wid,
+      since: times.length ? Math.min(...times) - BY_MATCH_WINDOW_MS : undefined,
+      limit: 500,
+    });
+  } catch (err) {
+    console.warn('[activity] team activity lookup failed:', err && err.message);
+  }
+  const rowsByLead = Object.create(null);
+  allRows.forEach((r) => {
+    const k = teamActivity.normalizeLeadKey(r.lead_key);
+    if (!k) return;
+    if (!rowsByLead[k]) rowsByLead[k] = [];
+    rowsByLead[k].push(r);
+  });
   return groups.map((group) => {
     const key = teamActivity.normalizeLeadKey(group.leadKey);
     const events = Array.isArray(group.events) ? group.events : [];
-    const times = events.map((e) => e.tsMs).filter((ms) => ms > 0);
-    let rows = [];
-    try {
-      rows = dbService.listTeamActivity({
-        workspaceId: wid,
-        leadKey: key,
-        since: times.length ? Math.min(...times) - BY_MATCH_WINDOW_MS : undefined,
-        limit: 200,
-      });
-    } catch (err) {
-      console.warn('[activity] team activity lookup failed:', err && err.message);
-    }
+    const rows = rowsByLead[key] || [];
     const stamped = events.map((ev) => {
       if (INBOUND_TYPES.has(ev.type)) return ev;
       if (ev.byLabel) {
@@ -112,8 +125,9 @@ function attachTeammates(req, groups) {
 }
 
 async function loadActivityContext(req) {
-  const allLeads = await dbService.getAllLeads(req.workspaceId);
-  const leads = filterLeadsForRequest(req, allLeads);
+  /* Skip empty prospects on cold load — feed only needs leads with updates/logs/inbound. */
+  const candidates = await dbService.listLeadsWithActivityTail(req.workspaceId);
+  const leads = filterLeadsForRequest(req, candidates);
   const [folders, tags, stageRows] = await Promise.all([
     dbService.listFolders(req.workspaceId),
     dbService.listTags(req.workspaceId),
