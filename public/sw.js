@@ -1,7 +1,7 @@
 /* AdHello Agency OS PWA — cache shell assets; network-first for app pages.
  * Reviews (/m/sw.js) and contractor portal (/p/sw.js) use separate workers so
  * workspace search/task pushes do not show on those home-screen apps. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.673';
+const CACHE_VERSION = 'adhello-pwa-v1.0.674';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -62,7 +62,12 @@ self.addEventListener('notificationclick', (event) => {
 /** Clear stacked phone/desktop alerts when the user marks notifications reviewed. */
 self.addEventListener('message', (event) => {
   const data = event && event.data;
-  if (!data || data.type !== 'CLEAR_NOTIFICATIONS') return;
+  if (!data) return;
+  if (data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+    return;
+  }
+  if (data.type !== 'CLEAR_NOTIFICATIONS') return;
   event.waitUntil(
     self.registration.getNotifications().then((list) => {
       (list || []).forEach((n) => {
@@ -141,12 +146,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML / navigation: network first, offline fallback
+  // HTML / navigation: network first, offline fallback.
+  // Cap wait so a hung origin does not leave iOS on a pure white void forever.
   if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
     event.respondWith(
-      fetch(req)
-        .then((res) => res)
-        .catch(() => caches.match('/offline.html'))
+      (async () => {
+        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = setTimeout(() => {
+          try {
+            if (ctrl) ctrl.abort();
+          } catch (_) {
+            /* ignore */
+          }
+        }, 28000);
+        try {
+          const res = await fetch(req, ctrl ? { signal: ctrl.signal } : undefined);
+          return res;
+        } catch (_) {
+          const offline = await caches.match('/offline.html');
+          return offline || Response.error();
+        } finally {
+          clearTimeout(timer);
+        }
+      })()
     );
   }
 });

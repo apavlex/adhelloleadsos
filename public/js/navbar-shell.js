@@ -96,9 +96,15 @@ function readJsonReply(r) {
           '" alt="" width="48" height="48" decoding="sync" />' +
       '</div>';
     // Tap frost to dismiss if nav stalled (overlay must receive pointer events when on).
+    // During a real leave, early taps must NOT clear the frost — iOS already discarded the
+    // outgoing page, so dismissing reveals a pure white void until HTML arrives.
     el.addEventListener('click', function (ev) {
       ev.preventDefault();
       ev.stopPropagation();
+      if (showNavLoading._leaving) {
+        var started = showNavLoading._shownAt || 0;
+        if (Date.now() - started < 8000) return;
+      }
       hideNavLoading();
     });
     document.body.appendChild(el);
@@ -108,6 +114,8 @@ function readJsonReply(r) {
   function hideNavLoading() {
     clearTimeout(hideNavLoading._failSafe);
     hideNavLoading._failSafe = null;
+    showNavLoading._leaving = false;
+    showNavLoading._shownAt = 0;
     document.documentElement.classList.remove('adhello-nav-loading');
     var el = document.getElementById('adhelloNavLoading');
     if (el) el.classList.remove('is-on');
@@ -115,8 +123,11 @@ function readJsonReply(r) {
 
   /**
    * Full-page frosted loader (same as sidebar page changes).
-   * @param {number|{failSafeMs?:number}|null} [opts] fail-safe ms (default 3.5s) or `{ failSafeMs }` —
-   *   pass a higher value for long in-page work (e.g. Outscraper sync) so the spinner stays up.
+   * @param {number|{failSafeMs?:number,untilPageShow?:boolean}|null} [opts]
+   *   - default / number / `{ failSafeMs }`: in-page work (short failsafe, default 3.5s)
+   *   - `{ untilPageShow: true }`: real document navigation — keep frost until the next
+   *     pageshow/load. A short failsafe was clearing the spinner mid-nav on iOS and left
+   *     a blank white screen while the next HTML was still loading.
    */
   function showNavLoading(opts) {
     document.documentElement.classList.add('adhello-nav-loading');
@@ -124,11 +135,22 @@ function readJsonReply(r) {
     void el.offsetWidth;
     el.classList.add('is-on');
     clearTimeout(hideNavLoading._failSafe);
+    var untilPageShow = !!(opts && typeof opts === 'object' && opts.untilPageShow);
+    showNavLoading._leaving = untilPageShow;
+    showNavLoading._shownAt = Date.now();
     var ms = 3500;
-    if (typeof opts === 'number' && opts > 0) ms = opts;
-    else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) ms = opts.failSafeMs;
-    // Cap runaway overlays — never leave the frost up for more than 8s on normal nav.
-    if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
+    if (untilPageShow) {
+      // Cover the iOS white void for slow SSR; pageshow/load clear sooner.
+      ms = 45000;
+    } else if (typeof opts === 'number' && opts > 0) {
+      ms = opts;
+    } else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) {
+      ms = opts.failSafeMs;
+    }
+    // Cap runaway overlays.
+    if (untilPageShow) {
+      ms = Math.min(ms, 60000);
+    } else if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
       ms = Math.min(ms, 3500);
     } else {
       ms = Math.min(ms, 120000);
@@ -153,8 +175,8 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Frosted page + centered circle loader. Do not preventDefault — browser owns nav.
-    showNavLoading();
+    // Frost stays until next pageshow — do not preventDefault (browser owns nav).
+    showNavLoading({ untilPageShow: true });
   }
 
   if (mobileMenuBtn) {
@@ -215,8 +237,10 @@ function readJsonReply(r) {
     closeMobileMenu({ instant: true });
   });
   window.addEventListener('load', hideNavLoading);
+  // Do not clear frost on tab focus while a leave nav is in flight — that revealed
+  // the iOS white void under the spinner (blank screen after 1.0.673).
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) hideNavLoading();
+    if (!document.hidden && !showNavLoading._leaving) hideNavLoading();
   });
   // In-app link clicks that never leave (preventDefault later) used to leave the frost up.
   document.addEventListener(
