@@ -1,5 +1,5 @@
 /**
- * Intent-only warm: heat the destination before click, without idle pile-ups.
+ * Document HTML prefetch must stay off until a cheap warm path exists.
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -10,25 +10,22 @@ const js = fs.readFileSync(path.join(__dirname, '../public/js/nav-prefetch.js'),
 const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
 const head = fs.readFileSync(path.join(__dirname, '../views/partials/head.ejs'), 'utf8');
 
-describe('nav-prefetch intent-only warm', () => {
-  it('warms on hover/pointerdown with abort, not an idle route pile', () => {
-    assert.match(js, /pointerdown/);
-    assert.match(js, /mouseover/);
-    assert.match(js, /AbortController/);
-    assert.match(js, /pagehide/);
-    assert.match(js, /MAX_INFLIGHT/);
+describe('nav-prefetch disabled (hotfix)', () => {
+  it('does not fetch or idle-warm HTML documents', () => {
+    assert.match(js, /intentionally empty/);
+    assert.doesNotMatch(js, /window\.fetch/);
+    assert.doesNotMatch(js, /Purpose:\s*['"]prefetch['"]/);
+    assert.doesNotMatch(js, /rel\s*=\s*['"]prefetch['"]/);
     assert.doesNotMatch(js, /idleWarmDefaults/);
     assert.doesNotMatch(js, /\/prospecting\?tab=pipeline/);
-    assert.doesNotMatch(js, /rel\s*=\s*['"]prefetch['"]/);
   });
 
-  it('does not short-circuit Prefetch with 204 (that blanked navigations)', () => {
+  it('does not short-circuit Prefetch with 204', () => {
     assert.doesNotMatch(server, /skipDocumentPrefetch/);
   });
 
-  it('gates map scripts off non-map pages', () => {
+  it('still gates map scripts off non-map pages', () => {
     assert.match(head, /_needMaps/);
     assert.match(head, /if \(_needMaps\)/);
-    assert.match(head, /googleMapsLoader\.js/);
   });
 });
