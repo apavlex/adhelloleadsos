@@ -4910,8 +4910,47 @@ function readJsonReply(r) {
       .catch(function () {});
   }
 
+  /** SEO/settings pages skip gcal/DM/reviews in <head>; pull them in when dialer opens. */
+  var softphoneHelpersPromise = null;
+  function loadScriptOnce(src) {
+    return new Promise(function (resolve) {
+      try {
+        if (document.querySelector('script[src="' + src + '"]')) {
+          resolve();
+          return;
+        }
+      } catch (_) {
+        /* ignore */
+      }
+      var s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = function () {
+        resolve();
+      };
+      s.onerror = function () {
+        resolve();
+      };
+      document.head.appendChild(s);
+    });
+  }
+  function ensureSoftphoneHelperScripts() {
+    if (softphoneHelpersPromise) return softphoneHelpersPromise;
+    var ver =
+      (typeof window.__ADHELLO_ASSET_VERSION__ === 'string' && window.__ADHELLO_ASSET_VERSION__) ||
+      '1';
+    softphoneHelpersPromise = Promise.all([
+      loadScriptOnce('/js/gcal-datetime-picker.js?v=' + encodeURIComponent(ver)),
+      loadScriptOnce('/js/direct-mail-queue.js?v=' + encodeURIComponent(ver)),
+      loadScriptOnce('/js/review-stars.js?v=' + encodeURIComponent(ver)),
+      loadScriptOnce('/js/review-freshness.js?v=' + encodeURIComponent(ver)),
+    ]).catch(function () {});
+    return softphoneHelpersPromise;
+  }
+
   function openSoftphone() {
     if (!spModal) return;
+    ensureSoftphoneHelperScripts();
     spModal.classList.remove('hidden');
     spModal.classList.add('pointer-events-none');
     spModal.setAttribute('aria-hidden', 'false');
@@ -4937,7 +4976,9 @@ function readJsonReply(r) {
       renderRecentDials();
       renderSoftphoneFocusContacts();
       renderSoftphoneCallQueue();
-      renderSoftphoneDirectMailQueue();
+      ensureSoftphoneHelperScripts().then(function () {
+        renderSoftphoneDirectMailQueue();
+      });
     }, 0);
     softphoneSetCallState('idle');
     softphoneSetWrapRequired(false);
@@ -4961,10 +5002,18 @@ function readJsonReply(r) {
     maybeAutoCompactSoftphone();
     updateSoftphoneMinimizeBtnUi();
   }
-  // Warm telephony options in the background so the first open is instant.
-  setTimeout(function () {
-    refreshSoftphoneCallOptions();
-  }, 1200);
+  // Warm telephony on core pages only — on SEO/settings this competed with the page load.
+  (function () {
+    var p = String((window.location && window.location.pathname) || '');
+    var light =
+      /^\/(seo-|local-seo|backlinks|business-reviews|network|workspace|settings)/.test(p) ||
+      p === '/seo-qa' ||
+      p.indexOf('/seo-qa') === 0;
+    if (light) return;
+    setTimeout(function () {
+      refreshSoftphoneCallOptions();
+    }, 1200);
+  })();
   function setSoftphoneDialNumber(num) {
     spTo = document.getElementById('softphoneToNumber');
     if (!spTo) return;

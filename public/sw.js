@@ -1,8 +1,8 @@
 /* AdHello Agency OS PWA — push + shell assets only.
- * Do NOT intercept HTML navigations. Owning document fetches on iOS standalone
- * caused blank white screens and false offline/Retry pages (1.0.673–675).
- * Reviews (/m/sw.js) and contractor portal (/p/sw.js) stay separate. */
-const CACHE_VERSION = 'adhello-pwa-v1.0.676';
+ * Do NOT intercept HTML navigations (iOS blank / false offline).
+ * Versioned ?v= assets are cache-first: the query string already busts on deploy,
+ * so network-first was making every in-app hop wait on ~CSS+JS again. */
+const CACHE_VERSION = 'adhello-pwa-v1.0.678';
 const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
@@ -40,7 +40,6 @@ self.addEventListener('push', (event) => {
   } catch (e) {
     data = { body: event.data ? event.data.text() : '' };
   }
-  // iOS revokes the subscription if a push arrives without a visible notification.
   event.waitUntil(
     self.registration.showNotification(data.title || 'AdHello', {
       body: data.body || '',
@@ -74,9 +73,7 @@ self.addEventListener('message', (event) => {
     return;
   }
   if (data.type === 'CLEAR_CACHES') {
-    event.waitUntil(
-      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
-    );
+    event.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))));
     return;
   }
   if (data.type !== 'CLEAR_NOTIFICATIONS') return;
@@ -105,6 +102,12 @@ function isStaticAsset(url) {
   );
 }
 
+function cachePut(req, res) {
+  if (!res || !res.ok) return;
+  const copy = res.clone();
+  caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy)).catch(() => {});
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -118,7 +121,6 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) return;
 
-  // Critical: never intercept documents. Browser must own HTML navigations.
   if (req.mode === 'navigate') return;
   const accept = req.headers.get('accept') || '';
   if (accept.includes('text/html')) return;
@@ -133,31 +135,17 @@ self.addEventListener('fetch', (event) => {
 
   if (!isStaticAsset(url)) return;
 
-  // Versioned assets (?v=): network-first so CSS/JS deploys aren't stuck on an old SW cache.
-  // Unversioned: cache-first for offline shell.
-  const versioned = url.searchParams.has('v');
+  // Cache-first for everything shell-related. ?v= on CSS/JS already changes on
+  // deploy, so a new URL misses cache and fetches once — no need to block every hop.
   event.respondWith(
-    versioned
-      ? fetch(req)
-          .then((res) => {
-            if (res && res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
-            }
-            return res;
-          })
-          .catch(() => caches.match(req))
-      : caches.match(req).then((cached) => {
-          const fetchPromise = fetch(req)
-            .then((res) => {
-              if (res && res.ok) {
-                const copy = res.clone();
-                caches.open(CACHE_VERSION).then((cache) => cache.put(req, copy));
-              }
-              return res;
-            })
-            .catch(() => cached);
-          return cached || fetchPromise;
+    caches.match(req).then((cached) => {
+      const fetching = fetch(req)
+        .then((res) => {
+          cachePut(req, res);
+          return res;
         })
+        .catch(() => cached);
+      return cached || fetching;
+    })
   );
 });

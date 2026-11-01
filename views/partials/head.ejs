@@ -133,9 +133,35 @@
     _rp.startsWith('/leads') ||
     _rp.startsWith('/prospecting') ||
     _rp.startsWith('/pipeline');
-  const _needGcal = true; /* softphone + lead panel follow-up pickers are global */
-  const _needDmQueue = true; /* softphone Mail tab is global — always load queue helpers */
-  const _needReviews = true; /* softphone keypad shows stars on every page */
+  /* Core dialer pages keep softphone helper scripts in <head>. SEO / settings / network
+     pages skip them so those hops are not stuck behind gcal + DM + reviews JS — softphone
+     lazy-loads the same files when opened (navbar-shell ensureSoftphoneHelperScripts). */
+  const _lightChrome =
+    _np === 'seo-qa' ||
+    _np === 'seo-gap' ||
+    _np === 'backlinks' ||
+    _np === 'local-seo' ||
+    _np === 'business-reviews' ||
+    _np === 'network' ||
+    _np === 'tasks' ||
+    _np === 'activity' ||
+    _np === 'resources' ||
+    _np === 'sops' ||
+    _np === 'fb-groups' ||
+    _np === 'direct-mail' ||
+    _np === 'social-posts' ||
+    _np === 'chat' ||
+    _np === 'ceo' ||
+    _rp.startsWith('/seo-') ||
+    _rp.startsWith('/local-seo') ||
+    _rp.startsWith('/backlinks') ||
+    _rp.startsWith('/business-reviews') ||
+    _rp.startsWith('/network') ||
+    _rp.startsWith('/workspace') ||
+    _rp.startsWith('/settings');
+  const _needGcal = !_lightChrome;
+  const _needDmQueue = !_lightChrome;
+  const _needReviews = !_lightChrome;
   /* Maps only on pages that show lead/location maps — skip on SEO, network, settings, etc. */
   const _needMaps =
     _needPipeline ||
@@ -150,6 +176,7 @@
     _rp.startsWith('/opportunities');
   const _av = typeof assetVersion !== 'undefined' ? assetVersion : '1';
 %>
+<script>window.__ADHELLO_ASSET_VERSION__ = <%- JSON.stringify(String(_av)) %>;</script>
 <%# Shared helpers — defer unless Focus/Scripts inline code needs AdHelloScripts during parse %>
 <%
   const _needScriptPlaceholdersSync =

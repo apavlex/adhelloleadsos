@@ -58,3 +58,14 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /queueListLeads = \[\]/);
   assert.match(route, /needPipelineDecorate \? buildDriveImportBundle/);
 });
+
+test('light pages skip softphone helper scripts in head (lazy on dialer open)', () => {
+  const head = fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8');
+  const js = fs.readFileSync(path.join(root, 'public/js/navbar-shell.js'), 'utf8');
+  assert.match(head, /_lightChrome/);
+  assert.match(head, /_needGcal = !_lightChrome/);
+  assert.match(head, /_needDmQueue = !_lightChrome/);
+  assert.match(head, /_needReviews = !_lightChrome/);
+  assert.match(js, /function ensureSoftphoneHelperScripts/);
+  assert.match(js, /ensureSoftphoneHelperScripts\(\)/);
+});
