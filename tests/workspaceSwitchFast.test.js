@@ -13,6 +13,8 @@ test('workspace switch warms leads and skips chrome extras', () => {
   assert.match(switchSrc, /router\.post\('\/switch'/);
   assert.match(switchSrc, /void dbService\.getAllLeads\(raw\)\.catch/);
   assert.match(switchSrc, /router\.get\('\/open'/);
+  assert.match(switchSrc, /countLeadsListInflight/);
+  assert.match(switchSrc, /skipped: true/);
 
   const mw = fs.readFileSync(path.join(__dirname, '../middleware/withWorkspace.js'), 'utf8');
   assert.match(mw, /workspaceSwitchFastPath/);
@@ -22,19 +24,16 @@ test('workspace switch warms leads and skips chrome extras', () => {
   const shell = fs.readFileSync(path.join(__dirname, '../public/js/sidebarShell.js'), 'utf8');
   assert.match(shell, /Switching…/);
   assert.match(shell, /markWorkspaceSwitchBusy/);
+  assert.match(shell, /clearWorkspaceSwitchBusy/);
+  assert.match(shell, /warmOneWorkspace/);
+  assert.doesNotMatch(shell, /warmSwitcherWorkspaces/);
   assert.match(shell, /getAttribute\('action'\) !== '\/workspaces\/switch'/);
 
   const nav = fs.readFileSync(path.join(__dirname, '../views/partials/navbar.ejs'), 'utf8');
-  assert.match(nav, /sidebarShell\.js\?v=sidebar9/);
+  assert.match(nav, /sidebarShell\.js\?v=sidebar11/);
 });
 
 test('concurrent getAllLeads cold loads share one in-flight scan', async () => {
-  const wid = 'ws_switch_inflight';
-  await dbService.putStorageKey('lead:7001', { title: 'Switch warm A', workspaceId: wid, status: 'New' });
-  await dbService.putStorageKey('lead:7002', { title: 'Switch warm B', workspaceId: wid, status: 'New' });
-
-  // Bust any cache from prior puts by writing a throwaway lead after a first warm, then
-  // forcing a fresh cold path via a new workspace id (never warmed).
   const coldWid = 'ws_switch_inflight_cold';
   await dbService.putStorageKey('lead:7101', { title: 'Cold one', workspaceId: coldWid });
   await dbService.putStorageKey('lead:7102', { title: 'Cold two', workspaceId: coldWid });
@@ -50,4 +49,8 @@ test('concurrent getAllLeads cold loads share one in-flight scan', async () => {
   );
   const again = await dbService.getAllLeads(coldWid);
   assert.equal(again.length, 2);
+});
+
+test('countLeadsListInflight reports active cold scans', async () => {
+  assert.equal(typeof dbService.countLeadsListInflight(), 'number');
 });
