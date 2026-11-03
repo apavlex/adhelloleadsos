@@ -104,4 +104,64 @@ describe('review referral reward settings', () => {
     assert.equal(fromMember.minStars, 5);
     assert.equal(fromMember.rewardLabel, 'Free tune-up');
   });
+
+  it('builds prize vs gift-card CTA copy for the public share panel', () => {
+    const prize = reward.ctaCopy({
+      enabled: true,
+      rewardType: 'prize',
+      rewardLabel: 'a $100 giveaway',
+    });
+    assert.match(prize.headline, /chance at a \$100 giveaway/);
+    assert.match(prize.buttonLabel, /Share for a \$100 giveaway/);
+    assert.equal(prize.eyebrow, 'Share & enter');
+
+    const gift = reward.ctaCopy({
+      enabled: true,
+      rewardType: 'gift_card',
+      rewardLabel: '$25 gift card',
+    });
+    assert.match(gift.headline, /earn \$25 gift card/);
+    assert.equal(gift.eyebrow, 'Refer a friend');
+  });
+
+  it('builds a preview share offer when reward qualifies', async () => {
+    const offer = await reward.buildPublicShareOffer({
+      member: {
+        id: 'm1',
+        companyName: 'Cascade Home Pros',
+        plan: '',
+        reviewReward: {
+          enabled: true,
+          rewardType: 'prize',
+          rewardLabel: '$100 giveaway',
+          minStars: 4,
+        },
+      },
+      network: { id: 'n1' },
+      rating: 5,
+      ask: null,
+      previewMode: true,
+    });
+    assert.ok(offer);
+    assert.equal(offer.preview, true);
+    assert.match(offer.url, /\/rf\/your-link/);
+    assert.match(offer.headline, /chance at \$100 giveaway/);
+    assert.match(offer.smsText, /\$100 giveaway/);
+  });
+});
+
+describe('public review page shows referral share after 4–5★', () => {
+  it('renders the share panel markup on the happy path', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const view = fs.readFileSync(path.join(__dirname, '../views/review_public.ejs'), 'utf8');
+    assert.match(view, /rv-referral/);
+    assert.match(view, /rvReferralShare/);
+    assert.match(view, /referralShare/);
+    assert.match(view, /navigator\.share/);
+    const publicRoute = fs.readFileSync(path.join(__dirname, '../routes/reviewPublic.js'), 'utf8');
+    assert.match(publicRoute, /buildPublicShareOffer/);
+    const preview = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
+    assert.match(preview, /buildPublicShareOffer/);
+  });
 });

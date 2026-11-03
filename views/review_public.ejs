@@ -88,13 +88,78 @@
           </script>
         </div>
         <% } %>
+        <% const _ref = typeof referralShare !== 'undefined' && referralShare ? referralShare : null; %>
+        <% if (_ref && _ref.url) { %>
+        <section class="rv-referral" aria-label="Share your referral link"<%= _ref.preview ? ' data-preview="1"' : '' %>>
+          <p class="rv-referral__eyebrow"><%= _ref.eyebrow || 'Refer a friend' %></p>
+          <h2 class="rv-referral__title"><%= _ref.headline %></h2>
+          <% if (_ref.preview) { %>
+          <p class="ma-hint" style="margin:0 0 10px">Preview — customers get a personal tracked link synced to them.</p>
+          <% } else { %>
+          <p class="ma-hint" style="margin:0 0 10px">Your personal tracked link — friends who book through it count for you.</p>
+          <% } %>
+          <div class="ma-link-box rv-referral__link">
+            <code id="rvReferralUrl"><%= _ref.url %></code>
+          </div>
+          <div class="rv-referral__actions">
+            <button type="button" class="ma-btn" id="rvReferralShare" data-share-text="<%= String(_ref.smsText || '').replace(/"/g, '&quot;') %>" data-share-url="<%= String(_ref.url).replace(/"/g, '&quot;') %>" data-share-title="<%= String(member.companyName || '').replace(/"/g, '&quot;') %>"<%= _ref.preview ? ' disabled' : '' %>><%= _ref.buttonLabel || 'Share' %></button>
+            <button type="button" class="ma-btn ma-btn--soft" id="rvReferralCopy" data-copy="<%= String(_ref.url).replace(/"/g, '&quot;') %>"<%= _ref.preview ? ' disabled' : '' %>>Copy link</button>
+          </div>
+          <script>
+          (function () {
+            function copyText(t, btn, label) {
+              if (!t) return;
+              var done = function () {
+                if (!btn) return;
+                var prev = btn.textContent;
+                btn.textContent = label || 'Copied';
+                setTimeout(function () { btn.textContent = prev; }, 1600);
+              };
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(t).then(done).catch(function () {});
+              } else {
+                var ta = document.createElement('textarea');
+                ta.value = t; document.body.appendChild(ta); ta.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                document.body.removeChild(ta); done();
+              }
+            }
+            var copyBtn = document.getElementById('rvReferralCopy');
+            if (copyBtn) {
+              copyBtn.addEventListener('click', function () {
+                copyText(copyBtn.getAttribute('data-copy') || '', copyBtn, 'Copied');
+              });
+            }
+            var shareBtn = document.getElementById('rvReferralShare');
+            if (shareBtn && !shareBtn.disabled) {
+              shareBtn.addEventListener('click', function () {
+                var url = shareBtn.getAttribute('data-share-url') || '';
+                var text = shareBtn.getAttribute('data-share-text') || url;
+                var title = shareBtn.getAttribute('data-share-title') || '';
+                if (navigator.share) {
+                  navigator.share({ title: title, text: text, url: url }).catch(function () {
+                    copyText(text || url, shareBtn, 'Copied');
+                  });
+                  return;
+                }
+                var sms = 'sms:&body=' + encodeURIComponent(text || url);
+                try { window.location.href = sms; } catch (e) {
+                  copyText(text || url, shareBtn, 'Copied');
+                }
+              });
+            }
+          })();
+          </script>
+        </section>
+        <% } %>
         <% if (destinations.length) { %>
+        <p class="ma-hint" style="text-align:center;margin:<%= _ref && _ref.url ? '18px' : '0' %> 0 0">Leave a quick public review:</p>
         <div class="rv-links">
           <% destinations.forEach(function (d) { %>
           <a class="rv-link" href="<%= d.href %>" rel="noopener"><span class="rv-link__icon" style="background: <%= d.tile || d.color %>"><% if (d.icon) { %><%- d.icon %><% } else { %><%= d.letter %><% } %></span>Review us on <%= d.label %><span class="rv-link__go">›</span></a>
           <% }); %>
         </div>
-        <% } else { %>
+        <% } else if (!(_ref && _ref.url)) { %>
         <p class="ma-hint" style="text-align:center">Thanks for the stars!</p>
         <% } %>
         <details style="margin-top:16px">

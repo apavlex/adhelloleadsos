@@ -94,7 +94,8 @@ async function resolveKeywordHintForAsk(askId) {
   }
 }
 
-async function renderPage(res, page, { rating, thanks, error, formValues, imageId, askId }, status) {
+async function renderPage(res, page, { rating, thanks, error, formValues, imageId, askId, previewMode }, status) {
+  const reviewReferralReward = require('../services/reviewReferralReward');
   const shareId = reviewShareImage.isImageId(imageId) ? String(imageId).trim() : '';
   const trackedAsk = reviewAsk.isAskId(askId) ? String(askId).trim() : '';
   const ogUrl = notify.reviewPageLink(page.slug, {
@@ -108,6 +109,25 @@ async function renderPage(res, page, { rating, thanks, error, formValues, imageI
   );
   const logoUrl = reviewShareImage.requestPageLogoUrl(page.member, page.brand);
   const keywordHint = trackedAsk ? await resolveKeywordHintForAsk(trackedAsk) : '';
+  const gate = reviewPage.reviewGate(rating);
+  let referralShare = null;
+  if (!thanks && gate.stage === 'happy') {
+    let ask = null;
+    if (trackedAsk) {
+      try {
+        ask = await reviewAsk.getAsk(trackedAsk);
+      } catch (_) {
+        ask = null;
+      }
+    }
+    referralShare = await reviewReferralReward.buildPublicShareOffer({
+      member: page.member,
+      network: page.network,
+      rating: gate.rating,
+      ask,
+      previewMode: !!previewMode,
+    });
+  }
   // Public + indexable so iMessage/SMS can load og:image (X-Robots-Tag: noindex kills unfurls).
   // HTML meta already sets index,follow; do not override with a noindex response header.
   res.setHeader('Cache-Control', 'public, max-age=120');
@@ -115,7 +135,7 @@ async function renderPage(res, page, { rating, thanks, error, formValues, imageI
   return res.status(status || 200).render('review_public', {
     ...page,
     logoUrl,
-    gate: reviewPage.reviewGate(rating),
+    gate,
     destinations: reviewPage.reviewDestinations(page.member.reviewLinks, page.slug, { askId: trackedAsk }),
     thanks: !!thanks,
     error: error || '',
@@ -128,6 +148,8 @@ async function renderPage(res, page, { rating, thanks, error, formValues, imageI
     shareImageId: shareId,
     askId: trackedAsk,
     keywordHint,
+    referralShare,
+    previewMode: !!previewMode,
   });
 }
 
