@@ -12,6 +12,7 @@ const express = require('express');
 const freeAppSignup = require('../services/freeAppSignup');
 const networkBrand = require('../services/networkBrand');
 const freeAppOg = require('../services/freeAppOg');
+const notify = require('../services/networkNotify');
 const { getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const router = express.Router();
@@ -44,6 +45,20 @@ async function brandForNetwork(network) {
   }
 }
 
+async function portalUrlForSignup(result) {
+  if (!result || !result.ok || !result.network || !result.member) return '';
+  try {
+    return await notify.memberPortalShortLink(
+      getReviewPublicBaseUrl(),
+      result.network,
+      result.member,
+    );
+  } catch (err) {
+    console.warn('[freeApp] portal url failed:', err && err.message);
+    return '';
+  }
+}
+
 async function render(req, res, {
   formValues = {},
   errors = [],
@@ -52,6 +67,8 @@ async function render(req, res, {
   network = null,
   joinSlug = '',
   offer = '',
+  portalUrl = '',
+  notifyChannel = '',
 } = {}) {
   const brand = await brandForNetwork(network);
   const slug = freeAppSignup.cleanJoinSlug(joinSlug);
@@ -78,6 +95,8 @@ async function render(req, res, {
     form: formValues,
     errors,
     sent,
+    portalUrl: String(portalUrl || '').trim(),
+    notifyChannel: String(notifyChannel || '').trim(),
     trialSignupHref: '/signup',
     loginHref: '/m/login',
     formAction,
@@ -134,11 +153,14 @@ async function handleAppPost(req, res, next, { offer = '' } = {}) {
         network: hostNetwork || result.network || null,
       });
     }
+    const portalUrl = await portalUrlForSignup(result);
     return render(req, res, {
       formValues: {},
       sent: true,
       offer,
       network: result.network || hostNetwork,
+      portalUrl,
+      notifyChannel: (result.notified && result.notified.channel) || '',
     });
   } catch (err) {
     return next(err);
@@ -240,7 +262,16 @@ async function handleJoinPost(req, res, next, { offer = '' } = {}) {
         offer: resolvedOffer,
       });
     }
-    return render(req, res, { formValues: {}, sent: true, network, joinSlug, offer: resolvedOffer });
+    const portalUrl = await portalUrlForSignup(result);
+    return render(req, res, {
+      formValues: {},
+      sent: true,
+      network,
+      joinSlug,
+      offer: resolvedOffer,
+      portalUrl,
+      notifyChannel: (result.notified && result.notified.channel) || '',
+    });
   } catch (err) {
     return next(err);
   }

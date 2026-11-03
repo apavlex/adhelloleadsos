@@ -346,9 +346,9 @@ describe('freeAppSignup', { concurrency: false }, () => {
       assert.match(html, /Flooring partners/);
       assert.match(html, /Keep your account as long as you buy material from us/);
       assert.match(html, /action="\/app\/flooring"/);
-      assert.match(html, /Text me my app link/);
+      assert.match(html, /Send my app link/);
       assert.doesNotMatch(html, /30-day free trial/);
-      assert.doesNotMatch(html, /Text me my trial link/);
+      assert.doesNotMatch(html, /Send my trial link/);
       assert.match(html, /buy material from you/i);
       assert.match(html, /name="acceptTerms"/);
 
@@ -364,7 +364,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
         }),
       });
       assert.equal(post.status, 200);
-      assert.match(await post.text(), /Check your phone/);
+      assert.match(await post.text(), /Check your phone|Your app link is ready|Open your app/);
 
       const members = await store.listMembers(flooringNetwork.id);
       const lee = members.find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550166');
@@ -432,7 +432,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
       assert.match(html, /Get more reviews for your business!/);
       assert.match(html, /30-day free trial/);
       assert.match(html, /action="\/app"/);
-      assert.match(html, /Text me my trial link/);
+      assert.match(html, /Send my trial link/);
       assert.match(html, /id="fa-form"/);
       assert.match(html, /id="fa-submit"/);
       assert.match(html, /Sending…/);
@@ -474,7 +474,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
       });
       assert.equal(post.status, 200);
       const done = await post.text();
-      assert.match(done, /Check your phone/);
+      assert.match(done, /Check your phone|Your app link is ready|Open your app/);
     } finally {
       await new Promise((r) => server.close(r));
       mock.restoreAll();
@@ -527,7 +527,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
         }),
       });
       assert.equal(post.status, 200);
-      assert.match(await post.text(), /Check your phone/);
+      assert.match(await post.text(), /Check your phone|Your app link is ready|Open your app/);
 
       const members = await store.listMembers(partnerNet.id);
       const pat = members.find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550188');
@@ -591,7 +591,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
         }),
       });
       assert.equal(post.status, 200);
-      assert.match(await post.text(), /Check your phone/);
+      assert.match(await post.text(), /Check your phone|Your app link is ready|Open your app/);
 
       const members = await store.listMembers(tprNet.id);
       const sam = members.find((m) => freeAppSignup.phoneDigits(m.phone) === '5035550199');
@@ -627,7 +627,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
     assert.ok(fs.existsSync(path.join(__dirname, '../public/images/reviews-flooring-owner-testimonial.jpg')));
     assert.match(view, /fa-card-trial/);
     assert.match(view, /30-day free trial/);
-    assert.match(view, /Text me my trial link/);
+    assert.match(view, /Send my trial link/);
     assert.match(view, /id="fa-form"/);
     assert.match(view, /formAction/);
     assert.match(view, /name="acceptTerms"/);
@@ -640,6 +640,14 @@ describe('freeAppSignup', { concurrency: false }, () => {
     assert.match(view, /\.fa-btn[^}]*margin-top:\s*2\.75rem/);
     assert.match(view, /\.fa-foot[^}]*margin-top:\s*2\.5rem/);
     assert.match(view, /class="fa-foot"/);
+    assert.match(view, /fa-pitch/);
+    assert.match(view, /fa-form-col/);
+    assert.match(view, /minmax\(0,\s*1\.05fr\)/);
+    assert.match(view, /Open your app/);
+    assert.match(view, /faPortalUrl|faOpenApp/);
+    const freeRoute = fs.readFileSync(path.join(__dirname, '../routes/freeApp.js'), 'utf8');
+    assert.match(freeRoute, /portalUrlForSignup/);
+    assert.match(freeRoute, /memberPortalShortLink/);
     assert.match(networkView, /net-join-link/);
     assert.match(networkView, /networkJoinUrl/);
     assert.match(networkView, /networkJoinIsFlooring|Flooring partner signup link/);
