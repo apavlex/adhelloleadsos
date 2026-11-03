@@ -62,8 +62,8 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 2rem 1.25rem;
+      justify-content: flex-start;
+      padding: 1.5rem 1.25rem 2.5rem;
       box-sizing: border-box;
     }
     .fa-card {
@@ -74,8 +74,37 @@
       border: 1px solid var(--fa-line);
       box-shadow: 0 24px 48px -24px rgba(31, 36, 46, 0.18);
       padding: 2rem;
+      box-sizing: border-box;
     }
+    .fa-card--sent { max-width: 28rem; }
+    .fa-pitch, .fa-form-col { min-width: 0; }
     @media (min-width: 640px) { .fa-card { padding: 2.5rem; } }
+    /* Desktop: pitch + form side-by-side instead of a phone-width strip. */
+    @media (min-width: 960px) {
+      .fa-main {
+        justify-content: center;
+        padding: 2.5rem 2rem 3rem;
+      }
+      .fa-card:not(.fa-card--sent) {
+        max-width: 64rem;
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+        gap: 0 2.25rem;
+        align-items: start;
+        padding: 2.75rem 2.5rem;
+      }
+      .fa-pitch {
+        padding-right: 0.5rem;
+        border-right: 1px solid var(--fa-line);
+        padding-right: 2rem;
+      }
+      .fa-form-col { padding-left: 0.25rem; }
+      .fa-card:not(.fa-card--sent) .fa-brand { margin-bottom: 1.1rem; }
+      .fa-card:not(.fa-card--sent) h1 {
+        font-size: clamp(2rem, 2.6vw, 2.55rem);
+      }
+      .fa-form-col .fa-faq { margin-top: 1.35rem; }
+    }
     .fa-brand {
       display: flex;
       align-items: center;
@@ -512,8 +541,49 @@
       color: var(--fa-muted-soft);
     }
     .fa-back a { color: var(--fa-ink); font-weight: 700; }
+    .fa-portal-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 1.15rem;
+    }
+    .fa-portal-actions .fa-btn {
+      width: auto;
+      flex: 1 1 10rem;
+      margin-top: 0;
+      height: 3.1rem;
+      font-size: 15px;
+      text-decoration: none;
+    }
+    .fa-portal-actions .fa-btn--soft {
+      background: #fff;
+      border: 1px solid var(--fa-line);
+      box-shadow: none;
+    }
+    .fa-portal-actions .fa-btn--soft:hover { background: rgba(250, 204, 21, 0.18); }
+    .fa-link-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.5rem;
+      margin-top: 0.85rem;
+      padding: 0.7rem 0.85rem;
+      border-radius: 0.75rem;
+      background: rgba(250, 204, 21, 0.12);
+      border: 1px solid rgba(234, 179, 8, 0.35);
+      box-sizing: border-box;
+    }
+    .fa-link-box code {
+      flex: 1 1 auto;
+      min-width: 0;
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      color: var(--fa-ink);
+      font-weight: 700;
+    }
     @media (max-width: 639px) {
-      .fa-main { padding: 1.25rem 1rem; align-items: stretch; }
+      .fa-main { padding: 1.25rem 1rem 2rem; align-items: stretch; }
       .fa-card { border-radius: 1.1rem; padding: 1.5rem 1.25rem; }
       .fa-card h1 { font-size: clamp(1.9rem, 8.4vw, 2.2rem); }
       .fa-perks { gap: 0.35rem 0.85rem; }
@@ -536,8 +606,13 @@
   <% const _action = typeof formAction !== 'undefined' && formAction ? formAction : '/app'; %>
   <% const _joinName = typeof joinNetworkName !== 'undefined' ? String(joinNetworkName || '').trim() : ''; %>
   <% const _flooring = typeof flooringPartner !== 'undefined' ? !!flooringPartner : false; %>
+  <%
+    const _portalUrl = typeof portalUrl !== 'undefined' && portalUrl ? String(portalUrl).trim() : '';
+    const _notifyChannel = typeof notifyChannel !== 'undefined' ? String(notifyChannel || '').trim() : '';
+  %>
   <main class="fa-main">
-    <div class="fa-card">
+    <div class="fa-card<%= sent ? ' fa-card--sent' : '' %>">
+      <% if (sent) { %>
       <a class="fa-brand" href="https://adhello.io" rel="noopener">
         <img src="/images/adhello-app-icon.png" alt="Reviews App" width="40" height="40" />
         <div>
@@ -545,19 +620,63 @@
           <span><%= _joinName ? ('Join ' + _joinName) : (_flooring ? 'Flooring partners' : 'Pay-per-performance') %></span>
         </div>
       </a>
-
-      <% if (sent) { %>
-        <h1>Check your phone</h1>
-        <p class="fa-card-lead">If that number or email is valid, your app link is on its way<% if (_joinName) { %> for <strong><%= _joinName %></strong><% } %>. Open it, then:</p>
+        <h1><%= _portalUrl ? 'Your app link is ready' : 'Check your phone' %></h1>
+        <p class="fa-card-lead">
+          <% if (_portalUrl) { %>
+          Open your app below<%= _notifyChannel === 'email' ? ' — we also emailed this link' : (_notifyChannel === 'sms' || _notifyChannel === 'both' ? ' — we also texted this link to your phone' : '') %><% if (_joinName) { %> for <strong><%= _joinName %></strong><% } %>. Then:
+          <% } else { %>
+          If that number or email is valid, your app link is on its way<% if (_joinName) { %> for <strong><%= _joinName %></strong><% } %>. Open it, then:
+          <% } %>
+        </p>
+        <% if (_portalUrl) { %>
+        <div class="fa-link-box" role="group" aria-label="Your app link">
+          <code id="faPortalUrl"><%= _portalUrl %></code>
+        </div>
+        <div class="fa-portal-actions">
+          <a class="fa-btn" id="faOpenApp" href="<%= _portalUrl %>">Open your app</a>
+          <button type="button" class="fa-btn fa-btn--soft" id="faCopyApp" data-copy="<%= _portalUrl.replace(/"/g, '&quot;') %>">Copy link</button>
+        </div>
+        <script>
+        (function () {
+          var btn = document.getElementById('faCopyApp');
+          if (!btn) return;
+          btn.addEventListener('click', function () {
+            var t = btn.getAttribute('data-copy') || '';
+            if (!t) return;
+            var done = function () {
+              var prev = btn.textContent;
+              btn.textContent = 'Copied';
+              setTimeout(function () { btn.textContent = prev; }, 1600);
+            };
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(t).then(done).catch(function () {});
+            } else {
+              var ta = document.createElement('textarea');
+              ta.value = t; document.body.appendChild(ta); ta.select();
+              try { document.execCommand('copy'); } catch (e) {}
+              document.body.removeChild(ta); done();
+            }
+          });
+        })();
+        </script>
+        <% } %>
         <ol class="fa-sent-steps" aria-label="Next steps">
-          <li><strong>Add to Home Screen</strong> — Share → Add to Home Screen so it opens like an app.</li>
+          <li><strong>Add to Home Screen</strong> — on your phone: Share → Add to Home Screen so it opens like an app.</li>
           <li><strong>Turn on phone alerts</strong> — allow notifications so leads, referrals, and News &amp; updates pop up on your phone.</li>
         </ol>
-        <div class="fa-ok" role="status">Link sent. It can take a minute. Already have it? <a class="underline font-semibold" href="<%= _login %>">Get a fresh link</a>.</div>
+        <div class="fa-ok" role="status"><%= _portalUrl ? 'Link ready' : 'Link sent' %>. Need another? <a class="underline font-semibold" href="<%= _login %>">Get a fresh link</a>.</div>
         <% if (!_flooring) { %>
         <p class="fa-foot" style="margin-top:1.5rem">Want the full workspace (leads, SMS, email, GHL CRM)? <a class="underline" href="<%= _trial %>">Start a free trial</a>.</p>
         <% } %>
       <% } else { %>
+      <div class="fa-pitch">
+      <a class="fa-brand" href="https://adhello.io" rel="noopener">
+        <img src="/images/adhello-app-icon.png" alt="Reviews App" width="40" height="40" />
+        <div>
+          <strong>Reviews App</strong>
+          <span><%= _joinName ? ('Join ' + _joinName) : (_flooring ? 'Flooring partners' : 'Pay-per-performance') %></span>
+        </div>
+      </a>
         <h1>Get more reviews for your business!</h1>
         <% if (_flooring) { %>
         <p class="fa-card-trial">Keep your account as long as you buy material from us</p>
@@ -628,7 +747,9 @@
             <cite>Marcus · Flooring business owner</cite>
           </figcaption>
         </figure>
+      </div>
 
+      <div class="fa-form-col">
         <% if (errors && errors.length) { %>
           <ul class="fa-errors" role="alert">
             <% errors.forEach(function (e) { %><li><%= e %></li><% }) %>
@@ -709,7 +830,8 @@
             </ul>
           </details>
 
-          <button type="submit" class="fa-btn" id="fa-submit"><%= _flooring ? 'Text me my app link' : 'Text me my trial link' %></button>
+          <button type="submit" class="fa-btn" id="fa-submit"><%= _flooring ? 'Send my app link' : 'Send my trial link' %></button>
+          <p class="fa-field-hint" style="margin-top:0.55rem;text-align:center">We’ll text (or email) your link — and show it on the next screen so it works on desktop too.</p>
         </form>
         <script>
           (function () {
@@ -754,6 +876,7 @@
         </section>
 
         <p class="fa-foot">Already in a network? <a class="underline" href="<%= _login %>">Get your link</a>. Need leads + CRM? <a class="underline" href="<%= _trial %>">Start Agency OS trial</a>.</p>
+      </div>
       <% } %>
     </div>
     <p class="fa-back">Learn more at <a href="https://adhello.io" rel="noopener">adhello.io</a></p>
