@@ -25,7 +25,7 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
 
   it('service worker never intercepts HTML and cache-firsts shell assets', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.680/);
+    assert.match(sw, /adhello-pwa-v1\.0\.681/);
     assert.doesNotMatch(sw, /AbortController/);
     assert.match(sw, /req\.mode === 'navigate'\) return/);
     assert.match(sw, /accept\.includes\('text\/html'\)\) return/);

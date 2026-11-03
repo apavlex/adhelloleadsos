@@ -84,6 +84,106 @@ function buildCustomerMessage(settings, { name, company, stars, referralLink }) 
   });
 }
 
+/**
+ * Copy for the public /rv happy-path share panel (4–5★).
+ * Wording follows rewardType so prize/giveaway reads differently from gift cards.
+ */
+function ctaCopy(settings) {
+  const s = normalizeSettings(settings);
+  const reward = s.rewardLabel || 'a thank-you gift';
+  if (s.rewardType === 'prize') {
+    return {
+      eyebrow: 'Share & enter',
+      headline: `Share your link for a chance at ${reward}`,
+      buttonLabel: `Share for ${reward}`,
+    };
+  }
+  if (s.rewardType === 'discount') {
+    return {
+      eyebrow: 'Refer a friend',
+      headline: `Share your link to unlock ${reward}`,
+      buttonLabel: `Share for ${reward}`,
+    };
+  }
+  if (s.rewardType === 'gift_card') {
+    return {
+      eyebrow: 'Refer a friend',
+      headline: `Share your link to earn ${reward}`,
+      buttonLabel: `Share for ${reward}`,
+    };
+  }
+  return {
+    eyebrow: 'Refer a friend',
+    headline: `Share your link for ${reward}`,
+    buttonLabel: `Share for ${reward}`,
+  };
+}
+
+/**
+ * Build the public happy-path referral share panel payload.
+ * Mints/syncs a tracked /rf/ link when `ask` identifies the customer.
+ * Preview mode can show a placeholder URL so owners see the CTA without an ask.
+ *
+ * @returns {Promise<object|null>}
+ */
+async function buildPublicShareOffer({ member, network, rating, ask, previewMode }) {
+  const settings = settingsFromMember(member);
+  if (!qualifies(settings, rating, member)) return null;
+
+  const customerReferralLinks = require('./customerReferralLinks');
+  const { getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
+  const cta = ctaCopy(settings);
+  let url = '';
+  let name = '';
+  let preview = false;
+
+  if (ask && network && member && ask.networkId === network.id && ask.memberId === member.id) {
+    name = clean(ask.name, 120);
+    const customerId = clean(ask.customerId, 40) || `ask:${String(ask.id || '').trim()}`;
+    if (customerId) {
+      try {
+        const minted = await customerReferralLinks.ensureAdvocateLink({
+          networkId: network.id,
+          memberId: member.id,
+          customerId,
+          name: ask.name,
+          phone: ask.phone,
+          email: ask.email,
+          askId: ask.id,
+        });
+        if (minted && minted.ok && minted.url) url = minted.url;
+      } catch (err) {
+        console.warn('[review-reward] public share mint failed:', err && err.message);
+      }
+    }
+  }
+
+  if (!url && previewMode) {
+    preview = true;
+    url = `${getReviewPublicBaseUrl()}/rf/your-link`;
+  }
+  if (!url) return null;
+
+  const smsText = customerReferralLinks.shareSmsText({
+    company: member.companyName,
+    name: name || 'there',
+    url,
+    reward: settings.rewardLabel,
+    script: customerReferralLinks.shareScriptFromMember(member),
+  });
+
+  return {
+    url,
+    rewardLabel: settings.rewardLabel,
+    rewardType: settings.rewardType,
+    eyebrow: cta.eyebrow,
+    headline: cta.headline,
+    buttonLabel: cta.buttonLabel,
+    smsText,
+    preview,
+  };
+}
+
 module.exports = {
   DEFAULT_SCRIPT,
   normalizeSettings,
@@ -93,4 +193,6 @@ module.exports = {
   qualifies,
   fillScript,
   buildCustomerMessage,
+  ctaCopy,
+  buildPublicShareOffer,
 };

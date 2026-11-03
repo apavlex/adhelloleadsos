@@ -3479,6 +3479,17 @@ async function renderReviewPreview(req, res, ctx, { rating, thanks, error, formV
   const member = await ensureReviewSetup(ctx);
   const pageBase = `${ctx.base}/review/preview`;
   const logoUrl = reviewShareImage.requestPageLogoUrl(member, ctx.brand);
+  const gate = reviewPage.reviewGate(rating);
+  let referralShare = null;
+  if (!thanks && gate.stage === 'happy') {
+    referralShare = await reviewReferralReward.buildPublicShareOffer({
+      member,
+      network: ctx.network,
+      rating: gate.rating,
+      ask: null,
+      previewMode: true,
+    });
+  }
   noStore(res);
   return res.status(status || 200).render('review_public', {
     network: ctx.network,
@@ -3489,12 +3500,13 @@ async function renderReviewPreview(req, res, ctx, { rating, thanks, error, formV
     pageBase,
     previewMode: true,
     previewBack: `${ctx.base}/review`,
-    gate: reviewPage.reviewGate(rating),
+    gate,
     destinations: reviewPage.reviewDestinations(member.reviewLinks, member.reviewSlug),
     thanks: !!thanks,
     error: error || '',
     formValues: formValues || {},
     icons: ICONS,
+    referralShare,
   });
 }
 
