@@ -169,6 +169,7 @@ describe('member app install modal and tab bar', () => {
     const customer = fs.readFileSync(path.join(root, 'views/member_app/customer.ejs'), 'utf8');
     assert.match(customer, /Photos &amp; notes|Photos & notes/);
     assert.match(customer, /_photo_capture/);
+    assert.match(customer, /_measure_room/);
     assert.match(customer, /customers\/c\/.*\/photos/);
     assert.match(customer, /icons\.completed.*Save changes|Save changes/);
     assert.match(customer, /googleMapsSearchUrl/);
@@ -219,21 +220,35 @@ describe('member app install modal and tab bar', () => {
     assert.match(capture, /data-ma-photo-note-grip/);
     const job = fs.readFileSync(path.join(root, 'views/member_app/job.ejs'), 'utf8');
     assert.match(job, /_photo_capture/);
+    assert.match(job, /_measure_room/);
     assert.doesNotMatch(job, /maps\.apple\.com/);
+    const measure = fs.readFileSync(path.join(root, 'views/member_app/_measure_room.ejs'), 'utf8');
+    assert.match(measure, /data-ma-measure/);
+    assert.match(measure, /data-ma-measure-launch/);
+    assert.match(measure, /data-ma-measure-attach/);
+    assert.match(measure, /Measure room/);
+    assert.match(icons, /measure:\s*icon\(/);
+    const quote = fs.readFileSync(path.join(root, 'views/member_app/quote.ejs'), 'utf8');
+    assert.match(quote, /_measure_room/);
+    assert.match(quote, /measureField:\s*'#mqMeasure'/);
     const photoJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     assert.match(photoJs, /function initPhotoCapture/);
+    assert.match(photoJs, /function initMeasureRoom/);
+    assert.match(photoJs, /magicplan|Open measure app|support\.apple\.com.*measure/i);
     assert.match(photoJs, /setAttribute\('capture'/);
     assert.match(photoJs, /appendChild\(sheet\)/);
     assert.match(photoJs, /ma-photo-open/);
     assert.match(photoJs, /bindNoteResize|data-ma-photo-note-grip/);
+    assert.match(photoCss, /\.ma-measure-chip/);
   });
 
-  it('service worker network-firsts versioned CSS so deploys are not stuck', () => {
+  it('service worker cache-firsts versioned CSS/JS (?v= busts on deploy)', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
     const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).version;
     assert.match(sw, new RegExp(`adhello-pwa-v${version.replace(/\./g, '\\.')}`));
-    assert.match(sw, /searchParams\.has\('v'\)/);
-    assert.match(sw, /versioned/);
+    assert.match(sw, /Cache-first for everything shell-related/);
+    assert.match(sw, /\?v=/);
+    assert.match(sw, /caches\.match\(req\)/);
   });
 
   it('multipart forms show a Saving loading state on submit', () => {

@@ -204,6 +204,7 @@
       <p class="ma-hint" style="margin:0 0 12px">Document the job site with pictures — before, during, or after.</p>
       <% } %>
       <% if ((job.photos || []).length < (maxJobPhotos || 12)) { %>
+      <%- include('_measure_room') %>
       <%- include('_photo_capture', {
         formId: 'jbPhoto',
         action: base + '/customers/jobs/' + job.id + '/photos',

@@ -1,0 +1,59 @@
+<%
+  /* Link out to the phone’s Measure / AR measure app, then attach a screenshot + note.
+     Locals (optional):
+       photoCaptureRoot — CSS selector for the nearby [data-ma-photo-capture] (default: closest)
+       measureField — CSS selector for a textarea to receive dimension notes (e.g. quote #mqMeasure)
+       compact — if true, render a smaller secondary button
+  */
+  const _compact = typeof compact !== 'undefined' && compact;
+  const _photoSel = typeof photoCaptureRoot !== 'undefined' && photoCaptureRoot ? String(photoCaptureRoot) : '';
+  const _measureField = typeof measureField !== 'undefined' && measureField ? String(measureField) : '';
+%>
+<div
+  class="ma-measure<%= _compact ? ' ma-measure--compact' : '' %>"
+  data-ma-measure
+  <% if (_photoSel) { %>data-ma-measure-photo="<%= _photoSel %>"<% } %>
+  <% if (_measureField) { %>data-ma-measure-field="<%= _measureField %>"<% } %>
+>
+  <button type="button" class="ma-btn <%= _compact ? 'ma-btn--soft ma-btn--sm' : 'ma-btn--soft ma-btn--block' %>" data-ma-measure-open>
+    <%- icons.measure %> Measure room
+  </button>
+
+  <div class="ma-photo-modal" data-ma-measure-sheet hidden role="dialog" aria-modal="true" aria-labelledby="maMeasureTitle">
+    <div class="ma-photo-sheet ma-measure-sheet">
+      <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-measure-close>&times;</button>
+      <h2 id="maMeasureTitle">Measure room</h2>
+      <p class="ma-photo-lead" data-ma-measure-lead>
+        Open your phone’s measure app, capture the room, screenshot the dimensions, then attach the photo here with a short note.
+      </p>
+
+      <ol class="ma-measure-steps" data-ma-measure-steps>
+        <li>Open the measure app on this phone</li>
+        <li>Measure the room (or wall / run)</li>
+        <li>Screenshot the result</li>
+        <li>Come back and attach it with a note</li>
+      </ol>
+
+      <p class="ma-hint ma-measure-status" data-ma-measure-status role="status" aria-live="polite"></p>
+
+      <div class="ma-measure-chips" aria-label="Note starters">
+        <button type="button" class="ma-measure-chip" data-ma-measure-chip="Living room · ">Living</button>
+        <button type="button" class="ma-measure-chip" data-ma-measure-chip="Kitchen · ">Kitchen</button>
+        <button type="button" class="ma-measure-chip" data-ma-measure-chip="Bath · ">Bath</button>
+        <button type="button" class="ma-measure-chip" data-ma-measure-chip="Bedroom · ">Bedroom</button>
+        <button type="button" class="ma-measure-chip" data-ma-measure-chip="Hall · ">Hall</button>
+        <button type="button" class="ma-measure-chip" data-ma-measure-chip="L × W · ">L × W</button>
+      </div>
+
+      <div class="ma-photo-actions">
+        <button type="button" class="ma-btn ma-btn--block" data-ma-measure-launch>
+          <%- icons.measure %> Open measure app
+        </button>
+        <button type="button" class="ma-btn ma-btn--soft ma-btn--block" data-ma-measure-attach>
+          <%- icons.camera %> Attach screenshot &amp; note
+        </button>
+        <button type="button" class="ma-btn ma-btn--ghost ma-btn--block" data-ma-measure-close>Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
