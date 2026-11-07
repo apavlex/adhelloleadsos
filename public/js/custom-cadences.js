@@ -207,7 +207,27 @@
       return;
     }
     try {
-      if (t.classList.contains('cc-delete')) {
+      if (t.classList.contains('cc-build-ghl')) {
+        var buildId = cardId(t);
+        var prevLabel = t.textContent;
+        t.disabled = true;
+        t.textContent = 'Building…';
+        try {
+          var built = await post('/sequences/custom/' + encodeURIComponent(buildId) + '/create-ghl-workflow', {});
+          if (built.prompt && navigator.clipboard && navigator.clipboard.writeText) {
+            try { await navigator.clipboard.writeText(built.prompt); } catch (_) {}
+          }
+          say(built.message || (built.mode === 'api' ? 'Draft created in GHL.' : 'Prompt ready for Workflow AI Builder.'), true);
+          if (built.openUrl) window.open(built.openUrl, '_blank', 'noopener');
+          if (built.mode === 'api') {
+            setTimeout(function () { window.location.reload(); }, 800);
+            return;
+          }
+        } finally {
+          t.disabled = false;
+          t.textContent = prevLabel || 'Build workflow in GHL';
+        }
+      } else if (t.classList.contains('cc-delete')) {
         var c = cadences.find(function (x) { return x.id === cardId(t); });
         if (!window.confirm('Delete "' + (c ? c.name : 'this cadence') + '"? Leads already on it keep their GHL tag until you stop them.')) return;
         await post('/sequences/custom/' + encodeURIComponent(cardId(t)) + '/delete');

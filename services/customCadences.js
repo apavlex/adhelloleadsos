@@ -397,6 +397,7 @@ module.exports = {
   markGhlSetup,
   tagNameFor,
   buildGhlPrompt,
+  toGhlMerge,
   stepSummary,
   launchCadence,
   stopCadenceForLead,

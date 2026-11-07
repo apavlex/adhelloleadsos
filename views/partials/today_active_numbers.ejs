@@ -1,0 +1,62 @@
+<%
+  const _leadRows = Array.isArray(leadRows) ? leadRows : [];
+  const _teamRows = Array.isArray(teamRows) ? teamRows : [];
+  function _n(row) { return Number(row && row.count) || 0; }
+  function _hot(kind, row) {
+    return kind === 'team' && row && row.id === 'overdue' && _n(row) > 0;
+  }
+  function _openTotal(kind, rows) {
+    if (kind === 'team') {
+      const stage = rows.find(function (s) {
+        return s && (s.id === 'open' || String(s.label || '').toLowerCase() === 'open');
+      });
+      if (stage) return _n(stage);
+    }
+    return rows.reduce(function (sum, row) { return sum + _n(row); }, 0);
+  }
+  const _groups = [
+    { kind: 'lead', title: 'Lead', rows: _leadRows },
+    { kind: 'team', title: 'Team', rows: _teamRows },
+  ].filter(function (g) { return g.rows.length; });
+%>
+<% if (_groups.length) { %>
+<section class="today-viz today-viz-reveal mb-8 md:mb-10" aria-label="Lead and team sources">
+  <div class="flex items-baseline justify-between gap-3 mb-3">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Active numbers</p>
+    <a href="/network?tab=calendar" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:underline shrink-0">Calendar</a>
+  </div>
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden">
+    <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+      <% _groups.forEach(function (g) {
+        const total = _openTotal(g.kind, g.rows);
+        const groupHot = g.rows.some(function (s) { return _hot(g.kind, s); });
+      %>
+      <li class="px-4 md:px-6">
+        <details class="today-sources group<%= groupHot ? ' is-hot' : '' %>" data-source-kind="<%= g.kind %>">
+          <summary class="cursor-pointer list-none py-4 flex items-center gap-3 [&::-webkit-details-marker]:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow rounded-xl">
+            <span class="min-w-0 flex-1">
+              <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow"><%= g.title %></span>
+              <span class="block text-sm font-bold text-brand-dark dark:text-white mt-0.5 tabular-nums">
+                <span data-open-count="<%= total %>"><%= total %></span> open
+              </span>
+            </span>
+            <span class="text-brand-muted text-sm shrink-0 today-sources-chevron" aria-hidden="true">▼</span>
+          </summary>
+          <div class="pb-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+              <% g.rows.forEach(function (s) { %>
+              <a href="<%= s.href || '#' %>" class="rounded-2xl border <%= _hot(g.kind, s) ? 'border-rose-300/60 dark:border-rose-400/40' : 'border-brand-border dark:border-white/10' %> bg-white dark:bg-slate-900 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0">
+                <p class="font-display font-extrabold text-2xl tabular-nums text-brand-dark dark:text-white leading-none mb-1"><%= _n(s) %></p>
+                <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.label %></p>
+                <p class="text-[11px] font-semibold text-brand-muted truncate mt-0.5"><%= s.hint || '' %></p>
+              </a>
+              <% }); %>
+            </div>
+          </div>
+        </details>
+      </li>
+      <% }); %>
+    </ul>
+  </div>
+</section>
+<% } %>
