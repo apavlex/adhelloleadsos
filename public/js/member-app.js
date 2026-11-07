@@ -618,6 +618,46 @@
     var countEl = countSel ? document.querySelector(countSel) : null;
     var collected = [];
 
+    var roomSelect = form.querySelector('[data-ma-photo-room]');
+    var roomCustomWrap = form.querySelector('[data-ma-photo-room-custom]');
+    var roomCustomInput = form.querySelector('[data-ma-photo-room-custom-input]');
+    var captionEl = form.querySelector('[name="caption"]');
+
+    function roomLabel() {
+      if (!roomSelect) return '';
+      var v = String(roomSelect.value || '');
+      if (v === '__custom__') {
+        return String((roomCustomInput && roomCustomInput.value) || '').trim();
+      }
+      return v.trim();
+    }
+
+    /** Keep freeform note text; swap/add the leading "Room · " prefix from the picker. */
+    function applyRoomToCaption() {
+      if (!captionEl) return;
+      var room = roomLabel();
+      var raw = String(captionEl.value || '');
+      var rest = raw;
+      // Strip a prior room / Measure prefix we (or Measure room) may have set.
+      rest = rest.replace(/^(Measure\s*·\s*)+/i, '');
+      rest = rest.replace(/^[^·\n]{1,60}\s*·\s*/, '');
+      rest = rest.replace(/^\s+/, '');
+      if (!room) {
+        captionEl.value = rest;
+        return;
+      }
+      captionEl.value = rest ? (room + ' · ' + rest) : (room + ' · ');
+    }
+
+    function syncRoomCustomVisibility() {
+      if (!roomSelect || !roomCustomWrap) return;
+      var custom = roomSelect.value === '__custom__';
+      roomCustomWrap.hidden = !custom;
+      if (custom && roomCustomInput) {
+        setTimeout(function () { roomCustomInput.focus(); }, 40);
+      }
+    }
+
     function openSheet() {
       // Portal to <body> so the sheet isn’t trapped under the fixed tab bar /
       // Review FAB (main can create a lower stacking context on iOS).
@@ -625,8 +665,9 @@
       sheet.hidden = false;
       document.documentElement.style.overflow = 'hidden';
       document.body.classList.add('ma-photo-open');
-      var cap = form.querySelector('[name="caption"]');
-      if (cap) setTimeout(function () { cap.focus(); }, 50);
+      syncRoomCustomVisibility();
+      var focusEl = roomSelect || captionEl;
+      if (focusEl) setTimeout(function () { focusEl.focus(); }, 50);
     }
     function closeSheet() {
       sheet.hidden = true;
@@ -634,6 +675,21 @@
       document.body.classList.remove('ma-photo-open');
       if (sheet.parentNode !== root) root.appendChild(sheet);
       try { file.value = ''; } catch (e) { /* ignore */ }
+      if (roomSelect) roomSelect.value = '';
+      if (roomCustomInput) roomCustomInput.value = '';
+      if (roomCustomWrap) roomCustomWrap.hidden = true;
+    }
+
+    if (roomSelect) {
+      roomSelect.addEventListener('change', function () {
+        syncRoomCustomVisibility();
+        applyRoomToCaption();
+      });
+    }
+    if (roomCustomInput) {
+      roomCustomInput.addEventListener('input', function () {
+        applyRoomToCaption();
+      });
     }
 
     function syncCollectInput() {

@@ -212,9 +212,14 @@ describe('member app install modal and tab bar', () => {
     assert.match(capture, /<textarea[\s\S]*name="caption"/);
     assert.match(capture, /maxlength="500"/);
     assert.match(capture, /ma-photo-note__input/);
+    assert.match(capture, /data-ma-photo-room/);
+    assert.match(capture, /Add custom room/);
+    assert.match(capture, /data-ma-photo-room-custom/);
+    assert.match(capture, /Living room/);
     const photoCss = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(photoCss, /\.ma-photo-note__input/);
     assert.match(photoCss, /\.ma-photo-note__grip/);
+    assert.match(photoCss, /\.ma-photo-room__select/);
     assert.match(photoCss, /tabbar-fab-overhang/);
     assert.match(photoCss, /body\.ma-photo-open\s+\.ma-tabbar/);
     assert.match(capture, /data-ma-photo-note-grip/);
@@ -234,6 +239,7 @@ describe('member app install modal and tab bar', () => {
     const photoJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     assert.match(photoJs, /function initPhotoCapture/);
     assert.match(photoJs, /function initMeasureRoom/);
+    assert.match(photoJs, /applyRoomToCaption|data-ma-photo-room/);
     assert.match(photoJs, /magicplan|Open measure app|How to open Measure/i);
     assert.doesNotMatch(photoJs, /window\.open\(\s*['"]https:\/\/support\.apple\.com/);
     assert.match(photoJs, /setAttribute\('capture'/);
