@@ -234,7 +234,8 @@ describe('member app install modal and tab bar', () => {
     const photoJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
     assert.match(photoJs, /function initPhotoCapture/);
     assert.match(photoJs, /function initMeasureRoom/);
-    assert.match(photoJs, /magicplan|Open measure app|support\.apple\.com.*measure/i);
+    assert.match(photoJs, /magicplan|Open measure app|How to open Measure/i);
+    assert.doesNotMatch(photoJs, /window\.open\(\s*['"]https:\/\/support\.apple\.com/);
     assert.match(photoJs, /setAttribute\('capture'/);
     assert.match(photoJs, /appendChild\(sheet\)/);
     assert.match(photoJs, /ma-photo-open/);

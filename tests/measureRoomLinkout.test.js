@@ -33,7 +33,9 @@ describe('measure room link-out', () => {
     assert.match(js, /iPad\|iPhone\|iPod/);
     assert.match(js, /Android/);
     assert.match(js, /magicplan/);
-    assert.match(js, /support\.apple\.com/);
+    // iOS cannot deep-link into Measure — stay in-app with tips (never open an external guide).
+    assert.doesNotMatch(js, /window\.open\(\s*['"]https:\/\/support\.apple\.com/);
+    assert.match(js, /How to open Measure|Apple Measure can’t be opened|doesn’t allow apps to open Measure/);
     assert.match(js, /data-ma-photo-open/);
     assert.match(js, /_maMeasureNotePrefix|Measure · /);
   });

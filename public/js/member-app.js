@@ -806,16 +806,15 @@
       var p = platform();
       var lead = root.querySelector('[data-ma-measure-lead]');
       if (p === 'ios') {
+        // Apple Measure has no public URL scheme — keep tips in-sheet; do not navigate away.
         if (lead) {
           lead.textContent =
-            'Use the built-in Measure app (black ruler icon). Screenshot the dimensions, then come back and attach the photo with a note.';
+            'Apple doesn’t allow apps to open Measure directly. Leave AdHello for a moment, open Measure yourself, then come back to attach the screenshot.';
         }
-        setStatus(root, 'Tip: swipe to Measure, or search “Measure” on your Home Screen.');
-        // No reliable public URL scheme for Apple Measure — leave the user in-app with tips.
-        // Soft nudge: open Apple’s Measure support page in a new tab when possible.
-        try {
-          window.open('https://support.apple.com/guide/iphone/measure-dimensions-with-the-measure-app-iph0ec1c3bfd/ios', '_blank', 'noopener');
-        } catch (_) { /* ignore */ }
+        setStatus(
+          root,
+          'On iPhone: go Home → swipe down → type “Measure” → open the black ruler app → screenshot → return here.'
+        );
         return;
       }
       if (p === 'android') {
@@ -835,6 +834,48 @@
           'On a phone, open Measure (iPhone) or an AR measure app (Android), screenshot the result, then attach it here.';
       }
       setStatus(root, 'Open this page on your phone to launch the measure app.');
+    }
+
+    function tuneSheetForPlatform(root) {
+      var p = platform();
+      var launch = root.querySelector('[data-ma-measure-launch]');
+      var launchLabel = root.querySelector('[data-ma-measure-launch-label]');
+      var attach = root.querySelector('[data-ma-measure-attach]');
+      var step1 = root.querySelector('[data-ma-measure-step="1"]');
+      var lead = root.querySelector('[data-ma-measure-lead]');
+      if (p === 'ios') {
+        if (lead) {
+          lead.textContent =
+            'Apple Measure can’t be opened from Safari. Open it from your Home Screen, screenshot the dimensions, then attach the photo here.';
+        }
+        if (step1) {
+          step1.textContent = 'Go Home → search “Measure” (black ruler icon) and open it';
+        }
+        if (launchLabel) launchLabel.textContent = 'How to open Measure';
+        if (launch) {
+          launch.classList.remove('ma-btn');
+          launch.classList.add('ma-btn', 'ma-btn--soft', 'ma-btn--block');
+        }
+        if (attach) {
+          attach.classList.remove('ma-btn--soft');
+          attach.classList.add('ma-btn', 'ma-btn--block');
+        }
+        setStatus(root, 'Tip: Measure is built into iPhone — it won’t open from this button.');
+        return;
+      }
+      if (launchLabel) launchLabel.textContent = 'Open measure app';
+      if (launch) {
+        launch.classList.remove('ma-btn--soft');
+        launch.classList.add('ma-btn', 'ma-btn--block');
+      }
+      if (attach) {
+        attach.classList.add('ma-btn--soft');
+      }
+      if (step1) step1.textContent = 'Open the measure app on this phone';
+      if (p === 'android' && lead) {
+        lead.textContent =
+          'Open your AR measure app, capture the room, screenshot it, then attach the photo with a short note.';
+      }
     }
 
     function findPhotoCapture(root) {
@@ -896,21 +937,15 @@
     function openSheet(root) {
       var sheet = root.querySelector('[data-ma-measure-sheet]');
       if (!sheet) return;
-      var p = platform();
-      var lead = root.querySelector('[data-ma-measure-lead]');
-      if (lead) {
-        if (p === 'ios') {
-          lead.textContent =
-            'Open Measure on this iPhone, capture the room, screenshot the dimensions, then attach the photo with a short note.';
-        } else if (p === 'android') {
-          lead.textContent =
-            'Open your AR measure app, capture the room, screenshot it, then attach the photo with a short note.';
-        } else {
+      tuneSheetForPlatform(root);
+      if (platform() === 'other') {
+        var lead = root.querySelector('[data-ma-measure-lead]');
+        if (lead) {
           lead.textContent =
             'On a phone, open Measure (iPhone) or an AR measure app (Android), screenshot the result, then attach it here.';
         }
+        setStatus(root, '');
       }
-      setStatus(root, '');
       if (sheet.parentNode !== document.body) document.body.appendChild(sheet);
       sheet.hidden = false;
       document.documentElement.style.overflow = 'hidden';

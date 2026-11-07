@@ -28,10 +28,10 @@
       </p>
 
       <ol class="ma-measure-steps" data-ma-measure-steps>
-        <li>Open the measure app on this phone</li>
-        <li>Measure the room (or wall / run)</li>
-        <li>Screenshot the result</li>
-        <li>Come back and attach it with a note</li>
+        <li data-ma-measure-step="1">Open the measure app on this phone</li>
+        <li data-ma-measure-step="2">Measure the room (or wall / run)</li>
+        <li data-ma-measure-step="3">Screenshot the result</li>
+        <li data-ma-measure-step="4">Come back and attach it with a note</li>
       </ol>
 
       <p class="ma-hint ma-measure-status" data-ma-measure-status role="status" aria-live="polite"></p>
@@ -47,7 +47,7 @@
 
       <div class="ma-photo-actions">
         <button type="button" class="ma-btn ma-btn--block" data-ma-measure-launch>
-          <%- icons.measure %> Open measure app
+          <%- icons.measure %> <span data-ma-measure-launch-label>Open measure app</span>
         </button>
         <button type="button" class="ma-btn ma-btn--soft ma-btn--block" data-ma-measure-attach>
           <%- icons.camera %> Attach screenshot &amp; note
