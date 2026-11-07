@@ -10,6 +10,8 @@
     <% const _summary = typeof summary !== 'undefined' && summary ? summary : { total: 0, newCount: 0, unreplied: 0, withDraft: 0 }; %>
     <% const _settings = typeof settings !== 'undefined' && settings ? settings : { query: '', businessName: '', autoSync: true }; %>
     <% const _reviews = Array.isArray(reviews) ? reviews : []; %>
+    <% const _reviewsTotal = typeof reviewsTotal === 'number' ? reviewsTotal : _reviews.length; %>
+    <% const _inboxTruncated = typeof inboxTruncated !== 'undefined' && !!inboxTruncated; %>
     <% const _outConfigured = typeof outscraperConfigured !== 'undefined' && outscraperConfigured; %>
     <% const _contact = typeof contact !== 'undefined' && contact ? contact : { url: '', email: 'hello@adhello.ai', label: 'Book a call' }; %>
     <% const _focus = typeof focusReviewId !== 'undefined' ? String(focusReviewId || '') : ''; %>
@@ -119,9 +121,14 @@
 
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white">Inbox<% if (_summary.placeName) { %> <span class="text-brand-muted font-semibold text-sm">· <%= _summary.placeName %></span><% } %></h2>
-      <% if (_summary.newCount) { %>
-      <button type="button" id="brMarkSeenBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow">Mark all seen</button>
-      <% } %>
+      <div class="flex flex-wrap items-center gap-3">
+        <p class="text-[11px] font-semibold text-brand-muted tabular-nums">
+          <%= _inboxTruncated ? ('Showing ' + _reviews.length + ' of ' + _reviewsTotal) : (_reviewsTotal + ' review' + (_reviewsTotal === 1 ? '' : 's')) %>
+        </p>
+        <% if (_summary.newCount) { %>
+        <button type="button" id="brMarkSeenBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow">Mark all seen</button>
+        <% } %>
+      </div>
     </div>
 
     <% if (!_reviews.length) { %>
@@ -177,6 +184,11 @@
         </li>
         <% }); %>
       </ul>
+      <% if (_inboxTruncated) { %>
+      <p class="px-5 sm:px-6 py-4 text-xs text-brand-muted border-t border-brand-border/40 dark:border-white/10">
+        Showing the <%= _reviews.length %> most recent of <%= _reviewsTotal %> synced reviews so this page stays fast. Sync still keeps the full set.
+      </p>
+      <% } %>
     </section>
     <% } %>
 

@@ -17,28 +17,22 @@ function baseUrlFromReq(req) {
 
 /** Cap SSR inbox cards — huge imports + one textarea each froze mobile Safari. */
 const INBOX_SSR_LIMIT = 40;
+const INBOX_JSON_LIMIT = 100;
 
 async function pageLocals(req, { inboxLimit = null } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-  let bundle = await seoQaStore.ensurePublicToken(req.workspaceId);
-  // Only seed a real name. Saving '' every GET rewrote the whole workspace doc and
-  // lagged/froze /seo-qa uniquely (other SEO tabs do not write on read).
-  if (!String(bundle.settings.businessName || '').trim()) {
-    const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
-    const seedName = String(intake.businessName || ws.name || '').trim();
-    if (seedName) {
-      bundle = await seoQaStore.save(req.workspaceId, {
-        settings: {
-          ...bundle.settings,
-          businessName: seedName,
-        },
-        questions: bundle.questions,
-      });
-    }
-  }
+  // Ensure token once if missing (unavoidable write). Never seed businessName on GET —
+  // rewriting the whole workspace doc on every visit froze this tab.
+  const bundle = await seoQaStore.ensurePublicToken(req.workspaceId);
+  const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
+  const seedName = String(intake.businessName || ws.name || '').trim();
+  const settings = {
+    ...bundle.settings,
+    businessName: String(bundle.settings.businessName || '').trim() || seedName,
+  };
   const allQuestions = seoQaStore.listQuestions(bundle);
   const summary = seoQaStore.inboxSummary(bundle);
-  const token = bundle.settings.publicToken;
+  const token = settings.publicToken;
   const origin = baseUrlFromReq(req);
   const feedUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/feed.json` : '';
   const submitUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/questions` : '';
@@ -58,7 +52,7 @@ async function pageLocals(req, { inboxLimit = null } = {}) {
   return {
     title: 'Q&A Pages',
     activePage: 'seo-qa',
-    settings: bundle.settings,
+    settings,
     questions,
     questionsTotal: allQuestions.length,
     inboxTruncated,
@@ -90,12 +84,16 @@ router.get('/', async (req, res, next) => {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req);
+    const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
+    const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, Math.floor(limitRaw))) : INBOX_JSON_LIMIT;
+    const locals = await pageLocals(req, { inboxLimit: limit });
     res.json({
       success: true,
       settings: locals.settings,
       summary: locals.summary,
       questions: locals.questions,
+      questionsTotal: locals.questionsTotal,
+      inboxTruncated: locals.inboxTruncated,
       feedUrl: locals.feedUrl,
       submitUrl: locals.submitUrl,
     });
