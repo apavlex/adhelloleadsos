@@ -10,6 +10,7 @@ const teamActivity = require('../services/teamActivity');
 const { filterTemplatesForWorkspace } = require('../services/auditCadenceGuard');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlSync = require('../services/ghlSync');
+const ghlWorkflowBuilder = require('../services/ghlWorkflowBuilder');
 const prospectingEnroll = require('../services/prospectingEnroll');
 const {
   getActiveAutoOutreachSummary,
@@ -170,6 +171,24 @@ router.post('/custom/:id/ghl-ready', async (req, res, next) => {
     if (!result.ok) return res.status(404).json({ success: false, error: result.error });
     res.json({ success: true, cadence: result.cadence });
   } catch (e) {
+    next(e);
+  }
+});
+
+/** Create a draft GHL workflow for a custom cadence (Workflows API or prompt fallback). */
+router.post('/custom/:id/create-ghl-workflow', express.json(), async (req, res, next) => {
+  try {
+    if (!requireManager(req, res)) return;
+    const publish = !!(req.body && req.body.publish);
+    const result = await ghlWorkflowBuilder.buildCadenceWorkflow(req.workspaceId, req.params.id, { publish });
+    res.json({ success: true, ...result });
+  } catch (e) {
+    if (e && e.code === 'GHL_NOT_CONFIGURED') {
+      return res.status(400).json({ success: false, error: e.message, code: e.code });
+    }
+    if (e && e.code === 'NOT_FOUND') {
+      return res.status(404).json({ success: false, error: e.message, code: e.code });
+    }
     next(e);
   }
 });
