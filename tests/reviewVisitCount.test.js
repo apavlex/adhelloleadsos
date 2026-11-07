@@ -101,9 +101,14 @@ test('Home banner shows open jobs as projects; secondary is customers + visits',
     assert.doesNotMatch(html, /open jobs/i);
     assert.match(html, /22\s*review visits/i);
     // First tile is Leads; open-job count is only on the hero.
+    // Sent tile is Reviews (visit count) → /review.
     assert.match(html, /ma-tile__label">Leads</i);
     assert.doesNotMatch(html, /ma-tile__label">Open jobs</i);
-    assert.doesNotMatch(html, /ma-tile__label">Review visits</i);
+    assert.doesNotMatch(html, /ma-tile__label">Sent</i);
+    assert.match(
+      html,
+      /href="[^"]*\/review"[^>]*>[\s\S]*?ma-tile__value">\s*22\s*<\/p>\s*<p class="ma-tile__label">Reviews</i
+    );
 
     const page = await fetch(`${base}/rv/visit-pros`);
     assert.equal(page.status, 200);

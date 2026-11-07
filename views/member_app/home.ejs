@@ -110,7 +110,7 @@
       <% } else { %>
       <% tiles.forEach(function (t) { %>
       <a class="ma-tile" href="<%= t.href %>">
-        <span class="ma-tile__icon"><%- icons[t.icon || (t.key === 'sent' ? 'send' : t.key)] || icons.review %></span>
+        <span class="ma-tile__icon"><%- icons[t.icon || t.key] || icons.review %></span>
         <p class="ma-tile__value"><%= t.value %></p>
         <p class="ma-tile__label"><%= t.label %></p>
       </a>
