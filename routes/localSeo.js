@@ -6,7 +6,7 @@ const express = require('express');
 const dataForSeo = require('../services/dataForSeoClient');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const localSeoStore = require('../services/localSeoStore');
-const { syncLocalSeo } = require('../services/localSeoSync');
+const { syncLocalSeo, startLocalSeoSyncAsync } = require('../services/localSeoSync');
 const { generateLocalActionPlan } = require('../services/localSeoPlanner');
 const { askLocalSeoChat } = require('../services/localSeoChat');
 const { defaultKeywords, enrichKeywords } = require('../services/localSeoParse');
@@ -41,7 +41,10 @@ router.get('/', async (req, res, next) => {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const bundle = await localSeoStore.load(req.workspaceId);
     const profile = localSeoStore.resolveBusinessProfile(bundle.workspace, bundle.profile);
-    profile.keywords = enrichKeywords({ ...profile, keywords: profile.keywords.length ? profile.keywords : defaultKeywords(profile) });
+    profile.keywords = enrichKeywords({
+      ...profile,
+      keywords: profile.keywords.length ? profile.keywords : defaultKeywords(profile),
+    });
     res.render('local_seo', {
       title: 'Local SEO Rank | Agency OS',
       activePage: 'local-seo',
@@ -52,6 +55,7 @@ router.get('/', async (req, res, next) => {
       chat: bundle.chat || [],
       syncStatus: bundle.syncStatus,
       lastSyncedAt: bundle.lastSyncedAt,
+      syncProgress: bundle.syncProgress || localSeoStore.emptySyncProgress(),
       flashError: null,
     });
   } catch (err) {
@@ -72,6 +76,7 @@ router.post('/profile', express.json(), async (req, res) => {
   }
 });
 
+/** Legacy synchronous sync (kept for API clients that wait for the full result). */
 router.post('/sync', express.json(), async (req, res) => {
   try {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
@@ -80,12 +85,26 @@ router.post('/sync', express.json(), async (req, res) => {
       if (profilePatch[k] === undefined) delete profilePatch[k];
     });
 
+    const wantAsync = req.body && (req.body.async === true || req.body.async === '1' || req.query.async === '1');
+    if (wantAsync) {
+      const job = await startLocalSeoSyncAsync(req.workspaceId, {
+        integrationEnv,
+        profilePatch,
+      });
+      return res.json({
+        success: true,
+        async: true,
+        started: job.started,
+        alreadyRunning: job.alreadyRunning,
+        syncProgress: job.syncProgress,
+      });
+    }
+
     const updated = await syncLocalSeo(req.workspaceId, {
       integrationEnv,
       profilePatch,
       persist: true,
     });
-    // Auto-generate action plan after a successful sync so the page isn't empty.
     let actionPlan = null;
     try {
       actionPlan = await generateLocalActionPlan(updated.research, { integrationEnv });
@@ -112,6 +131,23 @@ router.post('/sync', express.json(), async (req, res) => {
       success: false,
       error: err && err.message ? err.message : 'Sync failed',
       code: err && err.code,
+    });
+  }
+});
+
+router.get('/sync/progress', async (req, res) => {
+  try {
+    const bundle = await localSeoStore.load(req.workspaceId);
+    return res.json({
+      success: true,
+      syncStatus: bundle.syncStatus,
+      lastSyncedAt: bundle.lastSyncedAt,
+      syncProgress: bundle.syncProgress || localSeoStore.emptySyncProgress(),
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'Progress failed',
     });
   }
 });

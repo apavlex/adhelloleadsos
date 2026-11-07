@@ -5,6 +5,7 @@
 
 const dbService = require('./database');
 const { buildLocationName } = require('./localSeoParse');
+const { emptySyncProgress } = require('./localSeoProgress');
 
 function emptyLocalSeo(workspaceId) {
   return {
@@ -15,6 +16,7 @@ function emptyLocalSeo(workspaceId) {
     chat: [],
     lastSyncedAt: null,
     syncStatus: 'new',
+    syncProgress: emptySyncProgress(),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -32,6 +34,10 @@ async function load(workspaceId) {
     workspaceId: wid,
     profile: raw.profile && typeof raw.profile === 'object' ? raw.profile : {},
     chat: Array.isArray(raw.chat) ? raw.chat : [],
+    syncProgress:
+      raw.syncProgress && typeof raw.syncProgress === 'object'
+        ? { ...emptySyncProgress(), ...raw.syncProgress }
+        : emptySyncProgress(),
     workspace: ws,
   };
 }
@@ -49,10 +55,36 @@ async function save(workspaceId, patch) {
       ...((patch && patch.profile) || {}),
     },
     chat: Array.isArray(patch && patch.chat) ? patch.chat : prev.chat || [],
+    syncProgress:
+      patch && patch.syncProgress && typeof patch.syncProgress === 'object'
+        ? { ...emptySyncProgress(), ...(prev.syncProgress || {}), ...patch.syncProgress }
+        : prev.syncProgress && typeof prev.syncProgress === 'object'
+          ? prev.syncProgress
+          : emptySyncProgress(),
     updatedAt: new Date().toISOString(),
   };
   await dbService.saveWorkspace(wid, { ...ws, id: wid, localSeo: next });
   return { ...next, workspace: { ...ws, localSeo: next } };
+}
+
+async function patchSyncProgress(workspaceId, progressPatch) {
+  const wid = String(workspaceId || '').trim();
+  const ws = (await dbService.getWorkspace(wid)) || { id: wid };
+  const prev = ws.localSeo && typeof ws.localSeo === 'object' ? ws.localSeo : emptyLocalSeo(wid);
+  const syncProgress = {
+    ...emptySyncProgress(),
+    ...(prev.syncProgress || {}),
+    ...(progressPatch || {}),
+    updatedAt: new Date().toISOString(),
+  };
+  const next = {
+    ...prev,
+    workspaceId: wid,
+    syncProgress,
+    updatedAt: new Date().toISOString(),
+  };
+  await dbService.saveWorkspace(wid, { ...ws, id: wid, localSeo: next });
+  return syncProgress;
 }
 
 /**
@@ -101,7 +133,9 @@ function resolveBusinessProfile(workspace, profileOverrides) {
 
 module.exports = {
   emptyLocalSeo,
+  emptySyncProgress,
   load,
   save,
+  patchSyncProgress,
   resolveBusinessProfile,
 };

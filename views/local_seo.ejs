@@ -13,19 +13,61 @@
     const gbp = research && research.gbp;
     const reviews = research && research.reviews;
     const chatMsgs = Array.isArray(chat) ? chat : [];
+    const progress = syncProgress && typeof syncProgress === 'object' ? syncProgress : {};
+    const progressActive = !!progress.active;
+    function gaugeSvg(value, label, sub) {
+      const v = value != null && !isNaN(Number(value)) ? Math.max(0, Math.min(100, Number(value))) : null;
+      const r = 34;
+      const c = 2 * Math.PI * r;
+      const offset = v == null ? c : c - (v / 100) * c;
+      const tone = v == null ? 'text-brand-muted' : v >= 70 ? 'text-emerald-600 dark:text-emerald-400' : v >= 40 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400';
+      return { v, r, c, offset, tone, label, sub };
+    }
+    const gauges = [
+      gaugeSvg(scores.overall, 'Local score', null),
+      gaugeSvg(scores.mapsScore, 'Maps', scores.avgMapsRank != null ? 'avg #' + scores.avgMapsRank : null),
+      gaugeSvg(scores.gbpScore, 'GBP', null),
+      gaugeSvg(scores.reviewScore, 'Reviews', null),
+    ];
+    function faviconForDomain(domain) {
+      const d = String(domain || '').replace(/^https?:\/\//, '').split('/')[0];
+      if (!d) return '';
+      return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(d) + '&sz=32';
+    }
+    function statusPill(k) {
+      if (k.mapsRank != null) return { text: 'Ranked', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' };
+      return { text: k.error ? 'Error' : 'Not found', cls: 'bg-rose-500/15 text-rose-700 dark:text-rose-300' };
+    }
   %>
-  <main class="max-wide px-6 py-8 md:py-12">
-    <header class="mb-6 flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
-      <div>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">SEO / Local Rank · DataForSEO</p>
-        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight">Local rank dashboard</h1>
-        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">
-          See where you rank in Maps &amp; local pack, who beats you, and what to do next — plus AI chat grounded in this research.
+
+  <!-- Sticky context bar -->
+  <div class="sticky top-[4.75rem] z-40 border-b border-brand-border/50 dark:border-white/10 bg-brand-bg/95 dark:bg-slate-950/95 backdrop-blur">
+    <div class="max-wide px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">SEO / Local Rank</p>
+        <h1 class="font-display font-extrabold text-xl md:text-2xl tracking-tight truncate"><%= profile.businessName || 'Local rank dashboard' %></h1>
+        <p class="text-xs text-brand-muted truncate">
+          <%= profile.locationName || 'Set city + state' %>
+          · <%= syncStatus || 'new' %>
+          <% if (lastSyncedAt) { %> · Synced <%= new Date(lastSyncedAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }) %> PT<% } %>
         </p>
       </div>
-    </header>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="localSeoAnalyzeBtn" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" <%= !research ? 'disabled' : '' %>>Refresh action plan</button>
+        <button type="button" id="localSeoChatToggle" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Ask AI</button>
+        <button type="button" id="localSeoSyncBtn" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest min-w-[9.5rem]" <%= !dfsReady ? 'disabled' : '' %> data-busy="<%= progressActive ? '1' : '0' %>">
+          <span id="localSeoSyncBtnLabel"><%= progressActive ? (progress.percent || 0) + '%' : 'Update ranks' %></span>
+        </button>
+      </div>
+    </div>
+    <div id="localSeoProgressBar" class="<%= progressActive ? '' : 'hidden' %> h-1 bg-brand-border/40 dark:bg-white/10">
+      <div id="localSeoProgressFill" class="h-full bg-brand-yellow transition-all duration-300" style="width: <%= Math.max(2, Number(progress.percent) || 0) %>%"></div>
+    </div>
+    <p id="localSeoProgressLabel" class="<%= progressActive ? '' : 'hidden' %> px-6 py-1.5 text-[11px] text-brand-muted"><%= progress.label || 'Updating…' %></p>
+  </div>
 
-    <%- include('partials/seo_local_rank_nav') %>
+  <main class="max-wide px-6 py-6 md:py-8">
+    <%- include('partials/seo_local_rank_nav', { seoNavSticky: true, seoNavStickyTop: 'top-[9.5rem]' }) %>
 
     <% if (!dfsReady) { %>
     <div class="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
@@ -33,290 +75,295 @@
     </div>
     <% } %>
 
-    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-      <!-- Profile -->
-      <aside class="xl:col-span-3 space-y-4">
-        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
-          <h2 class="font-display font-bold text-lg mb-1">Business profile</h2>
-          <p class="text-[11px] text-brand-muted mb-3">City + state required for real local ranks. Country-only locations return empty Maps data.</p>
-          <form id="localSeoProfileForm" class="space-y-3">
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business name</label>
-              <input name="businessName" required value="<%= profile.businessName || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
-                <input name="city" required value="<%= profile.city || '' %>" placeholder="Camas" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
-                <input name="state" value="<%= profile.state || '' %>" placeholder="Washington" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
-              </div>
-            </div>
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Vertical</label>
-              <input name="vertical" value="<%= profile.vertical || '' %>" placeholder="Flooring" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Website</label>
-              <input name="website" value="<%= profile.website || '' %>" placeholder="tprflooring.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
-            </div>
-            <div>
-              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Keywords (one per line)</label>
-              <textarea name="keywordsText" rows="5" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" placeholder="flooring Camas&#10;best flooring Camas&#10;hardwood floors near me"><%= (profile.keywords || []).join('\n') %></textarea>
-              <p class="text-[10px] text-brand-muted mt-1">Include the city in keywords. Thin lists auto-expand on Update.</p>
-            </div>
-            <div class="grid grid-cols-2 gap-2">
-              <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Place ID</label>
-                <input name="placeId" value="<%= profile.placeId || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">CID</label>
-                <input name="cid" value="<%= profile.cid || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
-              </div>
-            </div>
-            <input type="hidden" name="locationName" value="<%= profile.locationName || '' %>" />
-            <button type="button" id="localSeoSaveProfile" class="btn-pill border border-brand-border dark:border-white/20 w-full py-2.5 text-[10px] font-black uppercase tracking-widest">Save profile</button>
-            <button type="button" id="localSeoSyncBtn" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest" <%= !dfsReady ? 'disabled' : '' %>>Update ranks</button>
-          </form>
-          <p id="localSeoFormMsg" class="text-xs text-brand-muted mt-3 hidden"></p>
+    <p id="localSeoFormMsg" class="text-xs text-brand-muted mb-4 hidden"></p>
+
+    <!-- KPI gauges -->
+    <% if (research) { %>
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-6">
+      <% gauges.forEach(function (g) { %>
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-4 flex items-center gap-3">
+        <div class="relative shrink-0 w-[5.25rem] h-[5.25rem]">
+          <svg viewBox="0 0 80 80" class="w-full h-full -rotate-90" aria-hidden="true">
+            <circle cx="40" cy="40" r="<%= g.r %>" fill="none" stroke="currentColor" stroke-width="7" class="text-brand-border/50 dark:text-white/10" />
+            <circle cx="40" cy="40" r="<%= g.r %>" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"
+              class="<%= g.tone %>"
+              stroke-dasharray="<%= g.c %>" stroke-dashoffset="<%= g.offset %>" />
+          </svg>
+          <div class="absolute inset-0 flex items-center justify-center rotate-0">
+            <span class="font-display font-bold text-lg"><%= g.v != null ? g.v : '—' %></span>
+          </div>
         </div>
-      </aside>
-
-      <!-- Main dashboard -->
-      <section class="xl:col-span-6 space-y-4">
-        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
-          <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-            <div>
-              <h2 class="font-display font-bold text-xl"><%= profile.businessName || 'Your business' %></h2>
-              <p class="text-xs text-brand-muted mt-1">
-                Market: <%= profile.locationName || '—' %>
-                · <%= syncStatus || 'new' %>
-                <% if (lastSyncedAt) { %> · Synced <%= new Date(lastSyncedAt).toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }) %> PT<% } %>
-              </p>
-            </div>
-            <button type="button" id="localSeoAnalyzeBtn" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" <%= !research ? 'disabled' : '' %>>Refresh action plan</button>
-          </div>
-
-          <% if (!research) { %>
-          <div class="rounded-xl border border-dashed border-brand-border/70 dark:border-white/15 p-8 text-center">
-            <p class="font-semibold mb-2">No ranks yet</p>
-            <p class="text-sm text-brand-muted max-w-md mx-auto">Set <strong>City</strong> + <strong>State</strong>, keep city in your keywords (e.g. “flooring Camas”), then click <strong>Update ranks</strong>.</p>
-          </div>
-          <% } else { %>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
-                <p class="text-[10px] uppercase tracking-widest text-brand-muted">Local score</p>
-                <p class="text-2xl font-display font-bold mt-1"><%= scores.overall != null ? scores.overall : '—' %></p>
-              </div>
-              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
-                <p class="text-[10px] uppercase tracking-widest text-brand-muted">Maps</p>
-                <p class="text-2xl font-display font-bold mt-1"><%= scores.mapsScore != null ? scores.mapsScore : '—' %></p>
-                <p class="text-[11px] text-brand-muted">avg #<%= scores.avgMapsRank != null ? scores.avgMapsRank : '—' %> · <%= scores.rankedKeywords || 0 %> ranked</p>
-              </div>
-              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
-                <p class="text-[10px] uppercase tracking-widest text-brand-muted">GBP</p>
-                <p class="text-2xl font-display font-bold mt-1"><%= scores.gbpScore != null ? scores.gbpScore : '—' %></p>
-              </div>
-              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-3">
-                <p class="text-[10px] uppercase tracking-widest text-brand-muted">Reviews</p>
-                <p class="text-2xl font-display font-bold mt-1"><%= scores.reviewScore != null ? scores.reviewScore : '—' %></p>
-              </div>
-            </div>
-
-            <% if ((research.warnings || []).length) { %>
-            <details class="mb-4 text-xs text-amber-800 dark:text-amber-200 open:mb-4">
-              <summary class="cursor-pointer font-semibold"><%= research.warnings.length %> note(s) / warning(s)</summary>
-              <ul class="mt-2 list-disc pl-5 space-y-1"><% research.warnings.forEach(function (w) { %><li><%= w %></li><% }) %></ul>
-            </details>
-            <% } %>
-
-            <h3 class="font-semibold text-sm mb-2">Keyword ranks</h3>
-            <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 mb-6">
-              <table class="min-w-full text-sm">
-                <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
-                  <tr>
-                    <th class="px-3 py-2">Keyword</th>
-                    <th class="px-3 py-2">Local vol</th>
-                    <th class="px-3 py-2">Maps</th>
-                    <th class="px-3 py-2">Local pack</th>
-                    <th class="px-3 py-2">Your rating</th>
-                    <th class="px-3 py-2">#1 competitor</th>
-                    <th class="px-3 py-2">Status</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
-                  <% if (!keywordRanks.length) { %>
-                  <tr><td colspan="7" class="px-3 py-4 text-brand-muted">No keywords synced yet.</td></tr>
-                  <% } %>
-                  <% keywordRanks.forEach(function (k) { %>
-                  <tr>
-                    <td class="px-3 py-2 font-medium"><%= k.keyword %></td>
-                    <td class="px-3 py-2"><%= k.searchVolume != null ? Number(k.searchVolume).toLocaleString() : '—' %></td>
-                    <td class="px-3 py-2"><%= k.mapsRank != null ? '#' + k.mapsRank : '—' %></td>
-                    <td class="px-3 py-2"><%= k.localPackRank != null ? '#' + k.localPackRank : '—' %></td>
-                    <td class="px-3 py-2 text-brand-muted text-xs">
-                      <% const ym = k.mapsMatch || null; %>
-                      <%= ym && ym.rating != null ? ym.rating + '★' : '—' %><%= ym && ym.votes != null ? ' · ' + ym.votes : '' %>
-                    </td>
-                    <td class="px-3 py-2 text-brand-muted">
-                      <% const top = (k.competitors && k.competitors[0]) || null; %>
-                      <%= top ? (top.title + (top.rank != null ? ' (#' + top.rank + ')' : '')) : '—' %>
-                      <% if (top && top.votes != null) { %><span class="text-[11px]"> · <%= top.votes %> rev</span><% } %>
-                    </td>
-                    <td class="px-3 py-2 text-xs <%= k.mapsRank != null ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600 dark:text-rose-300' %>">
-                      <%= k.mapsRank != null ? 'Ranked' : (k.error || 'Not found') %>
-                    </td>
-                  </tr>
-                  <% }) %>
-                </tbody>
-              </table>
-            </div>
-
-            <h3 class="font-semibold text-sm mb-2">Competition (Maps)</h3>
-            <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 mb-6">
-              <table class="min-w-full text-sm">
-                <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
-                  <tr>
-                    <th class="px-3 py-2">Competitor</th>
-                    <th class="px-3 py-2">Best rank</th>
-                    <th class="px-3 py-2">Appearances</th>
-                    <th class="px-3 py-2">Rating</th>
-                    <th class="px-3 py-2">Reviews</th>
-                    <th class="px-3 py-2">Category</th>
-                    <th class="px-3 py-2">Keywords</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
-                  <% if (!competitors.length) { %>
-                  <tr><td colspan="7" class="px-3 py-4 text-brand-muted">No competitor listings yet — update ranks with city-qualified keywords.</td></tr>
-                  <% } %>
-                  <% competitors.forEach(function (c) { %>
-                  <tr>
-                    <td class="px-3 py-2">
-                      <div class="font-medium"><%= c.title %></div>
-                      <% if (c.domain) { %><div class="text-[11px] text-brand-muted"><%= c.domain %></div><% } %>
-                    </td>
-                    <td class="px-3 py-2"><%= c.bestRank != null ? '#' + c.bestRank : '—' %></td>
-                    <td class="px-3 py-2"><%= c.appearances %></td>
-                    <td class="px-3 py-2"><%= c.avgRating != null ? c.avgRating : '—' %></td>
-                    <td class="px-3 py-2"><%= c.reviews != null ? Number(c.reviews).toLocaleString() : '—' %></td>
-                    <td class="px-3 py-2 text-brand-muted text-xs"><%= c.category || '—' %></td>
-                    <td class="px-3 py-2 text-brand-muted text-xs"><%= (c.keywords || []).slice(0, 3).join(', ') %></td>
-                  </tr>
-                  <% }) %>
-                </tbody>
-              </table>
-            </div>
-
-            <h3 class="font-semibold text-sm mb-2">Category research volume<% if (research.categorySeed) { %> · <%= research.categorySeed %><% } %></h3>
-            <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 mb-6">
-              <table class="min-w-full text-sm">
-                <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
-                  <tr>
-                    <th class="px-3 py-2">Related keyword</th>
-                    <th class="px-3 py-2">Search vol</th>
-                    <th class="px-3 py-2">Competition</th>
-                    <th class="px-3 py-2">CPC</th>
-                    <th class="px-3 py-2">Difficulty</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
-                  <% if (!categoryKeywords.length) { %>
-                  <tr><td colspan="5" class="px-3 py-4 text-brand-muted">Set a vertical/trade on the profile and Update ranks to pull related category keyword volumes.</td></tr>
-                  <% } %>
-                  <% categoryKeywords.forEach(function (ck) { %>
-                  <tr>
-                    <td class="px-3 py-2 font-medium"><%= ck.keyword %></td>
-                    <td class="px-3 py-2"><%= ck.searchVolume != null ? Number(ck.searchVolume).toLocaleString() : '—' %></td>
-                    <td class="px-3 py-2"><%= ck.competition != null ? ck.competition : '—' %></td>
-                    <td class="px-3 py-2"><%= ck.cpc != null ? '$' + Number(ck.cpc).toFixed(2) : '—' %></td>
-                    <td class="px-3 py-2"><%= ck.keywordDifficulty != null ? ck.keywordDifficulty : '—' %></td>
-                  </tr>
-                  <% }) %>
-                </tbody>
-              </table>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-4">
-                <h3 class="font-semibold text-sm mb-2">Google Business Profile</h3>
-                <% if (!gbp) { %>
-                <p class="text-sm text-brand-muted">No GBP snapshot. Add Place ID/CID or re-run Update after Maps finds your listing.</p>
-                <% } else { %>
-                <p class="text-sm"><%= gbp.title || '—' %> · <%= gbp.category || 'no category' %></p>
-                <p class="text-xs text-brand-muted mt-1"><%= gbp.address || '—' %></p>
-                <p class="text-sm mt-2">Completeness <strong><%= gbp.completeness %>%</strong> · <%= gbp.photos || 0 %> photos · <%= gbp.rating != null ? gbp.rating : '—' %>★ (<%= gbp.votes != null ? gbp.votes : '—' %> reviews)</p>
-                <% if (gbp.phone || gbp.website) { %>
-                <p class="text-xs text-brand-muted mt-2"><%= gbp.phone || '' %><%= gbp.phone && gbp.website ? ' · ' : '' %><%= gbp.website || '' %></p>
-                <% } %>
-                <% } %>
-              </div>
-              <div class="rounded-xl border border-brand-border/50 dark:border-white/10 p-4">
-                <h3 class="font-semibold text-sm mb-2">Reviews</h3>
-                <% if (!reviews) { %>
-                <p class="text-sm text-brand-muted">No review snapshot yet.</p>
-                <% } else { %>
-                <p class="text-sm">Rating <strong><%= reviews.rating != null ? reviews.rating : '—' %></strong> · <%= reviews.votes != null ? reviews.votes : '—' %> reviews</p>
-                <p class="text-sm mt-1">Unanswered in sample: <strong><%= reviews.unanswered || 0 %></strong> / <%= reviews.fetched || 0 %></p>
-                <% } %>
-              </div>
-            </div>
+        <div class="min-w-0">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= g.label %></p>
+          <% if (g.sub) { %><p class="text-[11px] text-brand-muted mt-0.5"><%= g.sub %></p><% } %>
+          <% if (g.label === 'Maps' && scores.rankedKeywords != null) { %>
+          <p class="text-[11px] text-brand-muted"><%= scores.rankedKeywords || 0 %> ranked</p>
           <% } %>
         </div>
+      </div>
+      <% }) %>
+    </section>
+    <% } %>
 
-        <% if (actionPlan && actionPlan.steps && actionPlan.steps.length) { %>
-        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
-          <h2 class="font-display font-bold text-lg mb-2">Ways to improve <span class="text-xs font-normal text-brand-muted">(<%= actionPlan.source %>)</span></h2>
-          <p class="text-sm text-brand-muted mb-1"><%= actionPlan.summary %></p>
-          <p class="text-[11px] text-brand-muted mb-4">Distinct actions with a concrete “Do this” — click <strong>Refresh action plan</strong> after deploy if this still looks like old Maps spam.</p>
-          <ol class="space-y-3">
-            <% actionPlan.steps.forEach(function (s) { %>
-            <li class="rounded-xl border border-brand-border/40 dark:border-white/10 px-4 py-3">
-              <div class="flex flex-wrap gap-2 items-center text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                <span>#<%= s.rank %></span>
-                <span>Impact <%= s.impact %></span>
-                <span>Effort <%= s.effort %></span>
-              </div>
-              <p class="font-semibold mt-1"><%= s.title %></p>
-              <% if (s.why) { %><p class="text-sm text-brand-muted mt-1"><%= s.why %></p><% } %>
-              <% if (s.how) { %><p class="text-sm text-brand-dark dark:text-slate-200 mt-2"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mr-1">Do this</span><%= s.how %></p><% } %>
-            </li>
-            <% }) %>
-          </ol>
+    <% if ((research && research.warnings || []).length) { %>
+    <details class="mb-4 text-xs text-amber-800 dark:text-amber-200">
+      <summary class="cursor-pointer font-semibold"><%= research.warnings.length %> note(s) / warning(s)</summary>
+      <ul class="mt-2 list-disc pl-5 space-y-1"><% research.warnings.forEach(function (w) { %><li><%= w %></li><% }) %></ul>
+    </details>
+    <% } %>
+
+    <!-- Ways to improve ABOVE keyword table -->
+    <% if (actionPlan && actionPlan.steps && actionPlan.steps.length) { %>
+    <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5 mb-6">
+      <div class="flex flex-wrap items-end justify-between gap-2 mb-3">
+        <div>
+          <h2 class="font-display font-bold text-lg">Ways to improve</h2>
+          <p class="text-sm text-brand-muted"><%= actionPlan.summary %></p>
         </div>
-        <% } %>
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= actionPlan.source %></span>
+      </div>
+      <ol class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <% actionPlan.steps.forEach(function (s) { %>
+        <li class="rounded-xl border border-brand-border/40 dark:border-white/10 px-4 py-3">
+          <div class="flex flex-wrap gap-2 items-center text-[10px] font-black uppercase tracking-widest text-brand-muted">
+            <span>#<%= s.rank %></span>
+            <span>Impact <%= s.impact %></span>
+            <span>Effort <%= s.effort %></span>
+          </div>
+          <p class="font-semibold mt-1"><%= s.title %></p>
+          <% if (s.why) { %><p class="text-sm text-brand-muted mt-1"><%= s.why %></p><% } %>
+          <% if (s.how) { %><p class="text-sm mt-2"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mr-1">Do this</span><%= s.how %></p><% } %>
+        </li>
+        <% }) %>
+      </ol>
+    </section>
+    <% } %>
+
+    <% if (!research) { %>
+    <div class="rounded-2xl border border-dashed border-brand-border/70 dark:border-white/15 p-10 text-center mb-6">
+      <p class="font-semibold mb-2">No ranks yet</p>
+      <p class="text-sm text-brand-muted max-w-md mx-auto">Open <strong>Business profile</strong> below, set City + State, keep the city in your keywords, then click <strong>Update ranks</strong>.</p>
+    </div>
+    <% } else { %>
+
+    <!-- Keyword rankings -->
+    <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5 mb-6">
+      <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+        <div>
+          <h2 class="font-display font-bold text-lg">Keyword rankings</h2>
+          <p class="text-sm text-brand-muted">Maps &amp; local pack for your tracked terms</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <input id="kwFilter" type="search" placeholder="Filter keywords…" class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm min-w-[12rem]" />
+          <select id="kwStatusFilter" class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm">
+            <option value="all">All statuses</option>
+            <option value="ranked">Ranked</option>
+            <option value="missing">Not found</option>
+          </select>
+        </div>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10">
+        <table class="min-w-full text-sm" id="kwTable">
+          <thead class="bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
+            <tr>
+              <th class="px-3 py-2">Keyword</th>
+              <th class="px-3 py-2">Vol</th>
+              <th class="px-3 py-2">Maps</th>
+              <th class="px-3 py-2">Pack</th>
+              <th class="px-3 py-2">You</th>
+              <th class="px-3 py-2">#1</th>
+              <th class="px-3 py-2">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
+            <% if (!keywordRanks.length) { %>
+            <tr><td colspan="7" class="px-3 py-4 text-brand-muted">No keywords synced yet.</td></tr>
+            <% } %>
+            <% keywordRanks.forEach(function (k) {
+              const pill = statusPill(k);
+              const top = (k.competitors && k.competitors[0]) || null;
+              const ym = k.mapsMatch || null;
+            %>
+            <tr class="kw-row" data-keyword="<%= String(k.keyword || '').toLowerCase() %>" data-status="<%= k.mapsRank != null ? 'ranked' : 'missing' %>">
+              <td class="px-3 py-2.5 font-medium"><%= k.keyword %></td>
+              <td class="px-3 py-2.5"><%= k.searchVolume != null ? Number(k.searchVolume).toLocaleString() : '—' %></td>
+              <td class="px-3 py-2.5"><%= k.mapsRank != null ? '#' + k.mapsRank : '—' %></td>
+              <td class="px-3 py-2.5"><%= k.localPackRank != null ? '#' + k.localPackRank : '—' %></td>
+              <td class="px-3 py-2.5 text-xs text-brand-muted"><%= ym && ym.rating != null ? ym.rating + '★' : '—' %><%= ym && ym.votes != null ? ' · ' + ym.votes : '' %></td>
+              <td class="px-3 py-2.5 text-brand-muted text-xs"><%= top ? top.title : '—' %><%= top && top.rank != null ? ' (#' + top.rank + ')' : '' %></td>
+              <td class="px-3 py-2.5"><span class="inline-flex rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-widest <%= pill.cls %>"><%= pill.text %></span></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <p id="kwFilterEmpty" class="hidden text-sm text-brand-muted mt-3">No keywords match that filter.</p>
+    </section>
+
+    <!-- Competitors -->
+    <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5 mb-6">
+      <h2 class="font-display font-bold text-lg mb-1">Competitors</h2>
+      <p class="text-sm text-brand-muted mb-4">Who shows up in Maps for your keywords</p>
+      <% if (!competitors.length) { %>
+      <p class="text-sm text-brand-muted">No competitor listings yet — update ranks with city-qualified keywords.</p>
+      <% } else { %>
+      <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <% competitors.slice(0, 12).forEach(function (c) { %>
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 px-4 py-3 flex gap-3">
+          <% const fav = faviconForDomain(c.domain); %>
+          <% if (fav) { %>
+          <img src="<%= fav %>" alt="" width="20" height="20" class="mt-0.5 rounded shrink-0 bg-white" loading="lazy" />
+          <% } else { %>
+          <div class="w-5 h-5 mt-0.5 rounded bg-brand-cream dark:bg-slate-800 shrink-0"></div>
+          <% } %>
+          <div class="min-w-0">
+            <p class="font-semibold truncate"><%= c.title %></p>
+            <p class="text-[11px] text-brand-muted truncate"><%= c.domain || c.category || '—' %></p>
+            <p class="text-xs mt-1">Best #<%= c.bestRank != null ? c.bestRank : '—' %> · <%= c.appearances || 0 %> hits · <%= c.avgRating != null ? c.avgRating + '★' : '—' %> · <%= c.reviews != null ? Number(c.reviews).toLocaleString() + ' rev' : '—' %></p>
+          </div>
+        </div>
+        <% }) %>
+      </div>
+      <% } %>
+    </section>
+
+    <!-- Category + GBP/Reviews -->
+    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
+      <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+        <h2 class="font-display font-bold text-lg mb-1">Category volume<% if (research.categorySeed) { %> · <%= research.categorySeed %><% } %></h2>
+        <p class="text-sm text-brand-muted mb-3">Related keyword demand around your vertical</p>
+        <div class="overflow-x-auto rounded-xl border border-brand-border/50 dark:border-white/10 max-h-80">
+          <table class="min-w-full text-sm">
+            <thead class="sticky top-0 bg-brand-cream/40 dark:bg-slate-950 text-left text-[10px] uppercase tracking-widest text-brand-muted">
+              <tr>
+                <th class="px-3 py-2">Keyword</th>
+                <th class="px-3 py-2">Vol</th>
+                <th class="px-3 py-2">Comp</th>
+                <th class="px-3 py-2">CPC</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-brand-border/40 dark:divide-white/10">
+              <% if (!categoryKeywords.length) { %>
+              <tr><td colspan="4" class="px-3 py-4 text-brand-muted">Set a vertical and Update ranks.</td></tr>
+              <% } %>
+              <% categoryKeywords.forEach(function (ck) { %>
+              <tr>
+                <td class="px-3 py-2 font-medium"><%= ck.keyword %></td>
+                <td class="px-3 py-2"><%= ck.searchVolume != null ? Number(ck.searchVolume).toLocaleString() : '—' %></td>
+                <td class="px-3 py-2"><%= ck.competition != null ? ck.competition : '—' %></td>
+                <td class="px-3 py-2"><%= ck.cpc != null ? '$' + Number(ck.cpc).toFixed(2) : '—' %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      <!-- AI chat -->
-      <aside class="xl:col-span-3">
-        <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5 flex flex-col min-h-[28rem]">
-          <h2 class="font-display font-bold text-lg mb-1">AI chat · how to rank</h2>
-          <p class="text-[11px] text-brand-muted mb-3">Ask what to do next. Answers use your saved Local SEO research only.</p>
-          <div id="localSeoChatLog" class="flex-1 overflow-y-auto space-y-3 mb-3 max-h-[22rem] pr-1">
-            <% if (!chatMsgs.length) { %>
-            <div class="rounded-xl bg-brand-cream/40 dark:bg-slate-950/60 px-3 py-2 text-sm text-brand-muted">
-              Try: “How do I get into the Map Pack for flooring in Camas?” or “What should I fix this week to beat competitors?”
-            </div>
-            <% } %>
-            <% chatMsgs.forEach(function (m) { %>
-            <div class="rounded-xl px-3 py-2 text-sm <%= m.role === 'user' ? 'bg-brand-yellow/15 ml-4' : 'bg-brand-cream/50 dark:bg-slate-950/70 mr-2' %>">
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= m.role === 'user' ? 'You' : 'Coach' %></p>
-              <div class="whitespace-pre-wrap"><%= m.content %></div>
-            </div>
-            <% }) %>
-          </div>
-          <form id="localSeoChatForm" class="space-y-2">
-            <textarea id="localSeoChatInput" rows="3" maxlength="1200" placeholder="Ask how to rank higher…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm"></textarea>
-            <button type="submit" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest">Ask</button>
-          </form>
-          <p id="localSeoChatErr" class="text-xs text-rose-600 dark:text-rose-400 mt-2 hidden"></p>
-        </div>
-      </aside>
+      <div class="space-y-6">
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <h2 class="font-display font-bold text-lg mb-2">Google Business Profile</h2>
+          <% if (!gbp) { %>
+          <p class="text-sm text-brand-muted">No GBP snapshot. Add Place ID/CID or re-run Update after Maps finds your listing.</p>
+          <% } else { %>
+          <p class="text-sm"><%= gbp.title || '—' %> · <%= gbp.category || 'no category' %></p>
+          <p class="text-xs text-brand-muted mt-1"><%= gbp.address || '—' %></p>
+          <p class="text-sm mt-2">Completeness <strong><%= gbp.completeness %>%</strong> · <%= gbp.photos || 0 %> photos · <%= gbp.rating != null ? gbp.rating : '—' %>★ (<%= gbp.votes != null ? gbp.votes : '—' %> reviews)</p>
+          <% if (gbp.phone || gbp.website) { %>
+          <p class="text-xs text-brand-muted mt-2"><%= gbp.phone || '' %><%= gbp.phone && gbp.website ? ' · ' : '' %><%= gbp.website || '' %></p>
+          <% } %>
+          <% } %>
+        </section>
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5">
+          <h2 class="font-display font-bold text-lg mb-2">Reviews</h2>
+          <% if (!reviews) { %>
+          <p class="text-sm text-brand-muted">No review snapshot yet.</p>
+          <% } else { %>
+          <p class="text-sm">Rating <strong><%= reviews.rating != null ? reviews.rating : '—' %></strong> · <%= reviews.votes != null ? reviews.votes : '—' %> reviews</p>
+          <p class="text-sm mt-1">Unanswered in sample: <strong><%= reviews.unanswered || 0 %></strong> / <%= reviews.fetched || 0 %></p>
+          <% } %>
+        </section>
+      </div>
     </div>
+    <% } %>
+
+    <!-- Collapsible business profile -->
+    <details id="localSeoProfileDetails" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/70 p-5 mb-10" <%= !research ? 'open' : '' %>>
+      <summary class="cursor-pointer font-display font-bold text-lg list-none flex items-center justify-between gap-3">
+        <span>Business profile</span>
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Edit</span>
+      </summary>
+      <p class="text-[11px] text-brand-muted mt-2 mb-4">City + state required for real local ranks. Country-only locations return empty Maps data.</p>
+      <form id="localSeoProfileForm" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="md:col-span-2">
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business name</label>
+          <input name="businessName" required value="<%= profile.businessName || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
+          <input name="city" required value="<%= profile.city || '' %>" placeholder="Camas" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
+          <input name="state" value="<%= profile.state || '' %>" placeholder="Washington" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Vertical</label>
+          <input name="vertical" value="<%= profile.vertical || '' %>" placeholder="Flooring" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Website</label>
+          <input name="website" value="<%= profile.website || '' %>" placeholder="tprflooring.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Keywords (one per line)</label>
+          <textarea name="keywordsText" rows="4" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" placeholder="flooring Camas&#10;best flooring Camas&#10;hardwood floors near me"><%= (profile.keywords || []).join('\n') %></textarea>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Place ID</label>
+          <input name="placeId" value="<%= profile.placeId || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">CID</label>
+          <input name="cid" value="<%= profile.cid || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
+        </div>
+        <input type="hidden" name="locationName" value="<%= profile.locationName || '' %>" />
+        <div class="md:col-span-2 flex flex-wrap gap-2 pt-1">
+          <button type="button" id="localSeoSaveProfile" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Save profile</button>
+        </div>
+      </form>
+    </details>
   </main>
+
+  <!-- Slide-out AI assistant -->
+  <div id="localSeoChatBackdrop" class="fixed inset-0 bg-black/40 z-40 hidden" aria-hidden="true"></div>
+  <aside id="localSeoChatDrawer" class="fixed top-0 right-0 h-full w-full max-w-md z-50 bg-white dark:bg-slate-900 border-l border-brand-border/60 dark:border-white/10 shadow-2xl translate-x-full transition-transform duration-300 flex flex-col" aria-hidden="true">
+    <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/50 dark:border-white/10">
+      <div>
+        <h2 class="font-display font-bold text-lg">AI chat · how to rank</h2>
+        <p class="text-[11px] text-brand-muted">Answers use your saved Local SEO research only.</p>
+      </div>
+      <button type="button" id="localSeoChatClose" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest">Close</button>
+    </div>
+    <div id="localSeoChatLog" class="flex-1 overflow-y-auto space-y-3 p-5">
+      <% if (!chatMsgs.length) { %>
+      <div class="rounded-xl bg-brand-cream/40 dark:bg-slate-950/60 px-3 py-2 text-sm text-brand-muted">
+        Try: “How do I get into the Map Pack?” or “What should I fix this week?”
+      </div>
+      <% } %>
+      <% chatMsgs.forEach(function (m) { %>
+      <div class="rounded-xl px-3 py-2 text-sm <%= m.role === 'user' ? 'bg-brand-yellow/15 ml-4' : 'bg-brand-cream/50 dark:bg-slate-950/70 mr-2' %>">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= m.role === 'user' ? 'You' : 'Coach' %></p>
+        <div class="whitespace-pre-wrap"><%= m.content %></div>
+      </div>
+      <% }) %>
+    </div>
+    <form id="localSeoChatForm" class="border-t border-brand-border/50 dark:border-white/10 p-4 space-y-2">
+      <textarea id="localSeoChatInput" rows="3" maxlength="1200" placeholder="Ask how to rank higher…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm"></textarea>
+      <button type="submit" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest">Ask</button>
+      <p id="localSeoChatErr" class="text-xs text-rose-600 dark:text-rose-400 hidden"></p>
+    </form>
+  </aside>
+
   <script>
     (function () {
       function formPayload() {
@@ -361,24 +408,83 @@
       }
 
       var syncBtn = document.getElementById('localSeoSyncBtn');
+      var syncLabel = document.getElementById('localSeoSyncBtnLabel');
+      var progressBar = document.getElementById('localSeoProgressBar');
+      var progressFill = document.getElementById('localSeoProgressFill');
+      var progressLabel = document.getElementById('localSeoProgressLabel');
+      var pollTimer = null;
+
+      function setProgressUI(p) {
+        p = p || {};
+        var active = !!p.active;
+        var pct = Math.max(0, Math.min(100, Number(p.percent) || 0));
+        if (progressBar) progressBar.classList.toggle('hidden', !active);
+        if (progressLabel) {
+          progressLabel.classList.toggle('hidden', !active);
+          progressLabel.textContent = p.label || (active ? 'Updating…' : '');
+        }
+        if (progressFill) progressFill.style.width = Math.max(active ? 2 : 0, pct) + '%';
+        if (syncBtn) {
+          syncBtn.dataset.busy = active ? '1' : '0';
+          syncBtn.disabled = active || syncBtn.hasAttribute('data-dfs-off');
+        }
+        if (syncLabel) syncLabel.textContent = active ? (pct + '%') : 'Update ranks';
+      }
+
+      async function pollProgress() {
+        try {
+          var res = await fetch('/local-seo/sync/progress', { headers: { Accept: 'application/json' } });
+          var data = await res.json();
+          if (!res.ok || !data.success) return;
+          var p = data.syncProgress || {};
+          setProgressUI(p);
+          if (p.active) return;
+          if (pollTimer) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+          }
+          if (data.syncStatus === 'error' || p.error) {
+            msg(p.error || p.label || 'Update failed', true);
+            if (syncBtn) syncBtn.disabled = <%= !dfsReady ? 'true' : 'false' %>;
+            if (syncLabel) syncLabel.textContent = 'Update ranks';
+            return;
+          }
+          if (data.syncStatus === 'ready' || p.phase === 'done' || p.percent >= 100) {
+            window.location.reload();
+          }
+        } catch (_) {
+          /* keep polling */
+        }
+      }
+
+      function startPolling() {
+        if (pollTimer) return;
+        pollTimer = setInterval(pollProgress, 1500);
+        pollProgress();
+      }
+
+      if (syncBtn && syncBtn.dataset.busy === '1') startPolling();
+
       if (syncBtn) {
+        <% if (!dfsReady) { %>syncBtn.setAttribute('data-dfs-off', '1');<% } %>
         syncBtn.addEventListener('click', async function () {
           msg('');
-          syncBtn.disabled = true;
-          syncBtn.textContent = 'Updating ranks…';
+          setProgressUI({ active: true, percent: 1, label: 'Starting update…' });
           try {
             var res = await fetch('/local-seo/sync', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(formPayload()),
+              body: JSON.stringify(Object.assign({}, formPayload(), { async: true })),
             });
             var data = await res.json();
             if (!res.ok || !data.success) throw new Error((data && data.error) || 'Update failed');
-            window.location.reload();
+            setProgressUI(data.syncProgress || { active: true, percent: 1, label: 'Updating…' });
+            startPolling();
           } catch (err) {
             msg(err.message || 'Update failed', true);
-            syncBtn.disabled = false;
-            syncBtn.textContent = 'Update ranks';
+            setProgressUI({ active: false, percent: 0, label: '' });
+            syncBtn.disabled = <%= !dfsReady ? 'true' : 'false' %>;
+            if (syncLabel) syncLabel.textContent = 'Update ranks';
           }
         });
       }
@@ -398,6 +504,45 @@
           }
         });
       }
+
+      function applyKwFilter() {
+        var q = ((document.getElementById('kwFilter') || {}).value || '').trim().toLowerCase();
+        var st = ((document.getElementById('kwStatusFilter') || {}).value || 'all');
+        var rows = document.querySelectorAll('.kw-row');
+        var visible = 0;
+        rows.forEach(function (row) {
+          var kw = row.getAttribute('data-keyword') || '';
+          var status = row.getAttribute('data-status') || '';
+          var okQ = !q || kw.indexOf(q) !== -1;
+          var okS = st === 'all' || status === st;
+          var show = okQ && okS;
+          row.classList.toggle('hidden', !show);
+          if (show) visible += 1;
+        });
+        var empty = document.getElementById('kwFilterEmpty');
+        if (empty) empty.classList.toggle('hidden', visible !== 0 || !rows.length);
+      }
+      var kwFilter = document.getElementById('kwFilter');
+      var kwStatus = document.getElementById('kwStatusFilter');
+      if (kwFilter) kwFilter.addEventListener('input', applyKwFilter);
+      if (kwStatus) kwStatus.addEventListener('change', applyKwFilter);
+
+      var drawer = document.getElementById('localSeoChatDrawer');
+      var backdrop = document.getElementById('localSeoChatBackdrop');
+      function openChat(open) {
+        if (!drawer) return;
+        drawer.classList.toggle('translate-x-full', !open);
+        drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (backdrop) {
+          backdrop.classList.toggle('hidden', !open);
+          backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+        }
+      }
+      var chatToggle = document.getElementById('localSeoChatToggle');
+      var chatClose = document.getElementById('localSeoChatClose');
+      if (chatToggle) chatToggle.addEventListener('click', function () { openChat(true); });
+      if (chatClose) chatClose.addEventListener('click', function () { openChat(false); });
+      if (backdrop) backdrop.addEventListener('click', function () { openChat(false); });
 
       var chatForm = document.getElementById('localSeoChatForm');
       var chatInput = document.getElementById('localSeoChatInput');
