@@ -3070,6 +3070,26 @@ body.ma-photo-open .ma-tabbar{
 .ma-photo-actions .ma-btn{width:100%;justify-content:center}
 html[data-ma-theme="dark"] .ma-photo-modal {background:rgba(0,0,0,.65)}
 
+/* Measure room — link out to native Measure / AR apps, then attach screenshot */
+.ma-measure{margin-top:8px}
+.ma-measure--compact{margin-top:0;display:inline-flex}
+.ma-measure-steps{
+  margin:0 0 12px;padding-left:1.2em;
+  font-size:13px;font-weight:600;color:var(--ink);line-height:1.45;
+}
+.ma-measure-steps li{margin:0 0 4px}
+.ma-measure-status{min-height:1.2em;margin:0 0 10px}
+.ma-measure-chips{
+  display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px;
+}
+.ma-measure-chip{
+  appearance:none;border:1px solid var(--line);background:var(--card);color:var(--ink);
+  border-radius:999px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;
+  cursor:pointer;
+}
+.ma-measure-chip:active{transform:scale(0.97);background:var(--acc-soft);color:var(--acc-ink)}
+html[data-ma-theme="dark"] .ma-measure-chip{border-color:rgba(255,255,255,.12)}
+
 .ma-askstatus{display:flex;gap:10px;align-items:flex-start;margin:10px 0 0;padding:12px 14px;border-radius:14px;background:var(--acc-soft);color:var(--acc-ink)}
 .ma-askstatus svg{width:20px;height:20px;flex-shrink:0;margin-top:1px}
 .ma-askstatus strong{display:block;font-size:14px;font-weight:800}

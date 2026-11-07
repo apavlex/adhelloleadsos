@@ -783,6 +783,208 @@
 
   document.querySelectorAll('[data-ma-photo-capture]').forEach(initPhotoCapture);
 
+  /**
+   * Measure room: link out to iOS Measure / Android AR measure apps, then
+   * reopen the nearby photo-capture sheet to attach a screenshot + note.
+   */
+  function initMeasureRoom() {
+    function platform() {
+      var ua = navigator.userAgent || '';
+      if (/iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+        return 'ios';
+      }
+      if (/Android/i.test(ua)) return 'android';
+      return 'other';
+    }
+
+    function setStatus(root, text) {
+      var el = root.querySelector('[data-ma-measure-status]');
+      if (el) el.textContent = text || '';
+    }
+
+    function openNativeMeasure(root) {
+      var p = platform();
+      var lead = root.querySelector('[data-ma-measure-lead]');
+      if (p === 'ios') {
+        if (lead) {
+          lead.textContent =
+            'Use the built-in Measure app (black ruler icon). Screenshot the dimensions, then come back and attach the photo with a note.';
+        }
+        setStatus(root, 'Tip: swipe to Measure, or search “Measure” on your Home Screen.');
+        // No reliable public URL scheme for Apple Measure — leave the user in-app with tips.
+        // Soft nudge: open Apple’s Measure support page in a new tab when possible.
+        try {
+          window.open('https://support.apple.com/guide/iphone/measure-dimensions-with-the-measure-app-iph0ec1c3bfd/ios', '_blank', 'noopener');
+        } catch (_) { /* ignore */ }
+        return;
+      }
+      if (p === 'android') {
+        if (lead) {
+          lead.textContent =
+            'Open your AR measure app (Magicplan, CamToPlan, or similar), capture the room, screenshot it, then attach the photo here.';
+        }
+        setStatus(root, 'Opening measure app…');
+        // Prefer Magicplan; fall back to Play Store search.
+        var intent =
+          'intent://open#Intent;scheme=magicplan;package=com.sensopia.magicplan;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fsearch%3Fq%3Droom%2520measure%26c%3Dapps;end';
+        window.location.href = intent;
+        return;
+      }
+      if (lead) {
+        lead.textContent =
+          'On a phone, open Measure (iPhone) or an AR measure app (Android), screenshot the result, then attach it here.';
+      }
+      setStatus(root, 'Open this page on your phone to launch the measure app.');
+    }
+
+    function findPhotoCapture(root) {
+      var sel = root.getAttribute('data-ma-measure-photo') || '';
+      if (sel) {
+        try {
+          var bySel = document.querySelector(sel);
+          if (bySel) return bySel;
+        } catch (_) { /* ignore bad selector */ }
+      }
+      var section = root.closest('section') || root.parentElement;
+      if (section) {
+        var near = section.querySelector('[data-ma-photo-capture]');
+        if (near) return near;
+      }
+      return document.querySelector('[data-ma-photo-capture]');
+    }
+
+    function applyChip(root, text) {
+      var fieldSel = root.getAttribute('data-ma-measure-field') || '';
+      if (fieldSel) {
+        try {
+          var field = document.querySelector(fieldSel);
+          if (field) {
+            var cur = String(field.value || '');
+            field.value = cur ? (cur.replace(/\s+$/, '') + (/\n$/.test(cur) ? '' : '\n') + text) : text;
+            field.focus();
+            setStatus(root, 'Added to measure notes.');
+            return;
+          }
+        } catch (_) { /* ignore */ }
+      }
+      root._maMeasureNotePrefix = text;
+      setStatus(root, 'Will prefill the photo note: “' + text.trim() + '”');
+    }
+
+    function openAttach(root) {
+      var capture = findPhotoCapture(root);
+      closeSheet(root);
+      if (!capture) {
+        setStatus(root, 'Add a photo below after you measure.');
+        return;
+      }
+      var openBtn = capture.querySelector('[data-ma-photo-open]');
+      var note = capture.querySelector('.ma-photo-note__input, textarea[name="caption"]');
+      if (openBtn) openBtn.click();
+      var prefix = root._maMeasureNotePrefix || 'Measure · ';
+      if (note && !String(note.value || '').trim()) {
+        note.value = prefix;
+        setTimeout(function () {
+          try {
+            note.focus();
+            note.setSelectionRange(note.value.length, note.value.length);
+          } catch (_) { /* ignore */ }
+        }, 80);
+      }
+    }
+
+    function openSheet(root) {
+      var sheet = root.querySelector('[data-ma-measure-sheet]');
+      if (!sheet) return;
+      var p = platform();
+      var lead = root.querySelector('[data-ma-measure-lead]');
+      if (lead) {
+        if (p === 'ios') {
+          lead.textContent =
+            'Open Measure on this iPhone, capture the room, screenshot the dimensions, then attach the photo with a short note.';
+        } else if (p === 'android') {
+          lead.textContent =
+            'Open your AR measure app, capture the room, screenshot it, then attach the photo with a short note.';
+        } else {
+          lead.textContent =
+            'On a phone, open Measure (iPhone) or an AR measure app (Android), screenshot the result, then attach it here.';
+        }
+      }
+      setStatus(root, '');
+      if (sheet.parentNode !== document.body) document.body.appendChild(sheet);
+      sheet.hidden = false;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.classList.add('ma-photo-open');
+      root._maMeasureHome = root;
+    }
+
+    function closeSheet(root) {
+      var sheet = document.querySelector('[data-ma-measure-sheet]:not([hidden])') ||
+        (root && root.querySelector('[data-ma-measure-sheet]'));
+      if (!sheet) return;
+      sheet.hidden = true;
+      document.documentElement.style.overflow = '';
+      document.body.classList.remove('ma-photo-open');
+      var home = root || sheet._maMeasureHome;
+      // Re-home under the widget if we moved the sheet to body.
+      document.querySelectorAll('[data-ma-measure]').forEach(function (widget) {
+        if (widget.contains(sheet)) return;
+        if (sheet.getAttribute('data-ma-measure-owner') === widget.getAttribute('data-ma-measure-id')) {
+          widget.appendChild(sheet);
+        }
+      });
+      if (home && sheet.parentNode !== home && home.querySelector && !home.querySelector('[data-ma-measure-sheet]')) {
+        home.appendChild(sheet);
+      }
+    }
+
+    document.querySelectorAll('[data-ma-measure]').forEach(function (root, idx) {
+      if (root.getAttribute('data-ma-ready') === '1') return;
+      root.setAttribute('data-ma-ready', '1');
+      root.setAttribute('data-ma-measure-id', 'mm-' + idx);
+      var sheet = root.querySelector('[data-ma-measure-sheet]');
+      if (sheet) sheet.setAttribute('data-ma-measure-owner', 'mm-' + idx);
+
+      root.querySelectorAll('[data-ma-measure-open]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          openSheet(root);
+        });
+      });
+      root.querySelectorAll('[data-ma-measure-close]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          closeSheet(root);
+        });
+      });
+      root.querySelectorAll('[data-ma-measure-launch]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          openNativeMeasure(root);
+        });
+      });
+      root.querySelectorAll('[data-ma-measure-attach]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          openAttach(root);
+        });
+      });
+      root.querySelectorAll('[data-ma-measure-chip]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          applyChip(root, btn.getAttribute('data-ma-measure-chip') || '');
+        });
+      });
+      if (sheet) {
+        sheet.addEventListener('click', function (e) {
+          if (e.target === sheet) closeSheet(root);
+        });
+      }
+    });
+  }
+
+  initMeasureRoom();
+
   /** Edit an existing photo's note (caption) from the gallery icon. */
   function initPhotoNoteSheet() {
     var sheet = document.querySelector('[data-ma-photo-note-sheet]');

@@ -217,6 +217,7 @@
       <% } else { %>
       <p class="ma-hint" style="margin:0 0 12px">Document the job site with pictures — before, during, or after.</p>
       <% } %>
+      <%- include('_measure_room') %>
       <%- include('_photo_capture', {
         formId: 'cuPhoto',
         action: base + '/customers/c/' + customer.id + '/photos',

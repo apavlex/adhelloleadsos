@@ -58,6 +58,9 @@
             <button type="button" class="ma-voice-btn" data-ma-voice-for="mqMeasure" aria-label="Dictate measure" title="Tap to speak" hidden></button>
           </div>
           <textarea id="mqMeasure" name="measure" class="ma-textarea" required maxlength="2000" rows="3" placeholder="e.g. Living 18×14, hall 4×20 — ~340 sq ft net; stairs 13 risers"><%= fv.measure || '' %></textarea>
+          <div style="margin-top:8px">
+            <%- include('_measure_room', { measureField: '#mqMeasure', photoCaptureRoot: '[data-ma-photo-capture][data-ma-photo-collect]', compact: true }) %>
+          </div>
         </div>
 
         <div class="ma-field">
