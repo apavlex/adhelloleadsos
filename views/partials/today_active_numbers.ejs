@@ -45,7 +45,7 @@
           <div class="pb-4">
             <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5">
               <% g.rows.forEach(function (s) { %>
-              <a href="<%= s.href || '#' %>" class="rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0<%= _hot(g.kind, s) ? ' border-rose-300/60 dark:border-rose-400/30' : '' %>">
+              <a href="<%= s.href || '#' %>" class="rounded-2xl border <%= _hot(g.kind, s) ? 'border-rose-300/60 dark:border-rose-400/40' : 'border-brand-border dark:border-white/10' %> bg-white dark:bg-slate-900 px-3.5 py-3.5 shadow-sm hover:border-brand-yellow/50 hover:shadow-md transition-all min-w-0">
                 <p class="font-display font-extrabold text-2xl tabular-nums text-brand-dark dark:text-white leading-none mb-1"><%= _n(s) %></p>
                 <p class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= s.label %></p>
                 <p class="text-[11px] font-semibold text-brand-muted truncate mt-0.5"><%= s.hint || '' %></p>

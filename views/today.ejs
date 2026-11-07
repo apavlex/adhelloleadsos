@@ -266,7 +266,13 @@
       .today-sources > summary::-webkit-details-marker { display: none; }
       .today-sources-chevron { display: inline-block; transition: transform 0.2s ease; }
       .today-sources[open] .today-sources-chevron { transform: rotate(180deg); }
-      .today-sources.is-hot > summary { color: inherit; }
+      .today-sources.is-hot:not([open]) > summary {
+        box-shadow: inset 0 0 0 1px rgba(225, 29, 72, 0.35);
+        border-radius: 0.75rem;
+      }
+      html.dark .today-sources.is-hot:not([open]) > summary {
+        box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.55);
+      }
     </style>
 
     <% const _agentOps = typeof agentOpsDash !== 'undefined' && agentOpsDash ? agentOpsDash : null; %>

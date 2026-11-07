@@ -43,6 +43,14 @@ describe('today active numbers', () => {
     assert.match(lead.attr('class'), /today-sources/);
     assert.doesNotMatch(lead.attr('class') || '', /is-hot/);
     assert.match(team.attr('class'), /is-hot/);
+    const overdueCard = team.find('a').filter(function (_, el) {
+      return /Overdue/.test($(el).text());
+    });
+    assert.equal(overdueCard.length, 1);
+    assert.match(overdueCard.attr('class'), /border-rose-300\/60/);
+    assert.match(overdueCard.attr('class'), /dark:border-rose-400\/40/);
+    assert.doesNotMatch(overdueCard.attr('class'), /border-brand-border/);
+    assert.doesNotMatch(overdueCard.attr('class'), /dark:border-white/);
 
     const leadSummary = lead.find('summary').text().replace(/\s+/g, ' ');
     assert.match(leadSummary, /Lead/);
@@ -85,6 +93,8 @@ describe('today active numbers', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/today.js'), 'utf8');
     assert.match(view, /partials\/today_active_numbers/);
     assert.match(view, /data\.activeNumbersHtml/);
+    assert.match(view, /today-sources\.is-hot:not\(\[open\]\) > summary/);
+    assert.match(view, /rgba\(225,\s*29,\s*72,\s*0\.35\)/);
     assert.doesNotMatch(view, /need attention/);
     assert.match(route, /activeNumbersHtml/);
     assert.match(route, /partials\/today_active_numbers/);
