@@ -961,7 +961,7 @@ async function seedOwnerReviewBrand(network, owner, now) {
   return next;
 }
 
-/** A few referrals so Home Pending / Sent tiles are non-zero for the owner app. */
+/** A few referrals so Home Pending refs tile is non-zero for the owner app. */
 async function seedOwnerReferrals(network, owner, memberByTitle, phone, now) {
   const zones = await store.listZones(network.id);
   const zone = zones[0];
