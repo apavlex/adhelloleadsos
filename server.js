@@ -301,12 +301,38 @@ app.get(
   '/auth/google/callback',
   requireGoogleAuth,
   (req, res, next) => {
+    // Safety net: if token exchange hangs, do not leave the browser on a blank/502.
+    const timeoutMs = Math.max(4000, Number(process.env.GOOGLE_OAUTH_CALLBACK_TIMEOUT_MS) || 15000);
+    let settled = false;
+    let timer = null;
+    const markSettled = () => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+    };
+    timer = setTimeout(() => {
+      if (settled || res.headersSent) return;
+      markSettled();
+      console.error(`[Google OAuth] sign-in callback timed out after ${timeoutMs}ms`);
+      res.redirect('/auth/login?error=oauth_timeout');
+    }, timeoutMs);
+    res.on('finish', markSettled);
+    res.on('close', markSettled);
     passport.authenticate('google', {
       failureRedirect: '/auth/login?error=unauthorized',
       callbackURL: `${getPublicBaseUrl(req)}/auth/google/callback`,
       // Keep returnTo / pendingSignup across passport's session regeneration.
       keepSessionInfo: true,
-    })(req, res, next);
+    })(req, res, (err) => {
+      if (settled) return;
+      markSettled();
+      if (err) {
+        console.error('[Google OAuth] sign-in callback error:', err && err.message);
+        if (!res.headersSent) return res.redirect('/auth/login?error=oauth_failed');
+        return;
+      }
+      return next();
+    });
   },
   function (req, res) {
     const dest = req.session && req.session.returnTo;
