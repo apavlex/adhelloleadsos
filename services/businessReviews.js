@@ -248,7 +248,11 @@ function emptyStore() {
   };
 }
 
-function getStore(workspaceId) {
+/**
+ * Load the reviews store. Text is sanitized at write/merge time — skip heavy
+ * re-sanitize on every GET so /business-reviews stays responsive.
+ */
+function getStore(workspaceId, { resanitize = false } = {}) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return emptyStore();
   const raw = readJson(storeKey(wid), null);
@@ -256,6 +260,13 @@ function getStore(workspaceId) {
   const reviews = Array.isArray(raw.reviews)
     ? raw.reviews.map((r) => {
       if (!r || typeof r !== 'object') return r;
+      if (!resanitize) {
+        return {
+          ...r,
+          source: normalizeSource(r.source),
+          author: r.author != null ? String(r.author).slice(0, 120) : r.author,
+        };
+      }
       return {
         ...r,
         source: normalizeSource(r.source),
@@ -288,8 +299,19 @@ function saveStore(workspaceId, store) {
     store && Object.prototype.hasOwnProperty.call(store, 'syncState')
       ? normalizeSyncState(store.syncState)
       : normalizeSyncState(prevRaw.syncState);
+  const reviews = (store.reviews || []).slice(0, MAX_STORED).map((r) => {
+    if (!r || typeof r !== 'object') return r;
+    return {
+      ...r,
+      source: normalizeSource(r.source),
+      text: sanitizeReviewText(r.text, 4000),
+      ownerResponse: sanitizeReviewText(r.ownerResponse, 4000),
+      author: clean(r.author, 120),
+      replyDraft: typeof r.replyDraft === 'string' ? r.replyDraft.slice(0, 3500) : '',
+    };
+  });
   dbService.setKvSync(storeKey(wid), {
-    reviews: (store.reviews || []).slice(0, MAX_STORED),
+    reviews,
     placeRating: store.placeRating,
     placeReviewsCount: store.placeReviewsCount,
     placeName: clean(store.placeName, 200),

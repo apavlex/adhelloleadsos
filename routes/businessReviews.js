@@ -9,7 +9,11 @@ const outscraper = require('../services/outscraperClient');
 const businessReviews = require('../services/businessReviews');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
-async function pageLocals(req) {
+/** Cap SSR inbox cards — rendering 100+ review textareas freezes mobile Safari. */
+const INBOX_SSR_LIMIT = 40;
+const INBOX_JSON_LIMIT = 100;
+
+async function pageLocals(req, { inboxLimit = null } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
   const paid = businessReviews.isPaidWorkspace(ws);
   const settings = businessReviews.getSettings(req.workspaceId);
@@ -18,6 +22,19 @@ async function pageLocals(req) {
   const integrationEnv = await businessReviews.resolveReviewsOutscraperEnv();
   const contact = trials.contactInfo();
   const focusId = String(req.query.review || '').trim();
+  const allReviews = Array.isArray(store.reviews) ? store.reviews : [];
+  let reviews = allReviews;
+  let inboxTruncated = false;
+  if (inboxLimit != null && Number.isFinite(inboxLimit) && allReviews.length > inboxLimit) {
+    reviews = allReviews.slice(0, inboxLimit);
+    if (focusId) {
+      const focused = allReviews.find((r) => r && r.id === focusId);
+      if (focused && !reviews.some((r) => r.id === focusId)) {
+        reviews = [focused, ...reviews].slice(0, inboxLimit);
+      }
+    }
+    inboxTruncated = true;
+  }
   return {
     title: 'Business Reviews',
     activePage: 'business-reviews',
@@ -27,7 +44,9 @@ async function pageLocals(req) {
     settings,
     store,
     summary,
-    reviews: store.reviews,
+    reviews,
+    reviewsTotal: allReviews.length,
+    inboxTruncated,
     outscraperConfigured: outscraper.isConfigured(integrationEnv),
     focusReviewId: focusId,
     workspaceName: (ws && ws.name) || 'Your workspace',
@@ -37,7 +56,7 @@ async function pageLocals(req) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req);
+    const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT });
     res.render('business_reviews', locals);
   } catch (e) {
     next(e);
@@ -46,13 +65,17 @@ router.get('/', async (req, res, next) => {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req);
+    const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
+    const limit = Number.isFinite(limitRaw) ? Math.min(200, Math.max(1, Math.floor(limitRaw))) : INBOX_JSON_LIMIT;
+    const locals = await pageLocals(req, { inboxLimit: limit });
     res.json({
       success: true,
       paid: locals.paid,
       settings: locals.settings,
       summary: locals.summary,
       reviews: locals.paid ? locals.reviews : [],
+      reviewsTotal: locals.reviewsTotal,
+      inboxTruncated: locals.inboxTruncated,
       outscraperConfigured: locals.outscraperConfigured,
       syncState: locals.syncState,
     });
