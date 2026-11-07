@@ -4,6 +4,7 @@
 
 const dataForSeo = require('./dataForSeoClient');
 const localSeoStore = require('./localSeoStore');
+const { phasePercent } = require('./localSeoProgress');
 const {
   flattenSerpItems,
   findBusinessInMapsItems,
@@ -18,7 +19,36 @@ const {
   hostKey,
 } = require('./localSeoParse');
 
-async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist = true } = {}) {
+const runningJobs = new Set();
+
+async function reportProgress(workspaceId, patch) {
+  if (!workspaceId) return null;
+  try {
+    return await localSeoStore.patchSyncProgress(workspaceId, patch);
+  } catch (_) {
+    return null;
+  }
+}
+
+async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist = true, onProgress } = {}) {
+  const emit = async (phase, label, keywordIndex, keywordTotal) => {
+    const percent = phasePercent(phase, keywordIndex, keywordTotal);
+    const payload = { phase, label, percent, active: phase !== 'done', error: null };
+    if (typeof onProgress === 'function') {
+      try {
+        await onProgress(payload);
+      } catch (_) {
+        /* ignore progress listener errors */
+      }
+    }
+    if (persist && workspaceId) {
+      await reportProgress(workspaceId, {
+        ...payload,
+        active: phase !== 'done',
+      });
+    }
+  };
+
   if (!dataForSeo.isConfigured(integrationEnv)) {
     const err = new Error('Connect DataForSEO in Workspace → Integrations first.');
     err.code = 'DATAFORSEO_NOT_CONFIGURED';
@@ -48,7 +78,7 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
   const warnings = [];
   if (!profile.state) {
     warnings.push(
-      'Tip: add a State (e.g. Washington) so DataForSEO uses City,State,United States — more accurate Maps ranks.'
+      'Tip: add a State (e.g. Washington) so DataForSEO uses City,State,United States — more accurate Maps ranks.',
     );
   }
   if (String(profile.locationName || '').toLowerCase() === 'united states') {
@@ -59,7 +89,9 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
   let discoveredPlaceId = profile.placeId || '';
   let discoveredCid = profile.cid || '';
 
-  for (const keyword of keywords) {
+  for (let ki = 0; ki < keywords.length; ki += 1) {
+    const keyword = keywords[ki];
+    await emit('maps', `Maps & local pack · ${keyword}`, ki, keywords.length);
     const row = {
       keyword,
       mapsRank: null,
@@ -135,7 +167,7 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
     keywordRanks.push(row);
   }
 
-  // Local search volume for tracked keywords (Google Ads via DataForSEO)
+  await emit('volume', 'Local search volumes', keywords.length, keywords.length);
   try {
     const volJson = await dataForSeo.searchVolumeLive({
       keywords,
@@ -156,9 +188,9 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
     warnings.push(`search_volume: ${err && err.message ? err.message : 'failed'}`);
   }
 
-  // Category / vertical research volume (related keywords around the trade)
   let categoryKeywords = [];
   const categorySeed = String(profile.vertical || '').trim() || `${profile.businessName} ${profile.city || ''}`.trim();
+  await emit('category', 'Category keyword research', keywords.length, keywords.length);
   if (categorySeed) {
     try {
       const relJson = await dataForSeo.relatedKeywordsLive({
@@ -178,6 +210,7 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
   }
 
   let gbp = null;
+  await emit('gbp', 'Google Business Profile', keywords.length, keywords.length);
   try {
     const gbpJson = await dataForSeo.myBusinessInfoLive({
       keyword:
@@ -201,6 +234,7 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
   }
 
   let reviews = null;
+  await emit('reviews', 'Reviews snapshot', keywords.length, keywords.length);
   try {
     const revJson = await dataForSeo.googleReviewsLive({
       keyword:
@@ -219,6 +253,7 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
     warnings.push(`reviews: ${err && err.message ? err.message : 'failed'}`);
   }
 
+  await emit('score', 'Scoring ranks', keywords.length, keywords.length);
   const scores = scoreLocalResearch({ keywordRanks, gbp, reviews });
   const competitors = summarizeCompetitors(keywordRanks);
   const research = {
@@ -261,17 +296,138 @@ async function syncLocalSeo(workspaceId, { integrationEnv, profilePatch, persist
   };
 
   if (!persist) {
+    await emit('done', 'Ready', keywords.length, keywords.length);
     return { profile: nextProfile, research, syncStatus: 'ready', lastSyncedAt: research.researchedAt };
   }
 
-  return localSeoStore.save(workspaceId, {
+  await emit('save', 'Saving research', keywords.length, keywords.length);
+  const saved = await localSeoStore.save(workspaceId, {
     profile: nextProfile,
     research,
     syncStatus: 'ready',
     lastSyncedAt: research.researchedAt,
+    syncProgress: {
+      active: false,
+      percent: 100,
+      phase: 'done',
+      label: 'Ready',
+      error: null,
+      startedAt: null,
+    },
   });
+  return saved;
+}
+
+/**
+ * Kick off a background sync so the UI can poll progress.
+ * Returns immediately if a job is already running for this workspace.
+ */
+async function startLocalSeoSyncAsync(workspaceId, { integrationEnv, profilePatch } = {}) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) {
+    const err = new Error('workspaceId required');
+    err.code = 'NO_WORKSPACE';
+    throw err;
+  }
+
+  const current = await localSeoStore.load(wid);
+  if (runningJobs.has(wid) || (current.syncProgress && current.syncProgress.active)) {
+    return {
+      started: false,
+      alreadyRunning: true,
+      syncProgress: current.syncProgress || localSeoStore.emptySyncProgress(),
+    };
+  }
+
+  const startedAt = new Date().toISOString();
+  runningJobs.add(wid);
+  await localSeoStore.save(wid, {
+    syncStatus: 'syncing',
+    profile: profilePatch || undefined,
+    syncProgress: {
+      active: true,
+      percent: 1,
+      phase: 'maps',
+      label: 'Starting update…',
+      error: null,
+      startedAt,
+      updatedAt: startedAt,
+    },
+  });
+
+  setImmediate(() => {
+    (async () => {
+      try {
+        const updated = await syncLocalSeo(wid, {
+          integrationEnv,
+          profilePatch,
+          persist: true,
+        });
+        let actionPlan = null;
+        try {
+          await reportProgress(wid, {
+            active: true,
+            percent: 97,
+            phase: 'plan',
+            label: 'Building action plan…',
+            error: null,
+          });
+          const { generateLocalActionPlan } = require('./localSeoPlanner');
+          actionPlan = await generateLocalActionPlan(updated.research, { integrationEnv });
+          await localSeoStore.save(wid, { actionPlan });
+        } catch (_) {
+          /* non-fatal */
+        }
+        await reportProgress(wid, {
+          active: false,
+          percent: 100,
+          phase: 'done',
+          label: 'Ready',
+          error: null,
+          startedAt: null,
+        });
+        await localSeoStore.save(wid, { syncStatus: 'ready' });
+      } catch (err) {
+        const message = err && err.message ? err.message : 'Update failed';
+        try {
+          await localSeoStore.save(wid, {
+            syncStatus: 'error',
+            syncProgress: {
+              active: false,
+              percent: 0,
+              phase: 'error',
+              label: message,
+              error: message,
+              startedAt: null,
+            },
+          });
+        } catch (_) {
+          /* ignore */
+        }
+      } finally {
+        runningJobs.delete(wid);
+      }
+    })();
+  });
+
+  return {
+    started: true,
+    alreadyRunning: false,
+    syncProgress: {
+      active: true,
+      percent: 1,
+      phase: 'maps',
+      label: 'Starting update…',
+      error: null,
+      startedAt,
+    },
+  };
 }
 
 module.exports = {
   syncLocalSeo,
+  startLocalSeoSyncAsync,
+  phasePercent,
 };
+
+// Re-export for callers that imported from sync historically.
