@@ -300,11 +300,22 @@ router.get('/extras.json', async (req, res, next) => {
       }
     }
 
+    let activeNumbersHtml = '';
+    try {
+      activeNumbersHtml = await renderView(res, 'partials/today_active_numbers', {
+        leadRows: (deferred.leadSources && deferred.leadSources.sources) || [],
+        teamRows: (deferred.fieldWorkHome && deferred.fieldWorkHome.sources) || [],
+      });
+    } catch (err) {
+      console.warn('[today/extras] active numbers render:', err && err.message);
+    }
+
     res.json({
       success: true,
       bestRoiActivity: deferred.bestRoiActivity,
       leadSources: deferred.leadSources,
       fieldWorkHome: deferred.fieldWorkHome,
+      activeNumbersHtml,
       weekReview: deferred.weekReview,
       entrepreneurQuote: deferred.entrepreneurQuote,
       actionPlan: deferred.actionPlan
