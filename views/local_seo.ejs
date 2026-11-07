@@ -29,10 +29,33 @@
       gaugeSvg(scores.gbpScore, 'GBP', null),
       gaugeSvg(scores.reviewScore, 'Reviews', null),
     ];
+    function competitorHost(domain) {
+      return String(domain || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/^www\./, '')
+        .split('/')[0]
+        .split('?')[0]
+        .replace(/:\d+$/, '');
+    }
     function faviconForDomain(domain) {
-      const d = String(domain || '').replace(/^https?:\/\//, '').split('/')[0];
-      if (!d) return '';
-      return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(d) + '&sz=32';
+      const d = competitorHost(domain);
+      if (!d || d.indexOf('.') < 0) return '';
+      return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(d) + '&sz=64';
+    }
+    function competitorInitials(title, domain) {
+      const fromTitle = String(title || '')
+        .replace(/[^A-Za-z0-9 ]+/g, ' ')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(function (w) { return w.charAt(0).toUpperCase(); })
+        .join('');
+      if (fromTitle) return fromTitle.slice(0, 2);
+      const host = competitorHost(domain);
+      return host ? host.charAt(0).toUpperCase() : '?';
     }
     function statusPill(k) {
       if (k.mapsRank != null) return { text: 'Ranked', cls: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' };
@@ -208,17 +231,23 @@
       <p class="text-sm text-brand-muted">No competitor listings yet — update ranks with city-qualified keywords.</p>
       <% } else { %>
       <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-        <% competitors.slice(0, 12).forEach(function (c) { %>
-        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 px-4 py-3 flex gap-3">
-          <% const fav = faviconForDomain(c.domain); %>
-          <% if (fav) { %>
-          <img src="<%= fav %>" alt="" width="20" height="20" class="mt-0.5 rounded shrink-0 bg-white" loading="lazy" />
-          <% } else { %>
-          <div class="w-5 h-5 mt-0.5 rounded bg-brand-cream dark:bg-slate-800 shrink-0"></div>
-          <% } %>
+        <% competitors.slice(0, 12).forEach(function (c) {
+          const fav = faviconForDomain(c.domain);
+          const initials = competitorInitials(c.title, c.domain);
+          const host = competitorHost(c.domain);
+        %>
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 px-4 py-3 flex gap-3 items-start">
+          <div class="competitor-icon mt-0.5 w-9 h-9 shrink-0 rounded-lg border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-950 overflow-hidden flex items-center justify-center" data-initials="<%= initials %>">
+            <% if (fav) { %>
+            <img src="<%= fav %>" alt="" width="36" height="36" class="competitor-favicon w-full h-full object-contain object-center p-1.5" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-host="<%= host %>" />
+            <span class="competitor-fallback hidden text-[11px] font-black tracking-wide text-brand-muted select-none"><%= initials %></span>
+            <% } else { %>
+            <span class="text-[11px] font-black tracking-wide text-brand-muted select-none"><%= initials %></span>
+            <% } %>
+          </div>
           <div class="min-w-0">
             <p class="font-semibold truncate"><%= c.title %></p>
-            <p class="text-[11px] text-brand-muted truncate"><%= c.domain || c.category || '—' %></p>
+            <p class="text-[11px] text-brand-muted truncate"><%= host || c.category || '—' %></p>
             <p class="text-xs mt-1">Best #<%= c.bestRank != null ? c.bestRank : '—' %> · <%= c.appearances || 0 %> hits · <%= c.avgRating != null ? c.avgRating + '★' : '—' %> · <%= c.reviews != null ? Number(c.reviews).toLocaleString() + ' rev' : '—' %></p>
           </div>
         </div>
@@ -366,6 +395,32 @@
 
   <script>
     (function () {
+      function showCompetitorFallback(img) {
+        if (!img || img.dataset.fallbackShown === '1') return;
+        img.dataset.fallbackShown = '1';
+        img.classList.add('hidden');
+        var wrap = img.closest('.competitor-icon');
+        if (!wrap) return;
+        var fallback = wrap.querySelector('.competitor-fallback');
+        if (fallback) {
+          fallback.classList.remove('hidden');
+          return;
+        }
+        var span = document.createElement('span');
+        span.className = 'text-[11px] font-black tracking-wide text-brand-muted select-none';
+        span.textContent = wrap.getAttribute('data-initials') || '?';
+        wrap.appendChild(span);
+      }
+
+      document.querySelectorAll('img.competitor-favicon').forEach(function (img) {
+        img.addEventListener('error', function () { showCompetitorFallback(img); });
+        // Tiny / blank Google globe stubs still "load" — treat tiny natural size as missing.
+        img.addEventListener('load', function () {
+          if (img.naturalWidth > 0 && img.naturalWidth < 8) showCompetitorFallback(img);
+        });
+        if (img.complete && img.naturalWidth === 0) showCompetitorFallback(img);
+      });
+
       function formPayload() {
         var form = document.getElementById('localSeoProfileForm');
         var fd = new FormData(form);
