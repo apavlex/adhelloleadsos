@@ -35,6 +35,8 @@ RUN mkdir -p /app/data
 
 ENV PORT=8080
 ENV NODE_ENV=production
+# Prefer IPv4 — some Render egress paths hang resolving Google OAuth over IPv6.
+ENV NODE_OPTIONS=--dns-result-order=ipv4first
 # Production: attach Render Persistent Disk at /app/data (see docs/DEPLOY_PERSISTENCE.md)
 
 EXPOSE 8080
