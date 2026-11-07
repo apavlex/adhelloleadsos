@@ -150,7 +150,8 @@
         : 'Set this up once in GHL: paste the prompt into GHL\'s workflow AI builder (or give it to whoever builds workflows). Every future launch reuses the same workflow.') + '</p>' +
       '<textarea readonly rows="' + (ready ? 8 : 14) + '" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-3 text-[11px] font-mono leading-relaxed resize-y custom-scrollbar" aria-label="GHL workflow prompt">' + esc(data.prompt) + '</textarea>' +
       '<div class="mt-2 flex flex-wrap items-center gap-3">' +
-      '<button type="button" data-cc-copy class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90">Copy prompt</button>' +
+      '<button type="button" data-cc-build class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90">Build workflow in GHL</button>' +
+      '<button type="button" data-cc-copy class="rounded-xl border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90">Copy prompt</button>' +
       (ready ? '' : '<button type="button" data-cc-ready class="text-[11px] font-bold text-brand-muted underline hover:text-brand-dark dark:hover:text-white">I\'ve set this up in GHL</button>') +
       '<button type="button" data-cc-close class="ml-auto text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Done</button>' +
       '</div></div>';
@@ -165,6 +166,35 @@
       if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
       else done(false);
     });
+    var buildBtn = m.querySelector('[data-cc-build]');
+    if (buildBtn) {
+      buildBtn.addEventListener('click', async function () {
+        var prev = buildBtn.textContent;
+        buildBtn.disabled = true;
+        buildBtn.textContent = 'Building…';
+        try {
+          var res = await fetch('/sequences/custom/' + encodeURIComponent(data.cadence.id) + '/create-ghl-workflow', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: '{}',
+          });
+          var json = await res.json().catch(function () { return {}; });
+          if (!res.ok || !json.success) throw new Error((json && json.error) || 'Build failed');
+          if (json.prompt && navigator.clipboard && navigator.clipboard.writeText) {
+            try { await navigator.clipboard.writeText(json.prompt); } catch (_) {}
+          }
+          buildBtn.textContent = json.mode === 'api' ? 'Opened in GHL' : 'Prompt copied';
+          if (json.openUrl) window.open(json.openUrl, '_blank', 'noopener');
+        } catch (err) {
+          buildBtn.textContent = prev;
+          buildBtn.disabled = false;
+          alert(err.message || 'Build failed');
+          return;
+        }
+        setTimeout(function () { buildBtn.textContent = prev; buildBtn.disabled = false; }, 2500);
+      });
+    }
     var readyBtn = m.querySelector('[data-cc-ready]');
     if (readyBtn) {
       readyBtn.addEventListener('click', async function () {

@@ -934,6 +934,7 @@ async function listCalendarEvents(integrationEnv, { calendarId, userId, groupId,
 
 module.exports = {
   resolveConfig,
+  ghlRequest,
   isConfigured,
   testConnection,
   isGhlLocationAccessError,

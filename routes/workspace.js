@@ -72,6 +72,7 @@ const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices')
 const signalwire = require('../services/signalwire');
 const { parseDialRetryFromBody } = require('../services/dialRetryPrefs');
 const { runGhlWorkflowCoach } = require('../services/ghlWorkflowCoach');
+const ghlWorkflowBuilder = require('../services/ghlWorkflowBuilder');
 const acquisitionBlueprint = require('../services/acquisitionBlueprint');
 const { isOpenRouterConfigured, describeOpenRouterModelStack } = require('../services/llmClient');
 const inboundForwardStats = require('../services/inboundForwardStats');
@@ -2270,6 +2271,44 @@ router.post('/ghl/workflow-coach', express.json({ limit: '128kb' }), async (req,
     });
     res.json(result);
   } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: create draft auto-outreach workflow in GHL (API) or return prompt fallback. */
+router.post('/ghl/create-auto-outreach-workflow', express.json({ limit: '32kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    }
+    const publish = !!(req.body && req.body.publish);
+    const result = await ghlWorkflowBuilder.buildAutoOutreachWorkflow(req.workspaceId, { publish });
+    res.json({ success: true, ...result });
+  } catch (e) {
+    if (e && e.code === 'GHL_NOT_CONFIGURED') {
+      return res.status(400).json({ success: false, error: e.message, code: e.code });
+    }
+    next(e);
+  }
+});
+
+/** POST JSON: push a free-form / coach prompt into GHL when possible. */
+router.post('/ghl/create-workflow-from-prompt', express.json({ limit: '256kb' }), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    }
+    const body = req.body || {};
+    const result = await ghlWorkflowBuilder.buildFromPrompt(req.workspaceId, {
+      name: body.name,
+      prompt: body.prompt,
+      publish: !!body.publish,
+    });
+    res.json({ success: true, ...result });
+  } catch (e) {
+    if (e && (e.code === 'GHL_NOT_CONFIGURED' || e.code === 'NO_PROMPT')) {
+      return res.status(400).json({ success: false, error: e.message, code: e.code });
+    }
     next(e);
   }
 });

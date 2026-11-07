@@ -39,7 +39,10 @@
   <div id="ghlCoachPromptWrap" class="hidden mb-4">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Generated GHL setup prompt</p>
-      <button type="button" id="ghlCoachPromptCopyBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90">Copy prompt</button>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" id="ghlCoachPromptBuildBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90">Build workflow in GHL</button>
+        <button type="button" id="ghlCoachPromptCopyBtn" class="rounded-xl border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90">Copy prompt</button>
+      </div>
     </div>
     <textarea id="ghlCoachPromptOut" readonly rows="16" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-3 text-[11px] md:text-xs font-mono leading-relaxed text-brand-dark dark:text-slate-100 resize-y min-h-[12rem] custom-scrollbar" aria-label="Generated GHL workflow prompt"></textarea>
     <p id="ghlCoachPromptCopyStatus" class="mt-2 text-[11px] text-emerald-700 dark:text-emerald-300 hidden" role="status"></p>
@@ -60,6 +63,7 @@
   var promptWrap = document.getElementById('ghlCoachPromptWrap');
   var promptOut = document.getElementById('ghlCoachPromptOut');
   var copyBtn = document.getElementById('ghlCoachPromptCopyBtn');
+  var buildBtn = document.getElementById('ghlCoachPromptBuildBtn');
   var copyStatus = document.getElementById('ghlCoachPromptCopyStatus');
   var senderSelect = document.getElementById('ghlCoachSenderOfferKey');
   var history = [];
@@ -160,18 +164,22 @@
     });
   });
 
+  function statusMsg(text, ok) {
+    if (!copyStatus) return;
+    copyStatus.textContent = text;
+    copyStatus.classList.toggle('text-emerald-700', !!ok);
+    copyStatus.classList.toggle('dark:text-emerald-300', !!ok);
+    copyStatus.classList.toggle('text-amber-700', !ok);
+    copyStatus.classList.toggle('dark:text-amber-300', !ok);
+    copyStatus.classList.remove('hidden');
+    setTimeout(function () { copyStatus.classList.add('hidden'); }, 4000);
+  }
+
   if (copyBtn && promptOut) {
     copyBtn.addEventListener('click', function () {
       var text = promptOut.value || '';
       function done(ok) {
-        if (!copyStatus) return;
-        copyStatus.textContent = ok ? 'Copied to clipboard.' : 'Copy failed — select the text and copy manually.';
-        copyStatus.classList.toggle('text-emerald-700', ok);
-        copyStatus.classList.toggle('dark:text-emerald-300', ok);
-        copyStatus.classList.toggle('text-amber-700', !ok);
-        copyStatus.classList.toggle('dark:text-amber-300', !ok);
-        copyStatus.classList.remove('hidden');
-        setTimeout(function () { copyStatus.classList.add('hidden'); }, 3500);
+        statusMsg(ok ? 'Copied to clipboard.' : 'Copy failed — select the text and copy manually.', ok);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(function () { done(true); }).catch(function () { done(false); });
@@ -179,6 +187,36 @@
         promptOut.focus();
         promptOut.select();
         try { done(document.execCommand('copy')); } catch (e) { done(false); }
+      }
+    });
+  }
+
+  if (buildBtn && promptOut) {
+    buildBtn.addEventListener('click', async function () {
+      var text = promptOut.value || '';
+      if (!String(text).trim()) return;
+      var prev = buildBtn.textContent;
+      buildBtn.disabled = true;
+      buildBtn.textContent = 'Building…';
+      try {
+        var res = await fetch('/workspace/ghl/create-workflow-from-prompt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ name: 'AdHello · Coach workflow', prompt: text }),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Build failed');
+        if (data.prompt && navigator.clipboard && navigator.clipboard.writeText) {
+          try { await navigator.clipboard.writeText(data.prompt); } catch (_) {}
+        }
+        statusMsg(data.message || 'Done.', data.mode === 'api');
+        if (data.openUrl) window.open(data.openUrl, '_blank', 'noopener');
+      } catch (err) {
+        statusMsg(err.message || 'Build failed', false);
+      } finally {
+        buildBtn.disabled = false;
+        buildBtn.textContent = prev;
       }
     });
   }
