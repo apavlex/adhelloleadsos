@@ -29,6 +29,38 @@
         data-ma-loading="Saving photo…"
       >
         <% if (_returnTo) { %><input type="hidden" name="returnTo" value="<%= _returnTo %>"><% } %>
+        <div class="ma-field ma-photo-room">
+          <label class="ma-label" for="<%= _fid %>Room">Room</label>
+          <select id="<%= _fid %>Room" class="ma-input ma-photo-room__select" data-ma-photo-room autocomplete="off">
+            <option value="">Pick a room…</option>
+            <option value="Living room">Living room</option>
+            <option value="Kitchen">Kitchen</option>
+            <option value="Dining room">Dining room</option>
+            <option value="Bedroom">Bedroom</option>
+            <option value="Master bedroom">Master bedroom</option>
+            <option value="Bathroom">Bathroom</option>
+            <option value="Hall">Hall</option>
+            <option value="Stairs">Stairs</option>
+            <option value="Laundry">Laundry</option>
+            <option value="Garage">Garage</option>
+            <option value="Basement">Basement</option>
+            <option value="Office">Office</option>
+            <option value="Exterior">Exterior</option>
+            <option value="__custom__">Add custom room…</option>
+          </select>
+          <div class="ma-photo-room__custom" data-ma-photo-room-custom hidden>
+            <label class="ma-label" for="<%= _fid %>RoomCustom">Custom room</label>
+            <input
+              id="<%= _fid %>RoomCustom"
+              type="text"
+              class="ma-input"
+              data-ma-photo-room-custom-input
+              maxlength="60"
+              placeholder="e.g. Bonus room, mudroom…"
+              autocomplete="off"
+            >
+          </div>
+        </div>
         <div class="ma-field ma-photo-note">
           <div class="ma-label-row">
             <label class="ma-label" for="<%= _fid %>Caption">Notes <span class="ma-optional">(optional)</span></label>
