@@ -5,9 +5,6 @@
   const _seoStickyTop = typeof seoNavStickyTop === 'string' && seoNavStickyTop ? seoNavStickyTop : 'top-[4.75rem]';
 %>
 <nav class="<%= _seoSticky ? ('sticky ' + _seoStickyTop + ' z-30 -mx-6 px-6 py-3 mb-6 bg-brand-bg/90 dark:bg-slate-950/90 backdrop-blur border-b border-brand-border/40 dark:border-white/10') : 'mb-6' %> flex flex-wrap gap-2" aria-label="SEO / Local Rank">
-  <% if (_seoCan('seo-gap')) { %>
-  <a href="/seo-gap" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'seo-gap' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">SEO Gap</a>
-  <% } %>
   <% if (_seoCan('backlinks')) { %>
   <a href="/backlinks" class="btn-pill px-4 py-2 text-[10px] font-black uppercase tracking-widest <%= _seoActive === 'backlinks' ? 'btn-primary' : 'border border-brand-border dark:border-white/20' %>">Backlinks</a>
   <% } %>
