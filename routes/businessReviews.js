@@ -12,8 +12,27 @@ const { wantsJsonResponse } = require('../lib/httpRequest');
 /**
  * HTML first paint: true empty shell (no store JSON.parse). Cards + KPIs hydrate from /inbox.json.
  */
-const INBOX_JSON_LIMIT = 40;
-const INBOX_HYDRATE_LIMIT = 40;
+const INBOX_JSON_LIMIT = 20;
+const INBOX_HYDRATE_LIMIT = 20;
+
+/** Slim cards for hydrate — drop oversized draft/response blobs from the JSON payload. */
+function slimReviewForInbox(r) {
+  if (!r || typeof r !== 'object') return r;
+  const text = r.text != null ? String(r.text) : '';
+  const draft = r.replyDraft != null ? String(r.replyDraft) : '';
+  const owner = r.ownerResponse != null ? String(r.ownerResponse) : '';
+  return {
+    id: r.id,
+    author: r.author || '',
+    rating: r.rating,
+    reviewedAt: r.reviewedAt || null,
+    isNew: !!r.isNew,
+    reviewLink: r.reviewLink || '',
+    text: text.length > 1200 ? text.slice(0, 1200) : text,
+    replyDraft: draft.length > 2000 ? draft.slice(0, 2000) : draft,
+    ownerResponse: owner.length > 800 ? owner.slice(0, 800) : owner,
+  };
+}
 
 function emptySummary() {
   return {
@@ -128,7 +147,7 @@ router.get('/inbox.json', async (req, res, next) => {
       paid: locals.paid,
       settings: locals.settings,
       summary: locals.summary,
-      reviews: locals.paid ? locals.reviews : [],
+      reviews: locals.paid ? (locals.reviews || []).map(slimReviewForInbox) : [],
       reviewsTotal: locals.reviewsTotal,
       inboxTruncated: locals.inboxTruncated,
       outscraperConfigured: locals.outscraperConfigured,

@@ -114,10 +114,18 @@ async function withWorkspace(req, res, next) {
       !/\.json(?:\?|$)/.test(original) &&
       !/^\/api(?:\/|$)/.test(original) &&
       !/^\/mcp(?:\/|$)/.test(original);
+    // Reviews/Q&A hydrate (+ other app *.json) must NOT await switcher/script-seed either —
+    // that left the shell stuck on "Loading inbox…" after HTML painted.
+    const appJsonFastPath =
+      req.method === 'GET' &&
+      /\.json(?:\?|$)/.test(original) &&
+      !/^\/api(?:\/|$)/.test(original) &&
+      !/^\/mcp(?:\/|$)/.test(original);
+    const navFastPath = htmlNavFastPath || appJsonFastPath;
     // Only dial/switch skip script seed + member-profile writes.
     const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
     // Alias kept for older tests.
-    const seoLightFastPath = htmlNavFastPath;
+    const seoLightFastPath = navFastPath;
 
     // API key auth — no session, use 'default' workspace directly
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
@@ -158,7 +166,7 @@ async function withWorkspace(req, res, next) {
     // ensureUserHasWorkspaces can scan all leads (agency prune) — once per session is enough.
     // HTML hops with a known session workspace skip the prune so paint isn't blocked.
     const skipBootstrapForLight =
-      htmlNavFastPath &&
+      navFastPath &&
       req.session &&
       (req.session.activeWorkspaceId || req.session.workspaceId);
     if (!skipBootstrapForLight && !(req.session && req.session._wsBootstrapped)) {
@@ -251,9 +259,9 @@ async function withWorkspace(req, res, next) {
         !workspaceScriptBootstrap.workspaceScriptsAlreadySeeded(ws) ||
         workspaceScriptBootstrap.shouldRepairAgencyCatalogLeak(ws);
       if (needsScriptSeed) {
-        // HTML menu hops: never await a full workspace rewrite here — that was timing out
-        // to Render 502s after login. Kick once per session; JSON/API can still await.
-        if (htmlNavFastPath) {
+        // HTML + app *.json (inbox hydrate): never await a full workspace rewrite —
+        // that timed out to 502s / left Reviews+Q&A stuck on Loading. Kick once per session.
+        if (navFastPath) {
           if (!(req.session && req.session._scriptSeedKick)) {
             if (req.session) req.session._scriptSeedKick = 1;
             void workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id).catch((e) => {
@@ -283,8 +291,8 @@ async function withWorkspace(req, res, next) {
 
     let summaries = [];
     let canManageDemo = false;
-    if (htmlNavFastPath || skipChromeExtras) {
-      // Cache-only on HTML hops — never block paint on N×getWorkspace. Warm in background on miss.
+    if (navFastPath || skipChromeExtras) {
+      // Cache-only on HTML / app-json hops — never block paint on N×getWorkspace.
       const cached = readSwitcherCache(email, ws.id, res.locals.liveDemo);
       if (cached.hit) {
         summaries = cached.summaries;
