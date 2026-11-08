@@ -156,8 +156,7 @@ function readJsonReply(r) {
    * @param {number|{failSafeMs?:number,untilPageShow?:boolean,href?:string}|null} [opts]
    *   - default / number / `{ failSafeMs }`: in-page work (short failsafe, default 3.5s)
    *   - `{ untilPageShow: true }`: real document navigation — keep frost until the next
-   *     pageshow/load. If that stalls, offer Retry (do not silently clear — that left
-   *     History/menu hops looking "still loading" with no spinner).
+   *     pageshow/load. After a short stall, desktop clears; iOS offers Retry.
    */
   function showNavLoading(opts) {
     document.documentElement.classList.add('adhello-nav-loading');
@@ -182,9 +181,9 @@ function readJsonReply(r) {
     var desktopLeave = untilPageShow && isLikelyDesktopNav();
     var ms = 3500;
     if (untilPageShow) {
-      // Keep covering until pageshow. After this stall window, offer Retry — never
-      // silently hide on desktop (5s clear made slow History look half-loaded).
-      ms = desktopLeave ? 10000 : 12000;
+      // Desktop: clear sooner so a slow SSR cannot trap every menu hop behind frost.
+      // iOS: keep covering the white void longer, then offer Retry.
+      ms = desktopLeave ? 5000 : 12000;
     } else if (typeof opts === 'number' && opts > 0) {
       ms = opts;
     } else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) {
@@ -192,15 +191,20 @@ function readJsonReply(r) {
     }
     // Cap runaway overlays.
     if (untilPageShow) {
-      ms = Math.min(ms, 15000);
+      ms = Math.min(ms, desktopLeave ? 8000 : 15000);
     } else if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
       ms = Math.min(ms, 3500);
     } else {
       ms = Math.min(ms, 120000);
     }
-    // If leave nav stalls: offer Retry on every device. pageshow/load still clear frost.
+    // If leave nav stalls: desktop clears the frost; iOS surfaces Retry.
+    // pageshow/load still clear frost when the next document arrives.
     hideNavLoading._failSafe = setTimeout(function () {
       if (untilPageShow && showNavLoading._leaving) {
+        if (isLikelyDesktopNav()) {
+          hideNavLoading();
+          return;
+        }
         var stallEl = document.getElementById('adhelloNavLoading');
         if (stallEl) {
           stallEl.classList.add('is-stalled');

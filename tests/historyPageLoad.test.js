@@ -11,6 +11,9 @@ test('Search History first paint stays light', () => {
   assert.match(route, /HISTORY_PAGE_LIMIT/);
   assert.doesNotMatch(route, /resolveSearchRecordFolderContext/);
   assert.doesNotMatch(route, /getAllSearches/);
+  // Cap must break early — do not keep getSearch'ing every remaining key to count.
+  assert.match(route, /historyTruncated = true;\s*break;/);
   assert.doesNotMatch(page, /<script[^>]+\/js\/app\.js/);
   assert.match(page, /historyTruncated/);
+  assert.match(page, /more available/);
 });

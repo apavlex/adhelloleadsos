@@ -28,14 +28,16 @@ router.get('/', async (req, res, next) => {
     const wid = req.workspaceId;
     const keys = await dbService.listSearches();
     const searches = [];
-    let totalMatched = 0;
-    // Newest keys first. Stop collecting rows at the page limit, but keep counting
-    // so the header can say "647" without resolving folders for every record.
+    let historyTruncated = false;
+    // Newest keys first. Stop as soon as we have a page — scanning every remaining
+    // search key just to count starved other menu hops on the same Node process.
     for (const key of keys) {
+      if (searches.length >= HISTORY_PAGE_LIMIT) {
+        historyTruncated = true;
+        break;
+      }
       const data = await dbService.getSearch(key);
       if (!data || !searchMatchesWorkspace(data, wid)) continue;
-      totalMatched += 1;
-      if (searches.length >= HISTORY_PAGE_LIMIT) continue;
       searches.push({
         ...data,
         key,
@@ -58,8 +60,8 @@ router.get('/', async (req, res, next) => {
       title: 'Search History',
       activePage: 'history',
       searches,
-      searchesTotal: totalMatched,
-      historyTruncated: totalMatched > searches.length,
+      searchesTotal: searches.length,
+      historyTruncated,
       activeJob: showSearchProgress ? activeJob : null,
       showSearchProgress,
     });
