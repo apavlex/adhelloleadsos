@@ -29,12 +29,14 @@ describe('SEO Q&A page-builder prompt', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/seoQa.js'), 'utf8');
     const view = fs.readFileSync(path.join(__dirname, '../views/seo_qa.ejs'), 'utf8');
     assert.match(route, /buildSeoQaPagePrompt/);
-    assert.match(route, /pageBuilderPrompt/);
+    assert.match(route, /page-prompt\.txt/);
+    assert.match(route, /pageBuilderPromptUrl/);
     assert.match(route, /INBOX_SSR_LIMIT/);
     assert.match(route, /seedName/);
     assert.match(view, /sqaCopyPromptBtn/);
     assert.match(view, /Page-builder prompt/);
-    assert.match(view, /sqaPromptRaw/);
+    assert.match(view, /data-prompt-url/);
+    assert.doesNotMatch(view, /sqaPromptRaw/);
     assert.match(view, /<details/);
     assert.match(view, /fillPrompt/);
   });

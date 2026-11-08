@@ -75,10 +75,20 @@ function normalizeQuestion(raw, fallbackId) {
   };
 }
 
-async function load(workspaceId) {
+/**
+ * @param {string} workspaceId
+ * @param {{ workspace?: object, normalize?: boolean }} [opts]
+ *   workspace — reuse req.workspace to avoid a second getWorkspace on HTML GETs
+ *   normalize — default true for writes; false for read/list (EJS escapes output)
+ */
+async function load(workspaceId, opts = {}) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return emptyBundle('');
-  const ws = (await dbService.getWorkspace(wid)) || { id: wid };
+  const normalize = opts.normalize !== false;
+  const ws =
+    opts.workspace && typeof opts.workspace === 'object'
+      ? opts.workspace
+      : (await dbService.getWorkspace(wid)) || { id: wid };
   const raw = ws.seoQa && typeof ws.seoQa === 'object' ? ws.seoQa : null;
   const base = emptyBundle(wid);
   if (!raw) return { ...base, workspace: ws };
@@ -88,14 +98,16 @@ async function load(workspaceId) {
   };
   if (!Array.isArray(settings.categories) || !settings.categories.length) {
     settings.categories = DEFAULT_CATEGORIES.slice();
-  } else {
+  } else if (normalize) {
     settings.categories = settings.categories.map((c) => clean(c, 80)).filter(Boolean).slice(0, 24);
+  } else {
+    settings.categories = settings.categories.map((c) => String(c || '').trim()).filter(Boolean).slice(0, 24);
   }
   const questions = {};
   const src = raw.questions && typeof raw.questions === 'object' ? raw.questions : {};
   for (const [id, row] of Object.entries(src)) {
     if (!row || typeof row !== 'object') continue;
-    questions[id] = normalizeQuestion(row, id);
+    questions[id] = normalize ? normalizeQuestion(row, id) : { ...row, id: row.id || id };
   }
   return {
     workspaceId: wid,
@@ -155,8 +167,8 @@ async function indexPublicToken(workspaceId, token, prevToken) {
   }
 }
 
-async function ensurePublicToken(workspaceId) {
-  const bundle = await load(workspaceId);
+async function ensurePublicToken(workspaceId, opts = {}) {
+  const bundle = await load(workspaceId, { workspace: opts.workspace, normalize: false });
   if (bundle.settings.publicToken) return bundle;
   return save(workspaceId, {
     settings: { ...bundle.settings, publicToken: newPublicToken() },

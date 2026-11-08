@@ -95,9 +95,8 @@
       </div>
       <% } %>
 
-      <% const _prompt = typeof pageBuilderPrompt !== 'undefined' ? String(pageBuilderPrompt || '') : ''; %>
-      <% if (_prompt) { %>
-      <details class="mt-5 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-4" id="sqaPageBuilderPromptCard">
+      <% const _promptUrl = typeof pageBuilderPromptUrl !== 'undefined' ? String(pageBuilderPromptUrl || '') : '/seo-qa/page-prompt.txt'; %>
+      <details class="mt-5 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-4" id="sqaPageBuilderPromptCard" data-prompt-url="<%= _promptUrl %>">
         <summary class="cursor-pointer font-display font-bold text-base text-brand-dark dark:text-white list-none flex flex-wrap items-center justify-between gap-2">
           <span>Page-builder prompt</span>
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Tap to expand</span>
@@ -105,12 +104,10 @@
         <div class="mt-3 space-y-3">
           <p class="text-xs text-brand-muted max-w-2xl">Copy into Cursor (or your site builder) to recreate the TPR-style Q&amp;A layout on another site — e.g. adhello.io — already wired to <em>this</em> workspace’s feed + submit URLs.</p>
           <button type="button" id="sqaCopyPromptBtn" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Copy prompt</button>
-          <textarea id="sqaPageBuilderPrompt" readonly rows="12" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/60 px-3 py-3 text-[11px] leading-relaxed font-mono text-brand-dark dark:text-slate-200 resize-y min-h-[12rem]"></textarea>
+          <textarea id="sqaPageBuilderPrompt" readonly rows="12" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/60 px-3 py-3 text-[11px] leading-relaxed font-mono text-brand-dark dark:text-slate-200 resize-y min-h-[12rem]" placeholder="Loading prompt…"></textarea>
           <p class="text-[11px] text-brand-muted">Edit the target site URL in the prompt if you’re not building for adhello.io. Use a different workspace’s Q&amp;A page when the other site needs its own inbox.</p>
         </div>
       </details>
-      <script type="text/plain" id="sqaPromptRaw"><%- String(_prompt).replace(/<\/script/gi, '<\\/script') %></script>
-      <% } %>
     </section>
 
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="sqaAddTitle">
@@ -227,14 +224,25 @@
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    // Defer filling the large prompt textarea until expand (keeps first paint light on iOS).
+    // Lazy-load page-builder prompt only when expanded (keeps Q&A first paint light).
     var promptDetails = document.getElementById('sqaPageBuilderPromptCard');
     var promptEl = document.getElementById('sqaPageBuilderPrompt');
-    var promptRaw = document.getElementById('sqaPromptRaw');
+    var promptRaw = null;
     function fillPrompt() {
-      if (!promptEl || !promptRaw || promptEl.dataset.filled === '1') return;
-      promptEl.value = promptRaw.textContent || '';
-      promptEl.dataset.filled = '1';
+      if (!promptEl || promptEl.dataset.filled === '1') return Promise.resolve(promptEl && promptEl.value);
+      var url = (promptDetails && promptDetails.getAttribute('data-prompt-url')) || '/seo-qa/page-prompt.txt';
+      promptEl.placeholder = 'Loading prompt…';
+      return fetch(url, { headers: { Accept: 'text/plain' } })
+        .then(function (res) { return res.ok ? res.text() : Promise.reject(new Error('Could not load prompt')); })
+        .then(function (text) {
+          promptEl.value = text || '';
+          promptEl.dataset.filled = '1';
+          return promptEl.value;
+        })
+        .catch(function (err) {
+          promptEl.placeholder = (err && err.message) || 'Could not load prompt';
+          return '';
+        });
     }
     if (promptDetails) {
       promptDetails.addEventListener('toggle', function () {
@@ -293,24 +301,25 @@
     var copyPromptBtn = document.getElementById('sqaCopyPromptBtn');
     if (copyPromptBtn && promptEl) {
       copyPromptBtn.addEventListener('click', function () {
-        fillPrompt();
-        var text = promptEl.value || (promptRaw && promptRaw.textContent) || '';
-        function done() {
-          var prev = copyPromptBtn.textContent;
-          copyPromptBtn.textContent = 'Copied';
-          setTimeout(function () { copyPromptBtn.textContent = prev; }, 1600);
-        }
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(done).catch(function () {
+        fillPrompt().then(function (text) {
+          text = text || promptEl.value || '';
+          function done() {
+            var prev = copyPromptBtn.textContent;
+            copyPromptBtn.textContent = 'Copied';
+            setTimeout(function () { copyPromptBtn.textContent = prev; }, 1600);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done).catch(function () {
+              promptEl.focus();
+              promptEl.select();
+              try { document.execCommand('copy'); done(); } catch (_) { /* ignore */ }
+            });
+          } else {
             promptEl.focus();
             promptEl.select();
             try { document.execCommand('copy'); done(); } catch (_) { /* ignore */ }
-          });
-        } else {
-          promptEl.focus();
-          promptEl.select();
-          try { document.execCommand('copy'); done(); } catch (_) { /* ignore */ }
-        }
+          }
+        });
       });
     }
 

@@ -257,16 +257,12 @@ function getStore(workspaceId, { resanitize = false } = {}) {
   if (!wid) return emptyStore();
   const raw = readJson(storeKey(wid), null);
   if (!raw) return emptyStore();
-  const reviews = Array.isArray(raw.reviews)
-    ? raw.reviews.map((r) => {
+  const rawReviews = Array.isArray(raw.reviews) ? raw.reviews : [];
+  // Fast GET path: reuse stored array (no per-row clone). Sanitization happens at write/merge.
+  let reviews = rawReviews;
+  if (resanitize) {
+    reviews = rawReviews.map((r) => {
       if (!r || typeof r !== 'object') return r;
-      if (!resanitize) {
-        return {
-          ...r,
-          source: normalizeSource(r.source),
-          author: r.author != null ? String(r.author).slice(0, 120) : r.author,
-        };
-      }
       return {
         ...r,
         source: normalizeSource(r.source),
@@ -274,8 +270,8 @@ function getStore(workspaceId, { resanitize = false } = {}) {
         ownerResponse: sanitizeReviewText(r.ownerResponse, 4000),
         author: clean(r.author, 120),
       };
-    })
-    : [];
+    });
+  }
   return {
     reviews,
     placeRating: raw.placeRating != null && Number.isFinite(Number(raw.placeRating)) ? Number(raw.placeRating) : null,
@@ -283,9 +279,9 @@ function getStore(workspaceId, { resanitize = false } = {}) {
       raw.placeReviewsCount != null && Number.isFinite(Number(raw.placeReviewsCount))
         ? Number(raw.placeReviewsCount)
         : null,
-    placeName: clean(raw.placeName, 200),
+    placeName: raw.placeName != null ? String(raw.placeName).slice(0, 200) : '',
     lastSyncedAt: raw.lastSyncedAt ? String(raw.lastSyncedAt) : null,
-    lastError: raw.lastError ? clean(raw.lastError, 400) : null,
+    lastError: raw.lastError ? String(raw.lastError).slice(0, 400) : null,
     knownIds: Array.isArray(raw.knownIds) ? raw.knownIds.map(String) : [],
     syncState: normalizeSyncState(raw.syncState),
   };
