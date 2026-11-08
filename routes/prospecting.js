@@ -107,33 +107,18 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    // Folders manager: paint the tree immediately. Never await folder hygiene here —
-    // maybeMigrateLegacyFolders → reassignLeadsToFolder scans every lead and left the
-    // hop stuck on Opportunities/Queue behind "Still loading — tap to retry".
+    // Folders manager: paint an empty shell with zero DB awaits so the hop leaves the
+    // previous page immediately. Tree HTML hydrates from /prospecting/folders-section.
+    // Never kick maybeMigrate here — even in setImmediate it kv-scanned every lead and
+    // blocked SQLite so the browser tab kept "loading" on the old page.
     if (safeTab === 'folders') {
-      const [foldersInitial, tags, wsRaw] = await Promise.all([
-        ensurePipelineFolders(wid),
-        dbService.listTags(wid),
-        dbService.getWorkspace(wid),
-      ]);
-      const folders = foldersInitial;
-      setImmediate(() => {
-        maybeMigrateLegacyFolders(wid, foldersInitial).catch(() => {});
-      });
-      const folderTree = buildFolderTree(folders);
-      const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
       const email = userEmail(req);
-      const activeTagCatalog = (tags || []).filter((t) => t && t.isActive !== false);
-      const tagCatalogByKey = Object.fromEntries(
-        activeTagCatalog.map((t) => [
-          t.key,
-          { key: t.key, name: t.name, color: t.color || '#94a3b8' },
-        ]),
-      );
+      const ws = req.workspace;
       return res.render('prospecting', {
         title: 'Prospecting | Agency OS',
         activePage: 'prospecting',
         tab: 'folders',
+        foldersShell: true,
         leadCount: 0,
         unfiledLeadCount: 0,
         totalVisibleLeadCount: 0,
@@ -143,13 +128,13 @@ router.get('/', async (req, res, next) => {
         activeFolderKey: '',
         isBusinessesView: false,
         isPermitsView: false,
-        folders,
-        folderTree,
+        folders: [],
+        folderTree: { groups: [] },
         folderAggregateCounts: {},
         folderAggregateTags: {},
-        folderPickerTree,
+        folderPickerTree: [],
         tradeFolderCount: TRADE_FOLDERS.length,
-        tags,
+        tags: [],
         schedules: [],
         scheduleSuccess: false,
         queueOutreachAutomations: [],
@@ -163,7 +148,7 @@ router.get('/', async (req, res, next) => {
         leadListFilters: normalizeLeadListFilters({}),
         leadsFilterSuffix: '',
         folderFromQuery: false,
-        teamMembers: teamActivity.memberDirectory(req.workspace, []).map((m) => ({
+        teamMembers: teamActivity.memberDirectory(ws, []).map((m) => ({
           email: m.email,
           label:
             m.email === String(email || '').toLowerCase()
@@ -176,7 +161,7 @@ router.get('/', async (req, res, next) => {
         importError: null,
         pipelineMigrateNotice: null,
         pipelineStages: [],
-        opportunityBoards: normalizeBoards(wsRaw && wsRaw.opportunityBoards).boards,
+        opportunityBoards: normalizeBoards(ws && ws.opportunityBoards).boards,
         opportunityBoardLeads: [],
         scriptLibraryOfferPicklist: [],
         outreachChannelLibrary: {},
@@ -184,12 +169,12 @@ router.get('/', async (req, res, next) => {
         sequenceTemplates: req.app.locals.sequenceTemplates || [],
         canManageWorkspace: req.canManageWorkspace,
         driveImport: null,
-        workspaceProspecting: normalizeProspectingSettings(wsRaw && wsRaw.prospecting),
+        workspaceProspecting: normalizeProspectingSettings(ws && ws.prospecting),
         pipelineLeadsTotal: 0,
         pipelineSsrOffset: 0,
         pipelineSsrHasMore: false,
         pipelineRowsQuery: '',
-        tagCatalogByKey,
+        tagCatalogByKey: {},
       });
     }
 
@@ -572,6 +557,34 @@ router.get('/', async (req, res, next) => {
               .filter(Boolean)
               .join('&')
           : '',
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Folder manager HTML fragment for shell hydrate.
+ * listFolders only — no hygiene / lead scan (those blocked every menu hop).
+ */
+router.get('/folders-section', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const folders = await dbService.listFolders(wid);
+    const folderTree = buildFolderTree(folders);
+    const folderPickerTree = buildFolderPickerTree(
+      folderTree,
+      String(req.query.folderKey || '').trim(),
+    );
+    res.set('Cache-Control', 'no-store');
+    return res.render('partials/folder_manager_section', {
+      foldersShell: false,
+      folders,
+      folderTree,
+      folderPickerTree,
+      folderAggregateCounts: {},
+      folderAggregateTags: {},
+      layout: false,
     });
   } catch (e) {
     next(e);

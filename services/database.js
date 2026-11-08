@@ -1594,12 +1594,17 @@ module.exports = {
     const fromKey = String(fromFolderKey || '').trim();
     const toKey = String(toFolderKey || '').trim();
     if (!fromKey || !toKey || fromKey === toKey) return 0;
-    const keys = kvList('lead:');
+    // Workspace-scoped + yielding — never kvList('lead:') (blocks the event loop on large DBs).
+    const leads = await this.getAllLeads(wid);
     let count = 0;
-    for (const key of keys) {
-      const lead = await this.getLead(key);
-      if (!lead || (lead.workspaceId || 'default') !== wid) continue;
-      if (String(lead.folderKey || '').trim() !== fromKey) continue;
+    for (let i = 0; i < leads.length; i++) {
+      if (i > 0 && i % 80 === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
+      const lead = leads[i];
+      if (!lead || String(lead.folderKey || '').trim() !== fromKey) continue;
+      const key = lead.key || lead.id;
+      if (!key) continue;
       // eslint-disable-next-line no-await-in-loop
       await this.updateLead(key, { folderKey: toKey });
       count += 1;
