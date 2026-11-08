@@ -43,34 +43,75 @@ function ghlWebhookSetupStatus(ws) {
   };
 }
 
+function shellFilterOptions() {
+  return SIGNAL_TYPES.map((id) => ({
+    id,
+    label: signalLabel(id),
+    count: 0,
+  }));
+}
+
+function webhookHint() {
+  const publicBase = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+  return publicBase
+    ? `${publicBase}/api/webhooks/ghl?token=YOUR_TOKEN`
+    : '/api/webhooks/ghl?token=YOUR_TOKEN';
+}
+
+async function renderInbox(req, { fragment = false } = {}) {
+  const windowDays = parseInt(req.query.days, 10) || DEFAULT_WINDOW_DAYS;
+  const signalType = String(req.query.type || '').trim();
+  const leads = await visibleBusinessLeads(req);
+  const inbox = buildEngagementInbox(leads, { windowDays, signalType });
+  const filterOptions = SIGNAL_TYPES.map((id) => ({
+    id,
+    label: signalLabel(id),
+    count: inbox.summary.byType[id] || 0,
+  }));
+  const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+  return {
+    title: 'Engagement inbox',
+    fragmentOnly: fragment,
+    inboxPending: false,
+    events: inbox.events,
+    rows: inbox.rows,
+    summary: inbox.summary,
+    windowDays: inbox.windowDays,
+    activeType: signalType,
+    filterOptions,
+    ghlWebhookSetup: ghlWebhookSetupStatus(ws),
+    ghlWebhookUrlHint: webhookHint(),
+  };
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const windowDays = parseInt(req.query.days, 10) || DEFAULT_WINDOW_DAYS;
-    const signalType = String(req.query.type || '').trim();
-    const leads = await visibleBusinessLeads(req);
-    const inbox = buildEngagementInbox(leads, { windowDays, signalType });
-    const filterOptions = SIGNAL_TYPES.map((id) => ({
-      id,
-      label: signalLabel(id),
-      count: inbox.summary.byType[id] || 0,
-    }));
-    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-    const ghlWebhookSetup = ghlWebhookSetupStatus(ws);
-    const publicBase = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
-
+    const ws = req.workspace || { id: req.workspaceId };
+    // Paint the inbox chrome now. The lead scan lives on /inbox.fragment so this
+    // hop is not stuck behind "Loading" until every prospect is parsed.
     res.render('engagement', {
       title: 'Engagement inbox',
-      events: inbox.events,
-      rows: inbox.rows,
-      summary: inbox.summary,
-      windowDays: inbox.windowDays,
-      activeType: signalType,
-      filterOptions,
-      ghlWebhookSetup,
-      ghlWebhookUrlHint: publicBase
-        ? `${publicBase}/api/webhooks/ghl?token=YOUR_TOKEN`
-        : '/api/webhooks/ghl?token=YOUR_TOKEN',
+      fragmentOnly: false,
+      inboxPending: true,
+      events: [],
+      rows: [],
+      summary: { total: 0, uniqueLeads: 0, byType: {} },
+      windowDays,
+      activeType: String(req.query.type || '').trim(),
+      filterOptions: shellFilterOptions(),
+      ghlWebhookSetup: ghlWebhookSetupStatus(ws),
+      ghlWebhookUrlHint: webhookHint(),
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/inbox.fragment', async (req, res, next) => {
+  try {
+    const locals = await renderInbox(req, { fragment: true });
+    res.render('engagement', locals);
   } catch (e) {
     next(e);
   }

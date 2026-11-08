@@ -86,7 +86,8 @@ async function removeResourceFileMaybe(resource) {
 router.get('/', async (req, res, next) => {
   try {
     const email = userEmail(req);
-    await dbService.mergeUserResourcesIntoWorkspace(req.workspaceId, email);
+    // Legacy merge is a one-time copy. Do not block the page on it.
+    void dbService.mergeUserResourcesIntoWorkspace(req.workspaceId, email).catch(() => {});
     const filterKind = String(req.query.kind || 'all').toLowerCase();
     const resourcesAll = await dbService.listWorkspaceResources(req.workspaceId);
     const allowedFilters = new Set(['all', 'youtube', 'drive', 'x', 'link', 'note']);
