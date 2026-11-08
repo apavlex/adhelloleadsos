@@ -144,59 +144,61 @@
       </form>
     </section>
 
+    <% const _inboxHydrate = typeof inboxHydrate !== 'undefined' && !!inboxHydrate; %>
+    <% const _inboxHydrateLimit = typeof inboxHydrateLimit === 'number' ? inboxHydrateLimit : 40; %>
     <section aria-labelledby="sqaInboxTitle">
       <div class="flex items-end justify-between gap-3 mb-4">
         <h2 id="sqaInboxTitle" class="font-display font-bold text-xl">Inbox</h2>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">
-          <%= _inboxTruncated ? ('Showing ' + _questions.length + ' of ' + _questionsTotal) : (_questionsTotal + ' items') %>
+        <p id="sqaInboxCount" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">
+          <% if (_inboxHydrate && _questionsTotal > 0) { %>Loading…<% } else if (_inboxTruncated) { %>Showing <%= _questions.length %> of <%= _questionsTotal %><% } else { %><%= _questionsTotal %> items<% } %>
         </p>
       </div>
 
-      <% if (!_questions.length) { %>
-      <div class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/15 px-6 py-12 text-center">
+      <div id="sqaEmptyState" class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/15 px-6 py-12 text-center<%= (_questions.length || (_inboxHydrate && _questionsTotal > 0)) ? ' hidden' : '' %>">
         <p class="font-display font-bold text-lg mb-2">No questions yet</p>
         <p class="text-sm text-brand-muted max-w-md mx-auto">Import from your live Q&amp;A page, or wait for a visitor submit once the site posts to the public endpoint.</p>
       </div>
-      <% } else { %>
-      <div class="space-y-4">
-        <% _questions.forEach(function (q) { %>
-        <article id="sqa-<%= q.id %>" class="rounded-2xl border <%= q.status === 'open' ? 'border-amber-500/40 bg-amber-500/5' : 'border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80' %> p-4 sm:p-5 <%= _focus === q.id ? 'ring-2 ring-brand-yellow' : '' %>">
-          <div class="flex flex-wrap items-center gap-2 mb-2 text-[10px] font-black uppercase tracking-widest">
-            <span class="text-brand-muted"><%= q.category || 'General' %></span>
-            <span class="<%= q.status === 'open' ? 'text-amber-700 dark:text-amber-300' : q.status === 'hidden' ? 'text-rose-600' : 'text-emerald-700 dark:text-emerald-300' %>"><%= q.status %></span>
-            <% if (q.published) { %><span class="text-brand-yellow">Published</span><% } %>
-            <span class="text-brand-muted font-semibold normal-case tracking-normal"><%= q.author || 'Visitor' %></span>
-          </div>
-          <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1"><%= q.question %></h3>
-          <% if (q.context) { %><p class="text-sm text-brand-muted mb-3"><%= q.context %></p><% } %>
-          <% if (q.answer) { %>
-          <div class="rounded-xl bg-brand-cream/40 dark:bg-slate-950/50 px-3 py-3 mb-3">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= q.answerBy || _settings.businessName || 'Answer' %></p>
-            <p class="text-sm leading-relaxed"><%= q.answer %></p>
-            <% if (q.answerDetail) { %><p class="text-xs text-brand-muted mt-2"><%= q.answerDetail %></p><% } %>
-          </div>
-          <% } %>
-          <form class="sqa-answer-form grid gap-2 sm:grid-cols-[1fr_auto]" data-id="<%= q.id %>">
-            <textarea name="answer" rows="2" placeholder="Write or edit the answer…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/40 px-3 py-2 text-sm"><%= q.answer || '' %></textarea>
-            <div class="flex flex-col gap-2">
-              <button type="submit" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest"><%= q.answer ? 'Update & publish' : 'Answer & publish' %></button>
-              <% if (q.status === 'answered' && !q.published) { %>
-              <button type="button" class="sqa-publish btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Publish</button>
-              <% } else if (q.published) { %>
-              <button type="button" class="sqa-unpublish btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Unpublish</button>
-              <% } %>
-              <% if (q.status !== 'hidden') { %>
-              <button type="button" class="sqa-hide btn-pill border border-rose-500/30 text-rose-700 dark:text-rose-300 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Hide</button>
-              <% } %>
+      <div id="sqaInboxWrap" class="<%= (!_questions.length && !(_inboxHydrate && _questionsTotal > 0)) ? 'hidden' : '' %>">
+        <% if (_inboxHydrate && !_questions.length && _questionsTotal > 0) { %>
+        <p id="sqaInboxLoading" class="rounded-2xl border border-brand-border/40 dark:border-white/10 px-6 py-10 text-sm text-brand-muted text-center" role="status">Loading questions…</p>
+        <% } %>
+        <div class="space-y-4" id="sqaInboxList">
+          <% _questions.forEach(function (q) { %>
+          <article id="sqa-<%= q.id %>" class="rounded-2xl border <%= q.status === 'open' ? 'border-amber-500/40 bg-amber-500/5' : 'border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80' %> p-4 sm:p-5 <%= _focus === q.id ? 'ring-2 ring-brand-yellow' : '' %>">
+            <div class="flex flex-wrap items-center gap-2 mb-2 text-[10px] font-black uppercase tracking-widest">
+              <span class="text-brand-muted"><%= q.category || 'General' %></span>
+              <span class="<%= q.status === 'open' ? 'text-amber-700 dark:text-amber-300' : q.status === 'hidden' ? 'text-rose-600' : 'text-emerald-700 dark:text-emerald-300' %>"><%= q.status %></span>
+              <% if (q.published) { %><span class="text-brand-yellow">Published</span><% } %>
+              <span class="text-brand-muted font-semibold normal-case tracking-normal"><%= q.author || 'Visitor' %></span>
             </div>
-          </form>
-        </article>
-        <% }) %>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1"><%= q.question %></h3>
+            <% if (q.context) { %><p class="text-sm text-brand-muted mb-3"><%= q.context %></p><% } %>
+            <% if (q.answer) { %>
+            <div class="rounded-xl bg-brand-cream/40 dark:bg-slate-950/50 px-3 py-3 mb-3">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= q.answerBy || _settings.businessName || 'Answer' %></p>
+              <p class="text-sm leading-relaxed"><%= q.answer %></p>
+              <% if (q.answerDetail) { %><p class="text-xs text-brand-muted mt-2"><%= q.answerDetail %></p><% } %>
+            </div>
+            <% } %>
+            <form class="sqa-answer-form grid gap-2 sm:grid-cols-[1fr_auto]" data-id="<%= q.id %>">
+              <textarea name="answer" rows="2" placeholder="Write or edit the answer…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/40 px-3 py-2 text-sm"><%= q.answer || '' %></textarea>
+              <div class="flex flex-col gap-2">
+                <button type="submit" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest"><%= q.answer ? 'Update & publish' : 'Answer & publish' %></button>
+                <% if (q.status === 'answered' && !q.published) { %>
+                <button type="button" class="sqa-publish btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Publish</button>
+                <% } else if (q.published) { %>
+                <button type="button" class="sqa-unpublish btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Unpublish</button>
+                <% } %>
+                <% if (q.status !== 'hidden') { %>
+                <button type="button" class="sqa-hide btn-pill border border-rose-500/30 text-rose-700 dark:text-rose-300 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="<%= q.id %>">Hide</button>
+                <% } %>
+              </div>
+            </form>
+          </article>
+          <% }) %>
+        </div>
+        <p id="sqaInboxTruncNote" class="mt-4 text-sm text-brand-muted text-center<%= _inboxTruncated && _questions.length ? '' : ' hidden' %>">Showing the latest <span id="sqaInboxShownCount"><%= _questions.length %></span> of <span id="sqaInboxTotalCount"><%= _questionsTotal %></span> questions for a faster load. Answer or hide items above, then refresh to see the next batch.</p>
       </div>
-      <% if (_inboxTruncated) { %>
-      <p class="mt-4 text-sm text-brand-muted text-center">Showing the latest <%= _questions.length %> of <%= _questionsTotal %> questions for a faster load. Answer or hide items above, then refresh to see the next batch.</p>
-      <% } %>
-      <% } %>
     </section>
   </main>
   <%- include('partials/footer') %>
@@ -218,11 +220,10 @@
     else if (p.get('ok') === 'answered') setStatus('Answer published to the public feed.');
     else if (p.get('ok') === 'created') setStatus('Question saved.');
     else if (p.get('err')) setStatus(p.get('err'), true);
-    var focus = p.get('q');
-    if (focus) {
-      var el = document.getElementById('sqa-' + focus);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    var focus = p.get('q') || <%= JSON.stringify(_focus) %>;
+    var businessName = <%= JSON.stringify(_settings.businessName || '') %>;
+    var shouldHydrate = <%= _inboxHydrate ? 'true' : 'false' %>;
+    var hydrateLimit = <%= JSON.stringify(_inboxHydrateLimit) %>;
 
     // Lazy-load page-builder prompt only when expanded (keeps Q&A first paint light).
     var promptDetails = document.getElementById('sqaPageBuilderPromptCard');
@@ -363,8 +364,11 @@
       });
     }
 
-    document.querySelectorAll('.sqa-answer-form').forEach(function (form) {
-      form.addEventListener('submit', async function (e) {
+    var inboxList = document.getElementById('sqaInboxList');
+    if (inboxList) {
+      inboxList.addEventListener('submit', async function (e) {
+        var form = e.target && e.target.closest ? e.target.closest('.sqa-answer-form') : null;
+        if (!form || !inboxList.contains(form)) return;
         e.preventDefault();
         var id = form.getAttribute('data-id');
         var answer = form.answer.value;
@@ -378,39 +382,153 @@
           setStatus(err.message || 'Answer failed', true);
         }
       });
-    });
+      inboxList.addEventListener('click', async function (e) {
+        var publishBtn = e.target && e.target.closest ? e.target.closest('.sqa-publish') : null;
+        if (publishBtn && inboxList.contains(publishBtn)) {
+          try {
+            await postJson('/seo-qa/questions/' + encodeURIComponent(publishBtn.getAttribute('data-id')) + '/publish', { published: true });
+            window.location.reload();
+          } catch (err) {
+            setStatus(err.message || 'Publish failed', true);
+          }
+          return;
+        }
+        var unpublishBtn = e.target && e.target.closest ? e.target.closest('.sqa-unpublish') : null;
+        if (unpublishBtn && inboxList.contains(unpublishBtn)) {
+          try {
+            await postJson('/seo-qa/questions/' + encodeURIComponent(unpublishBtn.getAttribute('data-id')) + '/publish', { published: false });
+            window.location.reload();
+          } catch (err) {
+            setStatus(err.message || 'Unpublish failed', true);
+          }
+          return;
+        }
+        var hideBtn = e.target && e.target.closest ? e.target.closest('.sqa-hide') : null;
+        if (hideBtn && inboxList.contains(hideBtn)) {
+          if (!window.confirm('Hide this question from the inbox feed?')) return;
+          try {
+            await postJson('/seo-qa/questions/' + encodeURIComponent(hideBtn.getAttribute('data-id')) + '/hide', {});
+            window.location.reload();
+          } catch (err) {
+            setStatus(err.message || 'Hide failed', true);
+          }
+        }
+      });
+    }
 
-    document.querySelectorAll('.sqa-publish').forEach(function (btn) {
-      btn.addEventListener('click', async function () {
-        try {
-          await postJson('/seo-qa/questions/' + encodeURIComponent(btn.getAttribute('data-id')) + '/publish', { published: true });
-          window.location.reload();
-        } catch (err) {
-          setStatus(err.message || 'Publish failed', true);
-        }
-      });
-    });
-    document.querySelectorAll('.sqa-unpublish').forEach(function (btn) {
-      btn.addEventListener('click', async function () {
-        try {
-          await postJson('/seo-qa/questions/' + encodeURIComponent(btn.getAttribute('data-id')) + '/publish', { published: false });
-          window.location.reload();
-        } catch (err) {
-          setStatus(err.message || 'Unpublish failed', true);
-        }
-      });
-    });
-    document.querySelectorAll('.sqa-hide').forEach(function (btn) {
-      btn.addEventListener('click', async function () {
-        if (!window.confirm('Hide this question from the inbox feed?')) return;
-        try {
-          await postJson('/seo-qa/questions/' + encodeURIComponent(btn.getAttribute('data-id')) + '/hide', {});
-          window.location.reload();
-        } catch (err) {
-          setStatus(err.message || 'Hide failed', true);
-        }
-      });
-    });
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function statusClass(status) {
+      if (status === 'open') return 'text-amber-700 dark:text-amber-300';
+      if (status === 'hidden') return 'text-rose-600';
+      return 'text-emerald-700 dark:text-emerald-300';
+    }
+
+    function renderQuestionCard(q, focusId) {
+      var isFocus = focusId && focusId === q.id;
+      var border = q.status === 'open'
+        ? 'border-amber-500/40 bg-amber-500/5'
+        : 'border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80';
+      var answerBlock = q.answer
+        ? ('<div class="rounded-xl bg-brand-cream/40 dark:bg-slate-950/50 px-3 py-3 mb-3">' +
+          '<p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">' + esc(q.answerBy || businessName || 'Answer') + '</p>' +
+          '<p class="text-sm leading-relaxed">' + esc(q.answer) + '</p>' +
+          (q.answerDetail ? ('<p class="text-xs text-brand-muted mt-2">' + esc(q.answerDetail) + '</p>') : '') +
+          '</div>')
+        : '';
+      var actions = '<button type="submit" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">' +
+        (q.answer ? 'Update &amp; publish' : 'Answer &amp; publish') + '</button>';
+      if (q.status === 'answered' && !q.published) {
+        actions += '<button type="button" class="sqa-publish btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="' + esc(q.id) + '">Publish</button>';
+      } else if (q.published) {
+        actions += '<button type="button" class="sqa-unpublish btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="' + esc(q.id) + '">Unpublish</button>';
+      }
+      if (q.status !== 'hidden') {
+        actions += '<button type="button" class="sqa-hide btn-pill border border-rose-500/30 text-rose-700 dark:text-rose-300 px-4 py-2 text-[10px] font-black uppercase tracking-widest" data-id="' + esc(q.id) + '">Hide</button>';
+      }
+      return (
+        '<article id="sqa-' + esc(q.id) + '" class="rounded-2xl border ' + border + ' p-4 sm:p-5' + (isFocus ? ' ring-2 ring-brand-yellow' : '') + '">' +
+        '<div class="flex flex-wrap items-center gap-2 mb-2 text-[10px] font-black uppercase tracking-widest">' +
+        '<span class="text-brand-muted">' + esc(q.category || 'General') + '</span>' +
+        '<span class="' + statusClass(q.status) + '">' + esc(q.status || '') + '</span>' +
+        (q.published ? '<span class="text-brand-yellow">Published</span>' : '') +
+        '<span class="text-brand-muted font-semibold normal-case tracking-normal">' + esc(q.author || 'Visitor') + '</span>' +
+        '</div>' +
+        '<h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1">' + esc(q.question) + '</h3>' +
+        (q.context ? ('<p class="text-sm text-brand-muted mb-3">' + esc(q.context) + '</p>') : '') +
+        answerBlock +
+        '<form class="sqa-answer-form grid gap-2 sm:grid-cols-[1fr_auto]" data-id="' + esc(q.id) + '">' +
+        '<textarea name="answer" rows="2" placeholder="Write or edit the answer…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/40 px-3 py-2 text-sm">' + esc(q.answer || '') + '</textarea>' +
+        '<div class="flex flex-col gap-2">' + actions + '</div></form></article>'
+      );
+    }
+
+    function applyInbox(data, focusId) {
+      var questions = (data && Array.isArray(data.questions)) ? data.questions : [];
+      var total = data && typeof data.questionsTotal === 'number' ? data.questionsTotal : questions.length;
+      var truncated = !!(data && data.inboxTruncated);
+      var empty = document.getElementById('sqaEmptyState');
+      var wrap = document.getElementById('sqaInboxWrap');
+      var loading = document.getElementById('sqaInboxLoading');
+      var countEl = document.getElementById('sqaInboxCount');
+      var truncNote = document.getElementById('sqaInboxTruncNote');
+      if (loading) loading.remove();
+      if (!questions.length) {
+        if (empty) empty.classList.remove('hidden');
+        if (wrap) wrap.classList.add('hidden');
+        if (countEl) countEl.textContent = total + ' items';
+        return;
+      }
+      if (empty) empty.classList.add('hidden');
+      if (wrap) wrap.classList.remove('hidden');
+      if (inboxList) {
+        inboxList.innerHTML = questions.map(function (q) { return renderQuestionCard(q, focusId); }).join('');
+      }
+      if (countEl) {
+        countEl.textContent = truncated
+          ? ('Showing ' + questions.length + ' of ' + total)
+          : (total + ' items');
+      }
+      if (truncNote) {
+        truncNote.classList.toggle('hidden', !truncated);
+        var shown = document.getElementById('sqaInboxShownCount');
+        var tot = document.getElementById('sqaInboxTotalCount');
+        if (shown) shown.textContent = String(questions.length);
+        if (tot) tot.textContent = String(total);
+      }
+      if (focusId) {
+        var el = document.getElementById('sqa-' + focusId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
+    if (shouldHydrate) {
+      fetch('/seo-qa/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focus ? ('&q=' + encodeURIComponent(focus)) : ''), {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' }
+      })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (parsed) {
+          if (!parsed.ok || !parsed.data || !parsed.data.success) {
+            throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
+          }
+          applyInbox(parsed.data, focus);
+        })
+        .catch(function (e) {
+          var loading = document.getElementById('sqaInboxLoading');
+          if (loading) loading.textContent = (e && e.message) || 'Could not load inbox';
+          setStatus((e && e.message) || 'Could not load inbox', true);
+        });
+    } else if (focus) {
+      var el = document.getElementById('sqa-' + focus);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   })();
   </script>
 </body>

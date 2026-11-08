@@ -15,9 +15,13 @@ function baseUrlFromReq(req) {
   return `${proto}://${host}`.replace(/\/$/, '');
 }
 
-/** Cap SSR inbox cards — each card ships an answer textarea; keep first paint tiny. */
-const INBOX_SSR_LIMIT = 12;
-const INBOX_JSON_LIMIT = 100;
+/**
+ * HTML first paint: no Q&A cards (hydrate from /inbox.json).
+ * JSON endpoint still returns a capped set for the client inbox.
+ */
+const INBOX_SSR_LIMIT = 0;
+const INBOX_JSON_LIMIT = 40;
+const INBOX_HYDRATE_LIMIT = 40;
 
 async function pageLocals(req, { inboxLimit = null } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
@@ -30,31 +34,39 @@ async function pageLocals(req, { inboxLimit = null } = {}) {
     ...bundle.settings,
     businessName: String(bundle.settings.businessName || '').trim() || seedName,
   };
-  const allQuestions = seoQaStore.listQuestions(bundle);
   const summary = seoQaStore.inboxSummary(bundle);
   const token = settings.publicToken;
   const origin = baseUrlFromReq(req);
   const feedUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/feed.json` : '';
   const submitUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/questions` : '';
   const focusQuestionId = String(req.query.q || '').trim();
-  let questions = allQuestions;
+  let questions = [];
+  let questionsTotal = summary.total;
   let inboxTruncated = false;
-  if (inboxLimit != null && Number.isFinite(inboxLimit) && allQuestions.length > inboxLimit) {
-    questions = allQuestions.slice(0, inboxLimit);
-    if (focusQuestionId) {
-      const focused = allQuestions.find((q) => q && q.id === focusQuestionId);
-      if (focused && !questions.some((q) => q.id === focusQuestionId)) {
-        questions = [focused, ...questions].slice(0, inboxLimit);
+  if (inboxLimit === 0) {
+    questions = [];
+    inboxTruncated = summary.total > 0;
+  } else {
+    const allQuestions = seoQaStore.listQuestions(bundle);
+    questionsTotal = allQuestions.length;
+    questions = allQuestions;
+    if (inboxLimit != null && Number.isFinite(inboxLimit) && allQuestions.length > inboxLimit) {
+      questions = allQuestions.slice(0, inboxLimit);
+      if (focusQuestionId && inboxLimit > 0) {
+        const focused = allQuestions.find((q) => q && q.id === focusQuestionId);
+        if (focused && !questions.some((q) => q.id === focusQuestionId)) {
+          questions = [focused, ...questions].slice(0, inboxLimit);
+        }
       }
+      inboxTruncated = true;
     }
-    inboxTruncated = true;
   }
   return {
     title: 'Q&A Pages',
     activePage: 'seo-qa',
     settings,
     questions,
-    questionsTotal: allQuestions.length,
+    questionsTotal,
     inboxTruncated,
     summary,
     feedUrl,
@@ -70,6 +82,8 @@ router.get('/', async (req, res, next) => {
     const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT });
     locals.pageBuilderPrompt = '';
     locals.pageBuilderPromptUrl = '/seo-qa/page-prompt.txt';
+    locals.inboxHydrate = true;
+    locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
     res.render('seo_qa', locals);
   } catch (e) {
     next(e);

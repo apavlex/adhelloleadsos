@@ -9,15 +9,23 @@ const outscraper = require('../services/outscraperClient');
 const businessReviews = require('../services/businessReviews');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
-/** Cap SSR inbox cards — each card ships a draft textarea; keep first paint tiny. */
-const INBOX_SSR_LIMIT = 12;
-const INBOX_JSON_LIMIT = 100;
+/**
+ * HTML first paint: no review cards (hydrate from /inbox.json).
+ * JSON endpoint still returns a capped set for the client inbox.
+ */
+const INBOX_SSR_LIMIT = 0;
+const INBOX_JSON_LIMIT = 40;
+const INBOX_HYDRATE_LIMIT = 40;
 
 async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
   const paid = businessReviews.isPaidWorkspace(ws);
   const settings = businessReviews.getSettings(req.workspaceId);
-  const store = businessReviews.getStore(req.workspaceId);
+  // Unpaid: skip reading the full reviews JSON.
+  const store = paid ? businessReviews.getStore(req.workspaceId) : {
+    reviews: [],
+    syncState: businessReviews.emptySyncState(),
+  };
   const summary = businessReviews.inboxSummary(store);
   let outscraperConfigured = false;
   if (paid) {
@@ -33,9 +41,9 @@ async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true } =
   const allReviews = Array.isArray(store.reviews) ? store.reviews : [];
   let reviews = allReviews;
   let inboxTruncated = false;
-  if (inboxLimit != null && Number.isFinite(inboxLimit) && allReviews.length > inboxLimit) {
+  if (inboxLimit != null && Number.isFinite(inboxLimit) && inboxLimit >= 0 && allReviews.length > inboxLimit) {
     reviews = allReviews.slice(0, inboxLimit);
-    if (focusId) {
+    if (focusId && inboxLimit > 0) {
       const focused = allReviews.find((r) => r && r.id === focusId);
       if (focused && !reviews.some((r) => r.id === focusId)) {
         reviews = [focused, ...reviews].slice(0, inboxLimit);
@@ -64,7 +72,13 @@ async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true } =
 
 router.get('/', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT, resolveOutscraper: true });
+    // Shell HTML: KPIs + settings only. Cards hydrate from /inbox.json (skips Outscraper agency resolve).
+    const locals = await pageLocals(req, {
+      inboxLimit: INBOX_SSR_LIMIT,
+      resolveOutscraper: false,
+    });
+    locals.inboxHydrate = true;
+    locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
     res.render('business_reviews', locals);
   } catch (e) {
     next(e);

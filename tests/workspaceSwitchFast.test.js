@@ -18,8 +18,11 @@ test('workspace switch warms leads and skips chrome extras', () => {
 
   const mw = fs.readFileSync(path.join(__dirname, '../middleware/withWorkspace.js'), 'utf8');
   assert.match(mw, /workspaceSwitchFastPath/);
+  assert.match(mw, /seoLightFastPath/);
   assert.match(mw, /skipChromeExtras/);
   assert.match(mw, /\/workspaces\/switch/);
+  assert.match(mw, /\/business-reviews/);
+  assert.match(mw, /\/seo-qa/);
 
   const shell = fs.readFileSync(path.join(__dirname, '../public/js/sidebarShell.js'), 'utf8');
   assert.match(shell, /Switching…/);

@@ -62,6 +62,7 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
 test('light pages skip softphone helper scripts in head (lazy on dialer open)', () => {
   const head = fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8');
   const js = fs.readFileSync(path.join(root, 'public/js/navbar-shell.js'), 'utf8');
+  const navScripts = fs.readFileSync(path.join(root, 'views/partials/navbar_scripts.ejs'), 'utf8');
   assert.match(head, /_lightChrome/);
   assert.match(head, /_needGcal = !_lightChrome/);
   assert.match(head, /_needDmQueue = !_lightChrome/);
@@ -72,6 +73,10 @@ test('light pages skip softphone helper scripts in head (lazy on dialer open)', 
   assert.match(head, /_rp\.startsWith\('\/engagement'\)/);
   assert.match(js, /function ensureSoftphoneHelperScripts/);
   assert.match(js, /ensureSoftphoneHelperScripts\(\)/);
+  /* Reviews / Q&A / SEO defer bell JS until idle so first paint is not blocked. */
+  assert.match(navScripts, /_deferNavExtras/);
+  assert.match(navScripts, /business-reviews/);
+  assert.match(navScripts, /requestIdleCallback/);
 });
 
 test('opportunities board does not load maps scripts', () => {
