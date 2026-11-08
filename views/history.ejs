@@ -19,7 +19,7 @@
         <p class="text-brand-muted font-medium mt-2">
           <% const _histTotal = typeof searchesTotal === 'number' ? searchesTotal : searches.length; %>
           <% if (typeof historyTruncated !== 'undefined' && historyTruncated) { %>
-          Showing the latest <%= searches.length %> of <%= _histTotal %> search activit<%= _histTotal === 1 ? 'y' : 'ies' %>.
+          Showing the latest <%= searches.length %> search activities (more available).
           <% } else { %>
           Review your previous <%= _histTotal %> search activit<%= _histTotal === 1 ? 'y' : 'ies' %>.
           <% } %>
