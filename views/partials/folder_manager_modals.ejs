@@ -1,0 +1,294 @@
+  <div id="folderCreateModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderCreateTitle">
+    <div id="folderCreateBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderCreateTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">New folder</h2>
+      <p class="text-sm text-brand-muted mb-5">Create a subfolder under a system folder or an existing subfolder. Assign leads from the Pipeline tab.</p>
+      <label for="folderCreateParent" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Parent folder</label>
+      <select id="folderCreateParent" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-3">
+        <% const _roots = typeof folderTree !== 'undefined' && folderTree && folderTree.groups ? folderTree.groups.filter(function (g) { return g.isSystem && g.folder; }) : []; %>
+        <% _roots.forEach(function (g) {
+          if (!g.folder) return;
+          var rootJt = g.folder.jobType || '';
+        %>
+        <optgroup label="<%= g.name %>">
+          <option value="<%= g.folder.key %>" data-job-type="<%= rootJt %>"><%= g.name %></option>
+          <% (g.childRows || []).forEach(function (row) {
+            var child = row.folder;
+            if (!child) return;
+            var depth = row.depth || 1;
+            var prefix = depth > 1 ? '\u21b3 '.repeat(depth) : '\u21b3 ';
+            var childJt = child.jobType || rootJt;
+          %>
+          <option value="<%= child.key %>" data-job-type="<%= childJt %>"><%= prefix %><%= child.name %></option>
+          <% }); %>
+        </optgroup>
+        <% }); %>
+        <% const _other = typeof folderTree !== 'undefined' && folderTree && folderTree.groups ? folderTree.groups.find(function (g) { return !g.isSystem && g.key === '__other__'; }) : null; %>
+        <% if (_other && (_other.childRows || []).length) { %>
+        <optgroup label="Other folders">
+          <% (_other.childRows || []).forEach(function (row) {
+            var child = row.folder;
+            if (!child) return;
+            var childJt = child.jobType || '';
+          %>
+          <option value="<%= child.key %>" data-job-type="<%= childJt %>"><%= child.name %></option>
+          <% }); %>
+        </optgroup>
+        <% } %>
+        <option value="">No parent (top-level)</option>
+      </select>
+      <label for="folderCreateName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Folder name</label>
+      <input id="folderCreateName" type="text" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" placeholder="e.g. HVAC — Phoenix" />
+      <p id="folderCreateError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderCreateSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Create</button>
+        <button id="folderCreateCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="folderMergeModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderMergeTitle">
+    <div id="folderMergeBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative brand-card dark:bg-slate-900 dark:border-white/10 w-full max-w-md p-6 md:p-8 shadow-2xl">
+      <h2 id="folderMergeTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">Merge folders</h2>
+      <p id="folderMergeSubtitle" class="text-sm text-brand-muted mb-5">All leads move into the destination folder. Source folders are removed.</p>
+      <input type="hidden" id="folderMergeSources" value="" />
+      <label for="folderMergeTarget" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Merge into</label>
+      <select id="folderMergeTarget" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-3"></select>
+      <p id="folderMergeError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderMergeSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Merge folders</button>
+        <button id="folderMergeCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="folderMoveModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderMoveTitle">
+    <div id="folderMoveBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderMoveTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">Move folder</h2>
+      <p id="folderMoveSubtitle" class="text-sm text-brand-muted mb-5">Choose which system folder or subfolder should contain this folder.</p>
+      <input type="hidden" id="folderMoveKey" value="" />
+      <label for="folderMoveParent" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Move to</label>
+      <select id="folderMoveParent" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-3"></select>
+      <p id="folderMoveError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderMoveSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Move folder</button>
+        <button id="folderMoveCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="folderOutreachModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderOutreachTitle">
+    <div id="folderOutreachBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderOutreachTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-1">Folder auto outreach</h2>
+      <p id="folderOutreachSubtitle" class="text-sm text-brand-muted mb-2">When enabled, starts enrolling this folder into your GHL <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">auto-outreach</code> workflow immediately, then continues daily. Phone line type (Mobile vs Landline) syncs to GHL for SMS branching. Workspace cap: <strong class="text-brand-dark dark:text-white">100 enrolls/day</strong> across all auto outreach (avoids GHL spam flags).</p>
+      <p class="text-xs text-brand-muted mb-5">Use your GHL audit widget link in the workflow — AdHello audit is not required.</p>
+      <input type="hidden" id="folderOutreachKey" value="" />
+      <div class="space-y-4">
+        <label class="flex items-center gap-2 text-sm font-semibold text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachEnabled" class="rounded border-brand-border" />
+          Enable auto outreach for this folder (starts now)
+        </label>
+        <div>
+          <label for="folderOutreachMaxLeads" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max leads per day (folder)</label>
+          <input type="number" id="folderOutreachMaxLeads" min="1" max="100" value="25" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          <p class="mt-1 text-[10px] text-brand-muted">Hard workspace limit is 100/day shared with auto-pool &amp; bulk enroll.</p>
+        </div>
+        <div>
+          <label for="folderOutreachTier" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Prospect tier (optional)</label>
+          <select id="folderOutreachTier" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+            <option value="">Any tier</option>
+            <option value="Hot">Hot</option>
+            <option value="Warm">Warm</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+        <div>
+          <label for="folderOutreachMinScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min score (optional)</label>
+          <input type="number" id="folderOutreachMinScore" min="0" max="10" step="0.5" placeholder="e.g. 7" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+        </div>
+        <label class="flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachSmsOnly" class="rounded border-brand-border mt-0.5" />
+          <span><strong class="font-bold">SMS-ready only</strong> — skip landlines (Mobile / VoIP). Best when your GHL workflow sends text first.</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachAiIcpReview" class="rounded border-brand-border mt-0.5" checked />
+          <span><strong class="font-bold">AI A+ review before drip</strong> — only enroll leads that match this <em>folder</em> niche + service area. Turn off if you already curated the folder and want every eligible lead dripped.</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachFindMissingEmail" class="rounded border-brand-border mt-0.5" checked />
+          <span><strong class="font-bold">Find missing emails before GHL</strong> — for Google Maps leads without email: RapidAPI website scrape, Outscraper, and/or BetterContact. Does not invent addresses.</span>
+        </label>
+        <label class="flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+          <input type="checkbox" id="folderOutreachRequireEmail" class="rounded border-brand-border mt-0.5" />
+          <span><strong class="font-bold">Require email to enroll</strong> — skip leads still missing email after the hunt (best when your GHL workflow is email-first).</span>
+        </label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="folderOutreachMinIcpScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ICP score (A+ gate)</label>
+            <input type="number" id="folderOutreachMinIcpScore" min="1" max="10" step="0.5" value="8" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            <p class="mt-1 text-[10px] text-brand-muted">8 = A, 9+ = A+</p>
+          </div>
+          <div>
+            <label for="folderOutreachServiceStates" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Service states</label>
+            <input type="text" id="folderOutreachServiceStates" placeholder="e.g. CA, NV" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          </div>
+        </div>
+        <div>
+          <label for="folderOutreachServiceCities" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Service cities (optional)</label>
+          <input type="text" id="folderOutreachServiceCities" placeholder="e.g. Sacramento, Roseville" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          <p class="mt-1 text-[10px] text-brand-muted">Blank = use workspace ICP city/state from Today / Find presets.</p>
+        </div>
+        <div>
+          <label for="folderOutreachSenderOfferKey" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Sender business profile</label>
+          <select id="folderOutreachSenderOfferKey" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+            <option value="">Workspace default (first offer)</option>
+            <% if (typeof scriptLibraryOfferPicklist !== 'undefined' && Array.isArray(scriptLibraryOfferPicklist)) { %>
+            <% scriptLibraryOfferPicklist.forEach(function (o) { if (!o || !o.key) return; %>
+            <option value="<%= o.key %>"><%= o.label || o.key %></option>
+            <% }); %>
+            <% } %>
+          </select>
+          <p class="text-[11px] text-brand-muted mt-1">Which of your businesses GHL should represent for leads in this folder. Syncs AdHello Sender * fields on enroll.</p>
+        </div>
+        <div>
+          <label for="folderOutreachGhlGoal" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outreach goal</label>
+          <textarea id="folderOutreachGhlGoal" rows="3" maxlength="2000" placeholder="e.g. Book flooring estimates with homeowners in this market" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold resize-y min-h-[4.5rem]"></textarea>
+          <p class="text-[11px] text-brand-muted mt-1">What should GHL optimize for with leads in this folder? e.g. Book flooring estimates with homeowners</p>
+          <button id="folderOutreachOptimizePrompt" type="button" class="mt-2 rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 dark:bg-brand-yellow/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">Optimize prompt for GHL</button>
+        </div>
+      </div>
+      <%- include('/partials/ghl_auto_outreach_workflow_prompt', { promptId: 'ghlAutoOutreachPromptFolder', compact: true }) %>
+      <p class="text-[11px] text-brand-muted mt-2">This folder's prompt also shows on <a href="/sequences#ghl-auto-outreach" class="underline font-semibold text-brand-dark dark:text-white hover:text-brand-yellow">Cadences</a>, with the main setup prompt and AI workflow generator.</p>
+      <p id="folderOutreachStatus" class="text-xs text-brand-muted mt-4 hidden" role="status"></p>
+      <div class="flex flex-wrap gap-3 mt-6">
+        <button id="folderOutreachSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest min-w-[8rem]">Save</button>
+        <button id="folderOutreachRun" type="button" class="shrink-0 btn-pill bg-emerald-600 text-white border border-emerald-600 py-4 px-5 text-xs font-black uppercase tracking-widest hover:brightness-110">Run now</button>
+        <button id="folderOutreachCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white min-w-[8rem]">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="folderSearchSetupModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderSearchSetupTitle">
+    <div id="folderSearchSetupBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderSearchSetupTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-1">Search setup</h2>
+      <p id="folderSearchSetupSubtitle" class="text-sm text-brand-muted mb-5">Save how Find should run for this folder. Run search uses these settings and merges new leads (no duplicates).</p>
+      <input type="hidden" id="folderSearchSetupKey" value="" />
+      <div class="space-y-4">
+        <div>
+          <label for="folderSearchJobType" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Search type</label>
+          <select id="folderSearchJobType" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+            <option value="maps_business">Business</option>
+            <option value="real_estate">Real estate</option>
+            <option value="products">Products</option>
+            <option value="wholesale">Wholesale</option>
+          </select>
+        </div>
+        <div>
+          <label for="folderSearchMaxResults" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max results</label>
+          <input type="number" id="folderSearchMaxResults" min="1" max="100" value="25" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="folderSearchCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
+            <input type="text" id="folderSearchCity" placeholder="e.g. Portland" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          </div>
+          <div>
+            <label for="folderSearchState" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
+            <input type="text" id="folderSearchState" maxlength="2" placeholder="OR" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold uppercase" />
+          </div>
+        </div>
+        <div id="folderSearchMapsFields" class="space-y-3">
+          <div>
+            <label for="folderSearchKeyword" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business keyword</label>
+            <input type="text" id="folderSearchKeyword" placeholder="e.g. electrician" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          </div>
+          <%- include('/partials/maps_search_criteria', { idPrefix: 'folderSearch', preset: {} }) %>
+        </div>
+        <div id="folderSearchListingFields" class="space-y-3 hidden">
+          <div>
+            <label for="folderSearchQuery" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Listing search terms</label>
+            <input type="text" id="folderSearchQuery" placeholder="homes for sale, mobile home, wholesale…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          </div>
+          <%- include('/partials/listing_sources_fieldset', { enabledSources: null }) %>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="folderSearchMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
+              <input type="number" id="folderSearchMinPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+            <div>
+              <label for="folderSearchMaxPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
+              <input type="number" id="folderSearchMaxPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+          </div>
+          <div id="folderSearchReExtras" class="space-y-3 hidden">
+            <div>
+              <label for="folderSearchListingMarket" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Listing market</label>
+              <select id="folderSearchListingMarket" name="listingMarket" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+                <option value="both" selected>Active for sale + recently sold</option>
+                <option value="active">Active for sale only</option>
+                <option value="sold">Recently sold only</option>
+              </select>
+            </div>
+            <div>
+              <label for="folderSearchReScraper" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Property scraper mode</label>
+              <select id="folderSearchReScraper" name="scraper" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+                <option value="listings">Multi-source listings (recommended)</option>
+                <option value="auto">Auto (Apify Zillow → Oxylabs fallback)</option>
+                <option value="apify_zillow">Apify Zillow only</option>
+                <option value="oxylabs">Oxylabs only</option>
+              </select>
+            </div>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" id="folderSearchFlipEnabled" class="mt-1 rounded border-brand-border" />
+              <span>
+                <span class="font-bold text-sm block">Flip deals only (AI filter)</span>
+                <span class="text-[11px] text-brand-muted">Mobile home flip scoring — same as Find → Real estate.</span>
+              </span>
+            </label>
+            <div id="folderSearchFlipFields" class="hidden space-y-3 pl-0 sm:pl-7">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label for="folderSearchMinFlipScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min flip score</label>
+                  <input type="number" id="folderSearchMinFlipScore" value="7" min="1" max="10" step="0.5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
+                </div>
+                <div>
+                  <label for="folderSearchMinRoi" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ROI %</label>
+                  <input type="number" id="folderSearchMinRoi" value="15" min="0" max="200" step="5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
+                </div>
+              </div>
+              <div>
+                <label for="folderSearchLandMode" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Land mode</label>
+                <select id="folderSearchLandMode" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800">
+                  <option value="any">Any tenure</option>
+                  <option value="exclude_park">Exclude park / lot rent</option>
+                  <option value="prefer_own_land">Prefer land-owned</option>
+                  <option value="own_land_only">Own land only</option>
+                </select>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" id="folderSearchRequireOwnLand" class="rounded border-brand-border" />
+                  <span class="font-semibold text-xs">Require own-land phrases</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" id="folderSearchExcludePark" checked class="rounded border-brand-border" />
+                  <span class="font-semibold text-xs">Exclude park / lot rent</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p id="folderSearchSetupError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderSearchSetupSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Save setup</button>
+        <a id="folderSearchInfoPackLink" href="/workspace/info-packs" class="shrink-0 inline-flex items-center justify-center rounded-xl border border-brand-border dark:border-white/10 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/40 transition-colors">Info packs</a>
+        <button id="folderSearchSetupCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+

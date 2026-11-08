@@ -137,7 +137,11 @@
      Opportunities (engagement / tasks / activity / automate) + SEO / network / settings
      skip them so those hops are not stuck behind gcal + DM + reviews JS — softphone
      lazy-loads the same files when opened (navbar-shell ensureSoftphoneHelperScripts). */
+  const _foldersLite =
+    (typeof foldersManagerPage !== 'undefined' && foldersManagerPage) ||
+    (typeof tab !== 'undefined' && String(tab) === 'folders');
   const _lightChrome =
+    _foldersLite ||
     _np === 'seo-qa' ||
     _np === 'seo-gap' ||
     _np === 'backlinks' ||
