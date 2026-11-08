@@ -112,9 +112,11 @@ router.get('/', async (req, res) => {
     const analyticsMetric = String(req.query.metric || '').trim();
     const analyticsRange = String(req.query.range || '').trim();
 
-    const visits = await dbService.getAllVisits();
     const reportsScope = String(req.query.scope || 'workspace').toLowerCase() === 'all' ? 'all' : 'workspace';
-    const leads = await dbService.getAllLeads(req.workspaceId);
+    // Daily tracker does not need the visit log or a second full lead scan up front.
+    // loadSalesTrackerLocals reads leads (cached after Today). Visit history is capped.
+    const visits = reportsTab === 'tracker' ? [] : await dbService.getAllVisits();
+    const leads = reportsTab === 'tracker' ? [] : await dbService.getAllLeads(req.workspaceId);
 
     let workspaceCompare = [];
     if (reportsScope === 'all') {

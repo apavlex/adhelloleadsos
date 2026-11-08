@@ -323,28 +323,8 @@ function metaFromBody(body) {
 
 router.get('/', async (req, res, next) => {
   try {
-    let groups = await dbService.listWorkspaceFbGroups(req.workspaceId);
-    // Repair junk titles and future lastPosted labels (UTC / scrape off-by-one).
-    groups = await Promise.all(
-      (groups || []).map(async (g) => {
-        if (!g) return g;
-        let next = g;
-        if (isJunkFbGroupTitle(g.title)) {
-          const fixed = resolveFbGroupTitle({ titleIn: '', url: g.url, existingTitle: g.title });
-          if (fixed && fixed !== g.title) next = { ...next, title: fixed };
-        }
-        const posted = normalizeLastPosted(g.lastPosted);
-        if (posted && posted !== String(g.lastPosted || '').trim()) {
-          next = { ...next, lastPosted: posted };
-        }
-        if (next === g) return g;
-        try {
-          return await dbService.saveWorkspaceFbGroup(req.workspaceId, next);
-        } catch (_) {
-          return next;
-        }
-      }),
-    );
+    // Do not rewrite every group on GET — that write loop kept the page from opening.
+    const groups = await dbService.listWorkspaceFbGroups(req.workspaceId);
     res.render('fb-groups', {
       title: 'Facebook Groups | Agency OS',
       activePage: 'fb-groups',

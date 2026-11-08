@@ -70,8 +70,48 @@ router.get('/', async (req, res, next) => {
     const safeTab = ['queue', 'pipeline', 'folders'].includes(tab) ? tab : 'pipeline';
     const wid = req.workspaceId;
 
+    // Queue does not need every lead. A cold getAllLeads held the server and left
+    // this page (and the next menu taps) on the full-screen spinner.
+    if (safeTab === 'queue') {
+      const scheduleSuccess = req.query.scheduleSuccess === 'true';
+      const allSchedules = await dbService.listSchedules();
+      const schedulesSorted = allSchedules
+        .filter((s) => (s.workspaceId || 'default') === wid)
+        .sort((a, b) => {
+          const t = (s) => {
+            const x = Date.parse(String(s.scheduledRunAt || ''));
+            return Number.isFinite(x) ? x : Infinity;
+          };
+          const cmp = t(a) - t(b);
+          if (cmp !== 0) return cmp;
+          return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+        });
+      const { automations, summary } = await listAutomationsForWorkspace(wid, { light: true });
+      const queueOutreachAutomations = automations.filter((a) => a.type === 'outreach');
+      return res.render('prospecting', {
+        title: 'Prospecting | Agency OS',
+        activePage: 'prospecting',
+        tab: 'queue',
+        schedules: schedulesSorted,
+        scheduleSuccess,
+        queueOutreachAutomations,
+        queueOutreachSummary: {
+          running: queueOutreachAutomations.filter((a) => a.status === 'running').length,
+          paused: queueOutreachAutomations.filter((a) => a.status === 'paused').length,
+          enrolled: summary && summary.enrolled ? summary.enrolled : queueOutreachAutomations.reduce(
+            (sum, a) => sum + (Number(a.leadsEnrolled) || 0),
+            0,
+          ),
+        },
+        canManageWorkspace: req.canManageWorkspace,
+      });
+    }
+
+    const cachedLeads = safeTab === 'pipeline' ? await dbService.peekCachedLeads(wid) : null;
+    const pipelineColdShell = safeTab === 'pipeline' && !cachedLeads;
+
     const [all, foldersInitial, tags, wsRaw] = await Promise.all([
-      dbService.getAllLeads(wid),
+      pipelineColdShell ? Promise.resolve([]) : dbService.getAllLeads(wid),
       ensurePipelineFolders(wid),
       dbService.listTags(wid),
       dbService.getWorkspace(wid),
@@ -437,7 +477,8 @@ router.get('/', async (req, res, next) => {
       workspaceProspecting,
       pipelineLeadsTotal: safeTab === 'pipeline' ? pipelineLeadsTotal : leads.length,
       pipelineSsrOffset: 0,
-      pipelineSsrHasMore: safeTab === 'pipeline' && pipelineLeadsTotal > ssrCap,
+      pipelineSsrHasMore: pipelineColdShell || (safeTab === 'pipeline' && pipelineLeadsTotal > ssrCap),
+      pipelineHydrate: pipelineColdShell,
       pipelineRowsQuery:
         safeTab === 'pipeline'
           ? [

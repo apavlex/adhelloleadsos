@@ -1,3 +1,6 @@
+<% const _fragment = typeof fragmentOnly !== 'undefined' && fragmentOnly; %>
+<% const _inboxPending = typeof inboxPending !== 'undefined' && inboxPending; %>
+<% if (!_fragment) { %>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,6 +21,8 @@
       </div>
     </header>
 
+    <div id="engagementInboxSlot">
+    <% } %>
     <% const _summary = typeof summary !== 'undefined' && summary ? summary : { total: 0, uniqueLeads: 0, byType: {} }; %>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
@@ -44,7 +49,9 @@
     </div>
 
     <% const _events = Array.isArray(events) ? events : []; %>
-    <% if (!_events.length) { %>
+    <% if (_inboxPending) { %>
+    <div id="engagementInboxLoading" class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/15 px-8 py-14 text-center text-sm text-brand-muted">Loading engagement…</div>
+    <% } else if (!_events.length) { %>
     <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No engagement yet</h2>
       <p class="text-sm text-brand-muted max-w-md mx-auto mb-2">This inbox only shows <strong class="text-brand-dark dark:text-slate-200">inbound</strong> signals — SMS/email replies, link clicks, audit opens, email opens, postcard QR scans — from the last <%= windowDays %> days.</p>
@@ -145,7 +152,32 @@
       </ul>
     </section>
     <% } %>
+    <% if (!_fragment) { %>
+    </div>
   </main>
+  <% if (_inboxPending) { %>
+  <script>
+    (function () {
+      var slot = document.getElementById('engagementInboxSlot');
+      if (!slot) return;
+      var q = window.location.search || '';
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 20000);
+      fetch('/engagement/inbox.fragment' + q, { credentials: 'same-origin', signal: ctrl ? ctrl.signal : undefined })
+        .then(function (r) { if (!r.ok) throw new Error('Could not load engagement'); return r.text(); })
+        .then(function (html) {
+          clearTimeout(timer);
+          slot.innerHTML = html;
+        })
+        .catch(function () {
+          clearTimeout(timer);
+          var el = document.getElementById('engagementInboxLoading');
+          if (el) el.textContent = 'Engagement is taking too long. Refresh to try again.';
+        });
+    })();
+  </script>
+  <% } %>
   <%- include('partials/footer') %>
 </body>
 </html>
+<% } %>

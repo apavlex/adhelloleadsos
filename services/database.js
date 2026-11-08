@@ -20,6 +20,7 @@ const { applyLoyaltyProgramOverwrite } = require('./loyaltyProgramNormalize');
 const { mergeContactLists } = require('./leadEmailContacts');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const { isLeadRunJobStale } = require('./leadRunProgress');
+const { queryRows } = require('./sqliteReadWorkerClient');
 
 const TAG_COLOR_PALETTE = ['#EAB308', '#3B82F6', '#10B981', '#F43F5E', '#8B5CF6', '#F97316', '#06B6D4', '#EC4899'];
 
@@ -546,6 +547,20 @@ function kvDelete(key) {
   onKvWrite(key, null);
 }
 
+/**
+ * Heavy lead scans run on a readonly connection so menu HTML (Reviews, Q&A,
+ * Resources, Backlinks) can still be served while a pipeline/report scan runs.
+ * Falls back to the main connection if the worker cannot start.
+ */
+async function readRowsOffThread(sql, params) {
+  try {
+    return await queryRows(DB_PATH, sql, params);
+  } catch (e) {
+    console.warn('[sqlite] async read fell back to main thread:', e && e.message);
+    return sqlite.prepare(sql).all(...(params || []));
+  }
+}
+
 // ── Workspace helper ──────────────────────────────────────────────────────────
 const WORKSPACE_SCRIPT_FIELDS = [
   'salesScriptOfferCatalog',
@@ -849,6 +864,15 @@ module.exports = {
     return _leadsListInflight.size;
   },
 
+  /** Warm list only — does not start a cold scan. Null when the menu should paint a shell. */
+  async peekCachedLeads(workspaceId) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    if (!wid) return null;
+    const cached = _leadsListCache.get(wid);
+    if (!cached || Date.now() - cached.at >= LEADS_LIST_CACHE_TTL_MS) return null;
+    return cached.leads.slice();
+  },
+
   async getAllLeads(workspaceId) {
     const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
     assertLeadScopedWorkspaceId(wid, 'getAllLeads');
@@ -867,26 +891,21 @@ module.exports = {
       // Keep expression identical to idx_kv_lead_workspace so SQLite can use the index.
       const leadWs =
         "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
-      const rows = includeLegacyDefault
-        ? sqlite
-            .prepare(
-              `SELECT key, value FROM kv
-               WHERE key LIKE 'lead:%'
-                 AND (
-                   ${leadWs} = ?
-                   OR ${leadWs} IS NULL
-                   OR ${leadWs} = ''
-                   OR ${leadWs} = 'default'
-                 )`,
-            )
-            .all(wid)
-        : sqlite
-            .prepare(
-              `SELECT key, value FROM kv
-               WHERE key LIKE 'lead:%'
-                 AND ${leadWs} = ?`,
-            )
-            .all(wid);
+      const rows = await readRowsOffThread(
+        includeLegacyDefault
+          ? `SELECT key, value FROM kv
+             WHERE key LIKE 'lead:%'
+               AND (
+                 ${leadWs} = ?
+                 OR ${leadWs} IS NULL
+                 OR ${leadWs} = ''
+                 OR ${leadWs} = 'default'
+               )`
+          : `SELECT key, value FROM kv
+             WHERE key LIKE 'lead:%'
+               AND ${leadWs} = ?`,
+        [wid],
+      );
       const leads = [];
       // Yield often so switch/nav requests stay responsive while a large workspace cold-loads.
       const YIELD_EVERY = 80;
@@ -946,28 +965,23 @@ module.exports = {
       "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
     const inboundLen =
       "json_array_length(json_extract(CASE WHEN json_valid(value) THEN value END, '$.inboundEvents'))";
-    const rows = includeLegacyDefault
-      ? sqlite
-          .prepare(
-            `SELECT key, value FROM kv
-             WHERE key LIKE 'lead:%'
-               AND ${inboundLen} > 0
-               AND (
-                 ${leadWs} = ?
-                 OR ${leadWs} IS NULL
-                 OR ${leadWs} = ''
-                 OR ${leadWs} = 'default'
-               )`,
-          )
-          .all(wid)
-      : sqlite
-          .prepare(
-            `SELECT key, value FROM kv
-             WHERE key LIKE 'lead:%'
-               AND ${inboundLen} > 0
-               AND ${leadWs} = ?`,
-          )
-          .all(wid);
+    const rows = await readRowsOffThread(
+      includeLegacyDefault
+        ? `SELECT key, value FROM kv
+           WHERE key LIKE 'lead:%'
+             AND ${inboundLen} > 0
+             AND (
+               ${leadWs} = ?
+               OR ${leadWs} IS NULL
+               OR ${leadWs} = ''
+               OR ${leadWs} = 'default'
+             )`
+        : `SELECT key, value FROM kv
+           WHERE key LIKE 'lead:%'
+             AND ${inboundLen} > 0
+             AND ${leadWs} = ?`,
+      [wid],
+    );
 
     const leads = [];
     for (const row of rows) {
@@ -1014,28 +1028,23 @@ module.exports = {
     /* updates / field blobs — instr is cheap vs parsing every prospect. */
     const engHint =
       `(${inboundLen} > 0 OR ${lastSignal} IS NOT NULL OR instr(value, 'engagement_signal') > 0 OR instr(value, 'engagementSignals') > 0)`;
-    const rows = includeLegacyDefault
-      ? sqlite
-          .prepare(
-            `SELECT key, value FROM kv
-             WHERE key LIKE 'lead:%'
-               AND ${engHint}
-               AND (
-                 ${leadWs} = ?
-                 OR ${leadWs} IS NULL
-                 OR ${leadWs} = ''
-                 OR ${leadWs} = 'default'
-               )`,
-          )
-          .all(wid)
-      : sqlite
-          .prepare(
-            `SELECT key, value FROM kv
-             WHERE key LIKE 'lead:%'
-               AND ${engHint}
-               AND ${leadWs} = ?`,
-          )
-          .all(wid);
+    const rows = await readRowsOffThread(
+      includeLegacyDefault
+        ? `SELECT key, value FROM kv
+           WHERE key LIKE 'lead:%'
+             AND ${engHint}
+             AND (
+               ${leadWs} = ?
+               OR ${leadWs} IS NULL
+               OR ${leadWs} = ''
+               OR ${leadWs} = 'default'
+             )`
+        : `SELECT key, value FROM kv
+           WHERE key LIKE 'lead:%'
+             AND ${engHint}
+             AND ${leadWs} = ?`,
+      [wid],
+    );
 
     const leads = [];
     for (const row of rows) {
@@ -1860,23 +1869,21 @@ module.exports = {
   },
 
   async getAllVisits() {
-    const keys = kvList('visit:');
-    const sortedKeys = keys.sort((a, b) => {
-      const tsA = parseInt(a.split(':')[1]);
-      const tsB = parseInt(b.split(':')[1]);
-      return tsB - tsA;
-    });
-
+    // Newest visits only. Parsing every historical hit blocked Reports (and any
+    // page requested while that scan held the main thread).
+    const limit = 2000;
+    const rows = sqlite
+      .prepare(`SELECT key, value FROM kv WHERE key LIKE 'visit:%' ORDER BY key DESC LIMIT ?`)
+      .all(limit);
     const visits = [];
-    for (const key of sortedKeys) {
-      const raw = kvGet(key);
-      if (raw) {
-        try {
-          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-          visits.push(parsed);
-        } catch (e) {
-          console.error(`Error parsing visit ${key}:`, e.message);
-        }
+    for (const row of rows) {
+      const raw = row && row.value;
+      if (!raw) continue;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        visits.push(parsed);
+      } catch (e) {
+        console.error(`Error parsing visit ${row && row.key}:`, e.message);
       }
     }
     return visits;
