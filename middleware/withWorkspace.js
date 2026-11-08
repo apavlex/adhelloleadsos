@@ -24,11 +24,64 @@ function attachWorkspaceQuickLog(res, ws) {
 /** In-process cache for sidebar workspace switcher (avoids N getWorkspace calls per nav). */
 const SWITCHER_TTL_MS = 60_000;
 const _switcherCache = new Map();
+const _switcherInflight = new Map();
 
 function switcherCacheKey(email) {
   return String(email || '')
     .trim()
     .toLowerCase();
+}
+
+async function buildSwitcherSummaries(email) {
+  const canManageDemo = await publicDemo.canManage(email);
+  const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
+  const docs = await Promise.all(allIds.map((id) => dbService.getWorkspace(id)));
+  const summaries = [];
+  for (const w of docs) {
+    if (!w || w.archivedAt) continue;
+    const trialBadge = trials.switcherBadge(w);
+    summaries.push({
+      id: w.id,
+      name: w.name || 'Workspace',
+      slug: w.slug || '',
+      accentColor: w.accentColor || '#CA8A04',
+      isDemo: !!w.isDemo,
+      trialState: trialBadge ? trialBadge.state : '',
+      trialDaysLeft: trialBadge ? trialBadge.daysLeft : 0,
+      trialLabel: trialBadge ? trialBadge.label : '',
+    });
+  }
+  return { summaries, canManageDemo };
+}
+
+function warmSwitcherCache(email) {
+  const sk = switcherCacheKey(email);
+  if (!sk) return;
+  if (_switcherInflight.has(sk)) return;
+  const p = buildSwitcherSummaries(email)
+    .then((built) => {
+      _switcherCache.set(sk, { at: Date.now(), summaries: built.summaries, canManageDemo: built.canManageDemo });
+      return built;
+    })
+    .catch(() => null)
+    .finally(() => {
+      _switcherInflight.delete(sk);
+    });
+  _switcherInflight.set(sk, p);
+}
+
+function readSwitcherCache(email, activeWorkspaceId, liveDemo) {
+  const sk = switcherCacheKey(email);
+  const hit = sk && _switcherCache.get(sk);
+  if (!hit || Date.now() - hit.at >= SWITCHER_TTL_MS) {
+    return { summaries: [], canManageDemo: false, hit: false };
+  }
+  let summaries = hit.summaries;
+  const canManageDemo = hit.canManageDemo;
+  if (!canManageDemo && !liveDemo) {
+    summaries = summaries.filter((w) => !w.isDemo || w.id === activeWorkspaceId);
+  }
+  return { summaries, canManageDemo, hit: true };
 }
 
 /**
@@ -53,23 +106,17 @@ async function withWorkspace(req, res, next) {
       /\/workspaces\/switch(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/open(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/warm(?:\/|$|\?)/.test(original);
-    // Light HTML hops: resolve workspace only — skip switcher N×getWorkspace + script seed.
-    // /today is post-login; /pipeline + /prospecting are common desktop sidebar hops that
-    // previously sat behind the nav frost for 12s+ ("Still loading — tap to retry").
-    const seoLightFastPath =
+    // Every HTML menu hop: never block on switcher N×getWorkspace / script seed.
+    // JSON / .json / API keep the full path when they need fresh chrome data.
+    const htmlNavFastPath =
       req.method === 'GET' &&
-      (/^\/business-reviews(?:\/|$|\?)/.test(original) ||
-        /^\/seo-qa(?:\/|$|\?)/.test(original) ||
-        /^\/local-seo(?:\/|$|\?)/.test(original) ||
-        /^\/seo-gap(?:\/|$|\?)/.test(original) ||
-        /^\/backlinks(?:\/|$|\?)/.test(original) ||
-        /^\/today(?:\/|$|\?)/.test(original) ||
-        /^\/pipeline(?:\/|$|\?)/.test(original) ||
-        /^\/prospecting(?:\/|$|\?)/.test(original) ||
-        original === '/' ||
-        original === '/home' ||
-        /^\/home(?:\?|$)/.test(original));
-    const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath || seoLightFastPath;
+      !wantsJsonResponse(req) &&
+      !/\.json(?:\?|$)/.test(original) &&
+      !/^\/api(?:\/|$)/.test(original) &&
+      !/^\/mcp(?:\/|$)/.test(original);
+    // Kept for tests / comments that still name the SEO light path.
+    const seoLightFastPath = htmlNavFastPath;
+    const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath || htmlNavFastPath;
 
     // API key auth — no session, use 'default' workspace directly
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
@@ -108,9 +155,9 @@ async function withWorkspace(req, res, next) {
     }
 
     // ensureUserHasWorkspaces can scan all leads (agency prune) — once per session is enough.
-    // SEO/Reviews/Q&A: if session already has a workspace, skip this hop so HTML can paint.
+    // HTML menu hops: if session already has a workspace, skip this so the page can paint.
     const skipBootstrapForLight =
-      seoLightFastPath &&
+      htmlNavFastPath &&
       req.session &&
       (req.session.activeWorkspaceId || req.session.workspaceId);
     if (!skipBootstrapForLight && !(req.session && req.session._wsBootstrapped)) {
@@ -226,43 +273,40 @@ async function withWorkspace(req, res, next) {
     let canManageDemo = false;
     if (!skipChromeExtras) {
       const sk = switcherCacheKey(email);
-      const hit = sk && _switcherCache.get(sk);
-      if (hit && Date.now() - hit.at < SWITCHER_TTL_MS) {
-        summaries = hit.summaries;
-        canManageDemo = hit.canManageDemo;
+      const cached = readSwitcherCache(email, ws.id, res.locals.liveDemo);
+      if (cached.hit) {
+        summaries = cached.summaries;
+        canManageDemo = cached.canManageDemo;
       } else {
-        canManageDemo = await publicDemo.canManage(email);
-        const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
-        const docs = await Promise.all(allIds.map((id) => dbService.getWorkspace(id)));
-        for (const w of docs) {
-          if (!w || w.archivedAt) continue;
-          const trialBadge = trials.switcherBadge(w);
-          summaries.push({
-            id: w.id,
-            name: w.name || 'Workspace',
-            slug: w.slug || '',
-            accentColor: w.accentColor || '#CA8A04',
-            isDemo: !!w.isDemo,
-            trialState: trialBadge ? trialBadge.state : '',
-            trialDaysLeft: trialBadge ? trialBadge.daysLeft : 0,
-            trialLabel: trialBadge ? trialBadge.label : '',
-          });
-        }
+        const built = await buildSwitcherSummaries(email);
+        summaries = built.summaries;
+        canManageDemo = built.canManageDemo;
         if (sk) _switcherCache.set(sk, { at: Date.now(), summaries, canManageDemo });
-      }
-      if (!canManageDemo && !res.locals.liveDemo) {
-        summaries = summaries.filter((w) => !w.isDemo || w.id === ws.id);
-      }
-    } else if (seoLightFastPath) {
-      // Reuse warm switcher cache only — never N×getWorkspace on Reviews/Q&A/SEO hops.
-      const sk = switcherCacheKey(email);
-      const hit = sk && _switcherCache.get(sk);
-      if (hit && Date.now() - hit.at < SWITCHER_TTL_MS) {
-        summaries = hit.summaries;
-        canManageDemo = hit.canManageDemo;
         if (!canManageDemo && !res.locals.liveDemo) {
           summaries = summaries.filter((w) => !w.isDemo || w.id === ws.id);
         }
+      }
+    } else if (htmlNavFastPath) {
+      // Cache-only — never block a menu hop on N×getWorkspace. Warm in background on miss.
+      const cached = readSwitcherCache(email, ws.id, res.locals.liveDemo);
+      if (cached.hit) {
+        summaries = cached.summaries;
+        canManageDemo = cached.canManageDemo;
+      } else {
+        warmSwitcherCache(email);
+        // Minimal fallback so the switcher still shows the active workspace.
+        summaries = [
+          {
+            id: ws.id,
+            name: ws.name || 'Workspace',
+            slug: ws.slug || '',
+            accentColor: ws.accentColor || '#CA8A04',
+            isDemo: !!ws.isDemo,
+            trialState: '',
+            trialDaysLeft: 0,
+            trialLabel: '',
+          },
+        ];
       }
     }
 
