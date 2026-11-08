@@ -23,6 +23,12 @@ test('workspace switch warms leads and skips chrome extras', () => {
   assert.match(mw, /skipChromeExtras/);
   assert.match(mw, /warmSwitcherCache/);
   assert.match(mw, /\/workspaces\/switch/);
+  // 1.0.697 broke menus by skipping script seed on every HTML hop — must stay tied to dial/switch only.
+  assert.match(mw, /Do NOT skip script seeding/);
+  assert.match(
+    mw,
+    /const skipChromeExtras = telephonyFastPath \|\| workspaceSwitchFastPath;/
+  );
 
   const shell = fs.readFileSync(path.join(__dirname, '../public/js/sidebarShell.js'), 'utf8');
   assert.match(shell, /Switching…/);

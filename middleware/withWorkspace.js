@@ -106,17 +106,18 @@ async function withWorkspace(req, res, next) {
       /\/workspaces\/switch(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/open(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/warm(?:\/|$|\?)/.test(original);
-    // Every HTML menu hop: never block on switcher N×getWorkspace / script seed.
-    // JSON / .json / API keep the full path when they need fresh chrome data.
+    // HTML menu hops: never *block* on switcher N×getWorkspace (cache + background warm).
+    // Do NOT skip script seeding here — 1.0.697 did, and menu pages broke again.
     const htmlNavFastPath =
       req.method === 'GET' &&
       !wantsJsonResponse(req) &&
       !/\.json(?:\?|$)/.test(original) &&
       !/^\/api(?:\/|$)/.test(original) &&
       !/^\/mcp(?:\/|$)/.test(original);
-    // Kept for tests / comments that still name the SEO light path.
+    // Only dial/switch skip script seed + member-profile writes.
+    const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
+    // Alias kept for older tests.
     const seoLightFastPath = htmlNavFastPath;
-    const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath || htmlNavFastPath;
 
     // API key auth — no session, use 'default' workspace directly
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
@@ -155,7 +156,7 @@ async function withWorkspace(req, res, next) {
     }
 
     // ensureUserHasWorkspaces can scan all leads (agency prune) — once per session is enough.
-    // HTML menu hops: if session already has a workspace, skip this so the page can paint.
+    // HTML hops with a known session workspace skip the prune so paint isn't blocked.
     const skipBootstrapForLight =
       htmlNavFastPath &&
       req.session &&
@@ -271,7 +272,28 @@ async function withWorkspace(req, res, next) {
 
     let summaries = [];
     let canManageDemo = false;
-    if (!skipChromeExtras) {
+    if (htmlNavFastPath || skipChromeExtras) {
+      // Cache-only on HTML hops — never block paint on N×getWorkspace. Warm in background on miss.
+      const cached = readSwitcherCache(email, ws.id, res.locals.liveDemo);
+      if (cached.hit) {
+        summaries = cached.summaries;
+        canManageDemo = cached.canManageDemo;
+      } else {
+        warmSwitcherCache(email);
+        summaries = [
+          {
+            id: ws.id,
+            name: ws.name || 'Workspace',
+            slug: ws.slug || '',
+            accentColor: ws.accentColor || '#CA8A04',
+            isDemo: !!ws.isDemo,
+            trialState: '',
+            trialDaysLeft: 0,
+            trialLabel: '',
+          },
+        ];
+      }
+    } else {
       const sk = switcherCacheKey(email);
       const cached = readSwitcherCache(email, ws.id, res.locals.liveDemo);
       if (cached.hit) {
@@ -285,28 +307,6 @@ async function withWorkspace(req, res, next) {
         if (!canManageDemo && !res.locals.liveDemo) {
           summaries = summaries.filter((w) => !w.isDemo || w.id === ws.id);
         }
-      }
-    } else if (htmlNavFastPath) {
-      // Cache-only — never block a menu hop on N×getWorkspace. Warm in background on miss.
-      const cached = readSwitcherCache(email, ws.id, res.locals.liveDemo);
-      if (cached.hit) {
-        summaries = cached.summaries;
-        canManageDemo = cached.canManageDemo;
-      } else {
-        warmSwitcherCache(email);
-        // Minimal fallback so the switcher still shows the active workspace.
-        summaries = [
-          {
-            id: ws.id,
-            name: ws.name || 'Workspace',
-            slug: ws.slug || '',
-            accentColor: ws.accentColor || '#CA8A04',
-            isDemo: !!ws.isDemo,
-            trialState: '',
-            trialDaysLeft: 0,
-            trialLabel: '',
-          },
-        ];
       }
     }
 
