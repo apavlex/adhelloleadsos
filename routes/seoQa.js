@@ -15,61 +15,111 @@ function baseUrlFromReq(req) {
   return `${proto}://${host}`.replace(/\/$/, '');
 }
 
-/** Cap SSR inbox cards — each card ships an answer textarea; keep first paint tiny. */
-const INBOX_SSR_LIMIT = 12;
-const INBOX_JSON_LIMIT = 100;
+/**
+ * HTML first paint: true empty shell (no ensurePublicToken / question walk).
+ * Cards + KPIs hydrate from /inbox.json.
+ */
+const INBOX_JSON_LIMIT = 40;
+const INBOX_HYDRATE_LIMIT = 40;
 
-async function pageLocals(req, { inboxLimit = null } = {}) {
+function shellSettingsFromWorkspace(ws) {
+  const raw = ws && ws.seoQa && typeof ws.seoQa === 'object' ? ws.seoQa : null;
+  const settings = (raw && raw.settings && typeof raw.settings === 'object') ? { ...raw.settings } : {};
+  const intake = ws && ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
+  const seedName = String(intake.businessName || (ws && ws.name) || '').trim();
+  if (!Array.isArray(settings.categories) || !settings.categories.length) {
+    settings.categories = ['General'];
+  }
+  settings.businessName = String(settings.businessName || '').trim() || seedName;
+  return settings;
+}
+
+async function pageLocals(req, { inboxLimit = null, shell = false } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+  const focusQuestionId = String(req.query.q || '').trim();
+  const origin = baseUrlFromReq(req);
+
+  if (shell) {
+    // Paint immediately — no ensurePublicToken write, no question clone/sort.
+    const settings = shellSettingsFromWorkspace(ws);
+    const token = settings.publicToken;
+    return {
+      title: 'Q&A Pages',
+      activePage: 'seo-qa',
+      settings,
+      questions: [],
+      questionsTotal: 0,
+      inboxTruncated: false,
+      summary: { total: 0, open: 0, answered: 0, published: 0, hidden: 0 },
+      feedUrl: token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/feed.json` : '',
+      submitUrl: token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/questions` : '',
+      focusQuestionId,
+      workspaceName: (ws && ws.name) || 'Your workspace',
+      inboxPending: true,
+    };
+  }
+
   // Reuse req.workspace + skip full normalize on read (writes still normalize).
-  // Ensure token once if missing (unavoidable write). Never seed businessName on GET.
-  const bundle = await seoQaStore.ensurePublicToken(req.workspaceId, { workspace: ws });
+  // Prefer load over ensurePublicToken so inbox.json never rewrites the workspace on GET.
+  let bundle = await seoQaStore.load(req.workspaceId, { workspace: ws, normalize: false });
+  if (!bundle.settings.publicToken) {
+    bundle = await seoQaStore.ensurePublicToken(req.workspaceId, { workspace: ws });
+  }
   const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
   const seedName = String(intake.businessName || ws.name || '').trim();
   const settings = {
     ...bundle.settings,
     businessName: String(bundle.settings.businessName || '').trim() || seedName,
   };
-  const allQuestions = seoQaStore.listQuestions(bundle);
   const summary = seoQaStore.inboxSummary(bundle);
   const token = settings.publicToken;
-  const origin = baseUrlFromReq(req);
   const feedUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/feed.json` : '';
   const submitUrl = token ? `${origin}/api/public/seo-qa/${encodeURIComponent(token)}/questions` : '';
-  const focusQuestionId = String(req.query.q || '').trim();
-  let questions = allQuestions;
+  let questions = [];
+  let questionsTotal = summary.total;
   let inboxTruncated = false;
-  if (inboxLimit != null && Number.isFinite(inboxLimit) && allQuestions.length > inboxLimit) {
-    questions = allQuestions.slice(0, inboxLimit);
-    if (focusQuestionId) {
-      const focused = allQuestions.find((q) => q && q.id === focusQuestionId);
-      if (focused && !questions.some((q) => q.id === focusQuestionId)) {
-        questions = [focused, ...questions].slice(0, inboxLimit);
+  if (inboxLimit === 0) {
+    questions = [];
+    inboxTruncated = summary.total > 0;
+  } else {
+    const allQuestions = seoQaStore.listQuestions(bundle);
+    questionsTotal = allQuestions.length;
+    questions = allQuestions;
+    if (inboxLimit != null && Number.isFinite(inboxLimit) && allQuestions.length > inboxLimit) {
+      questions = allQuestions.slice(0, inboxLimit);
+      if (focusQuestionId && inboxLimit > 0) {
+        const focused = allQuestions.find((q) => q && q.id === focusQuestionId);
+        if (focused && !questions.some((q) => q.id === focusQuestionId)) {
+          questions = [focused, ...questions].slice(0, inboxLimit);
+        }
       }
+      inboxTruncated = true;
     }
-    inboxTruncated = true;
   }
   return {
     title: 'Q&A Pages',
     activePage: 'seo-qa',
     settings,
     questions,
-    questionsTotal: allQuestions.length,
+    questionsTotal,
     inboxTruncated,
     summary,
     feedUrl,
     submitUrl,
     focusQuestionId,
     workspaceName: (ws && ws.name) || 'Your workspace',
+    inboxPending: false,
   };
 }
 
 router.get('/', async (req, res, next) => {
   try {
     // Page-builder prompt is lazy-loaded when the details card opens (see /page-prompt.txt).
-    const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT });
+    const locals = await pageLocals(req, { shell: true });
     locals.pageBuilderPrompt = '';
     locals.pageBuilderPromptUrl = '/seo-qa/page-prompt.txt';
+    locals.inboxHydrate = true;
+    locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
     res.render('seo_qa', locals);
   } catch (e) {
     next(e);

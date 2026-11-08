@@ -12,6 +12,9 @@
     <% const _reviews = Array.isArray(reviews) ? reviews : []; %>
     <% const _reviewsTotal = typeof reviewsTotal === 'number' ? reviewsTotal : _reviews.length; %>
     <% const _inboxTruncated = typeof inboxTruncated !== 'undefined' && !!inboxTruncated; %>
+    <% const _inboxHydrate = typeof inboxHydrate !== 'undefined' && !!inboxHydrate; %>
+    <% const _inboxPending = typeof inboxPending !== 'undefined' ? !!inboxPending : _inboxHydrate; %>
+    <% const _inboxHydrateLimit = typeof inboxHydrateLimit === 'number' ? inboxHydrateLimit : 40; %>
     <% const _outConfigured = typeof outscraperConfigured !== 'undefined' && outscraperConfigured; %>
     <% const _contact = typeof contact !== 'undefined' && contact ? contact : { url: '', email: 'hello@adhello.ai', label: 'Book a call' }; %>
     <% const _focus = typeof focusReviewId !== 'undefined' ? String(focusReviewId || '') : ''; %>
@@ -64,19 +67,19 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Reviews</p>
-        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.total %></p>
+        <p id="brKpiTotal" class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _inboxPending ? '…' : _summary.total %></p>
       </div>
       <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">New</p>
-        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.newCount %></p>
+        <p id="brKpiNew" class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _inboxPending ? '…' : _summary.newCount %></p>
       </div>
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Unreplied</p>
-        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.unreplied %></p>
+        <p id="brKpiUnreplied" class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _inboxPending ? '…' : _summary.unreplied %></p>
       </div>
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Rating</p>
-        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><% if (_summary.placeRating != null) { %><%= Number(_summary.placeRating).toFixed(1) %>★<% } else { %>—<% } %></p>
+        <p id="brKpiRating" class="font-display font-black text-2xl text-brand-dark dark:text-white"><% if (_inboxPending) { %>…<% } else if (_summary.placeRating != null) { %><%= Number(_summary.placeRating).toFixed(1) %>★<% } else { %>—<% } %></p>
       </div>
     </div>
 
@@ -122,24 +125,23 @@
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white">Inbox<% if (_summary.placeName) { %> <span class="text-brand-muted font-semibold text-sm">· <%= _summary.placeName %></span><% } %></h2>
       <div class="flex flex-wrap items-center gap-3">
-        <p class="text-[11px] font-semibold text-brand-muted tabular-nums">
-          <%= _inboxTruncated ? ('Showing ' + _reviews.length + ' of ' + _reviewsTotal) : (_reviewsTotal + ' review' + (_reviewsTotal === 1 ? '' : 's')) %>
+        <p id="brInboxCount" class="text-[11px] font-semibold text-brand-muted tabular-nums">
+          <% if (_inboxPending || (_inboxHydrate && !_reviews.length)) { %>Loading inbox…<% } else if (_inboxTruncated) { %>Showing <%= _reviews.length %> of <%= _reviewsTotal %><% } else { %><%= _reviewsTotal %> review<%= _reviewsTotal === 1 ? '' : 's' %><% } %>
         </p>
-        <% if (_summary.newCount) { %>
-        <button type="button" id="brMarkSeenBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow">Mark all seen</button>
-        <% } %>
+        <button type="button" id="brMarkSeenBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow<%= _summary.newCount ? '' : ' hidden' %>">Mark all seen</button>
       </div>
     </div>
 
-    <% if (!_reviews.length) { %>
-    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center" id="brEmptyState">
+    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center<%= (_reviews.length || _inboxPending || _inboxHydrate) ? ' hidden' : '' %>" id="brEmptyState">
       <h3 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No reviews synced yet</h3>
       <p class="text-sm text-brand-muted max-w-md mx-auto mb-4">Save your Google listing above, then sync. New reviews will show here and ping your notification bell.</p>
       <p id="brEmptyProgress" class="hidden mb-4 text-sm font-semibold text-brand-dark dark:text-white" role="status"></p>
       <button type="button" id="brEmptySyncBtn" class="btn-pill btn-primary inline-flex items-center justify-center gap-2 px-8 py-3 text-xs font-black uppercase tracking-widest"<%= !_outConfigured ? ' disabled' : '' %>>Sync with Outscraper</button>
     </div>
-    <% } else { %>
-    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Google reviews">
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden<%= (!_reviews.length && !(_inboxPending || _inboxHydrate)) ? ' hidden' : '' %>" aria-label="Google reviews" id="brInboxSection">
+      <% if ((_inboxPending || _inboxHydrate) && !_reviews.length) { %>
+      <p id="brInboxLoading" class="px-5 sm:px-6 py-10 text-sm text-brand-muted text-center" role="status">Loading reviews…</p>
+      <% } %>
       <ul class="divide-y divide-brand-border/40 dark:divide-white/10" id="brReviewList">
         <% _reviews.forEach(function (r) {
           var _when = r.reviewedAt ? wsDateTime(r.reviewedAt, { dateStyle: 'medium' }) : '';
@@ -184,13 +186,10 @@
         </li>
         <% }); %>
       </ul>
-      <% if (_inboxTruncated) { %>
-      <p class="px-5 sm:px-6 py-4 text-xs text-brand-muted border-t border-brand-border/40 dark:border-white/10">
-        Showing the <%= _reviews.length %> most recent of <%= _reviewsTotal %> synced reviews so this page stays fast. Refresh after working the top items to see the next batch.
+      <p id="brInboxTruncNote" class="px-5 sm:px-6 py-4 text-xs text-brand-muted border-t border-brand-border/40 dark:border-white/10<%= _inboxTruncated && _reviews.length ? '' : ' hidden' %>">
+        Showing the <span id="brInboxShownCount"><%= _reviews.length %></span> most recent of <span id="brInboxTotalCount"><%= _reviewsTotal %></span> synced reviews so this page stays fast. Refresh after working the top items to see the next batch.
       </p>
-      <% } %>
     </section>
-    <% } %>
 
     <script>
     (function () {
@@ -542,77 +541,248 @@
         });
       }
 
-      document.querySelectorAll('.br-draft-btn').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-          if (btn.getAttribute('aria-busy') === 'true') return;
-          var id = btn.getAttribute('data-review-id');
-          var box = btn.closest('[data-reply-box]');
-          var ta = box && box.querySelector('.br-draft-text');
-          var st = box && box.querySelector('.br-draft-status');
-          var copyBtn = box && box.querySelector('.br-copy-btn');
-          var label = btn.textContent;
-          btn.setAttribute('aria-busy', 'true');
-          btn.disabled = true;
-          btn.textContent = 'Generating…';
-          if (ta) {
-            ta.readOnly = true;
-            ta.setAttribute('aria-busy', 'true');
-          }
-          if (st) st.textContent = 'Writing reply…';
-          try {
-            var res = await fetch('/business-reviews/reviews/' + encodeURIComponent(id) + '/draft-reply', {
-              method: 'POST',
-              credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-              body: JSON.stringify({ businessName: formPayload().businessName })
-            });
-            var data = await res.json().catch(function () { return {}; });
-            if (!res.ok || !data.success) throw new Error(data.error || 'AI draft failed');
-            if (ta) ta.value = data.reply || '';
-            if (copyBtn) copyBtn.disabled = !data.reply;
-            if (st) st.textContent = 'Draft ready — copy and paste into Google.';
-          } catch (e) {
-            if (st) st.textContent = e.message || 'AI draft failed';
-          } finally {
-            btn.removeAttribute('aria-busy');
-            btn.disabled = false;
-            btn.textContent = label;
+      var listEl = document.getElementById('brReviewList');
+      if (listEl) {
+        listEl.addEventListener('click', async function (ev) {
+          var draftBtn = ev.target && ev.target.closest ? ev.target.closest('.br-draft-btn') : null;
+          if (draftBtn && listEl.contains(draftBtn)) {
+            if (draftBtn.getAttribute('aria-busy') === 'true') return;
+            var id = draftBtn.getAttribute('data-review-id');
+            var box = draftBtn.closest('[data-reply-box]');
+            var ta = box && box.querySelector('.br-draft-text');
+            var st = box && box.querySelector('.br-draft-status');
+            var copyBtn = box && box.querySelector('.br-copy-btn');
+            var label = draftBtn.textContent;
+            draftBtn.setAttribute('aria-busy', 'true');
+            draftBtn.disabled = true;
+            draftBtn.textContent = 'Generating…';
             if (ta) {
-              ta.readOnly = false;
-              ta.removeAttribute('aria-busy');
+              ta.readOnly = true;
+              ta.setAttribute('aria-busy', 'true');
+            }
+            if (st) st.textContent = 'Writing reply…';
+            try {
+              var res = await fetch('/business-reviews/reviews/' + encodeURIComponent(id) + '/draft-reply', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ businessName: formPayload().businessName })
+              });
+              var data = await res.json().catch(function () { return {}; });
+              if (!res.ok || !data.success) throw new Error(data.error || 'AI draft failed');
+              if (ta) ta.value = data.reply || '';
+              if (copyBtn) copyBtn.disabled = !data.reply;
+              if (st) st.textContent = 'Draft ready — copy and paste into Google.';
+            } catch (e) {
+              if (st) st.textContent = e.message || 'AI draft failed';
+            } finally {
+              draftBtn.removeAttribute('aria-busy');
+              draftBtn.disabled = false;
+              draftBtn.textContent = label;
+              if (ta) {
+                ta.readOnly = false;
+                ta.removeAttribute('aria-busy');
+              }
+            }
+            return;
+          }
+          var copyOnly = ev.target && ev.target.closest ? ev.target.closest('.br-copy-btn') : null;
+          if (copyOnly && listEl.contains(copyOnly)) {
+            var cbox = copyOnly.closest('[data-reply-box]');
+            var cta = cbox && cbox.querySelector('.br-draft-text');
+            var cst = cbox && cbox.querySelector('.br-draft-status');
+            var text = cta ? String(cta.value || '').trim() : '';
+            if (!text) return;
+            try {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(text);
+              } else {
+                cta.focus();
+                cta.select();
+                document.execCommand('copy');
+              }
+              if (cst) cst.textContent = 'Copied — paste into your Google Business reply.';
+              copyOnly.textContent = 'Copied!';
+              setTimeout(function () { copyOnly.textContent = 'Copy reply'; }, 1600);
+            } catch (e) {
+              if (cst) cst.textContent = 'Copy failed — select the text and copy manually.';
             }
           }
         });
-      });
+      }
 
-      document.querySelectorAll('.br-copy-btn').forEach(function (btn) {
-        btn.addEventListener('click', async function () {
-          var box = btn.closest('[data-reply-box]');
-          var ta = box && box.querySelector('.br-draft-text');
-          var st = box && box.querySelector('.br-draft-status');
-          var text = ta ? String(ta.value || '').trim() : '';
-          if (!text) return;
-          try {
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(text);
-            } else {
-              ta.focus();
-              ta.select();
-              document.execCommand('copy');
+      function esc(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function formatReviewWhen(iso) {
+        if (!iso) return '';
+        try {
+          return new Date(iso).toLocaleDateString(undefined, { dateStyle: 'medium' });
+        } catch (_) {
+          return '';
+        }
+      }
+
+      function renderReviewCard(r, focusId) {
+        var stars = r.rating != null ? String(r.rating) : '—';
+        var when = formatReviewWhen(r.reviewedAt);
+        var isFocus = focusId && focusId === r.id;
+        var author = esc(r.author || 'Google reviewer');
+        var body = r.text
+          ? ('<p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed whitespace-pre-wrap">' + esc(r.text) + '</p>')
+          : '<p class="text-sm text-brand-muted italic">No written comment — rating only.</p>';
+        var badge = r.ownerResponse
+          ? '<span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 px-2 py-1 rounded-full">Already replied on Google</span>'
+          : '<span class="text-[9px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200 bg-amber-500/10 px-2 py-1 rounded-full">Needs reply</span>';
+        var newBadge = r.isNew
+          ? '<span class="ml-2 text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 px-2 py-0.5 rounded-full">New</span>'
+          : '';
+        var link = r.reviewLink
+          ? ('<a href="' + esc(r.reviewLink) + '" target="_blank" rel="noopener noreferrer" class="inline-block mt-1 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open on Google</a>')
+          : '';
+        var draft = esc(r.replyDraft || '');
+        return (
+          '<li class="p-5 sm:p-6 ' + (r.isNew ? 'bg-emerald-500/5 ' : '') + (isFocus ? 'ring-2 ring-inset ring-brand-yellow/50' : '') + '" data-review-id="' + esc(r.id) + '" id="review-' + esc(r.id) + '">' +
+          '<div class="flex flex-wrap items-start justify-between gap-3 mb-2"><div>' +
+          '<p class="font-display font-bold text-brand-dark dark:text-white">' + esc(stars) + '★ · ' + author + newBadge + '</p>' +
+          (when ? ('<p class="text-[11px] text-brand-muted mt-0.5">' + esc(when) + '</p>') : '') +
+          '</div>' + badge + '</div>' + body +
+          '<div class="mt-4 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-bg/60 dark:bg-slate-950/50 p-4" data-reply-box>' +
+          '<div class="flex flex-wrap items-center justify-between gap-2 mb-2">' +
+          '<p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">AI reply draft</p>' +
+          '<div class="flex flex-wrap gap-2">' +
+          '<button type="button" class="br-draft-btn btn-pill border border-brand-border dark:border-white/20 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" data-review-id="' + esc(r.id) + '">Generate with AI</button>' +
+          '<button type="button" class="br-copy-btn btn-pill btn-primary px-3 py-1.5 text-[10px] font-black uppercase tracking-widest" data-review-id="' + esc(r.id) + '"' + (r.replyDraft ? '' : ' disabled') + '>Copy reply</button>' +
+          '</div></div>' +
+          '<textarea class="br-draft-text w-full min-h-[110px] rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm leading-relaxed" rows="4" placeholder="Generate a reply, tweak it, then copy into Google." data-review-id="' + esc(r.id) + '">' + draft + '</textarea>' +
+          '<p class="br-draft-status mt-2 text-[11px] text-brand-muted min-h-[1rem]" role="status"></p>' +
+          link + '</div></li>'
+        );
+      }
+
+      function applyInbox(data, focusId) {
+        var reviews = (data && Array.isArray(data.reviews)) ? data.reviews : [];
+        var total = data && typeof data.reviewsTotal === 'number' ? data.reviewsTotal : reviews.length;
+        var truncated = !!(data && data.inboxTruncated);
+        var summary = (data && data.summary) || {};
+        var empty = document.getElementById('brEmptyState');
+        var section = document.getElementById('brInboxSection');
+        var loading = document.getElementById('brInboxLoading');
+        var countEl = document.getElementById('brInboxCount');
+        var truncNote = document.getElementById('brInboxTruncNote');
+        var markSeen = document.getElementById('brMarkSeenBtn');
+        if (loading) loading.remove();
+        var kpiTotal = document.getElementById('brKpiTotal');
+        var kpiNew = document.getElementById('brKpiNew');
+        var kpiUnreplied = document.getElementById('brKpiUnreplied');
+        var kpiRating = document.getElementById('brKpiRating');
+        if (kpiTotal) kpiTotal.textContent = String(summary.total != null ? summary.total : total);
+        if (kpiNew) kpiNew.textContent = String(summary.newCount != null ? summary.newCount : 0);
+        if (kpiUnreplied) kpiUnreplied.textContent = String(summary.unreplied != null ? summary.unreplied : 0);
+        if (kpiRating) {
+          kpiRating.textContent = summary.placeRating != null
+            ? (Number(summary.placeRating).toFixed(1) + '★')
+            : '—';
+        }
+        if (markSeen) markSeen.classList.toggle('hidden', !(summary.newCount > 0));
+        if (outConfigured !== !!(data && data.outscraperConfigured)) {
+          outConfigured = !!(data && data.outscraperConfigured);
+          refreshEnabled();
+        }
+        if (data && data.syncState) initialSyncState = data.syncState;
+        if (!reviews.length) {
+          if (empty) empty.classList.remove('hidden');
+          if (section) section.classList.add('hidden');
+          if (countEl) countEl.textContent = total + ' review' + (total === 1 ? '' : 's');
+          return;
+        }
+        if (empty) empty.classList.add('hidden');
+        if (section) section.classList.remove('hidden');
+        if (listEl) {
+          listEl.innerHTML = reviews.map(function (r) { return renderReviewCard(r, focusId); }).join('');
+        }
+        if (countEl) {
+          countEl.textContent = truncated
+            ? ('Showing ' + reviews.length + ' of ' + total)
+            : (total + ' review' + (total === 1 ? '' : 's'));
+        }
+        if (truncNote) {
+          truncNote.classList.toggle('hidden', !truncated);
+          var shown = document.getElementById('brInboxShownCount');
+          var tot = document.getElementById('brInboxTotalCount');
+          if (shown) shown.textContent = String(reviews.length);
+          if (tot) tot.textContent = String(total);
+        }
+        if (focusId) {
+          var node = document.getElementById('review-' + focusId);
+          if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+
+      var focusId = <%= JSON.stringify(_focus) %>;
+      var shouldHydrate = <%= _inboxHydrate ? 'true' : 'false' %>;
+      var hydrateLimit = <%= JSON.stringify(_inboxHydrateLimit) %>;
+
+      if (shouldHydrate) {
+        var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var hydrateTimer = setTimeout(function () {
+          if (hydrateCtrl) hydrateCtrl.abort();
+        }, 12000);
+        fetch('/business-reviews/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focusId ? ('&review=' + encodeURIComponent(focusId)) : ''), {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+          signal: hydrateCtrl ? hydrateCtrl.signal : undefined
+        })
+          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+          .then(function (parsed) {
+            clearTimeout(hydrateTimer);
+            if (!parsed.ok || !parsed.data || !parsed.data.success) {
+              throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
             }
-            if (st) st.textContent = 'Copied — paste into your Google Business reply.';
-            btn.textContent = 'Copied!';
-            setTimeout(function () { btn.textContent = 'Copy reply'; }, 1600);
-          } catch (e) {
-            if (st) st.textContent = 'Copy failed — select the text and copy manually.';
-          }
-        });
-      });
+            applyInbox(parsed.data, focusId);
+            if (initialSyncState && initialSyncState.status === 'syncing') {
+              showLoader('Still syncing in background…', initialSyncState.message || 'Outscraper is still working.');
+              setInline(initialSyncState.message || 'Background sync still running…');
+              setEmptyProgress(initialSyncState.message || 'Background sync still running…');
+              ['brSyncBtn', 'brSaveSyncBtn', 'brEmptySyncBtn'].forEach(function (id) {
+                var b = document.getElementById(id);
+                if (b) {
+                  b.disabled = true;
+                  if (!b.dataset.brLabel) b.dataset.brLabel = b.textContent.trim();
+                  b.textContent = 'Syncing…';
+                }
+              });
+              pollSyncStatus(0);
+            } else if (initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
+              setInline(initialSyncState.error, true);
+              setEmptyProgress(initialSyncState.error);
+            }
+          })
+          .catch(function (e) {
+            clearTimeout(hydrateTimer);
+            var msg = (e && e.name === 'AbortError')
+              ? 'Inbox is taking too long — refresh to try again.'
+              : ((e && e.message) || 'Could not load inbox');
+            var loading = document.getElementById('brInboxLoading');
+            if (loading) loading.textContent = msg;
+            setInline(msg, true);
+            var empty = document.getElementById('brEmptyState');
+            if (empty) empty.classList.remove('hidden');
+          });
+      } else if (focusId) {
+        var node = document.getElementById('review-' + focusId);
+        if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
 
       refreshEnabled();
 
-      // Resume overlay if a sync was already running (refresh mid-flight).
-      if (initialSyncState && initialSyncState.status === 'syncing') {
+      // Resume overlay if a sync was already running (skip when shell will hydrate syncState).
+      if (!shouldHydrate && initialSyncState && initialSyncState.status === 'syncing') {
         showLoader('Still syncing in background…', initialSyncState.message || 'Outscraper is still working.');
         setInline(initialSyncState.message || 'Background sync still running…');
         setEmptyProgress(initialSyncState.message || 'Background sync still running…');
@@ -625,15 +795,9 @@
           }
         });
         pollSyncStatus(0);
-      } else if (initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
+      } else if (!shouldHydrate && initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
         setInline(initialSyncState.error, true);
         setEmptyProgress(initialSyncState.error);
-      }
-
-      var focusId = <%= JSON.stringify(_focus) %>;
-      if (focusId) {
-        var node = document.getElementById('review-' + focusId);
-        if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     })();
     </script>

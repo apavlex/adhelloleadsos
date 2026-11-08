@@ -9,15 +9,60 @@ const outscraper = require('../services/outscraperClient');
 const businessReviews = require('../services/businessReviews');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
-/** Cap SSR inbox cards — each card ships a draft textarea; keep first paint tiny. */
-const INBOX_SSR_LIMIT = 12;
-const INBOX_JSON_LIMIT = 100;
+/**
+ * HTML first paint: true empty shell (no store JSON.parse). Cards + KPIs hydrate from /inbox.json.
+ */
+const INBOX_JSON_LIMIT = 40;
+const INBOX_HYDRATE_LIMIT = 40;
 
-async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true } = {}) {
+function emptySummary() {
+  return {
+    total: 0,
+    newCount: 0,
+    unreplied: 0,
+    withDraft: 0,
+    placeRating: null,
+    placeReviewsCount: null,
+    placeName: '',
+    lastSyncedAt: null,
+    lastError: null,
+    syncState: businessReviews.emptySyncState(),
+  };
+}
+
+async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true, shell = false } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
   const paid = businessReviews.isPaidWorkspace(ws);
   const settings = businessReviews.getSettings(req.workspaceId);
-  const store = businessReviews.getStore(req.workspaceId);
+  const contact = trials.contactInfo();
+  const focusId = String(req.query.review || '').trim();
+
+  if (shell) {
+    // Paint immediately — do not read the reviews store or resolve agency Outscraper.
+    return {
+      title: 'Business Reviews',
+      activePage: 'business-reviews',
+      paid,
+      trialStatus: trials.status(ws),
+      contact,
+      settings,
+      store: { reviews: [], syncState: businessReviews.emptySyncState() },
+      summary: emptySummary(),
+      reviews: [],
+      reviewsTotal: 0,
+      inboxTruncated: false,
+      outscraperConfigured: paid ? outscraper.isConfigured(null) : false,
+      focusReviewId: focusId,
+      workspaceName: (ws && ws.name) || 'Your workspace',
+      syncState: businessReviews.emptySyncState(),
+      inboxPending: true,
+    };
+  }
+
+  // Unpaid: skip reading the full reviews JSON.
+  const store = paid
+    ? businessReviews.getStore(req.workspaceId)
+    : { reviews: [], syncState: businessReviews.emptySyncState() };
   const summary = businessReviews.inboxSummary(store);
   let outscraperConfigured = false;
   if (paid) {
@@ -28,14 +73,12 @@ async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true } =
       outscraperConfigured = outscraper.isConfigured(null);
     }
   }
-  const contact = trials.contactInfo();
-  const focusId = String(req.query.review || '').trim();
   const allReviews = Array.isArray(store.reviews) ? store.reviews : [];
   let reviews = allReviews;
   let inboxTruncated = false;
-  if (inboxLimit != null && Number.isFinite(inboxLimit) && allReviews.length > inboxLimit) {
+  if (inboxLimit != null && Number.isFinite(inboxLimit) && inboxLimit >= 0 && allReviews.length > inboxLimit) {
     reviews = allReviews.slice(0, inboxLimit);
-    if (focusId) {
+    if (focusId && inboxLimit > 0) {
       const focused = allReviews.find((r) => r && r.id === focusId);
       if (focused && !reviews.some((r) => r.id === focusId)) {
         reviews = [focused, ...reviews].slice(0, inboxLimit);
@@ -59,12 +102,15 @@ async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true } =
     focusReviewId: focusId,
     workspaceName: (ws && ws.name) || 'Your workspace',
     syncState: (store && store.syncState) || businessReviews.emptySyncState(),
+    inboxPending: false,
   };
 }
 
 router.get('/', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT, resolveOutscraper: true });
+    const locals = await pageLocals(req, { shell: true });
+    locals.inboxHydrate = true;
+    locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
     res.render('business_reviews', locals);
   } catch (e) {
     next(e);
@@ -75,7 +121,8 @@ router.get('/inbox.json', async (req, res, next) => {
   try {
     const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
     const limit = Number.isFinite(limitRaw) ? Math.min(200, Math.max(1, Math.floor(limitRaw))) : INBOX_JSON_LIMIT;
-    const locals = await pageLocals(req, { inboxLimit: limit });
+    // Skip agency Outscraper resolve — Sync re-checks; hydrate uses env/configured flag.
+    const locals = await pageLocals(req, { inboxLimit: limit, resolveOutscraper: false });
     res.json({
       success: true,
       paid: locals.paid,

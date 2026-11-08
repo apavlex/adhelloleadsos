@@ -27,16 +27,48 @@
     _npShell === 'chat' ||
     _npShell === 'ceo';
 %>
+<%
+  const _deferNavExtras =
+    _npShell === 'seo-qa' ||
+    _npShell === 'seo-gap' ||
+    _npShell === 'backlinks' ||
+    _npShell === 'local-seo' ||
+    _npShell === 'business-reviews';
+%>
 <% if (!_skipSoftphoneModal) { %><%- include('/partials/softphone_modal') %><% } %>
 <%# Softphone + nav chrome — externalized so HTML isn't ~236KB of inline JS every hop. %>
 <script src="/js/navbar-shell.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/theme-toggle.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+<% if (!_skipSoftphoneModal) { %>
 <script src="/js/lead-send-info.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/task-reminders.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/quick-add-task.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/send-referral-modal.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/send-lead-modal.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+<% } %>
+<% if (_deferNavExtras) { %>
+<%# Reviews / Q&A / SEO hops: pull bell/inbound after first paint (~120KB+ extras). %>
+<script>
+(function () {
+  function load(src) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.defer = true;
+    document.head.appendChild(s);
+  }
+  var v = <%= JSON.stringify(typeof assetVersion !== 'undefined' ? String(assetVersion) : '1') %>;
+  function boot() {
+    load('/js/push-alerts.js?v=' + encodeURIComponent(v));
+    load('/js/nav-notifications.js?v=' + encodeURIComponent(v));
+    load('/js/nav-inbound.js?v=' + encodeURIComponent(v));
+  }
+  if ('requestIdleCallback' in window) requestIdleCallback(boot, { timeout: 1800 });
+  else setTimeout(boot, 600);
+})();
+</script>
+<% } else { %>
 <script src="/js/push-alerts.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <%# Bell must load with defer (not idle): idle often runs after DOMContentLoaded and never binds clicks / resumes GHL sync. %>
 <script src="/js/nav-notifications.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <script src="/js/nav-inbound.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+<% } %>

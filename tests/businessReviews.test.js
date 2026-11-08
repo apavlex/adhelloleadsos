@@ -149,12 +149,19 @@ describe('businessReviews', () => {
     assert.match(route, /PAID_ONLY|paidOnly|isPaidWorkspace/);
     assert.match(route, /sync-status/);
     assert.match(route, /startWorkspaceSyncAsync/);
+    assert.match(route, /shell:\s*true/);
+    assert.match(route, /inboxHydrate/);
+    assert.match(route, /inboxPending/);
+    assert.match(route, /resolveOutscraper:\s*false/);
     assert.match(view, /Copy reply/);
     assert.match(view, /Generate with AI/);
     assert.match(view, /Unlock your Google review inbox/);
     assert.match(view, /brBgBanner/);
     assert.match(view, /pollSyncStatus/);
     assert.match(view, /Syncing in background/);
+    assert.match(view, /shouldHydrate/);
+    assert.match(view, /\/business-reviews\/inbox\.json/);
+    assert.match(view, /AbortController/);
     assert.match(sched, /businessReviews\.syncDueWorkspaces/);
   });
 

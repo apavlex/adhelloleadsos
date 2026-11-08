@@ -53,7 +53,15 @@ async function withWorkspace(req, res, next) {
       /\/workspaces\/switch(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/open(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/warm(?:\/|$|\?)/.test(original);
-    const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
+    // SEO / Reviews / Q&A HTML: resolve workspace only — skip switcher N×getWorkspace + script seed.
+    const seoLightFastPath =
+      req.method === 'GET' &&
+      (/^\/business-reviews(?:\/|$|\?)/.test(original) ||
+        /^\/seo-qa(?:\/|$|\?)/.test(original) ||
+        /^\/local-seo(?:\/|$|\?)/.test(original) ||
+        /^\/seo-gap(?:\/|$|\?)/.test(original) ||
+        /^\/backlinks(?:\/|$|\?)/.test(original));
+    const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath || seoLightFastPath;
 
     // API key auth — no session, use 'default' workspace directly
     const apiKey = req.headers['x-api-key'] || req.query.api_key;
@@ -92,7 +100,12 @@ async function withWorkspace(req, res, next) {
     }
 
     // ensureUserHasWorkspaces can scan all leads (agency prune) — once per session is enough.
-    if (!(req.session && req.session._wsBootstrapped)) {
+    // SEO/Reviews/Q&A: if session already has a workspace, skip this hop so HTML can paint.
+    const skipBootstrapForLight =
+      seoLightFastPath &&
+      req.session &&
+      (req.session.activeWorkspaceId || req.session.workspaceId);
+    if (!skipBootstrapForLight && !(req.session && req.session._wsBootstrapped)) {
       await workspaceBootstrap.ensureUserHasWorkspaces(email);
       if (req.session) req.session._wsBootstrapped = 1;
     }
@@ -231,6 +244,17 @@ async function withWorkspace(req, res, next) {
       }
       if (!canManageDemo && !res.locals.liveDemo) {
         summaries = summaries.filter((w) => !w.isDemo || w.id === ws.id);
+      }
+    } else if (seoLightFastPath) {
+      // Reuse warm switcher cache only — never N×getWorkspace on Reviews/Q&A/SEO hops.
+      const sk = switcherCacheKey(email);
+      const hit = sk && _switcherCache.get(sk);
+      if (hit && Date.now() - hit.at < SWITCHER_TTL_MS) {
+        summaries = hit.summaries;
+        canManageDemo = hit.canManageDemo;
+        if (!canManageDemo && !res.locals.liveDemo) {
+          summaries = summaries.filter((w) => !w.isDemo || w.id === ws.id);
+        }
       }
     }
 
