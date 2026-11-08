@@ -15,7 +15,7 @@
             <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Outreach folders</span>
           </div>
           <h1 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h1>
-          <p class="text-sm text-brand-muted mt-2 max-w-xl">Open a folder to work leads in Pipeline. Full create / merge / outreach tools load after this list.</p>
+          <p class="text-sm text-brand-muted mt-2 max-w-xl">Folders with leads are listed first. Open one to work them in Pipeline.</p>
         </div>
         <a href="/prospecting?tab=pipeline" class="btn-pill btn-primary px-6 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0">Open pipeline</a>
       </div>
@@ -30,29 +30,49 @@
         <p id="folderSearchEmpty" class="hidden text-sm text-brand-muted mt-2">No folders match your search.</p>
       </div>
 
-      <% const _groups = (folderTree && folderTree.groups) || []; %>
+      <%
+        const _groups = (folderTree && folderTree.groups) || [];
+        const _counts = typeof folderAggregateCounts !== 'undefined' && folderAggregateCounts ? folderAggregateCounts : {};
+      %>
       <% if (!_groups.length && !(folders || []).length) { %>
         <div class="brand-card p-14 text-center dark:bg-slate-900 dark:border-white/10">
           <p class="text-brand-muted">No folders yet. Create one from Pipeline or after your next search.</p>
         </div>
       <% } else { %>
         <div class="space-y-4" id="folderTreeRoot">
-          <% _groups.forEach(function (group) { %>
+          <% _groups.forEach(function (group) {
+            var groupTotal = 0;
+            if (group.folder && group.folder.key) {
+              groupTotal = _counts[group.folder.key] || 0;
+            } else {
+              (group.children || []).forEach(function (child) {
+                groupTotal += _counts[child.key] || 0;
+              });
+            }
+          %>
           <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" open data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
             <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-brand-cream/30 dark:bg-slate-950/40 border-b border-brand-border/30 dark:border-white/10 [&::-webkit-details-marker]:hidden">
-              <p class="font-display font-black text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
-                <%= group.name %>
-                <% if (group.isSystem) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
-                <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= (group.childRows || []).length %> subfolder<%= (group.childRows || []).length === 1 ? '' : 's' %></span>
-              </p>
+              <div class="min-w-0">
+                <p class="font-display font-black text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
+                  <%= group.name %>
+                  <% if (group.isSystem) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
+                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= (group.childRows || []).length %> subfolder<%= (group.childRows || []).length === 1 ? '' : 's' %></span>
+                </p>
+                <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= groupTotal %> lead<%= groupTotal === 1 ? '' : 's' %> total</p>
+              </div>
               <span class="text-brand-muted text-xs font-bold" aria-hidden="true">▾</span>
             </summary>
             <ul class="m-0 p-0 list-none divide-y divide-brand-border/20 dark:divide-white/5">
-              <% if (group.folder && group.folder.key) { %>
+              <% if (group.folder && group.folder.key) {
+                var rootCount = _counts[group.folder.key] || 0;
+              %>
               <li class="folder-lite-row list-none" data-folder-search="<%= (group.folder.name + ' ' + (group.folder.jobType || '')).toLowerCase() %>">
                 <a href="/prospecting?tab=pipeline&folderKey=<%= encodeURIComponent(group.folder.key) %>" class="flex items-center justify-between gap-3 px-6 py-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">
-                  <span class="font-display font-bold text-brand-dark dark:text-white"><%= group.folder.name %></span>
-                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open leads →</span>
+                  <span class="min-w-0">
+                    <span class="font-display font-bold text-brand-dark dark:text-white"><%= group.folder.name %></span>
+                    <span class="block text-[10px] font-black uppercase tracking-widest <%= rootCount ? 'text-brand-dark dark:text-white' : 'text-brand-muted' %> mt-0.5"><%= rootCount %> lead<%= rootCount === 1 ? '' : 's' %></span>
+                  </span>
+                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0"><%= rootCount ? 'Open leads →' : 'Open →' %></span>
                 </a>
               </li>
               <% } %>
@@ -61,11 +81,15 @@
                 if (!f.key) return;
                 var depth = row.depth || 1;
                 var pad = depth <= 1 ? 'pl-8' : (depth === 2 ? 'pl-12' : 'pl-16');
+                var fc = _counts[f.key] || 0;
               %>
               <li class="folder-lite-row list-none" data-folder-search="<%= (f.name + ' ' + (f.jobType || '') + ' ' + (f.tradeSlug || '')).toLowerCase() %>">
                 <a href="/prospecting?tab=pipeline&folderKey=<%= encodeURIComponent(f.key) %>" class="flex items-center justify-between gap-3 px-6 py-3.5 <%= pad %> hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">
-                  <span class="font-semibold text-brand-dark dark:text-white"><span class="text-brand-muted/50 mr-1" aria-hidden="true">↳</span><%= f.name %></span>
-                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open →</span>
+                  <span class="min-w-0">
+                    <span class="font-semibold text-brand-dark dark:text-white"><span class="text-brand-muted/50 mr-1" aria-hidden="true">↳</span><%= f.name %></span>
+                    <span class="block text-[10px] font-black uppercase tracking-widest <%= fc ? 'text-brand-dark dark:text-white' : 'text-brand-muted' %> mt-0.5 <%= depth <= 1 ? 'pl-4' : '' %>"><%= fc %> lead<%= fc === 1 ? '' : 's' %></span>
+                  </span>
+                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0"><%= fc ? 'Open →' : 'Empty' %></span>
                 </a>
               </li>
               <% }); %>

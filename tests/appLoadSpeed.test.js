@@ -59,17 +59,30 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /safeTab === 'folders'/);
   assert.match(route, /folders_manager_lite/);
   assert.match(route, /listFoldersLite/);
+  assert.match(route, /countLeadsByFolderKey/);
+  assert.match(route, /sortFolderTreeByLeadCount/);
   {
     const start = route.indexOf("safeTab === 'folders'");
     const end = route.indexOf("const [all, foldersInitial, tags, wsRaw]", start);
-    const foldersBlock = route.slice(start, end > start ? end : start + 1200);
+    const foldersBlock = route.slice(start, end > start ? end : start + 2000);
     assert.doesNotMatch(foldersBlock, /await maybeMigrateLegacyFolders|await ensurePipelineFolders/);
+    assert.doesNotMatch(foldersBlock, /getAllLeads/);
     assert.match(foldersBlock, /listFoldersLite/);
+    assert.match(foldersBlock, /countLeadsByFolderKey/);
+    assert.match(foldersBlock, /folderAggregateCounts/);
   }
   assert.ok(fs.existsSync(path.join(root, 'views/folders_manager_lite.ejs')));
+  const lite = fs.readFileSync(path.join(root, 'views/folders_manager_lite.ejs'), 'utf8');
+  assert.match(lite, /folderAggregateCounts/);
+  assert.match(lite, /_counts\[/);
+  assert.match(lite, /lead<%= /);
   assert.match(
     fs.readFileSync(path.join(root, 'services/database.js'), 'utf8'),
     /async listFoldersLite/,
+  );
+  assert.match(
+    fs.readFileSync(path.join(root, 'services/database.js'), 'utf8'),
+    /async countLeadsByFolderKey/,
   );
   assert.match(
     fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8'),

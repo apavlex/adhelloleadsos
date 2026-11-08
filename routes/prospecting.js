@@ -31,6 +31,7 @@ const {
   folderKeysIncludingDescendants,
   buildFolderAggregateCounts,
   buildFolderAggregateTags,
+  sortFolderTreeByLeadCount,
 } = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
@@ -109,16 +110,25 @@ router.get('/', async (req, res, next) => {
 
     // Folders: instant lite page. Strip searchPreset/outreach blobs, skip modals/JS
     // monolith, and render a flat link list — previous templates were still too heavy.
+    // Lead counts come from SQL GROUP BY folderKey (no getAllLeads) so rows are not blank.
     if (safeTab === 'folders') {
       const startedAt = Date.now();
       let folders = [];
+      let directFolderCounts = {};
       try {
-        folders = typeof dbService.listFoldersLite === 'function'
-          ? await dbService.listFoldersLite(wid)
-          : await dbService.listFolders(wid);
+        const foldersPromise = typeof dbService.listFoldersLite === 'function'
+          ? dbService.listFoldersLite(wid)
+          : dbService.listFolders(wid);
+        const countsPromise = typeof dbService.countLeadsByFolderKey === 'function'
+          ? dbService.countLeadsByFolderKey(wid)
+          : Promise.resolve({});
+        const [folderRows, counts] = await Promise.all([foldersPromise, countsPromise]);
+        folders = folderRows;
+        directFolderCounts = counts && typeof counts === 'object' ? counts : {};
       } catch (err) {
         console.warn('[prospecting] folders list failed:', err && err.message);
         folders = [];
+        directFolderCounts = {};
       }
       folders = (Array.isArray(folders) ? folders : [])
         .map((f) => ({
@@ -132,8 +142,11 @@ router.get('/', async (req, res, next) => {
         }))
         .filter((f) => f.key);
       let folderTree = { groups: [] };
+      let folderAggregateCounts = {};
       try {
         folderTree = buildFolderTree(folders);
+        folderAggregateCounts = buildFolderAggregateCounts(folderTree, directFolderCounts);
+        folderTree = sortFolderTreeByLeadCount(folderTree, folderAggregateCounts);
       } catch (err) {
         console.warn('[prospecting] folders tree failed:', err && err.message);
       }
@@ -146,6 +159,7 @@ router.get('/', async (req, res, next) => {
         foldersManagerPage: true,
         folders,
         folderTree,
+        folderAggregateCounts,
         canManageWorkspace: req.canManageWorkspace,
       });
     }

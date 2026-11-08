@@ -1508,15 +1508,65 @@ module.exports = {
          ORDER BY name COLLATE NOCASE`,
       )
       .all(`${prefix}%`);
+    const truthy = (v) => v === 1 || v === true || v === '1' || v === 'true';
     return (rows || []).map((r) => ({
       key: r.key,
       name: r.name || 'Folder',
-      parentFolderKey: r.parentFolderKey || '',
+      parentFolderKey: r.parentFolderKey != null && String(r.parentFolderKey).trim()
+        ? String(r.parentFolderKey).trim()
+        : '',
       jobType: r.jobType || '',
-      isPipelineDefault: r.isPipelineDefault === 1 || r.isPipelineDefault === true,
-      isTradeFolder: r.isTradeFolder === 1 || r.isTradeFolder === true,
+      isPipelineDefault: truthy(r.isPipelineDefault),
+      isTradeFolder: truthy(r.isTradeFolder),
       tradeSlug: r.tradeSlug || '',
     }));
+  },
+
+  /**
+   * Direct lead counts per folderKey — SQL GROUP BY only (no Node JSON.parse of leads).
+   * Used by the Folders lite page so rows show how many leads are filed without a full getAllLeads.
+   * @returns {Promise<Record<string, number>>}
+   */
+  async countLeadsByFolderKey(workspaceId) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'countLeadsByFolderKey');
+    const aliasStr = readLegacyDefaultAlias();
+    const includeLegacyDefault = !!(aliasStr && aliasStr === wid);
+    const leadWs =
+      "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
+    const folderKeyExpr =
+      "json_extract(CASE WHEN json_valid(value) THEN value END, '$.folderKey')";
+    const rows = includeLegacyDefault
+      ? sqlite
+          .prepare(
+            `SELECT ${folderKeyExpr} AS folderKey, COUNT(*) AS c
+             FROM kv
+             WHERE key LIKE 'lead:%'
+               AND (
+                 ${leadWs} = ?
+                 OR ${leadWs} IS NULL
+                 OR ${leadWs} = ''
+                 OR ${leadWs} = 'default'
+               )
+             GROUP BY folderKey`,
+          )
+          .all(wid)
+      : sqlite
+          .prepare(
+            `SELECT ${folderKeyExpr} AS folderKey, COUNT(*) AS c
+             FROM kv
+             WHERE key LIKE 'lead:%'
+               AND ${leadWs} = ?
+             GROUP BY folderKey`,
+          )
+          .all(wid);
+    const out = {};
+    for (const row of rows || []) {
+      const fk = row && row.folderKey != null ? String(row.folderKey).trim() : '';
+      if (!fk) continue;
+      out[fk] = Number(row.c) || 0;
+    }
+    return out;
   },
 
   async createFolder(workspaceId, name, meta = {}) {
