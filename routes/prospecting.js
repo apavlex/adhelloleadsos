@@ -107,18 +107,23 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    // Folders manager: paint an empty shell with zero DB awaits so the hop leaves the
-    // previous page immediately. Tree HTML hydrates from /prospecting/folders-section.
-    // Never kick maybeMigrate here — even in setImmediate it kv-scanned every lead and
-    // blocked SQLite so the browser tab kept "loading" on the old page.
+    // Folders manager: SSR the tree from listFolders only. The empty-shell + hydrate
+    // path left users stuck on "Loading folders…" when /folders-section stalled.
+    // Never await maybeMigrate here (lead reassignment blocked the process).
     if (safeTab === 'folders') {
       const email = userEmail(req);
       const ws = req.workspace;
+      const folders = await ensurePipelineFolders(wid);
+      const folderTree = buildFolderTree(folders);
+      const folderPickerTree = buildFolderPickerTree(
+        folderTree,
+        String(req.query.folderKey || '').trim(),
+      );
       return res.render('prospecting', {
         title: 'Prospecting | Agency OS',
         activePage: 'prospecting',
         tab: 'folders',
-        foldersShell: true,
+        foldersShell: false,
         leadCount: 0,
         unfiledLeadCount: 0,
         totalVisibleLeadCount: 0,
@@ -128,11 +133,11 @@ router.get('/', async (req, res, next) => {
         activeFolderKey: '',
         isBusinessesView: false,
         isPermitsView: false,
-        folders: [],
-        folderTree: { groups: [] },
+        folders,
+        folderTree,
         folderAggregateCounts: {},
         folderAggregateTags: {},
-        folderPickerTree: [],
+        folderPickerTree,
         tradeFolderCount: TRADE_FOLDERS.length,
         tags: [],
         schedules: [],

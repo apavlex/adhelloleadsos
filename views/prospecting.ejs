@@ -506,48 +506,6 @@
       })
     };
   })) %>;
-  <% if (typeof foldersShell !== 'undefined' && foldersShell) { %>
-  (function hydrateFolderManagerShell() {
-    var section = document.getElementById('folderManagerSection');
-    if (!section) return;
-    fetch('/prospecting/folders-section', {
-      credentials: 'same-origin',
-      headers: { Accept: 'text/html', 'X-Requested-With': 'fetch' },
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
-      })
-      .then(function (html) {
-        var tmp = document.createElement('div');
-        tmp.innerHTML = String(html || '').trim();
-        var next = tmp.querySelector('#folderManagerSection') || tmp.firstElementChild;
-        if (!next) throw new Error('empty');
-        var jsonEl = tmp.querySelector('#folderManagerHydrateJson');
-        if (jsonEl && jsonEl.textContent) {
-          try {
-            var payload = JSON.parse(jsonEl.textContent);
-            window.WORKSPACE_FOLDERS = payload.folders || [];
-            window.FOLDER_TREE_GROUPS = payload.groups || [];
-          } catch (_) { /* ignore */ }
-        }
-        section.replaceWith(next);
-        if (typeof window.__adhelloInitFolderManager === 'function') {
-          window.__adhelloInitFolderManager();
-        }
-      })
-      .catch(function () {
-        var root = document.getElementById('folderTreeRoot');
-        if (!root) return;
-        root.removeAttribute('aria-busy');
-        root.innerHTML =
-          '<div class="brand-card p-10 text-center dark:bg-slate-900 dark:border-white/10">' +
-          '<p class="text-brand-muted mb-4">Folders took too long to load.</p>' +
-          '<button type="button" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest" onclick="location.reload()">Retry</button>' +
-          '</div>';
-      });
-  })();
-  <% } %>
   </script>
 
   <script>
