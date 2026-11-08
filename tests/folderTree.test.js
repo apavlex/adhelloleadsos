@@ -65,6 +65,22 @@ test('buildFolderTree groups orphans without parent', () => {
   assert.equal(other.children.length, 1);
 });
 
+test('buildFolderTree does not hang on parent cycles', () => {
+  const tree = buildFolderTree([
+    { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'a', name: 'A', parentFolderKey: 'b', jobType: 'maps_business' },
+    { key: 'b', name: 'B', parentFolderKey: 'a', jobType: 'maps_business' },
+    { key: 'c', name: 'C', parentFolderKey: 'root:biz', jobType: 'maps_business' },
+    { key: 'loop', name: 'Loop', parentFolderKey: 'loop', jobType: 'maps_business' },
+  ]);
+  const biz = tree.groups.find((g) => g.key === 'root:biz');
+  assert.ok(biz);
+  assert.ok(biz.children.some((c) => c.key === 'c'));
+  // Self-parent / mutual cycle must not explode childRows.
+  assert.ok(biz.childRows.length >= 1);
+  assert.ok(biz.childRows.length < 20);
+});
+
 test('sortFolderTreeByLeadCount puts folders with leads first and empty last', () => {
   const { buildFolderTree, sortFolderTreeByLeadCount, buildFolderAggregateCounts } = require('../services/folderTree');
   const tree = buildFolderTree([
