@@ -1487,6 +1487,38 @@ module.exports = {
     return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   },
 
+  /**
+   * Folders first paint — SQL json_extract only the fields the tree needs.
+   * Avoids JSON.parse of searchPreset / outreachAutomation blobs on every hop.
+   */
+  async listFoldersLite(workspaceId) {
+    const wid = workspaceId || 'default';
+    const prefix = `folder:${wid}:`;
+    const rows = sqlite
+      .prepare(
+        `SELECT key,
+            json_extract(CASE WHEN json_valid(value) THEN value END, '$.name') AS name,
+            json_extract(CASE WHEN json_valid(value) THEN value END, '$.parentFolderKey') AS parentFolderKey,
+            json_extract(CASE WHEN json_valid(value) THEN value END, '$.jobType') AS jobType,
+            json_extract(CASE WHEN json_valid(value) THEN value END, '$.isPipelineDefault') AS isPipelineDefault,
+            json_extract(CASE WHEN json_valid(value) THEN value END, '$.isTradeFolder') AS isTradeFolder,
+            json_extract(CASE WHEN json_valid(value) THEN value END, '$.tradeSlug') AS tradeSlug
+         FROM kv
+         WHERE key LIKE ?
+         ORDER BY name COLLATE NOCASE`,
+      )
+      .all(`${prefix}%`);
+    return (rows || []).map((r) => ({
+      key: r.key,
+      name: r.name || 'Folder',
+      parentFolderKey: r.parentFolderKey || '',
+      jobType: r.jobType || '',
+      isPipelineDefault: r.isPipelineDefault === 1 || r.isPipelineDefault === true,
+      isTradeFolder: r.isTradeFolder === 1 || r.isTradeFolder === true,
+      tradeSlug: r.tradeSlug || '',
+    }));
+  },
+
   async createFolder(workspaceId, name, meta = {}) {
     const wid = workspaceId || 'default';
     // Include random suffix — Date.now() alone can collide when creating folders in a tight loop.
