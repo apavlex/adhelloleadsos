@@ -107,16 +107,19 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    // Folders manager: paint the tree immediately. Counting every lead first left
-    // the hop hanging on Queue with the frost gone.
+    // Folders manager: paint the tree immediately. Never await folder hygiene here —
+    // maybeMigrateLegacyFolders → reassignLeadsToFolder scans every lead and left the
+    // hop stuck on Opportunities/Queue behind "Still loading — tap to retry".
     if (safeTab === 'folders') {
       const [foldersInitial, tags, wsRaw] = await Promise.all([
         ensurePipelineFolders(wid),
         dbService.listTags(wid),
         dbService.getWorkspace(wid),
       ]);
-      const migrated = await maybeMigrateLegacyFolders(wid, foldersInitial);
-      const folders = migrated.folders;
+      const folders = foldersInitial;
+      setImmediate(() => {
+        maybeMigrateLegacyFolders(wid, foldersInitial).catch(() => {});
+      });
       const folderTree = buildFolderTree(folders);
       const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
       const email = userEmail(req);

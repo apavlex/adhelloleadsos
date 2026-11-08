@@ -58,6 +58,8 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /light:\s*true/);
   assert.match(route, /safeTab === 'folders'/);
   assert.match(route, /Folders manager: paint the tree immediately/);
+  // Hygiene must not block Folders HTML (reassignLeadsToFolder = full lead scan).
+  assert.match(route, /setImmediate\(\(\) => \{\s*maybeMigrateLegacyFolders/);
   assert.match(route, /needPipelineDecorate = safeTab === 'pipeline'/);
   assert.match(route, /folderListLeads = \[\]/);
   assert.match(route, /queueListLeads = \[\]/);
