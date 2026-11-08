@@ -31,8 +31,9 @@ describe('SEO Q&A page-builder prompt', () => {
     assert.match(route, /buildSeoQaPagePrompt/);
     assert.match(route, /page-prompt\.txt/);
     assert.match(route, /pageBuilderPromptUrl/);
-    assert.match(route, /INBOX_SSR_LIMIT\s*=\s*0/);
+    assert.match(route, /shell:\s*true/);
     assert.match(route, /inboxHydrate/);
+    assert.match(route, /inboxPending/);
     assert.match(route, /seedName/);
     assert.match(view, /sqaCopyPromptBtn/);
     assert.match(view, /Page-builder prompt/);
@@ -42,5 +43,6 @@ describe('SEO Q&A page-builder prompt', () => {
     assert.match(view, /fillPrompt/);
     assert.match(view, /shouldHydrate/);
     assert.match(view, /\/seo-qa\/inbox\.json/);
+    assert.match(view, /AbortController/);
   });
 });

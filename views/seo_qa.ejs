@@ -11,6 +11,9 @@
     <% const _questions = Array.isArray(questions) ? questions : []; %>
     <% const _questionsTotal = typeof questionsTotal === 'number' ? questionsTotal : _questions.length; %>
     <% const _inboxTruncated = typeof inboxTruncated !== 'undefined' && !!inboxTruncated; %>
+    <% const _inboxHydrate = typeof inboxHydrate !== 'undefined' && !!inboxHydrate; %>
+    <% const _inboxPending = typeof inboxPending !== 'undefined' ? !!inboxPending : _inboxHydrate; %>
+    <% const _inboxHydrateLimit = typeof inboxHydrateLimit === 'number' ? inboxHydrateLimit : 40; %>
     <% const _focus = typeof focusQuestionId !== 'undefined' ? String(focusQuestionId || '') : ''; %>
     <% const _feedUrl = typeof feedUrl !== 'undefined' ? feedUrl : ''; %>
     <% const _submitUrl = typeof submitUrl !== 'undefined' ? submitUrl : ''; %>
@@ -29,19 +32,19 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Total</p>
-        <p class="font-display font-black text-2xl"><%= _summary.total %></p>
+        <p id="sqaKpiTotal" class="font-display font-black text-2xl"><%= _inboxPending ? '…' : _summary.total %></p>
       </div>
       <div class="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">Needs answer</p>
-        <p class="font-display font-black text-2xl"><%= _summary.open %></p>
+        <p id="sqaKpiOpen" class="font-display font-black text-2xl"><%= _inboxPending ? '…' : _summary.open %></p>
       </div>
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Answered</p>
-        <p class="font-display font-black text-2xl"><%= _summary.answered %></p>
+        <p id="sqaKpiAnswered" class="font-display font-black text-2xl"><%= _inboxPending ? '…' : _summary.answered %></p>
       </div>
       <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Published</p>
-        <p class="font-display font-black text-2xl"><%= _summary.published %></p>
+        <p id="sqaKpiPublished" class="font-display font-black text-2xl"><%= _inboxPending ? '…' : _summary.published %></p>
       </div>
     </div>
 
@@ -144,22 +147,20 @@
       </form>
     </section>
 
-    <% const _inboxHydrate = typeof inboxHydrate !== 'undefined' && !!inboxHydrate; %>
-    <% const _inboxHydrateLimit = typeof inboxHydrateLimit === 'number' ? inboxHydrateLimit : 40; %>
     <section aria-labelledby="sqaInboxTitle">
       <div class="flex items-end justify-between gap-3 mb-4">
         <h2 id="sqaInboxTitle" class="font-display font-bold text-xl">Inbox</h2>
         <p id="sqaInboxCount" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">
-          <% if (_inboxHydrate && _questionsTotal > 0) { %>Loading…<% } else if (_inboxTruncated) { %>Showing <%= _questions.length %> of <%= _questionsTotal %><% } else { %><%= _questionsTotal %> items<% } %>
+          <% if (_inboxPending || (_inboxHydrate && !_questions.length)) { %>Loading…<% } else if (_inboxTruncated) { %>Showing <%= _questions.length %> of <%= _questionsTotal %><% } else { %><%= _questionsTotal %> items<% } %>
         </p>
       </div>
 
-      <div id="sqaEmptyState" class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/15 px-6 py-12 text-center<%= (_questions.length || (_inboxHydrate && _questionsTotal > 0)) ? ' hidden' : '' %>">
+      <div id="sqaEmptyState" class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/15 px-6 py-12 text-center<%= (_questions.length || _inboxPending || _inboxHydrate) ? ' hidden' : '' %>">
         <p class="font-display font-bold text-lg mb-2">No questions yet</p>
         <p class="text-sm text-brand-muted max-w-md mx-auto">Import from your live Q&amp;A page, or wait for a visitor submit once the site posts to the public endpoint.</p>
       </div>
-      <div id="sqaInboxWrap" class="<%= (!_questions.length && !(_inboxHydrate && _questionsTotal > 0)) ? 'hidden' : '' %>">
-        <% if (_inboxHydrate && !_questions.length && _questionsTotal > 0) { %>
+      <div id="sqaInboxWrap" class="<%= (!_questions.length && !(_inboxPending || _inboxHydrate)) ? 'hidden' : '' %>">
+        <% if ((_inboxPending || _inboxHydrate) && !_questions.length) { %>
         <p id="sqaInboxLoading" class="rounded-2xl border border-brand-border/40 dark:border-white/10 px-6 py-10 text-sm text-brand-muted text-center" role="status">Loading questions…</p>
         <% } %>
         <div class="space-y-4" id="sqaInboxList">
@@ -473,12 +474,22 @@
       var questions = (data && Array.isArray(data.questions)) ? data.questions : [];
       var total = data && typeof data.questionsTotal === 'number' ? data.questionsTotal : questions.length;
       var truncated = !!(data && data.inboxTruncated);
+      var summary = (data && data.summary) || {};
       var empty = document.getElementById('sqaEmptyState');
       var wrap = document.getElementById('sqaInboxWrap');
       var loading = document.getElementById('sqaInboxLoading');
       var countEl = document.getElementById('sqaInboxCount');
       var truncNote = document.getElementById('sqaInboxTruncNote');
       if (loading) loading.remove();
+      var kpiTotal = document.getElementById('sqaKpiTotal');
+      var kpiOpen = document.getElementById('sqaKpiOpen');
+      var kpiAnswered = document.getElementById('sqaKpiAnswered');
+      var kpiPublished = document.getElementById('sqaKpiPublished');
+      if (kpiTotal) kpiTotal.textContent = String(summary.total != null ? summary.total : total);
+      if (kpiOpen) kpiOpen.textContent = String(summary.open != null ? summary.open : 0);
+      if (kpiAnswered) kpiAnswered.textContent = String(summary.answered != null ? summary.answered : 0);
+      if (kpiPublished) kpiPublished.textContent = String(summary.published != null ? summary.published : 0);
+      if (data && data.settings && data.settings.businessName) businessName = data.settings.businessName;
       if (!questions.length) {
         if (empty) empty.classList.remove('hidden');
         if (wrap) wrap.classList.add('hidden');
@@ -509,21 +520,33 @@
     }
 
     if (shouldHydrate) {
+      var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var hydrateTimer = setTimeout(function () {
+        if (hydrateCtrl) hydrateCtrl.abort();
+      }, 12000);
       fetch('/seo-qa/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focus ? ('&q=' + encodeURIComponent(focus)) : ''), {
         credentials: 'same-origin',
-        headers: { Accept: 'application/json' }
+        headers: { Accept: 'application/json' },
+        signal: hydrateCtrl ? hydrateCtrl.signal : undefined
       })
         .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
         .then(function (parsed) {
+          clearTimeout(hydrateTimer);
           if (!parsed.ok || !parsed.data || !parsed.data.success) {
             throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
           }
           applyInbox(parsed.data, focus);
         })
         .catch(function (e) {
+          clearTimeout(hydrateTimer);
+          var msg = (e && e.name === 'AbortError')
+            ? 'Inbox is taking too long — refresh to try again.'
+            : ((e && e.message) || 'Could not load inbox');
           var loading = document.getElementById('sqaInboxLoading');
-          if (loading) loading.textContent = (e && e.message) || 'Could not load inbox';
-          setStatus((e && e.message) || 'Could not load inbox', true);
+          if (loading) loading.textContent = msg;
+          setStatus(msg, true);
+          var empty = document.getElementById('sqaEmptyState');
+          if (empty) empty.classList.remove('hidden');
         });
     } else if (focus) {
       var el = document.getElementById('sqa-' + focus);

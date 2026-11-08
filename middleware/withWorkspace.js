@@ -100,7 +100,12 @@ async function withWorkspace(req, res, next) {
     }
 
     // ensureUserHasWorkspaces can scan all leads (agency prune) — once per session is enough.
-    if (!(req.session && req.session._wsBootstrapped)) {
+    // SEO/Reviews/Q&A: if session already has a workspace, skip this hop so HTML can paint.
+    const skipBootstrapForLight =
+      seoLightFastPath &&
+      req.session &&
+      (req.session.activeWorkspaceId || req.session.workspaceId);
+    if (!skipBootstrapForLight && !(req.session && req.session._wsBootstrapped)) {
       await workspaceBootstrap.ensureUserHasWorkspaces(email);
       if (req.session) req.session._wsBootstrapped = 1;
     }

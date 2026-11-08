@@ -13,6 +13,7 @@
     <% const _reviewsTotal = typeof reviewsTotal === 'number' ? reviewsTotal : _reviews.length; %>
     <% const _inboxTruncated = typeof inboxTruncated !== 'undefined' && !!inboxTruncated; %>
     <% const _inboxHydrate = typeof inboxHydrate !== 'undefined' && !!inboxHydrate; %>
+    <% const _inboxPending = typeof inboxPending !== 'undefined' ? !!inboxPending : _inboxHydrate; %>
     <% const _inboxHydrateLimit = typeof inboxHydrateLimit === 'number' ? inboxHydrateLimit : 40; %>
     <% const _outConfigured = typeof outscraperConfigured !== 'undefined' && outscraperConfigured; %>
     <% const _contact = typeof contact !== 'undefined' && contact ? contact : { url: '', email: 'hello@adhello.ai', label: 'Book a call' }; %>
@@ -66,19 +67,19 @@
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Reviews</p>
-        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.total %></p>
+        <p id="brKpiTotal" class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _inboxPending ? '…' : _summary.total %></p>
       </div>
       <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-950/30 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">New</p>
-        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.newCount %></p>
+        <p id="brKpiNew" class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _inboxPending ? '…' : _summary.newCount %></p>
       </div>
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Unreplied</p>
-        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _summary.unreplied %></p>
+        <p id="brKpiUnreplied" class="font-display font-black text-2xl text-brand-dark dark:text-white"><%= _inboxPending ? '…' : _summary.unreplied %></p>
       </div>
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Rating</p>
-        <p class="font-display font-black text-2xl text-brand-dark dark:text-white"><% if (_summary.placeRating != null) { %><%= Number(_summary.placeRating).toFixed(1) %>★<% } else { %>—<% } %></p>
+        <p id="brKpiRating" class="font-display font-black text-2xl text-brand-dark dark:text-white"><% if (_inboxPending) { %>…<% } else if (_summary.placeRating != null) { %><%= Number(_summary.placeRating).toFixed(1) %>★<% } else { %>—<% } %></p>
       </div>
     </div>
 
@@ -125,22 +126,20 @@
       <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white">Inbox<% if (_summary.placeName) { %> <span class="text-brand-muted font-semibold text-sm">· <%= _summary.placeName %></span><% } %></h2>
       <div class="flex flex-wrap items-center gap-3">
         <p id="brInboxCount" class="text-[11px] font-semibold text-brand-muted tabular-nums">
-          <% if (_inboxHydrate && _reviewsTotal > 0) { %>Loading inbox…<% } else if (_inboxTruncated) { %>Showing <%= _reviews.length %> of <%= _reviewsTotal %><% } else { %><%= _reviewsTotal %> review<%= _reviewsTotal === 1 ? '' : 's' %><% } %>
+          <% if (_inboxPending || (_inboxHydrate && !_reviews.length)) { %>Loading inbox…<% } else if (_inboxTruncated) { %>Showing <%= _reviews.length %> of <%= _reviewsTotal %><% } else { %><%= _reviewsTotal %> review<%= _reviewsTotal === 1 ? '' : 's' %><% } %>
         </p>
-        <% if (_summary.newCount) { %>
-        <button type="button" id="brMarkSeenBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow">Mark all seen</button>
-        <% } %>
+        <button type="button" id="brMarkSeenBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow<%= _summary.newCount ? '' : ' hidden' %>">Mark all seen</button>
       </div>
     </div>
 
-    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center<%= (_reviews.length || (_inboxHydrate && _reviewsTotal > 0)) ? ' hidden' : '' %>" id="brEmptyState">
+    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center<%= (_reviews.length || _inboxPending || _inboxHydrate) ? ' hidden' : '' %>" id="brEmptyState">
       <h3 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">No reviews synced yet</h3>
       <p class="text-sm text-brand-muted max-w-md mx-auto mb-4">Save your Google listing above, then sync. New reviews will show here and ping your notification bell.</p>
       <p id="brEmptyProgress" class="hidden mb-4 text-sm font-semibold text-brand-dark dark:text-white" role="status"></p>
       <button type="button" id="brEmptySyncBtn" class="btn-pill btn-primary inline-flex items-center justify-center gap-2 px-8 py-3 text-xs font-black uppercase tracking-widest"<%= !_outConfigured ? ' disabled' : '' %>>Sync with Outscraper</button>
     </div>
-    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden<%= (!_reviews.length && !(_inboxHydrate && _reviewsTotal > 0)) ? ' hidden' : '' %>" aria-label="Google reviews" id="brInboxSection">
-      <% if (_inboxHydrate && !_reviews.length && _reviewsTotal > 0) { %>
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden<%= (!_reviews.length && !(_inboxPending || _inboxHydrate)) ? ' hidden' : '' %>" aria-label="Google reviews" id="brInboxSection">
+      <% if ((_inboxPending || _inboxHydrate) && !_reviews.length) { %>
       <p id="brInboxLoading" class="px-5 sm:px-6 py-10 text-sm text-brand-muted text-center" role="status">Loading reviews…</p>
       <% } %>
       <ul class="divide-y divide-brand-border/40 dark:divide-white/10" id="brReviewList">
@@ -670,16 +669,32 @@
         var reviews = (data && Array.isArray(data.reviews)) ? data.reviews : [];
         var total = data && typeof data.reviewsTotal === 'number' ? data.reviewsTotal : reviews.length;
         var truncated = !!(data && data.inboxTruncated);
+        var summary = (data && data.summary) || {};
         var empty = document.getElementById('brEmptyState');
         var section = document.getElementById('brInboxSection');
         var loading = document.getElementById('brInboxLoading');
         var countEl = document.getElementById('brInboxCount');
         var truncNote = document.getElementById('brInboxTruncNote');
+        var markSeen = document.getElementById('brMarkSeenBtn');
         if (loading) loading.remove();
+        var kpiTotal = document.getElementById('brKpiTotal');
+        var kpiNew = document.getElementById('brKpiNew');
+        var kpiUnreplied = document.getElementById('brKpiUnreplied');
+        var kpiRating = document.getElementById('brKpiRating');
+        if (kpiTotal) kpiTotal.textContent = String(summary.total != null ? summary.total : total);
+        if (kpiNew) kpiNew.textContent = String(summary.newCount != null ? summary.newCount : 0);
+        if (kpiUnreplied) kpiUnreplied.textContent = String(summary.unreplied != null ? summary.unreplied : 0);
+        if (kpiRating) {
+          kpiRating.textContent = summary.placeRating != null
+            ? (Number(summary.placeRating).toFixed(1) + '★')
+            : '—';
+        }
+        if (markSeen) markSeen.classList.toggle('hidden', !(summary.newCount > 0));
         if (outConfigured !== !!(data && data.outscraperConfigured)) {
           outConfigured = !!(data && data.outscraperConfigured);
           refreshEnabled();
         }
+        if (data && data.syncState) initialSyncState = data.syncState;
         if (!reviews.length) {
           if (empty) empty.classList.remove('hidden');
           if (section) section.classList.add('hidden');
@@ -714,21 +729,50 @@
       var hydrateLimit = <%= JSON.stringify(_inboxHydrateLimit) %>;
 
       if (shouldHydrate) {
+        var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var hydrateTimer = setTimeout(function () {
+          if (hydrateCtrl) hydrateCtrl.abort();
+        }, 12000);
         fetch('/business-reviews/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focusId ? ('&review=' + encodeURIComponent(focusId)) : ''), {
           credentials: 'same-origin',
-          headers: { Accept: 'application/json' }
+          headers: { Accept: 'application/json' },
+          signal: hydrateCtrl ? hydrateCtrl.signal : undefined
         })
           .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
           .then(function (parsed) {
+            clearTimeout(hydrateTimer);
             if (!parsed.ok || !parsed.data || !parsed.data.success) {
               throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
             }
             applyInbox(parsed.data, focusId);
+            if (initialSyncState && initialSyncState.status === 'syncing') {
+              showLoader('Still syncing in background…', initialSyncState.message || 'Outscraper is still working.');
+              setInline(initialSyncState.message || 'Background sync still running…');
+              setEmptyProgress(initialSyncState.message || 'Background sync still running…');
+              ['brSyncBtn', 'brSaveSyncBtn', 'brEmptySyncBtn'].forEach(function (id) {
+                var b = document.getElementById(id);
+                if (b) {
+                  b.disabled = true;
+                  if (!b.dataset.brLabel) b.dataset.brLabel = b.textContent.trim();
+                  b.textContent = 'Syncing…';
+                }
+              });
+              pollSyncStatus(0);
+            } else if (initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
+              setInline(initialSyncState.error, true);
+              setEmptyProgress(initialSyncState.error);
+            }
           })
           .catch(function (e) {
+            clearTimeout(hydrateTimer);
+            var msg = (e && e.name === 'AbortError')
+              ? 'Inbox is taking too long — refresh to try again.'
+              : ((e && e.message) || 'Could not load inbox');
             var loading = document.getElementById('brInboxLoading');
-            if (loading) loading.textContent = (e && e.message) || 'Could not load inbox';
-            setInline((e && e.message) || 'Could not load inbox', true);
+            if (loading) loading.textContent = msg;
+            setInline(msg, true);
+            var empty = document.getElementById('brEmptyState');
+            if (empty) empty.classList.remove('hidden');
           });
       } else if (focusId) {
         var node = document.getElementById('review-' + focusId);
@@ -737,8 +781,8 @@
 
       refreshEnabled();
 
-      // Resume overlay if a sync was already running (refresh mid-flight).
-      if (initialSyncState && initialSyncState.status === 'syncing') {
+      // Resume overlay if a sync was already running (skip when shell will hydrate syncState).
+      if (!shouldHydrate && initialSyncState && initialSyncState.status === 'syncing') {
         showLoader('Still syncing in background…', initialSyncState.message || 'Outscraper is still working.');
         setInline(initialSyncState.message || 'Background sync still running…');
         setEmptyProgress(initialSyncState.message || 'Background sync still running…');
@@ -751,7 +795,7 @@
           }
         });
         pollSyncStatus(0);
-      } else if (initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
+      } else if (!shouldHydrate && initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
         setInline(initialSyncState.error, true);
         setEmptyProgress(initialSyncState.error);
       }
