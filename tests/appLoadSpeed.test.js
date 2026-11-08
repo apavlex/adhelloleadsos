@@ -57,9 +57,13 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /safeTab === 'queue'/);
   assert.match(route, /light:\s*true/);
   assert.match(route, /safeTab === 'folders'/);
-  assert.match(route, /Folders manager: paint the tree immediately/);
-  // Hygiene must not block Folders HTML (reassignLeadsToFolder = full lead scan).
-  assert.match(route, /setImmediate\(\(\) => \{\s*maybeMigrateLegacyFolders/);
+  assert.match(route, /foldersShell:\s*true/);
+  assert.match(route, /\/folders-section/);
+  // Shell must not await listFolders / hygiene on first paint.
+  assert.doesNotMatch(
+    route.slice(route.indexOf("safeTab === 'folders'"), route.indexOf("safeTab === 'folders'") + 1200),
+    /await (?:dbService\.listFolders|ensurePipelineFolders|maybeMigrateLegacyFolders)/,
+  );
   assert.match(route, /needPipelineDecorate = safeTab === 'pipeline'/);
   assert.match(route, /folderListLeads = \[\]/);
   assert.match(route, /queueListLeads = \[\]/);
@@ -117,4 +121,14 @@ test('engagement and activity skip full-workspace lead scans on first paint', ()
   assert.match(act, /listLeadsWithActivityTail/);
   assert.doesNotMatch(act, /getAllLeads/);
   assert.match(ceo, /light:\s*true/);
+});
+
+
+test('reassignLeadsToFolder uses workspace-scoped getAllLeads', () => {
+  const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
+  const start = db.indexOf('async reassignLeadsToFolder');
+  assert.ok(start > 0);
+  const chunk = db.slice(start, start + 900);
+  assert.match(chunk, /getAllLeads\(/);
+  assert.doesNotMatch(chunk, /kvList\('lead:'\)/);
 });
