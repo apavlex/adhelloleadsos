@@ -57,12 +57,19 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /safeTab === 'queue'/);
   assert.match(route, /light:\s*true/);
   assert.match(route, /safeTab === 'folders'/);
-  assert.match(route, /foldersShell:\s*true/);
-  assert.match(route, /\/folders-section/);
-  // Shell must not await listFolders / hygiene on first paint.
+  assert.match(route, /foldersShell:\s*false/);
+  // SSR tree via ensurePipelineFolders — never await hygiene on Folders GET.
+  assert.match(
+    route.slice(route.indexOf("safeTab === 'folders'"), route.indexOf("safeTab === 'folders'") + 1600),
+    /await ensurePipelineFolders\(wid\)/,
+  );
   assert.doesNotMatch(
-    route.slice(route.indexOf("safeTab === 'folders'"), route.indexOf("safeTab === 'folders'") + 1200),
-    /await (?:dbService\.listFolders|ensurePipelineFolders|maybeMigrateLegacyFolders)/,
+    route.slice(route.indexOf("safeTab === 'folders'"), route.indexOf("safeTab === 'folders'") + 1600),
+    /maybeMigrateLegacyFolders/,
+  );
+  assert.doesNotMatch(
+    fs.readFileSync(path.join(root, 'views/prospecting.ejs'), 'utf8'),
+    /hydrateFolderManagerShell/,
   );
   assert.match(route, /needPipelineDecorate = safeTab === 'pipeline'/);
   assert.match(route, /folderListLeads = \[\]/);
