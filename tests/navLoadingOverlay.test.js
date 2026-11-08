@@ -20,10 +20,15 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /_pendingHref/);
     assert.match(js, /location\.assign\(pending\)/);
     assert.match(js, /isLikelyDesktopNav/);
-    assert.match(js, /desktopLeave \? 5000 : 12000/);
+    assert.match(js, /desktopLeave \? 10000 : 12000/);
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
+    // Never silently hide frost on desktop mid-nav — that left History half-loaded.
+    assert.doesNotMatch(
+      js,
+      /if \(isLikelyDesktopNav\(\)\) \{\s*hideNavLoading\(\);\s*return;/
+    );
   });
 
   it('service worker never intercepts HTML and cache-firsts shell assets', () => {
