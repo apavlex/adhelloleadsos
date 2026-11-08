@@ -107,16 +107,29 @@ function sortTradeBeforeCustom(a, b) {
   return sortFoldersByName(a, b);
 }
 
-function attachNestedChildren(parentKey, childrenByParent) {
+function attachNestedChildren(parentKey, childrenByParent, ancestry) {
+  // Guard cycles (A→B→A) — without this, Folders SSR recurses forever and the hop never returns.
+  const path = ancestry || new Set();
+  const parent = String(parentKey || '');
+  if (parent && path.has(parent)) return [];
   const kids = childrenByParent.get(parentKey) || [];
-  return kids.map((child) => ({
-    ...child,
-    children: attachNestedChildren(child.key, childrenByParent),
-  }));
+  const nextPath = new Set(path);
+  if (parent) nextPath.add(parent);
+  return kids.map((child) => {
+    const key = String((child && child.key) || '');
+    if (!key || nextPath.has(key)) {
+      return { ...child, children: [] };
+    }
+    return {
+      ...child,
+      children: attachNestedChildren(key, childrenByParent, nextPath),
+    };
+  });
 }
 
 function flattenFolderRows(nestedChildren, depth = 1) {
   const rows = [];
+  if (depth > 40) return rows;
   for (const child of nestedChildren || []) {
     rows.push({ folder: child, depth });
     if (child.children && child.children.length) {

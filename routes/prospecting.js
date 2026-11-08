@@ -113,12 +113,28 @@ router.get('/', async (req, res, next) => {
     if (safeTab === 'folders') {
       const email = userEmail(req);
       const ws = req.workspace;
-      const folders = await ensurePipelineFolders(wid);
-      const folderTree = buildFolderTree(folders);
-      const folderPickerTree = buildFolderPickerTree(
-        folderTree,
-        String(req.query.folderKey || '').trim(),
-      );
+      let folders = [];
+      try {
+        // listFolders only — ensurePipelineFolders also rewrites workspace defaults and
+        // is unnecessary for painting an existing tree.
+        folders = await dbService.listFolders(wid);
+      } catch (err) {
+        console.warn('[prospecting] folders list failed:', err && err.message);
+        folders = [];
+      }
+      let folderTree;
+      let folderPickerTree;
+      try {
+        folderTree = buildFolderTree(folders);
+        folderPickerTree = buildFolderPickerTree(
+          folderTree,
+          String(req.query.folderKey || '').trim(),
+        );
+      } catch (err) {
+        console.warn('[prospecting] folders tree failed:', err && err.message);
+        folderTree = { groups: [] };
+        folderPickerTree = [];
+      }
       return res.render('prospecting', {
         title: 'Prospecting | Agency OS',
         activePage: 'prospecting',
