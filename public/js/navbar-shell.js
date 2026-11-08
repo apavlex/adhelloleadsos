@@ -103,14 +103,24 @@ function readJsonReply(r) {
       ev.preventDefault();
       ev.stopPropagation();
       if (ev.target && ev.target.id === 'adhelloNavLoadingRetry') {
+        var pending = showNavLoading._pendingHref || '';
+        hideNavLoading();
         try {
-          window.location.reload();
+          // Retry must finish the hop the user clicked — reload() alone left them
+          // stuck on the outgoing page (desktop "Still loading" trap).
+          if (pending && pending !== window.location.href) {
+            window.location.assign(pending);
+          } else {
+            window.location.reload();
+          }
         } catch (e) { /* ignore */ }
         return;
       }
       if (showNavLoading._leaving) {
         var started = showNavLoading._shownAt || 0;
-        if (Date.now() - started < 8000) return;
+        // Desktop: allow dismiss sooner. iOS needs a longer lock to avoid white void.
+        var lockMs = showNavLoading._isCoarsePointer === false ? 2500 : 8000;
+        if (Date.now() - started < lockMs) return;
       }
       hideNavLoading();
     });
@@ -123,6 +133,7 @@ function readJsonReply(r) {
     hideNavLoading._failSafe = null;
     showNavLoading._leaving = false;
     showNavLoading._shownAt = 0;
+    showNavLoading._pendingHref = '';
     document.documentElement.classList.remove('adhello-nav-loading');
     var el = document.getElementById('adhelloNavLoading');
     if (el) {
@@ -132,12 +143,20 @@ function readJsonReply(r) {
     }
   }
 
+  function isLikelyDesktopNav() {
+    try {
+      if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return false;
+      if (/iPhone|iPad|iPod/i.test(String(navigator.userAgent || ''))) return false;
+    } catch (_) { /* ignore */ }
+    return true;
+  }
+
   /**
    * Full-page frosted loader (same as sidebar page changes).
-   * @param {number|{failSafeMs?:number,untilPageShow?:boolean}|null} [opts]
+   * @param {number|{failSafeMs?:number,untilPageShow?:boolean,href?:string}|null} [opts]
    *   - default / number / `{ failSafeMs }`: in-page work (short failsafe, default 3.5s)
    *   - `{ untilPageShow: true }`: real document navigation — keep frost until the next
-   *     pageshow/load. After 12s show Retry so a hung SSR does not feel infinite.
+   *     pageshow/load. After a short stall, desktop clears; iOS offers Retry.
    */
   function showNavLoading(opts) {
     document.documentElement.classList.add('adhello-nav-loading');
@@ -151,10 +170,20 @@ function readJsonReply(r) {
     var untilPageShow = !!(opts && typeof opts === 'object' && opts.untilPageShow);
     showNavLoading._leaving = untilPageShow;
     showNavLoading._shownAt = Date.now();
+    showNavLoading._isCoarsePointer = !isLikelyDesktopNav();
+    if (opts && typeof opts === 'object' && opts.href) {
+      try {
+        showNavLoading._pendingHref = new URL(String(opts.href), window.location.origin).href;
+      } catch (_) {
+        showNavLoading._pendingHref = String(opts.href || '');
+      }
+    }
+    var desktopLeave = untilPageShow && isLikelyDesktopNav();
     var ms = 3500;
     if (untilPageShow) {
-      // Cover the iOS white void; offer Retry before this feels endless.
-      ms = 12000;
+      // Desktop: clear sooner so a slow SSR cannot trap the whole UI behind Retry.
+      // iOS: keep covering the white void longer, then offer Retry.
+      ms = desktopLeave ? 5000 : 12000;
     } else if (typeof opts === 'number' && opts > 0) {
       ms = opts;
     } else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) {
@@ -162,15 +191,19 @@ function readJsonReply(r) {
     }
     // Cap runaway overlays.
     if (untilPageShow) {
-      ms = Math.min(ms, 15000);
+      ms = Math.min(ms, desktopLeave ? 8000 : 15000);
     } else if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
       ms = Math.min(ms, 3500);
     } else {
       ms = Math.min(ms, 120000);
     }
-    // If leave nav stalls, surface Retry instead of a blank white void.
+    // If leave nav stalls: desktop clears the frost; iOS surfaces Retry.
     hideNavLoading._failSafe = setTimeout(function () {
       if (untilPageShow && showNavLoading._leaving) {
+        if (isLikelyDesktopNav()) {
+          hideNavLoading();
+          return;
+        }
         var stallEl = document.getElementById('adhelloNavLoading');
         if (stallEl) {
           stallEl.classList.add('is-stalled');
@@ -189,7 +222,7 @@ function readJsonReply(r) {
   // Boot / restore: never leave a stuck frost from bfcache or a prior hop.
   hideNavLoading();
 
-  function clearNavOverlaysForLeave() {
+  function clearNavOverlaysForLeave(href) {
     closeMobileMenu({ instant: true });
     var panel = document.getElementById('mobilePanel');
     if (panel) {
@@ -200,7 +233,7 @@ function readJsonReply(r) {
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
     // Frost stays until next pageshow — do not preventDefault (browser owns nav).
-    showNavLoading({ untilPageShow: true });
+    showNavLoading({ untilPageShow: true, href: href || '' });
   }
 
   if (mobileMenuBtn) {
@@ -231,7 +264,7 @@ function readJsonReply(r) {
         var href = el.getAttribute && el.getAttribute('href');
         var leaving = el.tagName === 'A' && href && href.charAt(0) !== '#' && !el.hasAttribute('download')
           && !(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || el.target === '_blank');
-        if (leaving) clearNavOverlaysForLeave();
+        if (leaving) clearNavOverlaysForLeave(href);
         else closeMobileMenu();
       });
     });
@@ -250,10 +283,10 @@ function readJsonReply(r) {
       var u = new URL(href, window.location.origin);
       if (u.origin !== window.location.origin) return;
       if (u.pathname === window.location.pathname && u.search === window.location.search && u.hash) return;
+      clearNavOverlaysForLeave(u.href);
     } catch (_) {
       return;
     }
-    clearNavOverlaysForLeave();
   }, true);
 
   window.addEventListener('pageshow', function () {

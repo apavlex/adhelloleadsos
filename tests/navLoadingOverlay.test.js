@@ -16,8 +16,11 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
 
     const js = fs.readFileSync(path.join(root, 'public/js/navbar-shell.js'), 'utf8');
     assert.match(js, /untilPageShow/);
-    assert.match(js, /showNavLoading\(\{\s*untilPageShow:\s*true\s*\}\)/);
-    assert.match(js, /ms = 12000/);
+    assert.match(js, /untilPageShow:\s*true/);
+    assert.match(js, /_pendingHref/);
+    assert.match(js, /location\.assign\(pending\)/);
+    assert.match(js, /isLikelyDesktopNav/);
+    assert.match(js, /desktopLeave \? 5000 : 12000/);
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
@@ -25,7 +28,7 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
 
   it('service worker never intercepts HTML and cache-firsts shell assets', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
-    assert.match(sw, /adhello-pwa-v1\.0\.682/);
+    assert.match(sw, /adhello-pwa-v1\.0\.\d+/);
     assert.doesNotMatch(sw, /AbortController/);
     assert.match(sw, /req\.mode === 'navigate'\) return/);
     assert.match(sw, /accept\.includes\('text\/html'\)\) return/);
