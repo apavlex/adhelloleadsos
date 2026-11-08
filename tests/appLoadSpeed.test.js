@@ -132,3 +132,47 @@ test('reassignLeadsToFolder uses workspace-scoped getAllLeads', () => {
   assert.match(chunk, /getAllLeads\(/);
   assert.doesNotMatch(chunk, /const keys = kvList\('lead:'\)/);
 });
+
+
+test('folder_manager_section renders shell and tree', async () => {
+  const express = require('express');
+  const { buildFolderTree } = require('../services/folderTree');
+  const app = express();
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(root, 'views'));
+  app.set('view options', { root: path.join(root, 'views') });
+  const section = fs.readFileSync(
+    path.join(root, 'views/partials/folder_manager_section.ejs'),
+    'utf8',
+  );
+  // Nested partial includes are relative to partials/ — partials/help/... 404s the page.
+  assert.match(section, /include\('help\/folder_manager_info'\)/);
+  assert.doesNotMatch(section, /include\('partials\/help\/folder_manager_info'\)/);
+  const render = (name, locals) =>
+    new Promise((resolve, reject) => {
+      app.render(name, { tradeFolderCount: 28, ...locals }, (err, html) =>
+        err ? reject(err) : resolve(html),
+      );
+    });
+  const shell = await render('partials/folder_manager_section', {
+    foldersShell: true,
+    folders: [],
+    folderTree: { groups: [] },
+    folderAggregateCounts: {},
+    folderAggregateTags: {},
+  });
+  assert.match(shell, /Loading folders/);
+  const folders = [
+    { key: 'folder:ws:1', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+  ];
+  const full = await render('partials/folder_manager_section', {
+    foldersShell: false,
+    folders,
+    folderTree: buildFolderTree(folders),
+    folderAggregateCounts: {},
+    folderAggregateTags: {},
+  });
+  assert.match(full, /folderManagerSection/);
+  assert.match(full, /Businesses/);
+  assert.match(full, /folderManagerHydrateJson/);
+});
