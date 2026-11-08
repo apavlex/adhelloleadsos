@@ -9,17 +9,25 @@ const outscraper = require('../services/outscraperClient');
 const businessReviews = require('../services/businessReviews');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
-/** Cap SSR inbox cards — rendering 100+ review textareas freezes mobile Safari. */
-const INBOX_SSR_LIMIT = 40;
+/** Cap SSR inbox cards — each card ships a draft textarea; keep first paint tiny. */
+const INBOX_SSR_LIMIT = 12;
 const INBOX_JSON_LIMIT = 100;
 
-async function pageLocals(req, { inboxLimit = null } = {}) {
+async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
   const paid = businessReviews.isPaidWorkspace(ws);
   const settings = businessReviews.getSettings(req.workspaceId);
   const store = businessReviews.getStore(req.workspaceId);
   const summary = businessReviews.inboxSummary(store);
-  const integrationEnv = await businessReviews.resolveReviewsOutscraperEnv();
+  let outscraperConfigured = false;
+  if (paid) {
+    if (resolveOutscraper) {
+      const integrationEnv = await businessReviews.resolveReviewsOutscraperEnv();
+      outscraperConfigured = outscraper.isConfigured(integrationEnv);
+    } else {
+      outscraperConfigured = outscraper.isConfigured(null);
+    }
+  }
   const contact = trials.contactInfo();
   const focusId = String(req.query.review || '').trim();
   const allReviews = Array.isArray(store.reviews) ? store.reviews : [];
@@ -47,7 +55,7 @@ async function pageLocals(req, { inboxLimit = null } = {}) {
     reviews,
     reviewsTotal: allReviews.length,
     inboxTruncated,
-    outscraperConfigured: outscraper.isConfigured(integrationEnv),
+    outscraperConfigured,
     focusReviewId: focusId,
     workspaceName: (ws && ws.name) || 'Your workspace',
     syncState: (store && store.syncState) || businessReviews.emptySyncState(),
@@ -56,7 +64,7 @@ async function pageLocals(req, { inboxLimit = null } = {}) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT });
+    const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT, resolveOutscraper: true });
     res.render('business_reviews', locals);
   } catch (e) {
     next(e);

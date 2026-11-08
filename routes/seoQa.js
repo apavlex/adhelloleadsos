@@ -15,15 +15,15 @@ function baseUrlFromReq(req) {
   return `${proto}://${host}`.replace(/\/$/, '');
 }
 
-/** Cap SSR inbox cards — huge imports + one textarea each froze mobile Safari. */
-const INBOX_SSR_LIMIT = 40;
+/** Cap SSR inbox cards — each card ships an answer textarea; keep first paint tiny. */
+const INBOX_SSR_LIMIT = 12;
 const INBOX_JSON_LIMIT = 100;
 
 async function pageLocals(req, { inboxLimit = null } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-  // Ensure token once if missing (unavoidable write). Never seed businessName on GET —
-  // rewriting the whole workspace doc on every visit froze this tab.
-  const bundle = await seoQaStore.ensurePublicToken(req.workspaceId);
+  // Reuse req.workspace + skip full normalize on read (writes still normalize).
+  // Ensure token once if missing (unavoidable write). Never seed businessName on GET.
+  const bundle = await seoQaStore.ensurePublicToken(req.workspaceId, { workspace: ws });
   const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
   const seedName = String(intake.businessName || ws.name || '').trim();
   const settings = {
@@ -66,8 +66,20 @@ async function pageLocals(req, { inboxLimit = null } = {}) {
 
 router.get('/', async (req, res, next) => {
   try {
+    // Page-builder prompt is lazy-loaded when the details card opens (see /page-prompt.txt).
     const locals = await pageLocals(req, { inboxLimit: INBOX_SSR_LIMIT });
-    locals.pageBuilderPrompt = buildSeoQaPagePrompt({
+    locals.pageBuilderPrompt = '';
+    locals.pageBuilderPromptUrl = '/seo-qa/page-prompt.txt';
+    res.render('seo_qa', locals);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/page-prompt.txt', async (req, res, next) => {
+  try {
+    const locals = await pageLocals(req, { inboxLimit: 1 });
+    const prompt = buildSeoQaPagePrompt({
       siteUrl: 'https://adhello.io',
       pagePath: '/questions',
       businessName: locals.settings.businessName || locals.workspaceName || 'Your Business',
@@ -76,7 +88,7 @@ router.get('/', async (req, res, next) => {
       feedUrl: locals.feedUrl,
       submitUrl: locals.submitUrl,
     });
-    res.render('seo_qa', locals);
+    res.type('text/plain').send(prompt);
   } catch (e) {
     next(e);
   }
