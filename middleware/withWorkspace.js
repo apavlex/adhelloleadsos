@@ -53,8 +53,9 @@ async function withWorkspace(req, res, next) {
       /\/workspaces\/switch(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/open(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/warm(?:\/|$|\?)/.test(original);
-    // SEO / Reviews / Q&A / Today HTML: resolve workspace only — skip switcher N×getWorkspace + script seed.
-    // /today is the post-login landing — switcher work there felt like "login never finished" on desktop.
+    // Light HTML hops: resolve workspace only — skip switcher N×getWorkspace + script seed.
+    // /today is post-login; /pipeline + /prospecting are common desktop sidebar hops that
+    // previously sat behind the nav frost for 12s+ ("Still loading — tap to retry").
     const seoLightFastPath =
       req.method === 'GET' &&
       (/^\/business-reviews(?:\/|$|\?)/.test(original) ||
@@ -63,6 +64,8 @@ async function withWorkspace(req, res, next) {
         /^\/seo-gap(?:\/|$|\?)/.test(original) ||
         /^\/backlinks(?:\/|$|\?)/.test(original) ||
         /^\/today(?:\/|$|\?)/.test(original) ||
+        /^\/pipeline(?:\/|$|\?)/.test(original) ||
+        /^\/prospecting(?:\/|$|\?)/.test(original) ||
         original === '/' ||
         original === '/home' ||
         /^\/home(?:\?|$)/.test(original));

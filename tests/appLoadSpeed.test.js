@@ -31,9 +31,10 @@ test('nav shell closes menu instantly and shows progress on leave', () => {
   assert.doesNotMatch(js, /NAV_LOADING_ICON_SVG/);
   assert.match(js, /backdrop-filter',\s*'none'/);
   // Never hijack link clicks or opaque-blank the page — that stuck iOS.
+  // location.assign is OK only on the stalled Retry button (finish the pending hop).
   assert.doesNotMatch(js, /adhello-navigating/);
   assert.doesNotMatch(js, /function leaveToUrl/);
-  assert.doesNotMatch(js, /location\.assign/);
+  assert.match(js, /location\.assign\(pending\)/);
   assert.doesNotMatch(js, /adhello-nav-radiant/);
   assert.doesNotMatch(js, /adhello-nav-bottom-bar/);
   const css = fs.readFileSync(path.join(root, 'public/css/custom.css'), 'utf8');
