@@ -118,8 +118,10 @@
       name: f.name,
       jobType: f.jobType || '',
       parentFolderKey: f.parentFolderKey || '',
-      searchPreset: f.searchPreset || null,
-      outreachAutomation: f.outreachAutomation || null,
+      searchPreset: null,
+      outreachAutomation: f.outreachAutomation
+        ? { enabled: !!f.outreachAutomation.enabled }
+        : null,
       isPipelineDefault: !!f.isPipelineDefault,
       isTradeFolder: !!f.isTradeFolder,
     };

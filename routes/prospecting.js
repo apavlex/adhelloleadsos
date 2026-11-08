@@ -135,10 +135,13 @@ router.get('/', async (req, res, next) => {
         folderTree = { groups: [] };
         folderPickerTree = [];
       }
-      return res.render('prospecting', {
-        title: 'Prospecting | Agency OS',
+      // Dedicated thin template — prospecting.ejs folders branch is ~1.5k lines of
+      // inline JS/modals and was stalling the hop before any HTML flushed.
+      return res.render('folders_manager', {
+        title: 'Folders | Agency OS',
         activePage: 'prospecting',
         tab: 'folders',
+        foldersManagerPage: true,
         foldersShell: false,
         leadCount: 0,
         unfiledLeadCount: 0,

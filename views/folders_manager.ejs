@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide w-full min-w-0 px-6 py-10 md:py-14">
+    <%- include('partials/folder_manager_section') %>
+  </main>
+
+  <%- include('partials/folder_manager_modals') %>
+
+  <script>
+  window.FOLDER_DEFAULT_SOURCES = {
+    real_estate: ['zillow', 'realtor', 'redfin', 'mhvillage', 'craigslist', 'facebook_marketplace', 'offerup', 'oxylabs', 'web_search'],
+    products: ['facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
+    wholesale: ['web_search', 'oxylabs', 'facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
+  };
+  window.WORKSPACE_FOLDERS = <%- JSON.stringify((folders || []).map(function (f) {
+    return {
+      key: f.key,
+      name: f.name,
+      jobType: f.jobType || '',
+      parentFolderKey: f.parentFolderKey || '',
+      searchPreset: f.searchPreset || null,
+      outreachAutomation: f.outreachAutomation || null,
+      isPipelineDefault: !!f.isPipelineDefault,
+      isTradeFolder: !!f.isTradeFolder,
+    };
+  })).replace(/</g, '\\u003c') %>;
+  window.FOLDER_TREE_GROUPS = <%- JSON.stringify((folderTree && folderTree.groups || []).map(function (g) {
+    return {
+      key: g.key,
+      name: g.name,
+      isSystem: !!g.isSystem,
+      folderKey: g.folder && g.folder.key ? g.folder.key : '',
+      folderName: g.folder && g.folder.name ? g.folder.name : '',
+      childRows: (g.childRows || []).map(function (row) {
+        var f = row.folder || {};
+        return { key: f.key || '', name: f.name || '', depth: row.depth || 1, isTrade: !!f.isTradeFolder };
+      }),
+    };
+  })).replace(/</g, '\\u003c') %>;
+  </script>
+  <script src="/js/folder-manager-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+  <%- include('partials/footer') %>
+</body>
+</html>
