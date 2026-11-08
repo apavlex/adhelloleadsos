@@ -164,19 +164,67 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    const [all, foldersInitial, tags, wsRaw] = await Promise.all([
-      dbService.getAllLeads(wid),
-      ensurePipelineFolders(wid),
-      dbService.listTags(wid),
-      dbService.getWorkspace(wid),
-    ]);
+    // Pipeline folder views (Folders → Open, or default Businesses) load leads by folderKey
+    // in SQL — never wait on a full getAllLeads scan that leaves the folder looking empty.
+    const folderKeyFromQuery = String(req.query.folderKey || '').trim();
+    const pipelineWantsFullScan =
+      !!String(req.query.q || '').trim() ||
+      !!String(req.query.workedBy || '').trim() ||
+      req.query.includeFoldered === '1' ||
+      req.query.includeFoldered === 'true' ||
+      String(req.query.origin || '').trim().toLowerCase() === 'csv';
+    const openFolderScoped =
+      safeTab === 'pipeline' &&
+      !pipelineWantsFullScan &&
+      typeof dbService.listLeadsByFolderKeys === 'function';
+
+    let all;
+    let foldersInitial;
+    let tags;
+    let wsRaw;
+    let folders;
+    let folderTree;
+    let scopedFolderKey = folderKeyFromQuery;
+    if (openFolderScoped) {
+      [foldersInitial, tags, wsRaw] = await Promise.all([
+        dbService.listFolders(wid),
+        dbService.listTags(wid),
+        dbService.getWorkspace(wid),
+      ]);
+      folders = Array.isArray(foldersInitial) ? foldersInitial : [];
+      folderTree = buildFolderTree(folders);
+      if (!scopedFolderKey) {
+        const bizFolder = folders.find(
+          (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
+        );
+        if (bizFolder && bizFolder.key) scopedFolderKey = String(bizFolder.key);
+      }
+      if (scopedFolderKey) {
+        const scopedKeys =
+          folderKeysIncludingDescendants(folderTree, scopedFolderKey) ||
+          new Set([scopedFolderKey]);
+        all = await dbService.listLeadsByFolderKeys(wid, scopedKeys);
+      } else {
+        all = await dbService.getAllLeads(wid);
+      }
+    } else {
+      [all, foldersInitial, tags, wsRaw] = await Promise.all([
+        dbService.getAllLeads(wid),
+        ensurePipelineFolders(wid),
+        dbService.listTags(wid),
+        dbService.getWorkspace(wid),
+      ]);
+      folders = foldersInitial;
+      const migrated = await maybeMigrateLegacyFolders(wid, folders);
+      folders = migrated.folders;
+      folderTree = buildFolderTree(folders);
+    }
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
-    let folders = foldersInitial;
-    const migrated = await maybeMigrateLegacyFolders(wid, folders);
-    folders = migrated.folders;
-    let folderTree = buildFolderTree(folders);
-    const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
+    const folderPickerTree = buildFolderPickerTree(
+      folderTree,
+      folderKeyFromQuery || scopedFolderKey || '',
+    );
     const ws = wsRaw;
     const workspaceProspecting = normalizeProspectingSettings(ws && ws.prospecting);
     const opportunityNormalized = normalizeBoards(ws && ws.opportunityBoards);
@@ -591,24 +639,74 @@ router.get('/table-rows', async (req, res, next) => {
       Math.max(1, parseInt(req.query.limit, 10) || PIPELINE_SSR_ROW_CAP),
     );
 
-    const [all, foldersInitial, tags, stageRows, ws] = await Promise.all([
-      dbService.getAllLeads(wid),
-      ensurePipelineFolders(wid),
-      dbService.listTags(wid),
-      pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
-      dbService.getWorkspace(wid),
-    ]);
+    const folderKeyFromQuery = String(req.query.folderKey || '').trim();
+    const pipelineWantsFullScan =
+      !!String(req.query.q || '').trim() ||
+      !!String(req.query.workedBy || '').trim() ||
+      req.query.includeFoldered === '1' ||
+      req.query.includeFoldered === 'true' ||
+      String(req.query.origin || '').trim().toLowerCase() === 'csv';
+    const openFolderScoped =
+      !pipelineWantsFullScan && typeof dbService.listLeadsByFolderKeys === 'function';
+
+    let all;
+    let folders;
+    let folderTree;
+    let tags;
+    let stageRows;
+    let ws;
+    let scopedFolderKey = folderKeyFromQuery;
+    if (openFolderScoped) {
+      let foldersInitial;
+      [foldersInitial, tags, stageRows, ws] = await Promise.all([
+        dbService.listFolders(wid),
+        dbService.listTags(wid),
+        pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
+        dbService.getWorkspace(wid),
+      ]);
+      folders = Array.isArray(foldersInitial) ? foldersInitial : [];
+      folderTree = buildFolderTree(folders);
+      if (!scopedFolderKey) {
+        const bizFolder = folders.find(
+          (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
+        );
+        if (bizFolder && bizFolder.key) scopedFolderKey = String(bizFolder.key);
+      }
+      if (scopedFolderKey) {
+        const scopedKeys =
+          folderKeysIncludingDescendants(folderTree, scopedFolderKey) ||
+          new Set([scopedFolderKey]);
+        all = await dbService.listLeadsByFolderKeys(wid, scopedKeys);
+      } else {
+        all = await dbService.getAllLeads(wid);
+      }
+    } else {
+      let foldersInitial;
+      [all, foldersInitial, tags, stageRows, ws] = await Promise.all([
+        dbService.getAllLeads(wid),
+        ensurePipelineFolders(wid),
+        dbService.listTags(wid),
+        pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
+        dbService.getWorkspace(wid),
+      ]);
+      const migrated = await maybeMigrateLegacyFolders(wid, foldersInitial);
+      folders = migrated.folders;
+      folderTree = buildFolderTree(folders);
+    }
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
-    const migrated = await maybeMigrateLegacyFolders(wid, foldersInitial);
-    const folders = migrated.folders;
-    const folderTree = buildFolderTree(folders);
 
     const leadListFilters = normalizeLeadListFilters(req.query);
     const hasGlobalSearch = !!String(leadListFilters.q || '').trim();
     const hasWorkedBy = !!String(leadListFilters.workedBy || '').trim();
     teamActivity.attachWorkedByKeys(leadListFilters, wid);
     if (
+      !String(leadListFilters.folderKey || '').trim() &&
+      scopedFolderKey
+    ) {
+      leadListFilters.folderKey = scopedFolderKey;
+    } else if (
+      !openFolderScoped &&
       !String(leadListFilters.folderKey || '').trim() &&
       !String(leadListFilters.origin || '').trim() &&
       !hasGlobalSearch &&

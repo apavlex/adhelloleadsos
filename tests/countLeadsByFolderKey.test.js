@@ -43,6 +43,15 @@ test('countLeadsByFolderKey groups without loading full lead docs', async () => 
   assert.equal(counts['folder:missing'], undefined);
 });
 
+test('listLeadsByFolderKeys returns only matching folder leads', async () => {
+  const leads = await dbService.listLeadsByFolderKeys(WS, ['folder:hvac', 'folder:plumb']);
+  assert.equal(leads.length, 3);
+  assert.ok(leads.every((l) => ['folder:hvac', 'folder:plumb'].includes(l.folderKey)));
+  const hvacOnly = await dbService.listLeadsByFolderKeys(WS, new Set(['folder:hvac']));
+  assert.equal(hvacOnly.length, 2);
+  assert.deepEqual(await dbService.listLeadsByFolderKeys(WS, []), []);
+});
+
 test('listFoldersLite returns slim tree fields', async () => {
   const root = await dbService.createFolder(WS, 'Businesses', {
     jobType: 'maps_business',

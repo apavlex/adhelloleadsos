@@ -1523,6 +1523,74 @@ module.exports = {
   },
 
   /**
+   * Leads filed in specific folders — SQL filters by folderKey before JSON.parse.
+   * Used when opening Pipeline with ?folderKey= so Folders → Open does not wait on getAllLeads.
+   * Does not await an in-flight full workspace scan (that path can hang on large workspaces).
+   * @param {string} workspaceId
+   * @param {Iterable<string>|Set<string>} folderKeys
+   * @returns {Promise<object[]>}
+   */
+  async listLeadsByFolderKeys(workspaceId, folderKeys) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'listLeadsByFolderKeys');
+    const keySet = new Set(
+      [...(folderKeys instanceof Set ? folderKeys : folderKeys || [])]
+        .map((k) => String(k || '').trim())
+        .filter(Boolean),
+    );
+    if (!keySet.size) return [];
+
+    const cached = _leadsListCache.get(wid);
+    if (cached && Date.now() - cached.at < LEADS_LIST_CACHE_TTL_MS) {
+      return cached.leads.filter((l) => keySet.has(String((l && l.folderKey) || '').trim()));
+    }
+
+    const aliasStr = readLegacyDefaultAlias();
+    const normLeadW = (lw) => normalizeLeadWorkspaceWithAlias(lw, aliasStr);
+    const includeLegacyDefault = !!(aliasStr && aliasStr === wid);
+    const leadWs =
+      "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
+    const folderKeyExpr =
+      "json_extract(CASE WHEN json_valid(value) THEN value END, '$.folderKey')";
+    const keyList = [...keySet];
+    const leads = [];
+    const CHUNK = 40;
+    for (let i = 0; i < keyList.length; i += CHUNK) {
+      const chunk = keyList.slice(i, i + CHUNK);
+      const placeholders = chunk.map(() => '?').join(',');
+      const wsClause = includeLegacyDefault
+        ? `(${leadWs} = ? OR ${leadWs} IS NULL OR ${leadWs} = '' OR ${leadWs} = 'default')`
+        : `${leadWs} = ?`;
+      const rows = sqlite
+        .prepare(
+          `SELECT key, value FROM kv
+           WHERE key LIKE 'lead:%'
+             AND ${wsClause}
+             AND ${folderKeyExpr} IN (${placeholders})`,
+        )
+        .all(wid, ...chunk);
+      for (const row of rows || []) {
+        const key = row && row.key;
+        const raw = row && row.value;
+        if (!key || raw == null) continue;
+        let parsed;
+        try {
+          parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch {
+          continue;
+        }
+        if (!parsed || typeof parsed !== 'object') continue;
+        if (normLeadW(parsed.workspaceId) !== wid) continue;
+        const fk = String(parsed.folderKey || '').trim();
+        if (!keySet.has(fk)) continue;
+        leads.push({ ...parsed, key, workspaceId: wid });
+      }
+    }
+    leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
+    return leads;
+  },
+
+  /**
    * Direct lead counts per folderKey — SQL GROUP BY only (no Node JSON.parse of leads).
    * Used by the Folders lite page so rows show how many leads are filed without a full getAllLeads.
    * @returns {Promise<Record<string, number>>}

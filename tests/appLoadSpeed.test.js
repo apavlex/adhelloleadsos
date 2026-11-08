@@ -61,6 +61,8 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /listFoldersLite/);
   assert.match(route, /countLeadsByFolderKey/);
   assert.match(route, /sortFolderTreeByLeadCount/);
+  assert.match(route, /listLeadsByFolderKeys/);
+  assert.match(route, /openFolderScoped/);
   {
     const start = route.indexOf("safeTab === 'folders'");
     const end = route.indexOf("const [all, foldersInitial, tags, wsRaw]", start);
