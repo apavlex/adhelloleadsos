@@ -107,98 +107,46 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    // Folders manager: SSR the tree from listFolders only. The empty-shell + hydrate
-    // path left users stuck on "Loading folders…" when /folders-section stalled.
-    // Never await maybeMigrate here (lead reassignment blocked the process).
+    // Folders: instant lite page. Strip searchPreset/outreach blobs, skip modals/JS
+    // monolith, and render a flat link list — previous templates were still too heavy.
     if (safeTab === 'folders') {
-      const email = userEmail(req);
-      const ws = req.workspace;
+      const startedAt = Date.now();
       let folders = [];
       try {
-        // listFolders only — ensurePipelineFolders also rewrites workspace defaults and
-        // is unnecessary for painting an existing tree.
-        folders = await dbService.listFolders(wid);
+        folders = typeof dbService.listFoldersLite === 'function'
+          ? await dbService.listFoldersLite(wid)
+          : await dbService.listFolders(wid);
       } catch (err) {
         console.warn('[prospecting] folders list failed:', err && err.message);
         folders = [];
       }
-      let folderTree;
-      let folderPickerTree;
+      folders = (Array.isArray(folders) ? folders : [])
+        .map((f) => ({
+          key: f && f.key,
+          name: (f && f.name) || 'Folder',
+          parentFolderKey: (f && f.parentFolderKey) || '',
+          jobType: (f && f.jobType) || '',
+          isPipelineDefault: !!(f && f.isPipelineDefault),
+          isTradeFolder: !!(f && f.isTradeFolder),
+          tradeSlug: (f && f.tradeSlug) || '',
+        }))
+        .filter((f) => f.key);
+      let folderTree = { groups: [] };
       try {
         folderTree = buildFolderTree(folders);
-        folderPickerTree = buildFolderPickerTree(
-          folderTree,
-          String(req.query.folderKey || '').trim(),
-        );
       } catch (err) {
         console.warn('[prospecting] folders tree failed:', err && err.message);
-        folderTree = { groups: [] };
-        folderPickerTree = [];
       }
-      // Dedicated thin template — prospecting.ejs folders branch is ~1.5k lines of
-      // inline JS/modals and was stalling the hop before any HTML flushed.
-      return res.render('folders_manager', {
+      res.set('Server-Timing', `folders;dur=${Date.now() - startedAt}`);
+      res.set('Cache-Control', 'private, no-store');
+      return res.render('folders_manager_lite', {
         title: 'Folders | Agency OS',
         activePage: 'prospecting',
         tab: 'folders',
         foldersManagerPage: true,
-        foldersShell: false,
-        leadCount: 0,
-        unfiledLeadCount: 0,
-        totalVisibleLeadCount: 0,
-        folderedLeadCount: 0,
-        csvImportLeadCount: 0,
-        includeFoldered: false,
-        activeFolderKey: '',
-        isBusinessesView: false,
-        isPermitsView: false,
         folders,
         folderTree,
-        folderAggregateCounts: {},
-        folderAggregateTags: {},
-        folderPickerTree,
-        tradeFolderCount: TRADE_FOLDERS.length,
-        tags: [],
-        schedules: [],
-        scheduleSuccess: false,
-        queueOutreachAutomations: [],
-        queueOutreachSummary: { running: 0, paused: 0, enrolled: 0 },
-        queueListLeads: [],
-        folderListLeads: [],
-        leads: [],
-        leadBootstrapLeads: [],
-        sourceFilter: 'all',
-        leadSourceCounts: { all: 0, cold: 0, inbound: 0 },
-        leadListFilters: normalizeLeadListFilters({}),
-        leadsFilterSuffix: '',
-        folderFromQuery: false,
-        teamMembers: teamActivity.memberDirectory(ws, []).map((m) => ({
-          email: m.email,
-          label:
-            m.email === String(email || '').toLowerCase()
-              ? 'Me'
-              : `${teamActivity.displayName(m)}${m.isBot ? ' (AI)' : ''}`,
-        })),
-        pipelineStatusOptions: [],
-        pipelineCategoryOptions: [],
-        importNotice: null,
-        importError: null,
-        pipelineMigrateNotice: null,
-        pipelineStages: [],
-        opportunityBoards: normalizeBoards(ws && ws.opportunityBoards).boards,
-        opportunityBoardLeads: [],
-        scriptLibraryOfferPicklist: [],
-        outreachChannelLibrary: {},
-        lmvProspectingMethods: LMV_PROSPECTING_METHODS,
-        sequenceTemplates: req.app.locals.sequenceTemplates || [],
         canManageWorkspace: req.canManageWorkspace,
-        driveImport: null,
-        workspaceProspecting: normalizeProspectingSettings(ws && ws.prospecting),
-        pipelineLeadsTotal: 0,
-        pipelineSsrOffset: 0,
-        pipelineSsrHasMore: false,
-        pipelineRowsQuery: '',
-        tagCatalogByKey: {},
       });
     }
 

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide w-full min-w-0 px-6 py-10 md:py-14">
+    <section class="space-y-8" aria-label="Folder manager" id="folderManagerSection">
+      <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div>
+          <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-4 py-1.5 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
+            <span class="w-2 h-2 rounded-full bg-brand-yellow"></span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Outreach folders</span>
+          </div>
+          <h1 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h1>
+          <p class="text-sm text-brand-muted mt-2 max-w-xl">Open a folder to work leads in Pipeline. Full create / merge / outreach tools load after this list.</p>
+        </div>
+        <a href="/prospecting?tab=pipeline" class="btn-pill btn-primary px-6 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0">Open pipeline</a>
+      </div>
+
+      <div class="relative max-w-xl">
+        <label for="folderSearchFilter" class="sr-only">Search folders</label>
+        <div class="flex items-center gap-3 rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 focus-within:border-brand-yellow focus-within:ring-2 focus-within:ring-brand-yellow/25 transition-all">
+          <svg class="shrink-0 w-4 h-4 text-brand-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" /></svg>
+          <input type="search" id="folderSearchFilter" autocomplete="off" placeholder="Search folders…"
+            class="folder-search-input flex-1 min-w-0 border-0 bg-transparent py-3 pr-1 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:outline-none focus:ring-0" />
+        </div>
+        <p id="folderSearchEmpty" class="hidden text-sm text-brand-muted mt-2">No folders match your search.</p>
+      </div>
+
+      <% const _groups = (folderTree && folderTree.groups) || []; %>
+      <% if (!_groups.length && !(folders || []).length) { %>
+        <div class="brand-card p-14 text-center dark:bg-slate-900 dark:border-white/10">
+          <p class="text-brand-muted">No folders yet. Create one from Pipeline or after your next search.</p>
+        </div>
+      <% } else { %>
+        <div class="space-y-4" id="folderTreeRoot">
+          <% _groups.forEach(function (group) { %>
+          <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" open data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
+            <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-brand-cream/30 dark:bg-slate-950/40 border-b border-brand-border/30 dark:border-white/10 [&::-webkit-details-marker]:hidden">
+              <p class="font-display font-black text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
+                <%= group.name %>
+                <% if (group.isSystem) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
+                <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= (group.childRows || []).length %> subfolder<%= (group.childRows || []).length === 1 ? '' : 's' %></span>
+              </p>
+              <span class="text-brand-muted text-xs font-bold" aria-hidden="true">▾</span>
+            </summary>
+            <ul class="m-0 p-0 list-none divide-y divide-brand-border/20 dark:divide-white/5">
+              <% if (group.folder && group.folder.key) { %>
+              <li class="folder-lite-row list-none" data-folder-search="<%= (group.folder.name + ' ' + (group.folder.jobType || '')).toLowerCase() %>">
+                <a href="/prospecting?tab=pipeline&folderKey=<%= encodeURIComponent(group.folder.key) %>" class="flex items-center justify-between gap-3 px-6 py-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">
+                  <span class="font-display font-bold text-brand-dark dark:text-white"><%= group.folder.name %></span>
+                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open leads →</span>
+                </a>
+              </li>
+              <% } %>
+              <% (group.childRows || []).forEach(function (row) {
+                var f = row.folder || {};
+                if (!f.key) return;
+                var depth = row.depth || 1;
+                var pad = depth <= 1 ? 'pl-8' : (depth === 2 ? 'pl-12' : 'pl-16');
+              %>
+              <li class="folder-lite-row list-none" data-folder-search="<%= (f.name + ' ' + (f.jobType || '') + ' ' + (f.tradeSlug || '')).toLowerCase() %>">
+                <a href="/prospecting?tab=pipeline&folderKey=<%= encodeURIComponent(f.key) %>" class="flex items-center justify-between gap-3 px-6 py-3.5 <%= pad %> hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">
+                  <span class="font-semibold text-brand-dark dark:text-white"><span class="text-brand-muted/50 mr-1" aria-hidden="true">↳</span><%= f.name %></span>
+                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Open →</span>
+                </a>
+              </li>
+              <% }); %>
+            </ul>
+          </details>
+          <% }); %>
+        </div>
+      <% } %>
+    </section>
+  </main>
+
+  <script>
+  (function () {
+    var input = document.getElementById('folderSearchFilter');
+    var empty = document.getElementById('folderSearchEmpty');
+    var root = document.getElementById('folderTreeRoot');
+    if (!input || !root) return;
+    input.addEventListener('input', function () {
+      var q = String(input.value || '').trim().toLowerCase();
+      var any = false;
+      root.querySelectorAll('details.folder-group').forEach(function (group) {
+        var gMatch = !q || (group.getAttribute('data-folder-group-search') || '').indexOf(q) !== -1;
+        var rowHit = false;
+        group.querySelectorAll('.folder-lite-row').forEach(function (row) {
+          var show = !q || gMatch || (row.getAttribute('data-folder-search') || '').indexOf(q) !== -1;
+          row.classList.toggle('hidden', !show);
+          if (show) rowHit = true;
+        });
+        var showGroup = !q || gMatch || rowHit;
+        group.classList.toggle('hidden', !showGroup);
+        if (showGroup) any = true;
+        if (q && showGroup) group.open = true;
+      });
+      if (empty) empty.classList.toggle('hidden', !q || any);
+    });
+  })();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

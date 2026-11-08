@@ -57,19 +57,20 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /safeTab === 'queue'/);
   assert.match(route, /light:\s*true/);
   assert.match(route, /safeTab === 'folders'/);
-  assert.match(route, /folders_manager/);
-  assert.match(route, /foldersManagerPage:\s*true/);
-  // SSR tree via listFolders only — never await hygiene / ensure on Folders GET.
+  assert.match(route, /folders_manager_lite/);
+  assert.match(route, /listFoldersLite/);
+  {
+    const start = route.indexOf("safeTab === 'folders'");
+    const end = route.indexOf("const [all, foldersInitial, tags, wsRaw]", start);
+    const foldersBlock = route.slice(start, end > start ? end : start + 1200);
+    assert.doesNotMatch(foldersBlock, /await maybeMigrateLegacyFolders|await ensurePipelineFolders/);
+    assert.match(foldersBlock, /listFoldersLite/);
+  }
+  assert.ok(fs.existsSync(path.join(root, 'views/folders_manager_lite.ejs')));
   assert.match(
-    route.slice(route.indexOf("safeTab === 'folders'"), route.indexOf("safeTab === 'folders'") + 2200),
-    /await dbService\.listFolders\(wid\)/,
+    fs.readFileSync(path.join(root, 'services/database.js'), 'utf8'),
+    /async listFoldersLite/,
   );
-  assert.doesNotMatch(
-    route.slice(route.indexOf("safeTab === 'folders'"), route.indexOf("safeTab === 'folders'") + 2200),
-    /await maybeMigrateLegacyFolders|await ensurePipelineFolders/,
-  );
-  assert.ok(fs.existsSync(path.join(root, 'views/folders_manager.ejs')));
-  assert.ok(fs.existsSync(path.join(root, 'public/js/folder-manager-page.js')));
   assert.match(
     fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8'),
     /_foldersLite/,
