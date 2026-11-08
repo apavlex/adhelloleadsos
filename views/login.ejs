@@ -118,9 +118,14 @@
             setLoading(true);
         });
 
-        // Back button / bfcache restore: don't leave the button stuck on the spinner.
-        window.addEventListener('pageshow', function (e) {
-            if (e.persisted) setLoading(false);
+        // Always clear on pageshow — desktop Chrome often restores without e.persisted,
+        // which left Sign in stuck on pointer-events:none after a Google back-nav.
+        window.addEventListener('pageshow', function () {
+            setLoading(false);
+        });
+        // Safety: if navigation never leaves (popup blocker / stalled), re-enable after 20s.
+        window.addEventListener('pagehide', function () {
+            clearTimeout(slowTimer);
         });
     })();
     </script>

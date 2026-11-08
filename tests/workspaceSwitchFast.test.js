@@ -23,6 +23,7 @@ test('workspace switch warms leads and skips chrome extras', () => {
   assert.match(mw, /\/workspaces\/switch/);
   assert.match(mw, /\/business-reviews/);
   assert.match(mw, /\/seo-qa/);
+  assert.match(mw, /\/today/);
 
   const shell = fs.readFileSync(path.join(__dirname, '../public/js/sidebarShell.js'), 'utf8');
   assert.match(shell, /Switching…/);
