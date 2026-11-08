@@ -56,6 +56,8 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   const route = fs.readFileSync(path.join(root, 'routes/prospecting.js'), 'utf8');
   assert.match(route, /safeTab === 'queue'/);
   assert.match(route, /light:\s*true/);
+  assert.match(route, /safeTab === 'folders'/);
+  assert.match(route, /Folders manager: paint the tree immediately/);
   assert.match(route, /needPipelineDecorate = safeTab === 'pipeline'/);
   assert.match(route, /folderListLeads = \[\]/);
   assert.match(route, /queueListLeads = \[\]/);

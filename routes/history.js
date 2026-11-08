@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { resolveSearchRecordFolderContext } = require('../services/pipelineFolders');
 const { findTabForJobType } = require('../services/searchTypeConfig');
+
+/** First paint only — full history can be thousands of rows and stalled the nav frost. */
+const HISTORY_PAGE_LIMIT = 80;
 
 function runAgainHref(search) {
   const params = new URLSearchParams();
@@ -16,22 +18,34 @@ function runAgainHref(search) {
   return `/leads/find${qs ? `?${qs}` : ''}`;
 }
 
+function searchMatchesWorkspace(search, wid) {
+  const sw = String((search && search.workspaceId) || 'default').trim() || 'default';
+  return sw === wid;
+}
+
 router.get('/', async (req, res, next) => {
   try {
-    const allSearches = await dbService.getAllSearches();
     const wid = req.workspaceId;
-    const scoped = allSearches.filter((s) => (s.workspaceId || 'default') === wid);
-    const searches = await Promise.all(
-      scoped.map(async (search) => {
-        const folderCtx = await resolveSearchRecordFolderContext(wid, search);
-        return {
-          ...search,
-          targetFolderKey: folderCtx.targetFolderKey || search.targetFolderKey || '',
-          targetFolderName: folderCtx.targetFolderName || search.targetFolderName || '',
-          runAgainHref: runAgainHref(search),
-        };
-      }),
-    );
+    const keys = await dbService.listSearches();
+    const searches = [];
+    let totalMatched = 0;
+    // Newest keys first. Stop collecting rows at the page limit, but keep counting
+    // so the header can say "647" without resolving folders for every record.
+    for (const key of keys) {
+      const data = await dbService.getSearch(key);
+      if (!data || !searchMatchesWorkspace(data, wid)) continue;
+      totalMatched += 1;
+      if (searches.length >= HISTORY_PAGE_LIMIT) continue;
+      searches.push({
+        ...data,
+        key,
+        // Use stored folder labels — never rewrite folders on a history GET.
+        targetFolderKey: data.targetFolderKey || '',
+        targetFolderName: data.targetFolderName || '',
+        runAgainHref: runAgainHref(data),
+      });
+    }
+
     const activeJob = await dbService.getActiveJob(wid);
     const searchingParam = String(req.query.status || '').toLowerCase() === 'searching';
     const jobIsSearch =
@@ -44,6 +58,8 @@ router.get('/', async (req, res, next) => {
       title: 'Search History',
       activePage: 'history',
       searches,
+      searchesTotal: totalMatched,
+      historyTruncated: totalMatched > searches.length,
       activeJob: showSearchProgress ? activeJob : null,
       showSearchProgress,
     });

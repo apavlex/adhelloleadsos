@@ -17,7 +17,12 @@
           Search <span class="text-brand-muted">History</span>
         </h1>
         <p class="text-brand-muted font-medium mt-2">
-          Review your previous <%= searches.length %> search activit<%= searches.length === 1 ? 'y' : 'ies' %>.
+          <% const _histTotal = typeof searchesTotal === 'number' ? searchesTotal : searches.length; %>
+          <% if (typeof historyTruncated !== 'undefined' && historyTruncated) { %>
+          Showing the latest <%= searches.length %> of <%= _histTotal %> search activit<%= _histTotal === 1 ? 'y' : 'ies' %>.
+          <% } else { %>
+          Review your previous <%= _histTotal %> search activit<%= _histTotal === 1 ? 'y' : 'ies' %>.
+          <% } %>
         </p>
       </div>
       <a href="/leads/find" class="btn-pill btn-primary">
@@ -145,7 +150,8 @@
     <% } %>
   </main>
 
-  <script src="/js/app.js?v=<%= assetVersion %>"></script>
+  <%# Do not load public/js/app.js here — that ~1MB pipeline bundle left History
+      "still loading" long after the table painted and the nav frost cleared. %>
   <% if (typeof showSearchProgress !== 'undefined' && showSearchProgress) { %>
   <script>
   (function () {
