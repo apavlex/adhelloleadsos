@@ -251,8 +251,19 @@ async function withWorkspace(req, res, next) {
         !workspaceScriptBootstrap.workspaceScriptsAlreadySeeded(ws) ||
         workspaceScriptBootstrap.shouldRepairAgencyCatalogLeak(ws);
       if (needsScriptSeed) {
-        const refreshed = await workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id);
-        ws = refreshed || ws;
+        // HTML menu hops: never await a full workspace rewrite here — that was timing out
+        // to Render 502s after login. Kick once per session; JSON/API can still await.
+        if (htmlNavFastPath) {
+          if (!(req.session && req.session._scriptSeedKick)) {
+            if (req.session) req.session._scriptSeedKick = 1;
+            void workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id).catch((e) => {
+              console.warn('[withWorkspace] background script seed failed:', e && e.message);
+            });
+          }
+        } else {
+          const refreshed = await workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id);
+          ws = refreshed || ws;
+        }
       }
     }
 
