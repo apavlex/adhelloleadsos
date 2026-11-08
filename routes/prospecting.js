@@ -584,6 +584,7 @@ router.get('/folders-section', async (req, res, next) => {
       folderPickerTree,
       folderAggregateCounts: {},
       folderAggregateTags: {},
+      tradeFolderCount: TRADE_FOLDERS.length,
       layout: false,
     });
   } catch (e) {
