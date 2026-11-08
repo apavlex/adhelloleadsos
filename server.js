@@ -334,11 +334,34 @@ app.get(
       return next();
     });
   },
-  function (req, res) {
+  async function (req, res) {
     const dest = req.session && req.session.returnTo;
     if (req.session) delete req.session.returnTo;
     const safe =
       typeof dest === 'string' && dest.startsWith('/') && !dest.startsWith('//') ? dest : '/today';
+    // Seed session workspace + start lead warm before redirect so /today can paint
+    // without waiting on switcher N×getWorkspace (desktop "login stuck" symptom).
+    try {
+      const email =
+        (req.user && req.user.emails && req.user.emails[0] && req.user.emails[0].value) ||
+        (req.user && req.user.email) ||
+        '';
+      if (email) {
+        const prefs = await dbService.getUserPrefs(String(email).trim().toLowerCase());
+        const wid = prefs && prefs.activeWorkspaceId ? String(prefs.activeWorkspaceId) : '';
+        if (wid && req.session) {
+          req.session.activeWorkspaceId = wid;
+          req.session.workspaceId = wid;
+        }
+        if (wid) {
+          void dbService.getAllLeads(wid).catch((e) => {
+            console.warn('[Google OAuth] post-login lead warm failed:', e && e.message);
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[Google OAuth] post-login workspace seed failed:', e && e.message);
+    }
     res.redirect(safe);
   },
 );

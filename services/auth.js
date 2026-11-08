@@ -44,9 +44,9 @@ function verifyEmailAllowed(profile) {
 
 /**
  * passport-google-oauth20 uses the legacy `oauth` HTTP client. On some hosts
- * (notably Render) that path can hang forever on the token POST, which surfaces
- * as a stuck Google sign-in and eventually a proxy 502. Native fetch + timeout
- * fails fast and uses the current token URL.
+ * (notably Render) that path can hang forever on the token POST or userinfo GET,
+ * which surfaces as a stuck Google sign-in and eventually a proxy 502. Native
+ * fetch + timeout fails fast and uses the current token URL.
  */
 function patchGoogleTokenExchange(strategy, label) {
   const oauth2 = strategy && strategy._oauth2;
@@ -106,6 +106,56 @@ function patchGoogleTokenExchange(strategy, label) {
       })
       .finally(() => clearTimeout(timer));
   };
+
+  // Profile/userinfo GET — same legacy client hang risk as the token POST.
+  if (!oauth2.__adhelloFetchGet) {
+    oauth2.__adhelloFetchGet = true;
+    oauth2.get = function getWithFetch(url, accessToken, callback) {
+      let cb = callback;
+      let token = accessToken;
+      let endpoint = url;
+      if (typeof accessToken === 'function') {
+        cb = accessToken;
+        token = null;
+        endpoint = url;
+      }
+      if (typeof url === 'object' && url && url.url) {
+        endpoint = url.url;
+      }
+      const headers = {
+        Accept: 'application/json',
+      };
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), GOOGLE_TOKEN_TIMEOUT_MS);
+      fetch(String(endpoint), {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      })
+        .then(async (res) => {
+          const text = await res.text();
+          if (!res.ok) {
+            const err = new Error(`userinfo_http_${res.status}`);
+            err.statusCode = res.status;
+            err.data = text;
+            throw err;
+          }
+          cb(null, text);
+        })
+        .catch((err) => {
+          const aborted = err && (err.name === 'AbortError' || /aborted/i.test(String(err.message || '')));
+          const message = aborted
+            ? `Google profile fetch timed out after ${GOOGLE_TOKEN_TIMEOUT_MS}ms`
+            : (err && err.message) || 'Google profile fetch failed';
+          console.error(`[Google OAuth] ${label} profile fetch failed:`, message);
+          const out = aborted ? new Error(message) : err;
+          if (aborted) out.code = 'OAUTH_PROFILE_TIMEOUT';
+          cb(out);
+        })
+        .finally(() => clearTimeout(timer));
+    };
+  }
 }
 
 if (isGoogleAuthConfigured) {

@@ -53,14 +53,19 @@ async function withWorkspace(req, res, next) {
       /\/workspaces\/switch(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/open(?:\/|$|\?)/.test(original) ||
       /\/workspaces\/warm(?:\/|$|\?)/.test(original);
-    // SEO / Reviews / Q&A HTML: resolve workspace only — skip switcher N×getWorkspace + script seed.
+    // SEO / Reviews / Q&A / Today HTML: resolve workspace only — skip switcher N×getWorkspace + script seed.
+    // /today is the post-login landing — switcher work there felt like "login never finished" on desktop.
     const seoLightFastPath =
       req.method === 'GET' &&
       (/^\/business-reviews(?:\/|$|\?)/.test(original) ||
         /^\/seo-qa(?:\/|$|\?)/.test(original) ||
         /^\/local-seo(?:\/|$|\?)/.test(original) ||
         /^\/seo-gap(?:\/|$|\?)/.test(original) ||
-        /^\/backlinks(?:\/|$|\?)/.test(original));
+        /^\/backlinks(?:\/|$|\?)/.test(original) ||
+        /^\/today(?:\/|$|\?)/.test(original) ||
+        original === '/' ||
+        original === '/home' ||
+        /^\/home(?:\?|$)/.test(original));
     const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath || seoLightFastPath;
 
     // API key auth — no session, use 'default' workspace directly

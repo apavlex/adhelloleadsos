@@ -91,3 +91,58 @@ test('Google token exchange aborts on timeout', async () => {
     global.fetch = originalFetch;
   }
 });
+
+test('Google profile/userinfo GET is patched with timed fetch', async () => {
+  process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+  process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
+  process.env.BASE_URL = 'https://leads.adhello.io';
+  process.env.GOOGLE_OAUTH_TOKEN_TIMEOUT_MS = '50';
+
+  delete require.cache[require.resolve('../services/auth')];
+  const { passport } = require('../services/auth');
+  const strategy = passport._strategy('google');
+  assert.equal(strategy._oauth2.__adhelloFetchGet, true);
+
+  const originalFetch = global.fetch;
+  let sawUrl = '';
+  global.fetch = mock.fn(async (url) => {
+    sawUrl = String(url);
+    return {
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({ sub: '1', email: 'a@b.com' });
+      },
+    };
+  });
+
+  try {
+    const text = await new Promise((resolve, reject) => {
+      strategy._oauth2.get('https://www.googleapis.com/oauth2/v3/userinfo', 'tok', (err, body) => {
+        if (err) reject(err);
+        else resolve(body);
+      });
+    });
+    assert.match(sawUrl, /userinfo/);
+    assert.match(String(text), /a@b\.com/);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('login page clears Sign-in loading on every pageshow', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const html = fs.readFileSync(path.join(__dirname, '../views/login.ejs'), 'utf8');
+  assert.match(html, /pageshow/);
+  assert.match(html, /setLoading\(false\)/);
+  assert.doesNotMatch(html, /if \(e\.persisted\) setLoading\(false\)/);
+});
+
+test('withWorkspace light path covers post-login /today', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const mw = fs.readFileSync(path.join(__dirname, '../middleware/withWorkspace.js'), 'utf8');
+  assert.match(mw, /\/today/);
+  assert.match(mw, /seoLightFastPath/);
+});
