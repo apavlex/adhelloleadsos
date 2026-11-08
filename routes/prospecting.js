@@ -107,11 +107,8 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    const cachedLeads = safeTab === 'pipeline' ? await dbService.peekCachedLeads(wid) : null;
-    const pipelineColdShell = safeTab === 'pipeline' && !cachedLeads;
-
     const [all, foldersInitial, tags, wsRaw] = await Promise.all([
-      pipelineColdShell ? Promise.resolve([]) : dbService.getAllLeads(wid),
+      dbService.getAllLeads(wid),
       ensurePipelineFolders(wid),
       dbService.listTags(wid),
       dbService.getWorkspace(wid),
@@ -477,8 +474,7 @@ router.get('/', async (req, res, next) => {
       workspaceProspecting,
       pipelineLeadsTotal: safeTab === 'pipeline' ? pipelineLeadsTotal : leads.length,
       pipelineSsrOffset: 0,
-      pipelineSsrHasMore: pipelineColdShell || (safeTab === 'pipeline' && pipelineLeadsTotal > ssrCap),
-      pipelineHydrate: pipelineColdShell,
+      pipelineSsrHasMore: safeTab === 'pipeline' && pipelineLeadsTotal > ssrCap,
       pipelineRowsQuery:
         safeTab === 'pipeline'
           ? [

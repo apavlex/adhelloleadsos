@@ -1817,22 +1817,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         applyPipelinePaging();
       }
-      // Cold pipeline: paint the board immediately, warm the lead cache, then one reload
-      // so filters and the kanban match. Guarded so a failed warm cannot reload forever.
-      if (meta.hydrate) {
-        var hydrateGuard = 'adhello-pipeline-shell-reload';
-        var hydratePrev = 0;
-        try { hydratePrev = parseInt(sessionStorage.getItem(hydrateGuard) || '0', 10) || 0; } catch (e) {}
-        if (Date.now() - hydratePrev > 20000) {
-          try { sessionStorage.setItem(hydrateGuard, String(Date.now())); } catch (e) {}
-          serverHasMore = true;
-          if (pagingWrap) pagingWrap.classList.remove('hidden');
-          if (statusEl) statusEl.textContent = 'Loading pipeline…';
-          fetchMorePipelineRows().then(function (ok) {
-            if (ok) window.location.reload();
-          });
-        }
-      }
     })();
 
     (function initPipelineToolbarEarly() {

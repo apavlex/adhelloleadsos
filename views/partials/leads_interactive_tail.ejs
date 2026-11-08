@@ -33,7 +33,6 @@
     hasMore: !!(typeof pipelineSsrHasMore !== 'undefined' && pipelineSsrHasMore),
     nextOffset: typeof pipelineLeadsTotal === 'number' && Array.isArray(leads) ? leads.length : 0,
     query: typeof pipelineRowsQuery === 'string' ? pipelineRowsQuery : '',
-    hydrate: !!(typeof pipelineHydrate !== 'undefined' && pipelineHydrate),
   }) %>;
   window.PIPELINE_STAGE_LABELS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   window.PIPELINE_STAGE_COLORS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
