@@ -32,6 +32,9 @@ test('workspace switch warms leads and skips chrome extras', () => {
   // 1.0.698 awaited seed on HTML and could 502 — background kick instead.
   assert.match(mw, /_scriptSeedKick/);
   assert.match(mw, /background script seed failed/);
+  // 1.0.700: Reviews/Q&A inbox.json must share the same non-blocking chrome as HTML.
+  assert.match(mw, /appJsonFastPath/);
+  assert.match(mw, /const navFastPath = htmlNavFastPath \|\| appJsonFastPath;/);
 
   const shell = fs.readFileSync(path.join(__dirname, '../public/js/sidebarShell.js'), 'utf8');
   assert.match(shell, /Switching…/);

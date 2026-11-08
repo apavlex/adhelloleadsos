@@ -19,8 +19,27 @@ function baseUrlFromReq(req) {
  * HTML first paint: true empty shell (no ensurePublicToken / question walk).
  * Cards + KPIs hydrate from /inbox.json.
  */
-const INBOX_JSON_LIMIT = 40;
-const INBOX_HYDRATE_LIMIT = 40;
+const INBOX_JSON_LIMIT = 20;
+const INBOX_HYDRATE_LIMIT = 20;
+
+function slimQuestionForInbox(q) {
+  if (!q || typeof q !== 'object') return q;
+  const question = q.question != null ? String(q.question) : '';
+  const answer = q.answer != null ? String(q.answer) : '';
+  const context = q.context != null ? String(q.context) : '';
+  return {
+    id: q.id,
+    status: q.status,
+    published: !!q.published,
+    category: q.category || 'General',
+    author: q.author || 'Visitor',
+    question: question.length > 500 ? question.slice(0, 500) : question,
+    context: context.length > 400 ? context.slice(0, 400) : context,
+    answer: answer.length > 2000 ? answer.slice(0, 2000) : answer,
+    answerDetail: q.answerDetail ? String(q.answerDetail).slice(0, 500) : '',
+    answerBy: q.answerBy || '',
+  };
+}
 
 function shellSettingsFromWorkspace(ws) {
   const raw = ws && ws.seoQa && typeof ws.seoQa === 'object' ? ws.seoQa : null;
@@ -60,11 +79,8 @@ async function pageLocals(req, { inboxLimit = null, shell = false } = {}) {
   }
 
   // Reuse req.workspace + skip full normalize on read (writes still normalize).
-  // Prefer load over ensurePublicToken so inbox.json never rewrites the workspace on GET.
-  let bundle = await seoQaStore.load(req.workspaceId, { workspace: ws, normalize: false });
-  if (!bundle.settings.publicToken) {
-    bundle = await seoQaStore.ensurePublicToken(req.workspaceId, { workspace: ws });
-  }
+  // Never ensurePublicToken on GET/hydrate — that rewrote the workspace and stalled inbox.json.
+  const bundle = await seoQaStore.load(req.workspaceId, { workspace: ws, normalize: false });
   const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
   const seedName = String(intake.businessName || ws.name || '').trim();
   const settings = {
@@ -153,7 +169,7 @@ router.get('/inbox.json', async (req, res, next) => {
       success: true,
       settings: locals.settings,
       summary: locals.summary,
-      questions: locals.questions,
+      questions: (locals.questions || []).map(slimQuestionForInbox),
       questionsTotal: locals.questionsTotal,
       inboxTruncated: locals.inboxTruncated,
       feedUrl: locals.feedUrl,
