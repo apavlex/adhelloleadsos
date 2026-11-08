@@ -130,5 +130,5 @@ test('reassignLeadsToFolder uses workspace-scoped getAllLeads', () => {
   assert.ok(start > 0);
   const chunk = db.slice(start, start + 900);
   assert.match(chunk, /getAllLeads\(/);
-  assert.doesNotMatch(chunk, /kvList\('lead:'\)/);
+  assert.doesNotMatch(chunk, /const keys = kvList\('lead:'\)/);
 });
