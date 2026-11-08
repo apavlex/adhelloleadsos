@@ -107,6 +107,89 @@ router.get('/', async (req, res, next) => {
       });
     }
 
+    // Folders manager: paint the tree immediately. Counting every lead first left
+    // the hop hanging on Queue with the frost gone.
+    if (safeTab === 'folders') {
+      const [foldersInitial, tags, wsRaw] = await Promise.all([
+        ensurePipelineFolders(wid),
+        dbService.listTags(wid),
+        dbService.getWorkspace(wid),
+      ]);
+      const migrated = await maybeMigrateLegacyFolders(wid, foldersInitial);
+      const folders = migrated.folders;
+      const folderTree = buildFolderTree(folders);
+      const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
+      const email = userEmail(req);
+      const activeTagCatalog = (tags || []).filter((t) => t && t.isActive !== false);
+      const tagCatalogByKey = Object.fromEntries(
+        activeTagCatalog.map((t) => [
+          t.key,
+          { key: t.key, name: t.name, color: t.color || '#94a3b8' },
+        ]),
+      );
+      return res.render('prospecting', {
+        title: 'Prospecting | Agency OS',
+        activePage: 'prospecting',
+        tab: 'folders',
+        leadCount: 0,
+        unfiledLeadCount: 0,
+        totalVisibleLeadCount: 0,
+        folderedLeadCount: 0,
+        csvImportLeadCount: 0,
+        includeFoldered: false,
+        activeFolderKey: '',
+        isBusinessesView: false,
+        isPermitsView: false,
+        folders,
+        folderTree,
+        folderAggregateCounts: {},
+        folderAggregateTags: {},
+        folderPickerTree,
+        tradeFolderCount: TRADE_FOLDERS.length,
+        tags,
+        schedules: [],
+        scheduleSuccess: false,
+        queueOutreachAutomations: [],
+        queueOutreachSummary: { running: 0, paused: 0, enrolled: 0 },
+        queueListLeads: [],
+        folderListLeads: [],
+        leads: [],
+        leadBootstrapLeads: [],
+        sourceFilter: 'all',
+        leadSourceCounts: { all: 0, cold: 0, inbound: 0 },
+        leadListFilters: normalizeLeadListFilters({}),
+        leadsFilterSuffix: '',
+        folderFromQuery: false,
+        teamMembers: teamActivity.memberDirectory(req.workspace, []).map((m) => ({
+          email: m.email,
+          label:
+            m.email === String(email || '').toLowerCase()
+              ? 'Me'
+              : `${teamActivity.displayName(m)}${m.isBot ? ' (AI)' : ''}`,
+        })),
+        pipelineStatusOptions: [],
+        pipelineCategoryOptions: [],
+        importNotice: null,
+        importError: null,
+        pipelineMigrateNotice: null,
+        pipelineStages: [],
+        opportunityBoards: normalizeBoards(wsRaw && wsRaw.opportunityBoards).boards,
+        opportunityBoardLeads: [],
+        scriptLibraryOfferPicklist: [],
+        outreachChannelLibrary: {},
+        lmvProspectingMethods: LMV_PROSPECTING_METHODS,
+        sequenceTemplates: req.app.locals.sequenceTemplates || [],
+        canManageWorkspace: req.canManageWorkspace,
+        driveImport: null,
+        workspaceProspecting: normalizeProspectingSettings(wsRaw && wsRaw.prospecting),
+        pipelineLeadsTotal: 0,
+        pipelineSsrOffset: 0,
+        pipelineSsrHasMore: false,
+        pipelineRowsQuery: '',
+        tagCatalogByKey,
+      });
+    }
+
     const [all, foldersInitial, tags, wsRaw] = await Promise.all([
       dbService.getAllLeads(wid),
       ensurePipelineFolders(wid),
