@@ -125,11 +125,15 @@ describe('member app install modal and tab bar', () => {
     assert.match(head, /data-ma-theme/);
     assert.match(head, /id="maThemeColor"/);
     assert.match(head, /\.ma-quick__btn span\{color:var\(--ink\)/);
+    assert.match(head, /\.ma-quick__btn,\.ma-quick__btn span\{font-size:12px/);
 
     const css = fs.readFileSync(path.join(root, 'public/css/member-app.css'), 'utf8');
     assert.match(css, /html\[data-ma-theme="dark"\]\s*\{[^}]*--ink:\s*#ffffff/s);
     assert.match(css, /:root\s*\{[^}]*--ink:\s*#000000/s);
     assert.match(css, /\.ma-quick__btn span\s*\{[^}]*color:\s*var\(--ink\)/s);
+    assert.match(css, /\.ma-quick__btn span\s*\{[^}]*font-size:\s*12px/s);
+    assert.match(css, /button\.ma-quick__btn\s*\{[^}]*font-size:\s*12px/s);
+    assert.doesNotMatch(css, /button\.ma-quick__btn\s*\{[^}]*font:\s*inherit/s);
     assert.match(css, /\.ma-quick__btn svg\s*\{[^}]*color:\s*var\(--acc\)/s);
     assert.doesNotMatch(css, /@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)/);
 

@@ -1261,15 +1261,23 @@ html[data-ma-theme="dark"] .ma-pill--job-lead { color: #cbd5e1; }
 .ma-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 4px; }
 .ma-quick__form { margin: 0; min-width: 0; }
 .ma-quick__form .ma-quick__btn,
-button.ma-quick__btn { width: 100%; cursor: pointer; font: inherit; }
+button.ma-quick__btn {
+  width: 100%;
+  cursor: pointer;
+  /* Avoid the font shorthand — it overrode size and made Review ≠ Call/Text. */
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
 .ma-quick__btn {
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; min-height: 60px; border-radius: 14px;
-  background: var(--card); border: 1px solid var(--line); color: var(--acc); text-decoration: none; font-size: 12px; font-weight: 700;
+  background: var(--card); border: 1px solid var(--line); color: var(--acc); text-decoration: none; font-size: 12px; font-weight: 700; line-height: 1.2;
   -webkit-user-select: none; user-select: none;
 }
 .ma-quick__btn svg { width: 22px; height: 22px; color: var(--acc); }
-/* Labels follow theme ink (black in light, white in dark); icons stay accent. */
-.ma-quick__btn span { color: var(--ink); font-weight: 700; }
+/* Labels follow theme ink (black in light, white in dark); icons stay accent. Same size on <a> and <button>. */
+.ma-quick__btn span { color: var(--ink); font-size: 12px; font-weight: 700; line-height: 1.2; }
 .ma-quick__btn.is-off { color: var(--muted); opacity: 0.45; pointer-events: none; }
 .ma-quick__btn.is-off span { color: var(--muted); }
 .ma-quick__btn:disabled { color: var(--muted); opacity: 0.45; cursor: default; }
