@@ -586,6 +586,16 @@ async function syncCustomersWithGhl(network, memberId, opts = {}) {
   const push = await pushCustomersMissingGhl(network, memberId, locals, {
     limit: opts.pushLimit || 100,
   });
+  // CRM pull creates contacts as customers — re-flag callers/texters as leads.
+  try {
+    const member = { id: memberId, status: 'active' };
+    const memberGhlAlerts = require('./memberGhlAlerts');
+    await memberGhlAlerts.repairCallSmsContactLeads(network, member, {
+      days: opts.repairDays || 90,
+    });
+  } catch (err) {
+    console.warn('[memberCustomerGhl] call/SMS lead repair after sync failed:', err && err.message);
+  }
   const partnerNote = pull.skippedPartners
     ? ` Skipped ${pull.skippedPartners} referral partner${pull.skippedPartners === 1 ? '' : 's'}.`
     : '';

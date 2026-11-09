@@ -348,6 +348,62 @@ describe('memberGhlAlerts', () => {
     assert.ok(again.leadRemovedAt);
   });
 
+  it('repairCallSmsContactLeads promotes CRM-synced callers/texters onto Leads', async () => {
+    const network = await store.getNetwork(NID);
+    const owner = await store.saveMember(NID, {
+      id: 'owner',
+      companyName: 'Owner Co',
+      email: 'owner@example.com',
+      ghlAlertsEnabled: true,
+    });
+    const work = require('../services/memberWork');
+    // Simulates Sync from CRM / older inbound: contact exists without isLead.
+    const prior = await work.saveCustomer(
+      NID,
+      'owner',
+      { name: 'CRM Caller', phone: '+15553334444' },
+      { source: 'ghl', ghlContactId: 'ghl_crm_caller' },
+    );
+    assert.equal(prior.ok, true);
+    assert.equal(prior.customer.isLead, false);
+
+    const now = Date.parse('2026-10-21T12:00:00.000Z');
+    await dbService.saveLead({
+      key: 'lead:crm_caller',
+      workspaceId: WID,
+      title: 'CRM Caller',
+      phone: '+15553334444',
+      ghlContactId: 'ghl_crm_caller',
+      inboundEvents: [
+        {
+          id: 'c1',
+          type: 'call',
+          at: '2026-10-21T11:00:00.000Z',
+          label: 'Inbound call',
+        },
+        {
+          id: 's1',
+          type: 'sms',
+          at: '2026-10-21T11:05:00.000Z',
+          preview: 'Hi',
+        },
+      ],
+    });
+
+    const repaired = await memberGhlAlerts.repairCallSmsContactLeads(network, owner, { now });
+    assert.equal(repaired.ok, true);
+    assert.equal(repaired.stamped, 1);
+    const after = await work.getCustomer(NID, 'owner', prior.customer.id);
+    assert.equal(after.isLead, true, 'call/SMS history must count under Leads, not Customers');
+
+    // Mark as customer sticks — repair must not bounce them back.
+    await work.setCustomerKind(NID, 'owner', prior.customer.id, 'customer', { removeFromLeads: true });
+    const again = await memberGhlAlerts.repairCallSmsContactLeads(network, owner, { now });
+    assert.equal(again.ok, true);
+    assert.equal(again.stamped, 0);
+    assert.equal((await work.getCustomer(NID, 'owner', prior.customer.id)).isLead, false);
+  });
+
   it('notifyEnabledMembers records activity for opted-in owners', async () => {
     const network = await store.getNetwork(NID);
     await store.saveMember(NID, {
@@ -514,6 +570,7 @@ describe('memberGhlAlerts', () => {
     assert.match(route, /activity\/ghl-done/);
     assert.match(route, /markAllPendingDone/);
     assert.match(route, /memberGhlAlerts/);
+    assert.match(route, /repairCallSmsContactLeads/);
     assert.match(route, /ghlCallsEnabled/);
     assert.match(route, /MEMBER_INBOUND_ALERT_TYPES/);
     assert.match(push, /memberGhlAlerts/);
@@ -521,6 +578,8 @@ describe('memberGhlAlerts', () => {
     const alerts = fs.readFileSync(path.join(root, 'services/memberGhlAlerts.js'), 'utf8');
     assert.match(alerts, /allowInboundTypeForMember/);
     assert.match(alerts, /isActiveNetworkMember/);
+    assert.match(alerts, /repairCallSmsContactLeads/);
+    assert.match(alerts, /CALL_SMS_LEAD_TYPES/);
     const inbound = fs.readFileSync(path.join(root, 'services/inboundEvents.js'), 'utf8');
     assert.match(inbound, /MEMBER_INBOUND_ALERT_TYPES/);
     assert.match(inbound, /'form'/);

@@ -1176,6 +1176,8 @@ router.post('/m/:token/profile/branding', (req, res, next) => {
 
 router.get('/m/:token', withMember(async (req, res, ctx) => {
   ctx = await maybeEnsureDemoOwnerReviewApp(ctx);
+  // Call/SMS contacts must sit under Leads before Home tiles count Customers.
+  await memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
   const [referrals, members, jobs, customers, reviewStats, leadRequest] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
@@ -1383,6 +1385,7 @@ async function renderReferrals(req, res, ctx, flash, status) {
   const flooring = freeAppSignup.isFlooringOffer(ctx.member);
   if (view === 'received') {
     await repairWebsiteFormContactLeads(ctx);
+    await memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
   }
   const [referrals, members, jobs, leadRequest, contactLeadRows, contactQuoteRows] = await Promise.all([
     store.listReferrals(ctx.network.id),
@@ -1862,6 +1865,9 @@ function customersHref(base, params) {
 async function renderCustomers(req, res, ctx, flash, status) {
   const view = CUSTOMER_VIEWS.has(req.query.view) ? req.query.view : 'list';
   const today = work.todayIn(memberTimeZone(req));
+  if (view === 'list') {
+    await memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
+  }
   const { customers, jobs, customersById } = await loadWork(ctx);
   const pendingRefs = await pendingReferralsFor(ctx, jobs);
   const present = (j) => presentJob(j, customersById, ctx.base, today);

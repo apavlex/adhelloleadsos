@@ -10,10 +10,14 @@ const work = require('./memberWork');
 const { isOwnerMember } = require('./memberAppointmentLink');
 const {
   pendingInboundItems,
+  listGhlCallSmsItems,
   MEMBER_INBOUND_ALERT_TYPES,
   GHL_ACTIVITY_TYPES,
   TYPE_LABELS,
 } = require('./inboundEvents');
+
+/** Call/SMS event types that should live under Leads until Mark as customer. */
+const CALL_SMS_LEAD_TYPES = ['missed_call', 'voicemail', 'sms', 'call'];
 const workspaceIntegrations = require('./workspaceIntegrations');
 const memberAppointmentLink = require('./memberAppointmentLink');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
@@ -433,6 +437,58 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
   });
 }
 
+/**
+ * Promote existing book contacts with GHL call/SMS history onto Leads.
+ * CRM sync + older inbound creates often left them as customers (isLead=false),
+ * so Home “Customers” counted callers/texters until Mark as customer.
+ * Respects leadRemovedAt / Mark as customer.
+ */
+async function repairCallSmsContactLeads(network, member, opts = {}) {
+  if (!network || !member || !isActiveNetworkMember(member, network)) {
+    return { ok: false, stamped: 0 };
+  }
+  const wid = String(network.ownerWorkspaceId || '').trim();
+  if (!wid) return { ok: true, stamped: 0 };
+
+  let leads = [];
+  try {
+    leads = await dbService.getAllLeads(wid);
+  } catch (err) {
+    console.warn('[memberGhlAlerts] call/SMS lead repair load failed:', err && err.message);
+    return { ok: false, stamped: 0, error: err && err.message };
+  }
+
+  const rows = listGhlCallSmsItems(leads, {
+    now: opts.now,
+    days: opts.days || 90,
+    limit: opts.limit || 400,
+    types: CALL_SMS_LEAD_TYPES,
+  });
+  if (!rows.length) return { ok: true, stamped: 0 };
+
+  const customers = await work.listCustomers(network.id, member.id);
+  if (!customers.length) return { ok: true, stamped: 0 };
+
+  const memberCustomerGhl = require('./memberCustomerGhl');
+  const seen = new Set();
+  let stamped = 0;
+  for (const row of rows) {
+    const match = matchCustomerForInbound(customers, row);
+    if (!match || !match.id) continue;
+    if (seen.has(match.id)) continue;
+    seen.add(match.id);
+    if (match.isLead || match.leadRemovedAt) continue;
+    // eslint-disable-next-line no-await-in-loop
+    const out = await memberCustomerGhl.stampGhlInboundLead(network, member.id, match);
+    if (out && out.ok && out.customer && out.customer.isLead) {
+      stamped += 1;
+      const idx = customers.findIndex((c) => c && c.id === match.id);
+      if (idx >= 0) customers[idx] = out.customer;
+    }
+  }
+  return { ok: true, stamped, checked: seen.size };
+}
+
 module.exports = {
   canUseGhlAlerts,
   isActiveNetworkMember,
@@ -444,6 +500,8 @@ module.exports = {
   markLeadDone,
   markAllPendingDone,
   notifyEnabledMembers,
+  repairCallSmsContactLeads,
   ghlLinkContext,
   GHL_ACTIVITY_TYPES,
+  CALL_SMS_LEAD_TYPES,
 };
