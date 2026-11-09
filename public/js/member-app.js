@@ -839,6 +839,44 @@
 
   document.querySelectorAll('[data-ma-photo-capture]').forEach(initPhotoCapture);
 
+  /** Customer profile Review button → Confirm & send / Auto follow-up sheet. */
+  function initReviewActions(root) {
+    if (!root || root.getAttribute('data-ma-ready') === '1') return;
+    var sheet = root.querySelector('[data-ma-review-sheet]');
+    var openBtn = root.querySelector('[data-ma-review-open]');
+    if (!sheet || !openBtn) return;
+
+    function openSheet() {
+      sheet.hidden = false;
+      openBtn.setAttribute('aria-expanded', 'true');
+      document.body.classList.add('ma-photo-open');
+    }
+    function closeSheet() {
+      sheet.hidden = true;
+      openBtn.setAttribute('aria-expanded', 'false');
+      document.body.classList.remove('ma-photo-open');
+    }
+
+    openBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      openSheet();
+    });
+    root.querySelectorAll('[data-ma-review-close]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        /* Allow <a href> navigation; still close the overlay first. */
+        closeSheet();
+      });
+    });
+    sheet.addEventListener('click', function (e) {
+      if (e.target === sheet) closeSheet();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !sheet.hidden) closeSheet();
+    });
+    root.setAttribute('data-ma-ready', '1');
+  }
+  document.querySelectorAll('[data-ma-review-actions]').forEach(initReviewActions);
+
   /**
    * Measure room: link out to iOS Measure / Android AR measure apps, then
    * reopen the nearby photo-capture sheet to attach a screenshot + note.

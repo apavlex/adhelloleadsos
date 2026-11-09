@@ -1260,7 +1260,8 @@ html[data-ma-theme="dark"] .ma-pill--job-lead { color: #cbd5e1; }
 /* Customer quick actions + job status stepper */
 .ma-quick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 12px 0 4px; }
 .ma-quick__form { margin: 0; min-width: 0; }
-.ma-quick__form .ma-quick__btn { width: 100%; cursor: pointer; font: inherit; }
+.ma-quick__form .ma-quick__btn,
+button.ma-quick__btn { width: 100%; cursor: pointer; font: inherit; }
 .ma-quick__btn {
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 0; min-height: 60px; border-radius: 14px;
   background: var(--card); border: 1px solid var(--line); color: var(--acc); text-decoration: none; font-size: 12px; font-weight: 700;
@@ -3101,20 +3102,16 @@ html[data-ma-theme="dark"] .ma-photo-modal {background:rgba(0,0,0,.65)}
 .ma-measure-chip:active{transform:scale(0.97);background:var(--acc-soft);color:var(--acc-ink)}
 html[data-ma-theme="dark"] .ma-measure-chip{border-color:rgba(255,255,255,.12)}
 
-.ma-followup{display:flex;align-items:center;gap:14px;margin:12px 0 0;padding:12px 14px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:0 1px 0 color-mix(in srgb, var(--ink) 4%, transparent)}
-.ma-followup.is-on{border-color:color-mix(in srgb, var(--acc) 45%, var(--line));background:color-mix(in srgb, var(--acc) 8%, var(--card))}
-.ma-followup.is-locked{opacity:.92}
-.ma-followup__copy{flex:1;min-width:0}
-.ma-followup__copy strong{display:block;font-size:14px;font-weight:800;color:var(--ink)}
-.ma-followup__copy span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-top:2px;line-height:1.35}
-.ma-followup__switch{appearance:none;border:0;padding:0;margin:0;width:48px;height:28px;border-radius:999px;background:color-mix(in srgb, var(--ink) 18%, transparent);position:relative;flex-shrink:0;cursor:pointer;transition:background .18s ease}
-.ma-followup__switch.is-on{background:var(--acc)}
-.ma-followup__switch.is-off,
-.ma-followup__switch.is-locked,
-.ma-followup__switch:disabled{opacity:.55;cursor:not-allowed}
-a.ma-followup__switch{display:inline-block}
-.ma-followup__knob{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:transform .18s ease}
-.ma-followup__switch.is-on .ma-followup__knob{transform:translateX(20px)}
+.ma-review-actions{display:contents}
+.ma-quick__btn{position:relative}
+.ma-quick__btn.is-followup-on{box-shadow:0 0 0 2px color-mix(in srgb, var(--acc) 55%, transparent)}
+.ma-quick__dot{
+  position:absolute;top:8px;right:8px;width:8px;height:8px;border-radius:50%;
+  background:var(--acc);box-shadow:0 0 0 2px var(--card);
+}
+.ma-review-sheet{padding-bottom:14px}
+.ma-review-sheet__actions{display:flex;flex-direction:column;gap:10px}
+.ma-review-sheet__actions .ma-btn{justify-content:center}
 .ma-askstatus{display:flex;gap:10px;align-items:flex-start;margin:10px 0 0;padding:12px 14px;border-radius:14px;background:var(--acc-soft);color:var(--acc-ink)}
 .ma-askstatus svg{width:20px;height:20px;flex-shrink:0;margin-top:1px}
 .ma-askstatus strong{display:block;font-size:14px;font-weight:800}

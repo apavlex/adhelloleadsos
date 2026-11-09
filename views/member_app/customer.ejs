@@ -70,17 +70,62 @@
     <% } %>
     <% const tel = String(customer.phone || '').replace(/[^0-9+]/g, ''); %>
     <% const mapsHref = googleMapsSearchUrl({ name: customer.name, address: customer.address }); %>
+    <%
+      const _fu = typeof followUpToggle !== 'undefined' && followUpToggle ? followUpToggle : null;
+      const _fuOn = !!(!_fu || !_fu.locked) && _fu && _fu.active;
+      const _reviewHref = base + '/review?ask=1&customer=' + encodeURIComponent(customer.id);
+      const _upgradeHref = typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup';
+    %>
     <div class="ma-quick">
       <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="tel:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.phone %><span>Call</span></a>
       <a class="ma-quick__btn<%= tel ? '' : ' is-off' %>" <%- tel ? 'href="sms:' + tel + '"' : 'aria-disabled="true"' %>><%- icons.send %><span>Text</span></a>
       <% if (typeof reviewSendLocked !== 'undefined' && reviewSendLocked) { %>
-      <a class="ma-quick__btn is-off" href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>" aria-label="Upgrade to send review texts"><%- icons.review %><span>Review</span></a>
+      <a class="ma-quick__btn is-off" href="<%= _upgradeHref %>" aria-label="Upgrade to send review texts"><%- icons.review %><span>Review</span></a>
       <% } else { %>
-      <a
-        class="ma-quick__btn"
-        href="<%= base %>/review?ask=1&amp;customer=<%= encodeURIComponent(customer.id) %>"
-        aria-label="Request a review — review message before sending"
-      ><%- icons.review %><span>Review</span></a>
+      <div class="ma-review-actions" data-ma-review-actions>
+        <button
+          type="button"
+          class="ma-quick__btn<%= _fuOn ? ' is-followup-on' : '' %>"
+          data-ma-review-open
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-controls="maReviewSheet"
+          aria-label="Review options"
+        ><%- icons.review %><span>Review</span><% if (_fuOn) { %><span class="ma-quick__dot" aria-hidden="true"></span><% } %></button>
+        <div class="ma-photo-modal" id="maReviewSheet" data-ma-review-sheet hidden role="dialog" aria-modal="true" aria-labelledby="maReviewSheetTitle">
+          <div class="ma-photo-sheet ma-review-sheet">
+            <button type="button" class="ma-install-close-x" aria-label="Close" data-ma-review-close>&times;</button>
+            <h2 id="maReviewSheetTitle">Ask for a review</h2>
+            <p class="ma-photo-lead">Pick how to reach out — confirm the message yourself, or launch auto follow-up.</p>
+            <div class="ma-review-sheet__actions">
+              <a class="ma-btn ma-btn--block ma-btn--soft" href="<%= _reviewHref %>" data-ma-review-close>
+                <%- icons.review %> Confirm &amp; send
+              </a>
+              <% if (_fu && _fu.locked) { %>
+              <a class="ma-btn ma-btn--block" href="<%= _upgradeHref %>">
+                Auto follow-up · upgrade
+              </a>
+              <% } else if (_fuOn) { %>
+              <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/follow-up" data-ma-loading="Stopping follow-up…">
+                <input type="hidden" name="enabled" value="0">
+                <button type="submit" class="ma-btn ma-btn--block ma-btn--ghost">
+                  Stop auto follow-up
+                </button>
+              </form>
+              <% } else { %>
+              <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/follow-up" data-ma-loading="Launching follow-up…">
+                <input type="hidden" name="enabled" value="1">
+                <button type="submit" class="ma-btn ma-btn--block" <%= _fu && !_fu.canToggle ? 'disabled' : '' %>>
+                  Auto follow-up · send + ~48h reminder
+                </button>
+              </form>
+              <% } %>
+            </div>
+            <p class="ma-hint" style="margin:12px 0 0"><%= _fu && _fu.hint ? _fu.hint : 'Auto follow-up texts the ask now and reminds once if they don’t open it.' %></p>
+            <button type="button" class="ma-btn ma-btn--block ma-btn--ghost" style="margin-top:10px" data-ma-review-close>Cancel</button>
+          </div>
+        </div>
+      </div>
       <% } %>
       <% if (_flooring) { %>
       <form class="ma-quick__form" method="post" action="<%= base %>/customers/c/<%= customer.id %>/mark-quote">
@@ -96,41 +141,9 @@
     <% if (_flooring) { %>
     <p class="ma-hint" style="margin:8px 0 0">Tap <strong>Quote</strong> to mark this contact as a material quote request and open the quote form with their details filled in. Or use Customer / Lead / Quote above.</p>
     <% } %>
-    <%
-      const _fu = typeof followUpToggle !== 'undefined' && followUpToggle ? followUpToggle : null;
-      const _fuOn = !!(!_fu || !_fu.locked) && _fu && _fu.active;
-    %>
-    <form
-      method="post"
-      action="<%= base %>/customers/c/<%= customer.id %>/follow-up"
-      class="ma-followup<%= _fu && _fu.locked ? ' is-locked' : '' %><%= _fuOn ? ' is-on' : '' %>"
-      data-ma-loading="<%= _fuOn ? 'Stopping follow-up…' : 'Launching follow-up…' %>"
-    >
-      <input type="hidden" name="enabled" value="<%= _fuOn ? '0' : '1' %>">
-      <div class="ma-followup__copy">
-        <strong>Auto follow-up</strong>
-        <span><%= _fu && _fu.hint ? _fu.hint : 'Send the review ask now and auto-remind in ~48h if they don’t open it.' %></span>
-      </div>
-      <% if (_fu && _fu.locked) { %>
-      <a class="ma-followup__switch is-locked" href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>" role="switch" aria-checked="false" aria-label="Upgrade to use Auto follow-up">
-        <span class="ma-followup__knob" aria-hidden="true"></span>
-      </a>
-      <% } else { %>
-      <button
-        type="submit"
-        class="ma-followup__switch<%= _fuOn ? ' is-on' : '' %><%= _fu && !_fu.canToggle ? ' is-off' : '' %>"
-        role="switch"
-        aria-checked="<%= _fuOn ? 'true' : 'false' %>"
-        aria-label="<%= _fuOn ? 'Stop auto follow-up' : 'Launch auto follow-up' %>"
-        <%= _fu && !_fu.canToggle ? 'disabled' : '' %>
-      >
-        <span class="ma-followup__knob" aria-hidden="true"></span>
-      </button>
-      <% } %>
-    </form>
 
     <% if (typeof reviewSendLocked !== 'undefined' && reviewSendLocked) { %>
-    <p class="ma-hint" style="margin:8px 0 0">Text/email review sends need a GHL CRM account on the monthly plan. Share your QR from the Review tab for free, or <a href="<%= typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup' %>">upgrade</a>.</p>
+    <p class="ma-hint" style="margin:8px 0 0">Text/email review sends need a GHL CRM account on the monthly plan. Share your QR from the Review tab for free, or <a href="<%= _upgradeHref %>">upgrade</a>.</p>
     <% } else if (typeof reviewAskStatus !== 'undefined' && reviewAskStatus) { %>
     <div class="ma-askstatus ma-askstatus--<%= reviewAskStatus.status %>" role="status">
       <%- icons.review %>
@@ -146,8 +159,6 @@
       rewardReturnTo: base + '/customers/c/' + encodeURIComponent(customer.id),
     }) %>
     <% } %>
-    <% } else { %>
-    <p class="ma-hint" style="margin:8px 0 0">Or use <strong>Review</strong> above to confirm the message before sending. Auto follow-up launches the ask and runs the reminder workflow for any lead or customer.</p>
     <% } %>
 
     <% } else { %>
