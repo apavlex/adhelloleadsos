@@ -77,18 +77,27 @@ function isFormInboundRow(row) {
   return String((row && row.type) || '').trim().toLowerCase() === 'form';
 }
 
-/** After create/match: website forms become Leads with a Website form tag. */
+function isCallOrSmsInboundRow(row) {
+  const t = String((row && row.type) || '').trim().toLowerCase();
+  return t === 'missed_call' || t === 'voicemail' || t === 'sms' || t === 'call';
+}
+
+/** After create/match: forms + calls/texts become Leads (still on the customers book). */
 async function finalizeInboundCustomer(network, member, list, customer, row) {
   if (!customer) return null;
   let next = customer;
-  if (isFormInboundRow(row)) {
-    try {
-      const memberCustomerGhl = require('./memberCustomerGhl');
+  try {
+    const memberCustomerGhl = require('./memberCustomerGhl');
+    if (isFormInboundRow(row)) {
       const stamped = await memberCustomerGhl.stampWebsiteFormLead(network, member.id, next);
       if (stamped.ok && stamped.customer) next = stamped.customer;
-    } catch (err) {
-      console.warn('[memberGhlAlerts] website form stamp failed:', err && err.message);
+    } else if (isCallOrSmsInboundRow(row)) {
+      // Calls & texts: same contact book, flagged as leads (Leads folder + Home tile).
+      const stamped = await memberCustomerGhl.stampGhlInboundLead(network, member.id, next);
+      if (stamped.ok && stamped.customer) next = stamped.customer;
     }
+  } catch (err) {
+    console.warn('[memberGhlAlerts] inbound lead stamp failed:', err && err.message);
   }
   const idx = list.findIndex((c) => c && c.id === next.id);
   if (idx >= 0) list[idx] = next;

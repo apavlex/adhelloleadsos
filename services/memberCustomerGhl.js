@@ -94,6 +94,22 @@ async function ensureWebsiteFormTag(workspaceId) {
 }
 
 /**
+ * Mark a Reviews contact as a lead from a GHL call/SMS (same book as customers, isLead=true).
+ * Does not add Website form tag. Respects Remove from Leads / Mark as customer.
+ */
+async function stampGhlInboundLead(network, memberId, customer) {
+  if (!network || !memberId || !customer || !customer.id) {
+    return { ok: false, error: 'Customer required.' };
+  }
+  let next = customer;
+  const leadDismissed = !!String(next.leadRemovedAt || '').trim();
+  if (next.isLead || leadDismissed) return { ok: true, customer: next };
+  const marked = await work.setCustomerLeadFlag(network.id, memberId, next.id, true);
+  if (marked.ok && marked.customer) next = marked.customer;
+  return { ok: true, customer: next };
+}
+
+/**
  * Mark a Reviews contact as a lead from a website form: isLead + Website form tag + source.
  * Idempotent. Syncs the tag to GHL when linked.
  */
@@ -715,6 +731,7 @@ module.exports = {
   ensureReferralPartnerTag,
   ensureWebsiteFormTag,
   stampWebsiteFormLead,
+  stampGhlInboundLead,
   ensureFormAnswersOnCustomer,
   WEBSITE_FORM_TAG_NAME,
   customerLooksLikePartner,

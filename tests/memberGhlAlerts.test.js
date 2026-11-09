@@ -259,6 +259,8 @@ describe('memberGhlAlerts', () => {
     assert.equal(customers.length, 1);
     assert.equal(customers[0].id, rows[0].customerId);
     assert.equal(customers[0].ghlContactId, 'ghl_email_only');
+    assert.equal(customers[0].isLead, true, 'GHL SMS/call contacts are marked as leads');
+    assert.equal(customers[0].source, 'ghl');
   });
 
   it('Open patches ghlContactId onto an existing phone-matched customer', async () => {
@@ -297,7 +299,53 @@ describe('memberGhlAlerts', () => {
     const rows = await memberGhlAlerts.listPendingForMember(owner, network, { now });
     assert.equal(rows.length, 1);
     assert.equal(rows[0].customerId, prior.customer.id);
-    assert.equal(rows[0].customerId && (await work.getCustomer(NID, 'owner', rows[0].customerId)).ghlContactId, 'ghl_hatten_1');
+    const patched = await work.getCustomer(NID, 'owner', rows[0].customerId);
+    assert.equal(patched.ghlContactId, 'ghl_hatten_1');
+    assert.equal(patched.isLead, true, 'matched call/SMS contacts are promoted to leads');
+  });
+
+  it('does not re-stamp call contacts after Remove from Leads', async () => {
+    const network = await store.getNetwork(NID);
+    const owner = await store.saveMember(NID, {
+      id: 'owner',
+      companyName: 'Owner Co',
+      email: 'owner@example.com',
+      ghlAlertsEnabled: true,
+    });
+    const work = require('../services/memberWork');
+    const prior = await work.saveCustomer(
+      NID,
+      'owner',
+      { name: 'Dismissed Caller', phone: '+15551112222' },
+      { source: 'ghl' },
+    );
+    assert.equal(prior.ok, true);
+    await work.setCustomerKind(NID, 'owner', prior.customer.id, 'customer', { removeFromLeads: true });
+    const dismissed = await work.getCustomer(NID, 'owner', prior.customer.id);
+    assert.ok(dismissed.leadRemovedAt);
+    assert.equal(dismissed.isLead, false);
+
+    const now = Date.parse('2026-10-20T12:00:00.000Z');
+    await dbService.saveLead({
+      key: 'lead:dismissed_call',
+      workspaceId: WID,
+      title: 'Dismissed Caller',
+      phone: '+15551112222',
+      ghlContactId: 'ghl_dismissed_1',
+      inboundEvents: [
+        {
+          id: 'm1',
+          type: 'missed_call',
+          at: '2026-10-20T11:00:00.000Z',
+          label: 'Missed',
+        },
+      ],
+    });
+
+    await memberGhlAlerts.listPendingForMember(owner, network, { now });
+    const again = await work.getCustomer(NID, 'owner', prior.customer.id);
+    assert.equal(again.isLead, false, 'Remove from Leads must stick for call contacts');
+    assert.ok(again.leadRemovedAt);
   });
 
   it('notifyEnabledMembers records activity for opted-in owners', async () => {

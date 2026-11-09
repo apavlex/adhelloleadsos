@@ -1198,6 +1198,8 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   const today = work.todayIn(memberTimeZone(req));
   const openJobCount = jobs.filter((j) => j && ['lead', 'estimate', 'scheduled', 'in_progress', 'on_hold'].includes(String(j.status || '').toLowerCase())).length;
   const contactLeadCount = customers.filter((c) => c && c.isLead).length;
+  // Customers tile = book contacts that are not lead-flagged (calls/SMS/forms sit under Leads).
+  const customerBookCount = customers.filter((c) => c && !c.isLead).length;
   const formLeadCount = (ctx.appointment && Array.isArray(ctx.appointment.formLeads))
     ? ctx.appointment.formLeads.filter((f) => f && f.status !== 'closed').length
     : 0;
@@ -1238,7 +1240,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     // Leads → customers → referrals (hero shows open jobs as projects).
     tiles: [
       { key: 'leads', label: 'Leads', value: openLeadCount, href: `${ctx.base}/referrals`, icon: 'leads' },
-      { key: 'customers', label: 'Customers', value: customers.length, href: `${ctx.base}/customers`, icon: 'customers' },
+      { key: 'customers', label: 'Customers', value: customerBookCount, href: `${ctx.base}/customers`, icon: 'customers' },
       { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
       {
         key: 'reviews',
@@ -1249,7 +1251,7 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
       },
     ],
     reviewViews: reviewStats.views || 0,
-    customerCount: customers.length,
+    customerCount: customerBookCount,
     openJobCount,
     openLeadCount,
     wonValue: money(stats.wonValue),
