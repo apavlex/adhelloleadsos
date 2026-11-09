@@ -70,6 +70,8 @@ function normalizeAsk(raw) {
     askedAt: a.askedAt || '',
     remindAfterAt: a.remindAfterAt || '',
     remindedAt: a.remindedAt || '',
+    /** Member turned off Auto follow-up on the customer profile — skip the ~48h nudge. */
+    followUpStoppedAt: a.followUpStoppedAt || '',
     openedAt: a.openedAt || '',
     clickedAt: a.clickedAt || '',
     clickPlatform: String(a.clickPlatform || '').trim().slice(0, 40),
@@ -257,9 +259,29 @@ async function networkIntegrationEnv(network) {
   return workspaceIntegrations.getResolvedIntegrationEnv(network.ownerWorkspaceId);
 }
 
+/** Active automated follow-up: ask sent, reminder still scheduled, not engaged/stopped. */
+function isFollowUpActive(ask) {
+  if (!ask || !ask.id || !ask.askedAt) return false;
+  if (ask.followUpStoppedAt || ask.remindedAt || isEngaged(ask)) return false;
+  if (!ask.remindAfterAt) return false;
+  return true;
+}
+
+/** Stop the ~48h auto-reminder from the customer profile toggle. */
+async function stopFollowUp(askId, now = Date.now()) {
+  const ask = await getAsk(askId);
+  if (!ask) return null;
+  if (ask.followUpStoppedAt || ask.remindedAt || isEngaged(ask)) return ask;
+  return saveAsk({
+    ...ask,
+    followUpStoppedAt: new Date(now).toISOString(),
+    remindAfterAt: '',
+  });
+}
+
 function dueForReminder(ask, now = Date.now()) {
   if (!ask || !ask.id) return false;
-  if (ask.remindedAt || isEngaged(ask)) return false;
+  if (ask.followUpStoppedAt || ask.remindedAt || isEngaged(ask)) return false;
   if (!ask.phone || ask.phone === 'N/A') return false;
   const dueAt = Date.parse(ask.remindAfterAt || '');
   if (!Number.isFinite(dueAt) || now < dueAt) return false;
@@ -385,6 +407,8 @@ module.exports = {
   markRewardSent,
   markRewardSkipped,
   isEngaged,
+  isFollowUpActive,
+  stopFollowUp,
   trackedReviewUrl,
   dueForReminder,
   listDueReminderAsks,

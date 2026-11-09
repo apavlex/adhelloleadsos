@@ -38,6 +38,7 @@ const reviewPage = require('../services/reviewPage');
 const reviewRequestScript = require('../services/reviewRequestScript');
 const reviewShareImage = require('../services/reviewShareImage');
 const reviewAsk = require('../services/reviewAsk');
+const reviewRequestAutomation = require('../services/reviewRequestAutomation');
 const reviewReferralReward = require('../services/reviewReferralReward');
 const businessReviews = require('../services/businessReviews');
 const outscraper = require('../services/outscraperClient');
@@ -219,6 +220,12 @@ const OK_MESSAGES = {
   crm_sync_upgrade: 'CRM sync is on the monthly plan. Upgrade to activate it.',
   referrals_upgrade: 'Referrals are on the monthly plan. Upgrade to start getting referrals for your business.',
   review_send_upgrade: 'Texting and emailing review requests (plus automated ~48h follow-up) needs a GHL CRM account on the monthly plan. Use Share or QR for free, or upgrade to send via GHL CRM.',
+  follow_up_on: 'Follow-up launched — review request sent and the ~48h auto-reminder is on.',
+  follow_up_off: 'Auto follow-up stopped — no reminder will be sent.',
+  follow_up_upgrade: 'Auto follow-up needs a GHL CRM account on the monthly plan. Upgrade to launch it from any lead or customer.',
+  follow_up_need_contact: 'Add a phone or email on this profile before launching follow-up.',
+  follow_up_already: 'Auto follow-up is already running for this contact.',
+  follow_up_failed: 'Could not launch follow-up. Check GHL CRM messaging in Workspace → Integrations.',
   google_reviews_upgrade: 'Google review inbox (Outscraper sync + AI replies) is on the monthly plan.',
   leads_requested: 'Lead request sent — your agency was pinged that you’re ready for more work.',
   closed: 'Lead marked closed.',
@@ -655,6 +662,7 @@ function presentReviewAskStatus(ask) {
   if (ask.clickedAt) bits.push(`Clicked ${shortWhen(ask.clickedAt)}`);
   if (ask.ratedAt && ask.rating) bits.push(`${ask.rating}★ ${shortWhen(ask.ratedAt)}`);
   if (ask.remindedAt) bits.push(`Reminded ${shortWhen(ask.remindedAt)}`);
+  else if (ask.followUpStoppedAt) bits.push(`Auto follow-up stopped ${shortWhen(ask.followUpStoppedAt)}`);
   else if (!engaged && ask.remindAfterAt) bits.push('Auto-reminder if no click in ~48h');
   return {
     status,
@@ -663,6 +671,23 @@ function presentReviewAskStatus(ask) {
     askId: ask.id,
     rating: ask.rating || 0,
     channel: ask.channel,
+    followUpActive: reviewAsk.isFollowUpActive(ask),
+  };
+}
+
+/** Toggle state for Auto follow-up on the customer profile (any lead or customer). */
+function presentFollowUpToggle(ask, { locked = false, hasContact = false } = {}) {
+  const active = !locked && reviewAsk.isFollowUpActive(ask);
+  let hint = 'Send the review ask now and auto-remind in ~48h if they don’t open it.';
+  if (locked) hint = 'Monthly plan + GHL CRM — upgrade to launch auto follow-up.';
+  else if (!hasContact) hint = 'Add a phone or email first.';
+  else if (active) hint = 'Running — reminder scheduled if they don’t open the link.';
+  return {
+    active,
+    locked: !!locked,
+    hasContact: !!hasContact,
+    canToggle: !locked && (active || hasContact),
+    hint,
   };
 }
 
@@ -1945,7 +1970,7 @@ async function customerTagViews(ctx, customer) {
 }
 
 async function renderCustomerPage(res, ctx, {
-  customer, jobs, today, formValues, flash, status, reviewAskStatus, inviteUrl, customerTab, ghlActivity,
+  customer, jobs, today, formValues, flash, status, reviewAskStatus, followUpToggle, inviteUrl, customerTab, ghlActivity,
 }) {
   const [tagViews, teammates] = await Promise.all([
     customerTagViews(ctx, customer),
@@ -2005,6 +2030,7 @@ async function renderCustomerPage(res, ctx, {
     today,
     customerTab: customerTab === 'bulk' ? 'bulk' : 'one',
     reviewAskStatus: reviewAskStatus || null,
+    followUpToggle: followUpToggle || null,
     reviewSendLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
     ghlActivity: ghlActivity || null,
@@ -2148,11 +2174,19 @@ async function customerPageData(req, ctx, id, { refreshTags = false, loadGhlActi
   if (reviewAskStatus && reviewAskStatus.canConfirm && freeAppSignup.isAppFreeMember(ctx.member)) {
     reviewAskStatus = { ...reviewAskStatus, canConfirm: false };
   }
+  const hasContact = !!(
+    (customer.phone && String(customer.phone).trim() && String(customer.phone).trim() !== 'N/A')
+    || (customer.email && String(customer.email).includes('@'))
+  );
+  const followUpToggle = presentFollowUpToggle(ask, {
+    locked: freeAppSignup.isAppFreeMember(ctx.member),
+    hasContact,
+  });
   let ghlActivity = null;
   if (loadGhlActivity) {
     ghlActivity = await memberCustomerGhlActivity.listForCustomer(ctx.network, customer);
   }
-  return { customer, jobs: mine, today, reviewAskStatus, ghlActivity };
+  return { customer, jobs: mine, today, reviewAskStatus, followUpToggle, ghlActivity };
 }
 
 router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
@@ -2358,6 +2392,68 @@ router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (
     email: data.customer.email || '',
   });
   return res.redirect(303, `${ctx.base}/review?${qs.toString()}`);
+}));
+
+/**
+ * Customer profile Auto follow-up toggle — works for any lead or customer.
+ * ON: send review request via GHL and schedule the ~48h reminder workflow.
+ * OFF: stop the pending auto-reminder on the latest ask.
+ */
+router.post('/m/:token/customers/c/:id/follow-up', form, withMember(async (req, res, ctx) => {
+  const back = `${ctx.base}/customers/c/${encodeURIComponent(req.params.id)}`;
+  const customer = await work.getCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  if (!customer) return res.redirect(303, `${ctx.base}/customers`);
+
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${back}?ok=follow_up_upgrade`);
+  }
+
+  const enabledRaw = Array.isArray(req.body && req.body.enabled)
+    ? req.body.enabled[req.body.enabled.length - 1]
+    : req.body && req.body.enabled;
+  const wantOn = enabledRaw === '1' || enabledRaw === 'on' || enabledRaw === 'true' || enabledRaw === true;
+
+  const ask = await reviewAsk.latestAskForCustomer(ctx.network.id, ctx.member.id, customer.id);
+
+  if (!wantOn) {
+    if (ask && reviewAsk.isFollowUpActive(ask)) {
+      await reviewAsk.stopFollowUp(ask.id);
+    }
+    return res.redirect(303, `${back}?ok=follow_up_off`);
+  }
+
+  if (ask && reviewAsk.isFollowUpActive(ask)) {
+    return res.redirect(303, `${back}?ok=follow_up_already`);
+  }
+
+  const hasPhone = !!(customer.phone && String(customer.phone).trim() && String(customer.phone).trim() !== 'N/A');
+  const hasEmail = !!(customer.email && String(customer.email).includes('@'));
+  if (!hasPhone && !hasEmail) {
+    return res.redirect(303, `${back}?ok=follow_up_need_contact`);
+  }
+
+  await ensureReviewSetup(ctx);
+  if (!customer.ghlContactId) {
+    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, customer).catch(() => null);
+  }
+
+  const result = await reviewRequestAutomation.requestReview({
+    network: ctx.network,
+    memberRef: ctx.member.id,
+    customerId: customer.id,
+    phone: customer.phone || '',
+    email: customer.email || '',
+    customerName: customer.name || '',
+    channel: 'auto',
+    useAi: true,
+    baseUrl: notify.baseUrlFromReq(req),
+  });
+
+  if (!result || !result.ok) {
+    const detail = encodeURIComponent(String((result && result.error) || 'send_failed').slice(0, 160));
+    return res.redirect(303, `${back}?ok=follow_up_failed&detail=${detail}`);
+  }
+  return res.redirect(303, `${back}?ok=follow_up_on`);
 }));
 
 /**

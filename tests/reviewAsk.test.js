@@ -94,6 +94,28 @@ describe('review ask tracking + 48h reminder', () => {
     assert.equal(reviewAsk.dueForReminder(reminded, nowAsk + 50 * 60 * 60 * 1000), false);
   });
 
+  it('profile toggle can stop a pending auto follow-up', async () => {
+    const nowAsk = Date.parse('2026-11-01T12:00:00.000Z');
+    const ask = await reviewAsk.createAsk({
+      networkId: 'n-stop',
+      memberId: 'm-stop',
+      customerId: 'cstop001',
+      name: 'Alex',
+      phone: '+15550009999',
+      channel: 'sms',
+      reviewSlug: 'stop-co',
+      now: nowAsk,
+    });
+    assert.equal(reviewAsk.isFollowUpActive(ask), true);
+    assert.equal(reviewAsk.dueForReminder(ask, nowAsk + 49 * 60 * 60 * 1000), true);
+
+    const stopped = await reviewAsk.stopFollowUp(ask.id, nowAsk + 60 * 60 * 1000);
+    assert.ok(stopped.followUpStoppedAt);
+    assert.equal(stopped.remindAfterAt, '');
+    assert.equal(reviewAsk.isFollowUpActive(stopped), false);
+    assert.equal(reviewAsk.dueForReminder(stopped, nowAsk + 50 * 60 * 60 * 1000), false);
+  });
+
   it('returns the latest ask for a customer', async () => {
     const older = await reviewAsk.createAsk({
       networkId: 'n4',
