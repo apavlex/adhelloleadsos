@@ -194,11 +194,18 @@ test('customers: mark-as-lead routes put contact on Leads Received', async () =>
     const customersHidden = await (await fetch(`${A}/customers`)).text();
     assert.doesNotMatch(customersHidden, /Inbound Texter/);
     assert.match(customersHidden, /Open Leads/);
+    assert.doesNotMatch(customersHidden, /Show here/);
+
+    // ?leads=1 must not dump leads into Customers — only Mark as customer does.
+    const customersForced = await (await fetch(`${A}/customers?leads=1`)).text();
+    assert.doesNotMatch(customersForced, /Inbound Texter/);
 
     const asCustomer = await post(`${A}/customers/c/${saved.customer.id}/mark-customer`, {});
     assert.equal(asCustomer.status, 303);
     assert.match(asCustomer.headers.get('location') || '', /\/customers\/c\/[^?]+\/?\?ok=marked_customer/);
-    assert.equal((await work.getCustomer(network.id, member.id, saved.customer.id)).isLead, false);
+    const afterCustomer = await work.getCustomer(network.id, member.id, saved.customer.id);
+    assert.equal(afterCustomer.isLead, false);
+    assert.ok(afterCustomer.leadRemovedAt, 'Mark as customer stamps leadRemovedAt so calls stay off Leads');
 
     const customersShown = await (await fetch(`${A}/customers`)).text();
     assert.match(customersShown, /Inbound Texter/);

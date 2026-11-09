@@ -80,7 +80,8 @@ describe('member leads + referral notifications', () => {
     assert.match(referrals, /Website form|lead\.sourceLabel/);
     assert.match(route, /sourceLabel: work\.customerSourceLabel/);
     assert.match(customers, /Open Leads/);
-    assert.match(customers, /showLeads/);
+    assert.doesNotMatch(customers, /leads:\s*'1'[\s\S]*?Show here/);
+    assert.match(customers, /until you mark one as customer/);
     assert.match(route, /customers\/c\/:id\/mark-customer/);
     assert.match(route, /customers\/c\/:id\/unmark-lead/);
     assert.match(route, /removeFromLeads:\s*true/);
@@ -90,7 +91,8 @@ describe('member leads + referral notifications', () => {
     assert.match(route, /marked_customer/);
     assert.match(route, /website_form/);
     assert.match(route, /sourceLabel: customer \? work\.customerSourceLabel\(customer\)/);
-    assert.match(route, /filter\(\(c\) => showLeads \|\| !c\.isLead\)/);
+    assert.match(route, /\.filter\(\(c\) => !c\.isLead\)/);
+    assert.match(route, /showLeads:\s*false/);
     assert.match(work, /website_form/);
     assert.match(work, /customerSourceLabel/);
     // Customer Details has no per-field mics (speak-once is New customer only).

@@ -1910,14 +1910,14 @@ async function renderCustomers(req, res, ctx, flash, status) {
         isPartner,
       };
     });
-    const showLeads = String(req.query.leads || '') === '1';
+    // Leads stay in /referrals until Mark as customer — never mix into this list.
     const showQuotes = String(req.query.quotes || '') === '1';
     const partnerCount = annotated.filter((c) => c.isPartner).length;
     const leadCount = annotated.filter((c) => c.isLead).length;
     const quoteCount = annotated.filter((c) => c.isQuoteRequest).length;
     const rows = annotated
       .filter((c) => showPartners || !c.isPartner)
-      .filter((c) => showLeads || !c.isLead)
+      .filter((c) => !c.isLead)
       .filter((c) => showQuotes || !c.isQuoteRequest)
       .sort(work.compareCustomersRecentFirst);
     Object.assign(extra, {
@@ -1926,11 +1926,11 @@ async function renderCustomers(req, res, ctx, flash, status) {
       showPartners,
       partnerCount,
       hiddenPartnerCount: showPartners ? 0 : partnerCount,
-      showLeads,
+      showLeads: false,
       showQuotes,
       quoteCount,
       leadCount,
-      hiddenLeadCount: showLeads ? 0 : leadCount,
+      hiddenLeadCount: leadCount,
     });
   } else if (view === 'calendar') {
     const month = /^\d{4}-\d{2}$/.test(String(req.query.m || '')) ? req.query.m : today.slice(0, 7);
@@ -2342,7 +2342,10 @@ router.post('/m/:token/customers/c/:id/unmark-lead', form, withMember(async (req
 
 /** Alias: same as unmark-lead — clearer “Mark as customer” action from Leads. */
 router.post('/m/:token/customers/c/:id/mark-customer', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer');
+  // Clears isLead + stamps leadRemovedAt so the next call/SMS stays on Customers.
+  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer', {
+    removeFromLeads: true,
+  });
   if (!result.ok) {
     return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not mark as customer.')}`);
   }
