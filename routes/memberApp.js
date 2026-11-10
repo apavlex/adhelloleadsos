@@ -89,7 +89,7 @@ async function maybeSyncOwnerCustomers(ctx) {
   const last = Date.parse(ctx.member.customersGhlSyncedAt || '') || 0;
   if (last && Date.now() - last < OWNER_GHL_SYNC_MS) return;
   try {
-    await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.member.id, {
+    await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.bookMemberId, {
       maxPages: 3,
       pushLimit: 50,
     });
@@ -380,10 +380,13 @@ async function maybeEnsureDemoOwnerReviewApp(ctx) {
     : '';
   const baseBrand = networkBrand.brandView(network, member, { heroUrl: memberHeroUrl });
   const brand = await ownerAppBrand.applyWorkspaceBrand(baseBrand, network, member);
+  // Owner + workspace staff share one customer/lead book so forms/calls/texts match.
+  const bookMemberId = work.teamBookMemberId(network, member);
   return {
     ...ctx,
     network,
     member,
+    bookMemberId,
     brand,
     greetingName: firstName(member),
     profilePhotoUrl: profilePhotoUrl(ctx.base, member),
@@ -1181,8 +1184,8 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
   const [referrals, members, jobs, customers, reviewStats, leadRequest] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
-    work.listJobs(ctx.network.id, ctx.member.id),
-    work.listCustomers(ctx.network.id, ctx.member.id),
+    work.listJobs(ctx.network.id, ctx.bookMemberId),
+    work.listCustomers(ctx.network.id, ctx.bookMemberId),
     store.getReviewStats(ctx.network.id, ctx.member.id),
     memberLeadRequests.leadRequestState(ctx),
   ]);
@@ -1365,7 +1368,7 @@ async function repairWebsiteFormContactLeads(ctx) {
   if (!formLeads.length || !ctx.network || !ctx.member) return;
   try {
     const memberCustomerGhl = require('../services/memberCustomerGhl');
-    const customers = await work.listCustomers(ctx.network.id, ctx.member.id);
+    const customers = await work.listCustomers(ctx.network.id, ctx.bookMemberId);
     for (const fl of formLeads.slice(-60)) {
       if (!fl) continue;
       const match = work.findCustomerMatch(customers, { phone: fl.phone, email: fl.email });
@@ -1373,7 +1376,7 @@ async function repairWebsiteFormContactLeads(ctx) {
       if (match.leadRemovedAt) continue;
       if (match.isLead && match.source === 'website_form') continue;
       // eslint-disable-next-line no-await-in-loop
-      await memberCustomerGhl.stampWebsiteFormLead(ctx.network, ctx.member.id, match);
+      await memberCustomerGhl.stampWebsiteFormLead(ctx.network, ctx.bookMemberId, match);
     }
   } catch (err) {
     console.warn('[memberApp] website form lead repair failed:', err && err.message);
@@ -1390,10 +1393,10 @@ async function renderReferrals(req, res, ctx, flash, status) {
   const [referrals, members, jobs, leadRequest, contactLeadRows, contactQuoteRows] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
-    work.listJobs(ctx.network.id, ctx.member.id),
+    work.listJobs(ctx.network.id, ctx.bookMemberId),
     memberLeadRequests.leadRequestState(ctx),
-    work.listContactLeads(ctx.network.id, ctx.member.id),
-    flooring ? work.listContactQuotes(ctx.network.id, ctx.member.id) : Promise.resolve([]),
+    work.listContactLeads(ctx.network.id, ctx.bookMemberId),
+    flooring ? work.listContactQuotes(ctx.network.id, ctx.bookMemberId) : Promise.resolve([]),
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
   const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
@@ -1529,7 +1532,7 @@ router.get('/m/:token/quote', withMember(async (req, res, ctx) => {
   };
   const customerId = String(q.customer || '').trim();
   if (customerId && freeAppSignup.isFlooringOffer(ctx.member)) {
-    const customer = await work.getCustomer(ctx.network.id, ctx.member.id, customerId);
+    const customer = await work.getCustomer(ctx.network.id, ctx.bookMemberId, customerId);
     if (customer) {
       formValues = {
         ...formValues,
@@ -1621,7 +1624,7 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
   const pickCustomerId = String(q.customer || '').trim();
   const [directory, customers, advocates] = await Promise.all([
     directoryFor(ctx.network, ctx.member),
-    work.listCustomers(ctx.network.id, ctx.member.id),
+    work.listCustomers(ctx.network.id, ctx.bookMemberId),
     customerReferralLinks.listForMember(ctx.network.id, ctx.member.id, { limit: 250 }),
   ]);
   const referralDash = customerReferralLinks.buildDashboard(advocates);
@@ -1838,8 +1841,8 @@ const DURATIONS = [30, 60, 90, 120, 180, 240, 360, 480, 1440, 2880];
 
 async function loadWork(ctx) {
   const [customers, jobs] = await Promise.all([
-    work.listCustomers(ctx.network.id, ctx.member.id),
-    work.listJobs(ctx.network.id, ctx.member.id),
+    work.listCustomers(ctx.network.id, ctx.bookMemberId),
+    work.listJobs(ctx.network.id, ctx.bookMemberId),
   ]);
   return { customers, jobs, customersById: Object.fromEntries(customers.map((c) => [c.id, c])) };
 }
@@ -2065,16 +2068,20 @@ router.get('/m/:token/customers/import-template.csv', withMember((req, res, ctx)
 }));
 
 router.post('/m/:token/customers/new', form, withMember(async (req, res, ctx) => {
-  const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {}, {
+  const actorName = work.memberAddedByLabel(ctx.member);
+  const result = await work.saveCustomer(ctx.network.id, ctx.bookMemberId, req.body || {}, {
     source: 'manual',
     addedByMemberId: ctx.member.id,
-    addedByName: work.memberAddedByLabel(ctx.member),
+    addedByName: actorName,
+    touchedByMemberId: ctx.member.id,
+    touchedByName: actorName,
+    touchedAction: 'created',
   });
   if (!result.ok) {
     return renderCustomerPage(res, ctx, { customer: null, formValues: req.body, flash: { error: result.error }, status: 400 });
   }
   // Best-effort: new customers land in GHL so review requests reuse the same contact.
-  await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, result.customer).catch(() => null);
+  await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.bookMemberId, result.customer).catch(() => null);
   return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=customer`);
 }));
 
@@ -2097,8 +2104,8 @@ router.post('/m/:token/customers/import', (req, res, next) => {
   if (!parsed.ok) {
     return res.redirect(303, `${back}${fromNew ? '&' : '?'}errmsg=${encodeURIComponent(parsed.error)}`);
   }
-  const out = await memberCustomerCsv.importCustomers(ctx.network.id, ctx.member.id, parsed.rows, {
-    pushToGhl: async (saved) => memberCustomerGhl.pushCustomersMissingGhl(ctx.network, ctx.member.id, saved, { limit: 100 }),
+  const out = await memberCustomerCsv.importCustomers(ctx.network.id, ctx.bookMemberId, parsed.rows, {
+    pushToGhl: async (saved) => memberCustomerGhl.pushCustomersMissingGhl(ctx.network, ctx.bookMemberId, saved, { limit: 100 }),
   });
   let workspaceDetail = '';
   if (freeAppSignup.isAppFreeMember(ctx.member) && (out.created > 0 || out.updated > 0)) {
@@ -2142,7 +2149,7 @@ router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ct
       }
     } catch (_) { /* ignore */ }
   }
-  const out = await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.member.id, { maxPages: 5, pushLimit: 100 });
+  const out = await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.bookMemberId, { maxPages: 5, pushLimit: 100 });
   if (!out.ok) {
     return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(out.error || 'CRM sync failed.')}`);
   }
@@ -2150,25 +2157,25 @@ router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ct
 }));
 
 async function customerPageData(req, ctx, id, { refreshTags = false, loadGhlActivity = false } = {}) {
-  let customer = await work.getCustomer(ctx.network.id, ctx.member.id, id);
+  let customer = await work.getCustomer(ctx.network.id, ctx.bookMemberId, id);
   if (!customer) return null;
   // Attach ghlContactId from a matching workspace lead when missing so Calls & texts connects.
   customer = await memberCustomerGhlActivity
-    .ensureCustomerGhlLink(ctx.network, ctx.member.id, customer)
+    .ensureCustomerGhlLink(ctx.network, ctx.bookMemberId, customer)
     .catch(() => customer) || customer;
   if (refreshTags && customer.ghlContactId) {
     const pulled = await memberCustomerGhl
-      .pullCustomerTagsFromGhl(ctx.network, ctx.member.id, customer)
+      .pullCustomerTagsFromGhl(ctx.network, ctx.bookMemberId, customer)
       .catch(() => null);
     if (pulled && pulled.ok && pulled.customer) customer = pulled.customer;
   }
   // Website form leads: pull GHL custom fields onto the profile when missing.
   customer = await memberCustomerGhl
-    .ensureFormAnswersOnCustomer(ctx.network, ctx.member.id, customer)
+    .ensureFormAnswersOnCustomer(ctx.network, ctx.bookMemberId, customer)
     .catch(() => customer) || customer;
   // Shared contacts used to drop site-visit photos — pull them from the sharer once.
   if (customer.sharedFromMemberId && customer.sharedFromCustomerId) {
-    await work.syncSharedCustomerPhotos(ctx.network.id, ctx.member.id, customer).catch(() => null);
+    await work.syncSharedCustomerPhotos(ctx.network.id, ctx.bookMemberId, customer).catch(() => null);
   }
   const today = work.todayIn(memberTimeZone(req));
   const { jobs, customersById } = await loadWork(ctx);
@@ -2211,24 +2218,30 @@ router.get('/m/:token/customers/c/:id', withMember(async (req, res, ctx) => {
 /** JSON: GHL call + SMS history for a synced customer contact. */
 router.get('/m/:token/customers/c/:id/ghl-activity.json', withMember(async (req, res, ctx) => {
   noStore(res);
-  let customer = await work.getCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  let customer = await work.getCustomer(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!customer) return res.status(404).json({ success: false, error: 'Customer not found.' });
   customer = await memberCustomerGhlActivity
-    .ensureCustomerGhlLink(ctx.network, ctx.member.id, customer)
+    .ensureCustomerGhlLink(ctx.network, ctx.bookMemberId, customer)
     .catch(() => customer) || customer;
   const activity = await memberCustomerGhlActivity.listForCustomer(ctx.network, customer);
   return res.json({ success: true, ...activity, customerId: customer.id, ghlContactId: customer.ghlContactId || '' });
 }));
 
 router.post('/m/:token/customers/c/:id', form, withMember(async (req, res, ctx) => {
-  const result = await work.saveCustomer(ctx.network.id, ctx.member.id, req.body || {}, { id: req.params.id });
+  const actorName = work.memberAddedByLabel(ctx.member);
+  const result = await work.saveCustomer(ctx.network.id, ctx.bookMemberId, req.body || {}, {
+    id: req.params.id,
+    touchedByMemberId: ctx.member.id,
+    touchedByName: actorName,
+    touchedAction: 'updated',
+  });
   if (!result.ok) {
     const data = await customerPageData(req, ctx, req.params.id);
     if (!data) return res.redirect(303, `${ctx.base}/customers`);
     return renderCustomerPage(res, ctx, { ...data, formValues: req.body, flash: { error: result.error }, status: 400 });
   }
   if (!result.customer.ghlContactId) {
-    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, result.customer).catch(() => null);
+    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.bookMemberId, result.customer).catch(() => null);
   }
   return res.redirect(303, `${ctx.base}/customers/c/${result.customer.id}?ok=customer`);
 }));
@@ -2237,7 +2250,7 @@ router.post('/m/:token/customers/c/:id/tags/add', form, withMember(async (req, r
   const body = req.body || {};
   const result = await memberCustomerGhl.setCustomerTag(
     ctx.network,
-    ctx.member.id,
+    ctx.bookMemberId,
     req.params.id,
     body.tagKey,
     { add: true, tagName: body.tagName || body.q || body.tag },
@@ -2257,7 +2270,7 @@ router.post('/m/:token/customers/c/:id/tags/add', form, withMember(async (req, r
 router.post('/m/:token/customers/c/:id/tags/remove', form, withMember(async (req, res, ctx) => {
   const result = await memberCustomerGhl.setCustomerTag(
     ctx.network,
-    ctx.member.id,
+    ctx.bookMemberId,
     req.params.id,
     req.body && req.body.tagKey,
     { add: false },
@@ -2275,15 +2288,19 @@ router.post('/m/:token/customers/c/:id/tags/remove', form, withMember(async (req
 }));
 
 router.post('/m/:token/customers/c/:id/delete', form, withMember(async (req, res, ctx) => {
-  await work.deleteCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  await work.deleteCustomer(ctx.network.id, ctx.bookMemberId, req.params.id);
   return res.redirect(303, `${ctx.base}/customers?ok=customer_deleted`);
 }));
 
 /** Mark contact as lead → Leads folder (hidden from Customers list). */
 router.post('/m/:token/customers/c/:id/mark-lead', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'lead', {
+  const actorName = work.memberAddedByLabel(ctx.member);
+  const result = await work.setCustomerKind(ctx.network.id, ctx.bookMemberId, req.params.id, 'lead', {
     addedByMemberId: ctx.member.id,
-    addedByName: work.memberAddedByLabel(ctx.member),
+    addedByName: actorName,
+    touchedByMemberId: ctx.member.id,
+    touchedByName: actorName,
+    touchedAction: 'marked_lead',
   });
   if (!result.ok) {
     const data = await customerPageData(req, ctx, req.params.id);
@@ -2306,7 +2323,12 @@ router.post('/m/:token/customers/c/:id/mark-quote', form, withMember(async (req,
   if (!freeAppSignup.isFlooringOffer(ctx.member)) {
     return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}`);
   }
-  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'quote');
+  const actorName = work.memberAddedByLabel(ctx.member);
+  const result = await work.setCustomerKind(ctx.network.id, ctx.bookMemberId, req.params.id, 'quote', {
+    touchedByMemberId: ctx.member.id,
+    touchedByName: actorName,
+    touchedAction: 'marked_quote',
+  });
   if (!result.ok) {
     const data = await customerPageData(req, ctx, req.params.id);
     if (!data) return res.redirect(303, `${ctx.base}/customers`);
@@ -2329,7 +2351,12 @@ router.post('/m/:token/customers/c/:id/mark-quote', form, withMember(async (req,
 
 /** Mark lead/quote as customer → back on Customers list. */
 router.post('/m/:token/customers/c/:id/unmark-lead', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer');
+  const actorName = work.memberAddedByLabel(ctx.member);
+  const result = await work.setCustomerKind(ctx.network.id, ctx.bookMemberId, req.params.id, 'customer', {
+    touchedByMemberId: ctx.member.id,
+    touchedByName: actorName,
+    touchedAction: 'marked_customer',
+  });
   if (!result.ok) {
     const data = await customerPageData(req, ctx, req.params.id);
     if (!data) return res.redirect(303, `${ctx.base}/customers`);
@@ -2349,8 +2376,12 @@ router.post('/m/:token/customers/c/:id/unmark-lead', form, withMember(async (req
 /** Alias: same as unmark-lead — clearer “Mark as customer” action from Leads. */
 router.post('/m/:token/customers/c/:id/mark-customer', form, withMember(async (req, res, ctx) => {
   // Clears isLead + stamps leadRemovedAt so the next call/SMS stays on Customers.
-  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer', {
+  const actorName = work.memberAddedByLabel(ctx.member);
+  const result = await work.setCustomerKind(ctx.network.id, ctx.bookMemberId, req.params.id, 'customer', {
     removeFromLeads: true,
+    touchedByMemberId: ctx.member.id,
+    touchedByName: actorName,
+    touchedAction: 'marked_customer',
   });
   if (!result.ok) {
     return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not mark as customer.')}`);
@@ -2364,8 +2395,12 @@ router.post('/m/:token/customers/c/:id/mark-customer', form, withMember(async (r
  * put them back on Received until the member Marks as lead again.
  */
 router.post('/m/:token/customers/c/:id/remove-lead', form, withMember(async (req, res, ctx) => {
-  const result = await work.setCustomerKind(ctx.network.id, ctx.member.id, req.params.id, 'customer', {
+  const actorName = work.memberAddedByLabel(ctx.member);
+  const result = await work.setCustomerKind(ctx.network.id, ctx.bookMemberId, req.params.id, 'customer', {
     removeFromLeads: true,
+    touchedByMemberId: ctx.member.id,
+    touchedByName: actorName,
+    touchedAction: 'removed_lead',
   });
   if (!result.ok) {
     return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not remove lead.')}`);
@@ -2379,11 +2414,11 @@ router.post('/m/:token/customers/c/:id/remove-lead', form, withMember(async (req
 
 /** Delete a lead/contact entirely from the Reviews book (confirm in UI). */
 router.post('/m/:token/customers/c/:id/delete-lead', form, withMember(async (req, res, ctx) => {
-  const existing = await work.getCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  const existing = await work.getCustomer(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!existing) {
     return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent('Lead not found.')}`);
   }
-  await work.deleteCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  await work.deleteCustomer(ctx.network.id, ctx.bookMemberId, req.params.id);
   return res.redirect(303, `${ctx.base}/referrals?ok=lead_deleted`);
 }));
 
@@ -2412,7 +2447,7 @@ router.post('/m/:token/customers/c/:id/request-review', form, withMember(async (
  */
 router.post('/m/:token/customers/c/:id/follow-up', form, withMember(async (req, res, ctx) => {
   const back = `${ctx.base}/customers/c/${encodeURIComponent(req.params.id)}`;
-  const customer = await work.getCustomer(ctx.network.id, ctx.member.id, req.params.id);
+  const customer = await work.getCustomer(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!customer) return res.redirect(303, `${ctx.base}/customers`);
 
   if (freeAppSignup.isAppFreeMember(ctx.member)) {
@@ -2445,7 +2480,7 @@ router.post('/m/:token/customers/c/:id/follow-up', form, withMember(async (req, 
 
   await ensureReviewSetup(ctx);
   if (!customer.ghlContactId) {
-    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, customer).catch(() => null);
+    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.bookMemberId, customer).catch(() => null);
   }
 
   const result = await reviewRequestAutomation.requestReview({
@@ -2710,17 +2745,17 @@ router.post('/m/:token/customers/jobs/new', form, withMember(async (req, res, ct
   const checked = work.validateJob(body);
   if (!checked.ok) return fail(checked.error);
   if (body.customerId === 'new') {
-    const created = await work.saveCustomer(ctx.network.id, ctx.member.id, { name: body.newCustomerName, phone: body.newCustomerPhone });
+    const created = await work.saveCustomer(ctx.network.id, ctx.bookMemberId, { name: body.newCustomerName, phone: body.newCustomerPhone });
     if (!created.ok) return fail(created.error);
     body.customerId = created.customer.id;
   }
-  const result = await work.saveJob(ctx.network.id, ctx.member.id, body, { timeZone: memberTimeZone(req) });
+  const result = await work.saveJob(ctx.network.id, ctx.bookMemberId, body, { timeZone: memberTimeZone(req) });
   if (!result.ok) return fail(result.error);
   return res.redirect(303, `${ctx.base}/customers/jobs/${result.job.id}?ok=job`);
 }));
 
 router.get('/m/:token/customers/jobs/:id', withMember(async (req, res, ctx) => {
-  let job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  let job = await work.getJob(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
   if (job.sharedFromMemberId && job.sharedFromJobId) {
     const sourceJob = await work.getJob(ctx.network.id, job.sharedFromMemberId, job.sharedFromJobId);
@@ -2738,9 +2773,9 @@ router.get('/m/:token/customers/jobs/:id', withMember(async (req, res, ctx) => {
 }));
 
 router.post('/m/:token/customers/jobs/:id', form, withMember(async (req, res, ctx) => {
-  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  const job = await work.getJob(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
-  const result = await work.saveJob(ctx.network.id, ctx.member.id, req.body || {}, {
+  const result = await work.saveJob(ctx.network.id, ctx.bookMemberId, req.body || {}, {
     id: job.id,
     timeZone: memberTimeZone(req),
   });
@@ -2749,9 +2784,9 @@ router.post('/m/:token/customers/jobs/:id', form, withMember(async (req, res, ct
 }));
 
 router.get('/m/:token/customers/jobs/:id/photos/:photoId', withMember(async (req, res, ctx) => {
-  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  const job = await work.getJob(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!job || !job.photos.some((p) => p.id === req.params.photoId)) return res.status(404).end();
-  const photo = await jobMedia.getJobPhoto(ctx.network.id, ctx.member.id, job.id, req.params.photoId);
+  const photo = await jobMedia.getJobPhoto(ctx.network.id, ctx.bookMemberId, job.id, req.params.photoId);
   if (!photo) return res.status(404).end();
   res.setHeader('Content-Type', photo.contentType || 'image/jpeg');
   res.setHeader('Cache-Control', 'private, max-age=86400');
@@ -2776,7 +2811,7 @@ async function handleJobPhotoUpload(req, res, ctx, job, { fallbackPath } = {}) {
   if (!req.file || !req.file.buffer) return fail('Choose a photo to upload.');
   try {
     const prepared = await jobMedia.prepareJobPhoto(req.file.buffer);
-    const result = await work.addJobPhoto(ctx.network.id, ctx.member.id, job.id, prepared, {
+    const result = await work.addJobPhoto(ctx.network.id, ctx.bookMemberId, job.id, prepared, {
       caption: req.body && req.body.caption,
     });
     if (!result.ok) return fail(result.error);
@@ -2799,7 +2834,7 @@ router.post('/m/:token/customers/jobs/:id/photos', (req, res, next) => {
     return next();
   });
 }, withMember(async (req, res, ctx) => {
-  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  const job = await work.getJob(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
   return handleJobPhotoUpload(req, res, ctx, job);
 }));
@@ -2826,14 +2861,14 @@ router.post('/m/:token/customers/c/:id/photos', (req, res, next) => {
   if (req.maUploadError) return fail(req.maUploadError);
   if (!req.file || !req.file.buffer) return fail('Choose a photo to upload.');
 
-  const ensured = await work.ensureOpenJobForPhotos(ctx.network.id, ctx.member.id, customerId, {
+  const ensured = await work.ensureOpenJobForPhotos(ctx.network.id, ctx.bookMemberId, customerId, {
     timeZone: memberTimeZone(req),
   });
   if (!ensured.ok) return fail(ensured.error);
 
   try {
     const prepared = await jobMedia.prepareJobPhoto(req.file.buffer);
-    const result = await work.addJobPhoto(ctx.network.id, ctx.member.id, ensured.job.id, prepared, {
+    const result = await work.addJobPhoto(ctx.network.id, ctx.bookMemberId, ensured.job.id, prepared, {
       caption: req.body && req.body.caption,
     });
     if (!result.ok) return fail(result.error);
@@ -2846,9 +2881,9 @@ router.post('/m/:token/customers/c/:id/photos', (req, res, next) => {
 }));
 
 router.post('/m/:token/customers/jobs/:id/photos/:photoId/delete', form, withMember(async (req, res, ctx) => {
-  const result = await work.removeJobPhoto(ctx.network.id, ctx.member.id, req.params.id, req.params.photoId);
+  const result = await work.removeJobPhoto(ctx.network.id, ctx.bookMemberId, req.params.id, req.params.photoId);
   if (!result.ok) {
-    const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+    const job = await work.getJob(ctx.network.id, ctx.bookMemberId, req.params.id);
     if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
     return renderJobPage(req, res, ctx, { job, flash: { error: result.error }, status: 400 });
   }
@@ -2858,7 +2893,7 @@ router.post('/m/:token/customers/jobs/:id/photos/:photoId/delete', form, withMem
 router.post('/m/:token/customers/jobs/:id/photos/:photoId/caption', form, withMember(async (req, res, ctx) => {
   const jobId = req.params.id;
   const photoId = req.params.photoId;
-  const job = await work.getJob(ctx.network.id, ctx.member.id, jobId);
+  const job = await work.getJob(ctx.network.id, ctx.bookMemberId, jobId);
   const back = safeReturn(
     ctx,
     req.body && req.body.returnTo,
@@ -2875,7 +2910,7 @@ router.post('/m/:token/customers/jobs/:id/photos/:photoId/caption', form, withMe
   if (!job) return fail('Job not found.');
   const result = await work.updateJobPhotoCaption(
     ctx.network.id,
-    ctx.member.id,
+    ctx.bookMemberId,
     jobId,
     photoId,
     req.body && req.body.caption,
@@ -2903,7 +2938,7 @@ router.post('/m/:token/customers/jobs/:id/status', form, withMember(async (req, 
   const tz = memberTimeZone(req);
   const result = await work.setJobStatus(
     ctx.network.id,
-    ctx.member.id,
+    ctx.bookMemberId,
     req.params.id,
     String((req.body && req.body.status) || ''),
     { today: work.todayIn(tz), timeZone: tz },
@@ -2920,7 +2955,7 @@ router.post('/m/:token/customers/jobs/:id/status', form, withMember(async (req, 
     });
   }
   if (!result.ok) {
-    const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+    const job = await work.getJob(ctx.network.id, ctx.bookMemberId, req.params.id);
     if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
     return renderJobPage(req, res, ctx, { job, flash: { error: result.error }, status: 400 });
   }
@@ -2928,15 +2963,15 @@ router.post('/m/:token/customers/jobs/:id/status', form, withMember(async (req, 
 }));
 
 router.post('/m/:token/customers/jobs/:id/delete', form, withMember(async (req, res, ctx) => {
-  const result = await work.deleteJob(ctx.network.id, ctx.member.id, req.params.id);
+  const result = await work.deleteJob(ctx.network.id, ctx.bookMemberId, req.params.id);
   const to = result.ok ? `${ctx.base}/customers/c/${result.job.customerId}` : `${ctx.base}/customers`;
   return res.redirect(303, `${to}?ok=job_deleted`);
 }));
 
 router.get('/m/:token/customers/jobs/:id/calendar.ics', withMember(async (req, res, ctx) => {
-  const job = await work.getJob(ctx.network.id, ctx.member.id, req.params.id);
+  const job = await work.getJob(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!job || !job.date) return res.redirect(303, `${ctx.base}/customers`);
-  const customer = await work.getCustomer(ctx.network.id, ctx.member.id, job.customerId);
+  const customer = await work.getCustomer(ctx.network.id, ctx.bookMemberId, job.customerId);
   noStore(res);
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
   res.setHeader('Content-Disposition', `attachment; filename="job-${job.date}.ics"`);
@@ -2951,7 +2986,7 @@ router.post('/m/:token/customers/jobs/:id/share', form, withMember(async (req, r
   const invitePhone = String(body.invitePhone || '').trim();
   const inviteEmail = String(body.inviteEmail || '').trim();
   const back = `${ctx.base}/customers/jobs/${encodeURIComponent(jobId)}`;
-  const job = await work.getJob(ctx.network.id, ctx.member.id, jobId);
+  const job = await work.getJob(ctx.network.id, ctx.bookMemberId, jobId);
   if (!job) return res.redirect(303, `${ctx.base}/customers?view=pending`);
 
   if (!toMemberId && (invitePhone || inviteEmail)) {
@@ -3164,7 +3199,7 @@ router.post('/m/:token/customers/from-referral/:id', form, withMember(async (req
     if (!accepted.ok) return fail(accepted.error);
     referral = accepted.referral;
   }
-  const result = await work.convertReferral(ctx.network.id, ctx.member.id, referral, {
+  const result = await work.convertReferral(ctx.network.id, ctx.bookMemberId, referral, {
     tradeLabel: trades.tradeLabel(referral.tradeSlug, ctx.network),
     today: work.todayIn(memberTimeZone(req)),
   });
@@ -3368,8 +3403,8 @@ async function renderReview(req, res, ctx, flash, status, formValues) {
     defaults: keywordDefaults,
   });
   if (customerId && work.isRecordId(customerId)) {
-    const picked = customers.find((c) => c.id === customerId) || await work.getCustomer(ctx.network.id, ctx.member.id, customerId);
-    const jobs = await work.listJobs(ctx.network.id, ctx.member.id);
+    const picked = customers.find((c) => c.id === customerId) || await work.getCustomer(ctx.network.id, ctx.bookMemberId, customerId);
+    const jobs = await work.listJobs(ctx.network.id, ctx.bookMemberId);
     const forCustomer = jobs.filter((j) => j.customerId === customerId);
     keywordCtx = reviewRequestScript.resolveReviewKeywords({
       customer: picked,
@@ -3833,13 +3868,13 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
   let name = String(body.name || '').trim();
   const customerId = String(body.customerId || '').trim();
   if (customerId && work.isRecordId(customerId)) {
-    const picked = await work.getCustomer(ctx.network.id, ctx.member.id, customerId);
+    const picked = await work.getCustomer(ctx.network.id, ctx.bookMemberId, customerId);
     if (picked) {
       name = name || picked.name;
       phone = phone || picked.phone || '';
       email = email || picked.email || '';
       if (!picked.ghlContactId) {
-        await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, picked).catch(() => null);
+        await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.bookMemberId, picked).catch(() => null);
       }
     }
   }
@@ -3891,13 +3926,13 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
     : '';
   if (!resolvedCustomerId && (formValues.name || formValues.phone || formValues.email)) {
     const existing = work.findCustomerMatch(
-      await work.listCustomers(ctx.network.id, ctx.member.id),
+      await work.listCustomers(ctx.network.id, ctx.bookMemberId),
       { phone: formValues.phone, email: formValues.email },
     );
     if (existing) {
       resolvedCustomerId = existing.id;
     } else if (formValues.name) {
-      const created = await work.saveCustomer(ctx.network.id, ctx.member.id, {
+      const created = await work.saveCustomer(ctx.network.id, ctx.bookMemberId, {
         name: formValues.name,
         phone: formValues.phone,
         email: formValues.email,
@@ -3910,8 +3945,8 @@ router.post('/m/:token/review/send', withReviewUpload('shareImage'), withMember(
   let cust = null;
   let jobsForCustomer = [];
   if (resolvedCustomerId) {
-    cust = await work.getCustomer(ctx.network.id, ctx.member.id, resolvedCustomerId);
-    jobsForCustomer = (await work.listJobs(ctx.network.id, ctx.member.id))
+    cust = await work.getCustomer(ctx.network.id, ctx.bookMemberId, resolvedCustomerId);
+    jobsForCustomer = (await work.listJobs(ctx.network.id, ctx.bookMemberId))
       .filter((j) => j.customerId === resolvedCustomerId);
   }
   // Form overrides win; else customer job/city; else member defaults from SMS script settings.
@@ -4168,17 +4203,17 @@ router.post('/m/:token/leads/:leadId/to-customer', form, withMember(async (req, 
     return renderReferrals(req, res, ctx, { error: 'That lead is not available.' }, 404);
   }
   const existing = work.findCustomerMatch(
-    await work.listCustomers(ctx.network.id, ctx.member.id),
+    await work.listCustomers(ctx.network.id, ctx.bookMemberId),
     { phone: lead.phone, email: lead.email },
   );
   let customerId = existing && existing.id;
   if (existing) {
-    await work.setCustomerLeadFlag(ctx.network.id, ctx.member.id, existing.id, false);
+    await work.setCustomerLeadFlag(ctx.network.id, ctx.bookMemberId, existing.id, false);
   } else {
     const leadSource = String(lead.source || '').trim().toLowerCase() === 'agency'
       ? 'agency'
       : 'website_form';
-    const saved = await work.saveCustomer(ctx.network.id, ctx.member.id, {
+    const saved = await work.saveCustomer(ctx.network.id, ctx.bookMemberId, {
       name: lead.name || 'Customer',
       phone: lead.phone || '',
       email: lead.email || '',
@@ -4188,7 +4223,7 @@ router.post('/m/:token/leads/:leadId/to-customer', form, withMember(async (req, 
       return renderReferrals(req, res, ctx, { error: saved.error || 'Could not add that customer.' }, 400);
     }
     customerId = saved.customer.id;
-    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.member.id, saved.customer).catch(() => null);
+    await memberCustomerGhl.pushCustomerToGhl(ctx.network, ctx.bookMemberId, saved.customer).catch(() => null);
   }
   const formLeads = (pkg.formLeads || []).map((f) =>
     (f.id === leadId ? { ...f, status: 'closed' } : f),

@@ -3,6 +3,9 @@
  * Scoped per network + member; ids for the scope always come from the signed
  * member token, never from the request.
  *
+ * Workspace owner + staff teammates share one team book (member id `owner`)
+ * so forms/calls/texts stay in sync. Referral partners keep a private book.
+ *
  *   netcust:<networkId>:<memberId>:<id>   customer
  *   netjob:<networkId>:<memberId>:<id>    job / project for a customer
  */
@@ -45,9 +48,55 @@ const REMIND_BEFORE_SET = new Set(REMIND_BEFORE_OPTIONS.map((o) => o.value));
 /** Member / network ids — allow staff_* workspace seats (underscore). */
 const SCOPE_ID = /^[a-z0-9_]{1,64}$/i;
 const RECORD_ID = /^[a-z0-9]{6,40}$/;
+/** Shared customer/job book for workspace owner + staff (see teamBookMemberId). */
+const TEAM_BOOK_MEMBER_ID = 'owner';
 
 function newId() {
   return `${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}`;
+}
+
+/**
+ * Owner + workspace staff read/write the same customer book so inbound
+ * forms/calls/texts stay identical across teammate apps. Partners stay private.
+ */
+function teamBookMemberId(network, member) {
+  if (!member || !member.id) return TEAM_BOOK_MEMBER_ID;
+  if (String(member.id) === TEAM_BOOK_MEMBER_ID) return TEAM_BOOK_MEMBER_ID;
+  if (member.workspaceStaff === true || member.source === 'workspace_staff') {
+    return TEAM_BOOK_MEMBER_ID;
+  }
+  const email = String(member.email || '').trim().toLowerCase();
+  const ownerEmail = String((network && network.ownerEmail) || '').trim().toLowerCase();
+  if (email && ownerEmail && email === ownerEmail) return TEAM_BOOK_MEMBER_ID;
+  return String(member.id);
+}
+
+function usesTeamBook(network, member) {
+  return teamBookMemberId(network, member) === TEAM_BOOK_MEMBER_ID
+    && String(member && member.id) !== TEAM_BOOK_MEMBER_ID;
+}
+
+/** Actor stamp for shared-book audit (“Last updated by Greg”). */
+function actorTouchFields(opts = {}, existing = {}) {
+  const name = cleanLine(opts.touchedByName || opts.addedByName, 80);
+  const memberId = SCOPE_ID.test(String(opts.touchedByMemberId || opts.addedByMemberId || ''))
+    ? String(opts.touchedByMemberId || opts.addedByMemberId)
+    : '';
+  const action = cleanLine(opts.touchedAction, 40);
+  if (!name && !memberId) {
+    return {
+      lastTouchedByName: existing.lastTouchedByName || '',
+      lastTouchedByMemberId: existing.lastTouchedByMemberId || '',
+      lastTouchedAt: existing.lastTouchedAt || '',
+      lastTouchedAction: existing.lastTouchedAction || '',
+    };
+  }
+  return {
+    lastTouchedByName: name || existing.lastTouchedByName || '',
+    lastTouchedByMemberId: memberId || existing.lastTouchedByMemberId || '',
+    lastTouchedAt: new Date().toISOString(),
+    lastTouchedAction: action || existing.lastTouchedAction || '',
+  };
 }
 
 /**
@@ -280,6 +329,13 @@ function normalizeCustomer(raw) {
       ? String(c.addedByMemberId)
       : '',
     addedByName: cleanLine(c.addedByName, 80),
+    /** Last teammate who changed this contact (mark lead/customer, remove, edit). */
+    lastTouchedByMemberId: SCOPE_ID.test(String(c.lastTouchedByMemberId || ''))
+      ? String(c.lastTouchedByMemberId)
+      : '',
+    lastTouchedByName: cleanLine(c.lastTouchedByName, 80),
+    lastTouchedAt: c.lastTouchedAt ? String(c.lastTouchedAt) : '',
+    lastTouchedAction: cleanLine(c.lastTouchedAction, 40),
     /**
      * Member removed this contact from Leads (or marked as customer). Website-form
      * sync must not auto re-stamp isLead until they Mark as lead again.
@@ -577,6 +633,10 @@ async function setCustomerKind(networkId, memberId, id, kind, opts = {}) {
     : (removeFromLeads || existing.isLead
       ? (existing.leadRemovedAt || now)
       : (existing.leadRemovedAt || ''));
+  const touchAction = removeFromLeads
+    ? 'removed_lead'
+    : (wantLead ? 'marked_lead' : (wantQuote ? 'marked_quote' : 'marked_customer'));
+  const touch = actorTouchFields({ ...opts, touchedAction: opts.touchedAction || touchAction }, existing);
   if (existing.isLead === wantLead && existing.isQuoteRequest === wantQuote) {
     // Remove from Leads when already a customer still needs the dismiss stamp,
     // otherwise website-form repair re-adds them on the next Received load.
@@ -584,6 +644,7 @@ async function setCustomerKind(networkId, memberId, id, kind, opts = {}) {
       const stamped = await writeCustomer(networkId, memberId, {
         ...existing,
         leadRemovedAt: now,
+        ...touch,
       });
       return { ok: true, customer: stamped, kind: next };
     }
@@ -600,6 +661,7 @@ async function setCustomerKind(networkId, memberId, id, kind, opts = {}) {
     isQuoteRequest: wantQuote,
     markedAsQuoteAt: wantQuote ? (existing.markedAsQuoteAt || now) : '',
     leadRemovedAt: nextLeadRemovedAt,
+    ...touch,
     // First time this contact becomes a lead — remember who marked them.
     ...(wantLead && !existing.addedByName && addedByName
       ? { addedByName, addedByMemberId: addedByMemberId || existing.addedByMemberId || '' }
@@ -658,6 +720,16 @@ async function saveCustomer(networkId, memberId, input, opts = {}) {
   const nextAddedByMemberId = existing
     ? (existing.addedByMemberId || (SCOPE_ID.test(String(addedByMemberId || '')) ? String(addedByMemberId) : ''))
     : (SCOPE_ID.test(String(addedByMemberId || '')) ? String(addedByMemberId) : '');
+  const touch = actorTouchFields(
+    {
+      touchedByName: opts.touchedByName,
+      touchedByMemberId: opts.touchedByMemberId,
+      touchedAction: opts.touchedAction || (existing ? 'updated' : 'created'),
+      addedByName,
+      addedByMemberId,
+    },
+    existing || {},
+  );
   const customer = normalizeCustomer({
     ...(existing || {}),
     ...checked.fields,
@@ -671,6 +743,7 @@ async function saveCustomer(networkId, memberId, input, opts = {}) {
     source: nextSource,
     addedByName: nextAddedByName,
     addedByMemberId: nextAddedByMemberId,
+    ...touch,
     createdAt: existing ? existing.createdAt : now,
     updatedAt: now,
   });
@@ -1398,6 +1471,10 @@ module.exports = {
   customerSourceLabel,
   customerSourcePillClass,
   memberAddedByLabel,
+  TEAM_BOOK_MEMBER_ID,
+  teamBookMemberId,
+  usesTeamBook,
+  actorTouchFields,
   googleMapsSearchUrl,
   MAX_CUSTOMER_TAGS,
   isRecordId,

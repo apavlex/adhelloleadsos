@@ -90,14 +90,15 @@ function isCallOrSmsInboundRow(row) {
 async function finalizeInboundCustomer(network, member, list, customer, row) {
   if (!customer) return null;
   let next = customer;
+  const bookMemberId = work.teamBookMemberId(network, member);
   try {
     const memberCustomerGhl = require('./memberCustomerGhl');
     if (isFormInboundRow(row)) {
-      const stamped = await memberCustomerGhl.stampWebsiteFormLead(network, member.id, next);
+      const stamped = await memberCustomerGhl.stampWebsiteFormLead(network, bookMemberId, next);
       if (stamped.ok && stamped.customer) next = stamped.customer;
     } else if (isCallOrSmsInboundRow(row)) {
-      // Calls & texts: same contact book, flagged as leads (Leads folder + Home tile).
-      const stamped = await memberCustomerGhl.stampGhlInboundLead(network, member.id, next);
+      // Calls & texts: shared team book, flagged as leads (Leads folder + Home tile).
+      const stamped = await memberCustomerGhl.stampGhlInboundLead(network, bookMemberId, next);
       if (stamped.ok && stamped.customer) next = stamped.customer;
     }
   } catch (err) {
@@ -111,10 +112,13 @@ async function finalizeInboundCustomer(network, member, list, customer, row) {
 
 /**
  * Match or create a Reviews-app customer so Open always has an in-app profile.
+ * Owner + staff write the shared team book so every teammate sees the same lead.
  * Never returns a CRM /focus or /pipeline path.
  */
 async function ensureCustomerForInbound(network, member, customers, row) {
   const list = Array.isArray(customers) ? customers : [];
+  const bookMemberId = work.teamBookMemberId(network, member);
+  const actorName = work.memberAddedByLabel(member);
   const fields = inboundMatchFields(row);
   const formAnswers = inboundFormAnswers(row);
   let formAddress = '';
@@ -137,7 +141,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
     }
     const saved = await work.saveCustomer(
       network.id,
-      member.id,
+      bookMemberId,
       {
         name: existing.name,
         phone: needPhone ? fields.phone : existing.phone,
@@ -152,6 +156,9 @@ async function ensureCustomerForInbound(network, member, customers, row) {
         tags: existing.tags,
         isReferralPartner: existing.isReferralPartner,
         formAnswers: needAnswers ? formAnswers : undefined,
+        touchedByMemberId: member.id,
+        touchedByName: actorName,
+        touchedAction: 'inbound_update',
       },
     );
     if (saved.ok && saved.customer) {
@@ -168,7 +175,7 @@ async function ensureCustomerForInbound(network, member, customers, row) {
 
   const saved = await work.saveCustomer(
     network.id,
-    member.id,
+    bookMemberId,
     {
       name: String(name).slice(0, 120) || 'Contact',
       phone: fields.phone || '',
@@ -180,7 +187,10 @@ async function ensureCustomerForInbound(network, member, customers, row) {
       source: inboundCustomerSource('', row && row.type),
       formAnswers: formAnswers.length ? formAnswers : undefined,
       addedByMemberId: member.id,
-      addedByName: work.memberAddedByLabel(member),
+      addedByName: actorName,
+      touchedByMemberId: member.id,
+      touchedByName: actorName,
+      touchedAction: 'inbound_create',
     },
   );
   if (!saved.ok || !saved.customer) return null;
@@ -265,7 +275,8 @@ async function listPendingForMember(member, network, opts = {}) {
     limit: opts.limit || 25,
   }).filter((row) => row && allowInboundTypeForMember(row.type, member, network));
 
-  const customers = await work.listCustomers(network.id, member.id);
+  const bookMemberId = work.teamBookMemberId(network, member);
+  const customers = await work.listCustomers(network.id, bookMemberId);
   const out = [];
   for (const row of rows) {
     // eslint-disable-next-line no-await-in-loop
@@ -366,13 +377,15 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
     const preview = String((event && event.preview) || '').replace(/\s+/g, ' ').trim();
     const formAnswers = (event && event.answers) || lead.formAnswers || [];
 
-    const customersByMember = new Map();
+    // One shared team book for owner/staff — cache by book scope, not per seat.
+    const customersByBook = new Map();
     let sent = 0;
     for (const member of members) {
-      let customers = customersByMember.get(member.id);
+      const bookMemberId = work.teamBookMemberId(network, member);
+      let customers = customersByBook.get(bookMemberId);
       if (!customers) {
-        customers = await work.listCustomers(network.id, member.id);
-        customersByMember.set(member.id, customers);
+        customers = await work.listCustomers(network.id, bookMemberId);
+        customersByBook.set(bookMemberId, customers);
       }
       // Always create/match a Reviews profile so the tap opens the lead card.
       // eslint-disable-next-line no-await-in-loop
@@ -385,6 +398,8 @@ function notifyEnabledMembers({ workspaceId, lead, event } = {}) {
         answers: (event && event.answers) || lead.formAnswers || [],
         formAnswers: lead.formAnswers || (event && event.answers) || [],
       });
+      // Keep cache fresh after create/stamp on the shared book.
+      customersByBook.set(bookMemberId, customers);
       const path = customer ? profileOpenHref(customer) : '/customers';
       const href = memberAppUrl(network, member, path);
       // eslint-disable-next-line no-await-in-loop
@@ -466,7 +481,8 @@ async function repairCallSmsContactLeads(network, member, opts = {}) {
   });
   if (!rows.length) return { ok: true, stamped: 0 };
 
-  const customers = await work.listCustomers(network.id, member.id);
+  const bookMemberId = work.teamBookMemberId(network, member);
+  const customers = await work.listCustomers(network.id, bookMemberId);
   if (!customers.length) return { ok: true, stamped: 0 };
 
   const memberCustomerGhl = require('./memberCustomerGhl');
@@ -479,7 +495,7 @@ async function repairCallSmsContactLeads(network, member, opts = {}) {
     seen.add(match.id);
     if (match.isLead || match.leadRemovedAt) continue;
     // eslint-disable-next-line no-await-in-loop
-    const out = await memberCustomerGhl.stampGhlInboundLead(network, member.id, match);
+    const out = await memberCustomerGhl.stampGhlInboundLead(network, bookMemberId, match);
     if (out && out.ok && out.customer && out.customer.isLead) {
       stamped += 1;
       const idx = customers.findIndex((c) => c && c.id === match.id);

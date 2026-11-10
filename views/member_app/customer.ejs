@@ -451,6 +451,14 @@
     </section>
     <% } %>
     <% if (_isLeadContact) { %>
+    <% if (customer.lastTouchedByName) { %>
+    <p class="ma-hint" style="margin:0 0 8px" data-ma-last-touched>
+      <% if (customer.lastTouchedAction === 'marked_customer') { %>Marked as customer by <strong><%= customer.lastTouchedByName %></strong>
+      <% } else if (customer.lastTouchedAction === 'marked_lead') { %>Marked as lead by <strong><%= customer.lastTouchedByName %></strong>
+      <% } else if (customer.lastTouchedAction === 'removed_lead') { %>Removed from Leads by <strong><%= customer.lastTouchedByName %></strong>
+      <% } else { %>Last updated by <strong><%= customer.lastTouchedByName %></strong><% } %>
+    </p>
+    <% } %>
     <div class="ma-actions" style="margin:0 0 14px;flex-wrap:wrap">
       <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/remove-lead" data-ma-confirm="Remove <%= customer.name %> from Leads? They’ll stay in Customers.">
         <input type="hidden" name="stay" value="1">
@@ -593,9 +601,20 @@
     <% } %>
 
     <% if (customer) { %>
-    <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/delete" class="ma-section" data-ma-confirm="Delete <%= customer.name %><%= jobs.length ? ' and their ' + jobs.length + ' job' + (jobs.length === 1 ? '' : 's') : '' %>?">
-      <button type="submit" class="ma-btn ma-btn--danger ma-btn--block">Delete customer</button>
-    </form>
+    <div class="ma-section">
+      <% if (customer.lastTouchedByName) { %>
+      <p class="ma-hint" style="margin:0 0 10px" data-ma-last-touched>
+        <% if (customer.lastTouchedAction === 'marked_customer') { %>Marked as customer by <strong><%= customer.lastTouchedByName %></strong>
+        <% } else if (customer.lastTouchedAction === 'marked_lead') { %>Marked as lead by <strong><%= customer.lastTouchedByName %></strong>
+        <% } else if (customer.lastTouchedAction === 'removed_lead') { %>Removed from Leads by <strong><%= customer.lastTouchedByName %></strong>
+        <% } else if (customer.lastTouchedAction === 'inbound_create' || customer.lastTouchedAction === 'inbound_update') { %>Synced from call/text/form — last touch <strong><%= customer.lastTouchedByName %></strong>
+        <% } else { %>Last updated by <strong><%= customer.lastTouchedByName %></strong><% } %>
+      </p>
+      <% } %>
+      <form method="post" action="<%= base %>/customers/c/<%= customer.id %>/delete" data-ma-confirm="Delete <%= customer.name %><%= jobs.length ? ' and their ' + jobs.length + ' job' + (jobs.length === 1 ? '' : 's') : '' %>?">
+        <button type="submit" class="ma-btn ma-btn--danger ma-btn--block">Delete <%= customer.isLead ? 'lead' : 'customer' %></button>
+      </form>
+    </div>
     <% } %>
   </main>
   <%- include('_tabbar') %>
