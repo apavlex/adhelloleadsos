@@ -130,6 +130,39 @@ test('owner can save Workspace white-label branding from Profile', async () => {
   }
 });
 
+test('teammates inherit workspace accent (same blue as owner app)', async () => {
+  const wid = `ws_teammate_brand_${Date.now().toString(36)}`;
+  await dbService.saveWorkspace(wid, {
+    id: wid,
+    name: 'TPR Flooring',
+    ownerUserId: 'owner@example.com',
+    members: { 'owner@example.com': { role: 'owner' } },
+    accentColor: '#1E3A8A',
+    accentTextColor: '#FFFFFF',
+    whiteLabel: { appName: 'TPR Flooring', preferredTheme: 'light' },
+  });
+  const network = await store.getOrCreateNetworkForWorkspace(wid, {
+    name: 'TPR Flooring network',
+    ownerEmail: 'owner@example.com',
+  });
+  const teammate = await store.saveMember(network.id, {
+    companyName: 'TPR Flooring',
+    contactName: 'Greg',
+    email: 'greg@tprflooring.com',
+    status: 'active',
+    workspaceStaff: true,
+  });
+  const applied = await ownerAppBrand.applyWorkspaceBrand(
+    { appName: 'Partner default', accent: '#FFDB3A', onAccent: '#0f172a', logoUrl: '', initials: 'P' },
+    network,
+    teammate,
+  );
+  assert.equal(applied.accent.toLowerCase(), '#1e3a8a');
+  assert.equal(applied.appName, 'TPR Flooring');
+  assert.equal(applied.fromWorkspace, true);
+  assert.equal(applied.preferredTheme, 'light');
+});
+
 test('partner members do not see App branding controls', async () => {
   const wid = `ws_partner_brand_${Date.now().toString(36)}`;
   await dbService.saveWorkspace(wid, {

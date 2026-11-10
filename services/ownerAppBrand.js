@@ -1,7 +1,7 @@
 /**
- * Owner Referral app branding overlays Workspace → White-label
- * (app name, logo, accent) onto the member PWA for the workspace owner.
- * Partner members keep Network → App branding.
+ * Workspace → White-label (app name, logo, accent) overlays the member PWA.
+ * Owner can edit it; teammates/partners on the same network inherit the look
+ * so the app matches the main (owner) blue brand instead of default yellow.
  */
 const dbService = require('./database');
 const whiteLabel = require('./whiteLabel');
@@ -39,20 +39,6 @@ async function applyWorkspaceBrand(brand, network, member) {
   if (!ws) return base;
 
   const wl = whiteLabel.brandForWorkspace(ws);
-  // Staff keep their own name/logo, but inherit White-label light/dark default.
-  if (!isOwnerMember(member, network)) {
-    return {
-      ...base,
-      preferredTheme: wl.preferredTheme || 'system',
-      preferredThemeAt: wl.preferredThemeAt || '',
-    };
-  }
-
-  const businessName =
-    cleanName(wl.customName) ||
-    cleanName(ws.name) ||
-    cleanName(member && member.companyName) ||
-    base.appName;
   const accent =
     networkBrand.normalizeHex(ws.accentColor) ||
     base.accent ||
@@ -60,6 +46,29 @@ async function applyWorkspaceBrand(brand, network, member) {
   const onAccent =
     networkBrand.normalizeHex(ws.accentTextColor) ||
     networkBrand.onAccentColor(accent);
+  const businessName =
+    cleanName(wl.customName) ||
+    cleanName(ws.name) ||
+    cleanName(member && member.companyName) ||
+    base.appName;
+
+  // Teammates/partners inherit the workspace look (accent + name + logo).
+  // Only the owner can edit White-label; everyone else just sees the same brand.
+  if (!isOwnerMember(member, network)) {
+    return {
+      ...base,
+      appName: businessName,
+      heroName: businessName,
+      shortName: businessName.length <= 12 ? businessName : businessName.split(/\s+/)[0].slice(0, 12),
+      accent,
+      onAccent,
+      logoUrl: wl.hasLogo ? wl.logoUrl : base.logoUrl,
+      preferredTheme: wl.preferredTheme || 'system',
+      preferredThemeAt: wl.preferredThemeAt || '',
+      initials: networkBrand.initials(businessName),
+      fromWorkspace: true,
+    };
+  }
 
   return {
     ...base,
@@ -127,6 +136,13 @@ async function saveOwnerWorkspaceBranding(network, member, patch = {}) {
   }
   if (next.appName) {
     brand.appName = next.appName;
+  }
+  // Keep Network accent aligned so teammates match the owner app color.
+  if (networkBrand.normalizeHex(ws.accentColor)) {
+    brand.accent = networkBrand.normalizeHex(ws.accentColor);
+  }
+  if (networkBrand.normalizeHex(ws.accentTextColor)) {
+    brand.onAccent = networkBrand.normalizeHex(ws.accentTextColor);
   }
   const savedNet = await networkStore.saveNetwork({ ...network, brand });
   const brandView = whiteLabel.brandForWorkspace({ ...ws, id: wid, whiteLabel: next });
