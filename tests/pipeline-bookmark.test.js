@@ -68,12 +68,14 @@ describe('pipeline row bookmark wiring', () => {
     const moreIdx = bar.indexOf('id="bulkBarMore"');
     const primaryIdx = bar.indexOf('bulk-bar-primary-row');
     const bookmarkIdx = bar.indexOf('id="bulkBookmarkBtn"');
+    const referralInMoreIdx = bar.indexOf('id="bulkAddReferralBtn"', moreIdx);
     const verifyIdx = bar.indexOf('js-bulk-verify-phones');
     const exportIdx = bar.indexOf('js-bulk-export-csv');
     const mergeIdx = bar.indexOf('id="bulkMergeBtn"');
     const cancelIdx = bar.indexOf('id="cancelSelectionBtn"');
     assert.ok(moreIdx > primaryIdx, 'More menu sits with primary outreach');
     assert.ok(bookmarkIdx > moreIdx, 'bookmark lives inside More');
+    assert.ok(referralInMoreIdx > moreIdx, 'referral lives inside More on pipeline');
     assert.ok(verifyIdx > moreIdx, 'verify phones lives inside More');
     assert.ok(exportIdx > moreIdx && mergeIdx > exportIdx, 'export + merge live inside More');
     assert.ok(cancelIdx > mergeIdx, 'cancel remains after More tools');
