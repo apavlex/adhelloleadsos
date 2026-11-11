@@ -62,24 +62,25 @@ describe('pipeline row bookmark wiring', () => {
     assert.match(css, /\.pipeline-bookmark-btn\.bookmark-btn--saved:hover/);
   });
 
-  it('exposes bulk Bookmark on the tools row; Export and Merge sit before Cancel', () => {
+  it('tucks tools into More; drops Softphone and Merge duplicates from the floating bar', () => {
     const bar = fs.readFileSync(path.join(ROOT, 'views/partials/bulk_action_bar.ejs'), 'utf8');
     const bulkJs = fs.readFileSync(path.join(ROOT, 'public/js/pipeline-bulk-select.js'), 'utf8');
-    const toolsRowIdx = bar.indexOf('bulk-bar-tools-row');
-    const secondaryIdx = bar.indexOf('bulk-bar-secondary-actions');
-    const mergeIdx = bar.indexOf('id="bulkMergeBtn"');
-    const exportIdx = bar.indexOf('js-bulk-export-csv');
+    const moreIdx = bar.indexOf('id="bulkBarMore"');
+    const primaryIdx = bar.indexOf('bulk-bar-primary-row');
     const bookmarkIdx = bar.indexOf('id="bulkBookmarkBtn"');
     const verifyIdx = bar.indexOf('js-bulk-verify-phones');
-    const subaccountIdx = bar.indexOf('id="bulkCreateSubaccountBtn"');
+    const exportIdx = bar.indexOf('js-bulk-export-csv');
+    const mergeIdx = bar.indexOf('id="bulkMergeBtn"');
     const cancelIdx = bar.indexOf('id="cancelSelectionBtn"');
-    assert.ok(toolsRowIdx > 0 && secondaryIdx > toolsRowIdx, 'secondary actions follow tools row');
-    assert.ok(verifyIdx > toolsRowIdx && verifyIdx < secondaryIdx, 'verify phones stays on tools row');
-    assert.ok(bookmarkIdx > toolsRowIdx && bookmarkIdx < secondaryIdx, 'bookmark stays on tools row');
-    assert.ok(subaccountIdx > bookmarkIdx && subaccountIdx < secondaryIdx, 'create subaccount stays after bookmark on tools row');
-    assert.ok(exportIdx > secondaryIdx, 'export sits in secondary actions');
-    assert.ok(mergeIdx > exportIdx, 'merge sits after export');
-    assert.ok(cancelIdx > mergeIdx, 'cancel sits after merge');
+    assert.ok(moreIdx > primaryIdx, 'More menu sits with primary outreach');
+    assert.ok(bookmarkIdx > moreIdx, 'bookmark lives inside More');
+    assert.ok(verifyIdx > moreIdx, 'verify phones lives inside More');
+    assert.ok(exportIdx > moreIdx && mergeIdx > exportIdx, 'export + merge live inside More');
+    assert.ok(cancelIdx > mergeIdx, 'cancel remains after More tools');
+    assert.doesNotMatch(bar, /id="bulkSoftphoneBtn"/);
+    assert.doesNotMatch(bar, /id="bulkMergeDuplicatesBtn"/);
+    assert.doesNotMatch(bar, />Softphone</);
+    assert.doesNotMatch(bar, /Merge duplicates/);
     assert.match(bar, /id="bulkBookmarkBtn"[\s\S]*Bookmark/);
     assert.match(bar, /js-bulk-verify-phones[\s\S]*Verify phones/);
     assert.match(bar, /M17\.593 3\.322c1\.1\.128 1\.907 1\.077 1\.907 2\.185V21L12 17\.25/);

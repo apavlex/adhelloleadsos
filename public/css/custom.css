@@ -1926,16 +1926,6 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   filter: none;
 }
 
-#bulkActionBar .bulk-bar-btn--softphone.bulk-bar-btn--primary-lg {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--brand-yellow, #ffd644);
-  color: #fff;
-}
-
-#bulkActionBar .bulk-bar-btn--softphone.bulk-bar-btn--primary-lg:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.16);
-}
-
 #bulkActionBar .bulk-bar-btn--accent.bulk-bar-btn--primary-lg {
   background: var(--brand-yellow, #ffd644);
   border-color: transparent;
@@ -2081,6 +2071,65 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Compact “More” menu — tools + export/merge live here instead of a third row. */
+#bulkActionBar .bulk-bar-more {
+  position: relative;
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+}
+#bulkActionBar .bulk-bar-more__summary {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 100%;
+  min-height: 2.85rem;
+  padding: 0.65rem 0.9rem;
+  user-select: none;
+}
+#bulkActionBar .bulk-bar-more__summary::-webkit-details-marker,
+#bulkActionBar .bulk-bar-more__summary::marker {
+  display: none;
+  content: '';
+}
+#bulkActionBar .bulk-bar-more[open] > .bulk-bar-more__summary {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+#bulkActionBar .bulk-bar-more__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
+  z-index: 5;
+  min-width: min(18rem, 78vw);
+  max-width: min(22rem, 90vw);
+  padding: 0.55rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+#bulkActionBar .bulk-bar-more__tools {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+}
+#bulkActionBar .bulk-bar-more__tools .bulk-bar-btn {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 2.35rem;
+  padding: 0.55rem 0.7rem;
+}
+
 #bulkActionBar .bulk-bar-primary-split {
   flex: 1 1 0;
   min-width: 0;
@@ -2203,7 +2252,7 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     gap: 0.45rem;
   }
 
-  /* Call / Softphone / SMS on the first line; Email / Direct Mail / Auto outreach on the second. */
+  /* Call / SMS / Email on the first line; Direct Mail / Auto outreach / More on the second. */
   #bulkActionBar .bulk-bar-primary-split {
     flex: 1 1 28%;
     width: auto;
@@ -2213,6 +2262,16 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     letter-spacing: 0.06em;
     line-height: 1.1;
     white-space: normal;
+  }
+
+  #bulkActionBar .bulk-bar-more {
+    flex: 1 1 28%;
+  }
+
+  #bulkActionBar .bulk-bar-more__summary {
+    width: 100%;
+    justify-content: center;
+    min-height: 3rem;
   }
 
   #bulkActionBar .bulk-bar-tools-row {

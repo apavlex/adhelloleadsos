@@ -128,7 +128,7 @@
         if (el) el.disabled = false;
       });
       if (bar.dataset.bulkMode !== 'search') {
-        ['bulkFocusModeBtn', 'bulkSoftphoneBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkEmailBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
+        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkEmailBtn', 'bulkAutoOutreachBtn'].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
           el.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');
@@ -4104,30 +4104,6 @@
           window.setTimeout(function () {
             window.location.href = href;
           }, 120);
-          return;
-        }
-        if (e.target.closest('#bulkSoftphoneBtn')) {
-          e.preventDefault();
-          e.stopPropagation();
-          const loaded =
-            typeof window.__adhelloCallSelectedInSoftphone === 'function'
-              ? window.__adhelloCallSelectedInSoftphone()
-              : 0;
-          if (typeof window.showBulkActionConfirmation === 'function') {
-            window.showBulkActionConfirmation(
-              loaded
-                ? `Softphone loaded with ${loaded} selected lead${loaded === 1 ? '' : 's'} — press the green button to dial.`
-                : 'None of the selected leads has a phone number.',
-              loaded ? 'info' : 'error',
-            );
-          }
-          if (loaded && window.matchMedia && window.matchMedia('(max-width: 639px)').matches) {
-            const bar = document.getElementById('bulkActionBar');
-            if (bar && bar.dataset.minimized !== 'true') {
-              const minBtn = document.getElementById('bulkBarMinimizeBtn');
-              if (minBtn) minBtn.click();
-            }
-          }
           return;
         }
         if (e.target.closest('#bulkPushGhlBtn')) {
