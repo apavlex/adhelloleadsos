@@ -122,6 +122,7 @@ describe('public business directory', () => {
     const nav = fs.readFileSync(path.join(root, 'views/partials/app_nav_items.ejs'), 'utf8');
     const seoNav = fs.readFileSync(path.join(root, 'views/partials/seo_local_rank_nav.ejs'), 'utf8');
     const routes = fs.readFileSync(path.join(root, 'routes/directory.js'), 'utf8');
+    const view = fs.readFileSync(path.join(root, 'views/directory.ejs'), 'utf8');
     const bar = fs.readFileSync(path.join(root, 'views/partials/bulk_action_bar.ejs'), 'utf8');
     const moreIdx = bar.indexOf('id="bulkBarMore"');
     assert.match(server, /directoryPublicRoutes/);
@@ -131,6 +132,12 @@ describe('public business directory', () => {
     assert.match(seoNav, /href="\/directory"/);
     assert.match(routes, /\/listings\/bulk/);
     assert.match(routes, /upsertManyFromLeads/);
+    // First paint is a shell (like Reviews/Q&A); listings hydrate from inbox.json.
+    assert.match(routes, /shell:\s*true/);
+    assert.match(routes, /inboxHydrate/);
+    assert.match(routes, /\/inbox\.json/);
+    assert.match(view, /\/directory\/inbox\.json/);
+    assert.match(view, /applyInbox/);
     assert.ok(moreIdx >= 0);
     assert.ok(bar.indexOf('id="bulkAddDirectoryBtn"', moreIdx) > moreIdx);
     assert.match(bar, /\/directory\/listings\/bulk/);

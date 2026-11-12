@@ -15,6 +15,15 @@
 - `routes/directory.js`, `routes/directoryPublic.js`, `views/directory.ejs`
 - `views/partials/bulk_action_bar.ejs` — `#bulkAddDirectoryBtn`
 
+## 2026-11-12 — Directory shell-first paint (1.0.734)
+
+### What / why
+- SEO → **Directory** was SSR-blocking on first paint while background lead scans held SQLite — same frost class as Reviews/Q&A.
+- Fix: HTML shell (`shell: true`) + hydrate listings/KPIs from `/directory/inbox.json` (mirrors Business Reviews / Q&A).
+
+### Key files
+- `routes/directory.js`, `views/directory.ejs`
+
 ## 2026-11-11 — Reviews-app / lead scans must not freeze Agency OS (1.0.725–733)
 
 ### Symptom

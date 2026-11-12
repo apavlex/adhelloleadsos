@@ -6,6 +6,8 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
   <%- include('partials/navbar') %>
   <main class="max-wide px-6 py-8 md:py-12">
+    <% const _inboxHydrate = typeof inboxHydrate !== 'undefined' ? !!inboxHydrate : false; %>
+    <% const _inboxPending = typeof inboxPending !== 'undefined' ? !!inboxPending : _inboxHydrate; %>
     <% const _summary = typeof summary !== 'undefined' && summary ? summary : { total: 0, published: 0, draft: 0 }; %>
     <% const _settings = typeof settings !== 'undefined' && settings ? settings : {}; %>
     <% const _listings = Array.isArray(listings) ? listings : []; %>
@@ -34,15 +36,15 @@
     <div class="grid grid-cols-3 gap-3 mb-6">
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Total</p>
-        <p class="font-display font-black text-2xl"><%= _summary.total %></p>
+        <p id="dirKpiTotal" class="font-display font-black text-2xl"><%= _inboxPending ? '…' : _summary.total %></p>
       </div>
       <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Published</p>
-        <p class="font-display font-black text-2xl"><%= _summary.published %></p>
+        <p id="dirKpiPublished" class="font-display font-black text-2xl"><%= _inboxPending ? '…' : _summary.published %></p>
       </div>
       <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Draft</p>
-        <p class="font-display font-black text-2xl"><%= _summary.draft %></p>
+        <p id="dirKpiDraft" class="font-display font-black text-2xl"><%= _inboxPending ? '…' : _summary.draft %></p>
       </div>
     </div>
 
@@ -79,19 +81,17 @@
         </div>
       </form>
 
-      <% if (_feedUrl) { %>
-      <div class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 space-y-3">
+      <div id="dirFeedUrls" class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 space-y-3<%= _feedUrl ? '' : ' hidden' %>">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Public index feed</p>
-          <code class="block text-[11px] break-all"><%= _feedUrl %></code>
+          <code id="dirFeedUrl" class="block text-[11px] break-all"><%= _feedUrl %></code>
         </div>
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Public detail feed</p>
-          <code class="block text-[11px] break-all"><%= _detailUrl %></code>
+          <code id="dirDetailUrl" class="block text-[11px] break-all"><%= _detailUrl %></code>
         </div>
         <p class="text-xs text-brand-muted leading-relaxed">SEO tip: AI Studio should SSR the feed into HTML and inject <code class="text-[10px]">item_list_schema</code> / <code class="text-[10px]">local_business_schema</code> as JSON-LD. Enable Advanced SEO Support on the published project.</p>
       </div>
-      <% } %>
 
       <details class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/10 dark:bg-slate-950/30 p-4" data-prompt-url="<%= _promptUrl %>">
         <summary class="cursor-pointer font-display font-bold text-sm">AI Studio page-builder prompt</summary>
@@ -116,12 +116,11 @@
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Directory listings">
       <div class="px-5 sm:px-6 py-4 border-b border-brand-border/40 dark:border-white/10 flex items-center justify-between gap-3">
         <h2 class="font-display font-bold text-lg">Listings</h2>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= _listings.length %> item<%= _listings.length === 1 ? '' : 's' %></p>
+        <p id="dirListCount" class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><% if (_inboxPending) { %>Loading…<% } else { %><%= _listings.length %> item<%= _listings.length === 1 ? '' : 's' %><% } %></p>
       </div>
-      <% if (!_listings.length) { %>
-      <div class="px-6 py-12 text-center text-sm text-brand-muted">No listings yet. Add a Pipeline lead key above.</div>
-      <% } else { %>
-      <ul class="divide-y divide-brand-border/30 dark:divide-white/10 m-0 p-0 list-none">
+      <div id="dirListLoading" class="px-6 py-12 text-center text-sm text-brand-muted<%= (_inboxPending || _inboxHydrate) && !_listings.length ? '' : ' hidden' %>">Loading listings…</div>
+      <div id="dirListEmpty" class="px-6 py-12 text-center text-sm text-brand-muted<%= (!_listings.length && !(_inboxPending || _inboxHydrate)) ? '' : ' hidden' %>">No listings yet. Add a Pipeline lead key above.</div>
+      <ul id="dirList" class="divide-y divide-brand-border/30 dark:divide-white/10 m-0 p-0 list-none<%= _listings.length ? '' : ' hidden' %>">
         <% _listings.forEach(function (row) { if (!row) return; %>
         <li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" data-listing-id="<%= row.id %>">
           <div class="min-w-0">
@@ -141,7 +140,6 @@
         </li>
         <% }); %>
       </ul>
-      <% } %>
     </section>
   </main>
 
@@ -154,6 +152,13 @@
       statusEl.textContent = msg || '';
       statusEl.className = 'mb-4 text-sm font-semibold min-h-[1.25rem] ' + (ok === false ? 'text-rose-600 dark:text-rose-300' : 'text-brand-muted dark:text-slate-300');
     }
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
     async function postJson(url, body) {
       var res = await fetch(url, {
         method: 'POST',
@@ -164,6 +169,103 @@
       var data = await res.json().catch(function () { return {}; });
       if (!res.ok || data.success === false) throw new Error((data && data.error) || 'Request failed');
       return data;
+    }
+
+    function applyInbox(data) {
+      var summary = (data && data.summary) || {};
+      var totalEl = document.getElementById('dirKpiTotal');
+      var pubEl = document.getElementById('dirKpiPublished');
+      var draftEl = document.getElementById('dirKpiDraft');
+      if (totalEl) totalEl.textContent = String(summary.total != null ? summary.total : 0);
+      if (pubEl) pubEl.textContent = String(summary.published != null ? summary.published : 0);
+      if (draftEl) draftEl.textContent = String(summary.draft != null ? summary.draft : 0);
+
+      var feedWrap = document.getElementById('dirFeedUrls');
+      var feedUrlEl = document.getElementById('dirFeedUrl');
+      var detailUrlEl = document.getElementById('dirDetailUrl');
+      var feedUrl = (data && data.feedUrl) || '';
+      var detailUrl = (data && data.detailUrlTemplate) || '';
+      if (feedUrlEl) feedUrlEl.textContent = feedUrl;
+      if (detailUrlEl) detailUrlEl.textContent = detailUrl;
+      if (feedWrap) feedWrap.classList.toggle('hidden', !feedUrl);
+
+      var settings = (data && data.settings) || {};
+      var form = document.getElementById('dirSettingsForm');
+      if (form && settings) {
+        ['pageTitle', 'businessName', 'pageUrl', 'pathPrefix'].forEach(function (name) {
+          var input = form.querySelector('[name="' + name + '"]');
+          if (input && settings[name] != null) input.value = String(settings[name]);
+        });
+        ['showPhone', 'showWebsite', 'showAddress', 'showRating'].forEach(function (name) {
+          var input = form.querySelector('[name="' + name + '"]');
+          if (input) input.checked = settings[name] !== false;
+        });
+      }
+
+      var rows = Array.isArray(data && data.listings) ? data.listings.filter(Boolean) : [];
+      var list = document.getElementById('dirList');
+      var empty = document.getElementById('dirListEmpty');
+      var loading = document.getElementById('dirListLoading');
+      var countEl = document.getElementById('dirListCount');
+      if (countEl) countEl.textContent = rows.length + ' item' + (rows.length === 1 ? '' : 's');
+      if (loading) loading.classList.add('hidden');
+      if (empty) empty.classList.toggle('hidden', rows.length > 0);
+      if (list) {
+        list.classList.toggle('hidden', rows.length === 0);
+        list.innerHTML = rows.map(function (row) {
+          var loc = [row.city, row.state].filter(Boolean).join(', ');
+          var pubClass = row.published
+            ? 'text-emerald-700 dark:text-emerald-300'
+            : 'text-brand-muted';
+          return '<li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" data-listing-id="' + esc(row.id) + '">'
+            + '<div class="min-w-0">'
+            + '<p class="font-display font-bold text-brand-dark dark:text-white">' + esc(row.name) + '</p>'
+            + '<p class="text-[11px] text-brand-muted mt-0.5">'
+            + '<span class="font-black uppercase tracking-widest ' + pubClass + '">' + (row.published ? 'Published' : 'Draft') + '</span>'
+            + ' · /' + esc(row.slug || '')
+            + (loc ? ' · ' + esc(loc) : '')
+            + (row.category ? ' · ' + esc(row.category) : '')
+            + '</p></div>'
+            + '<div class="flex flex-wrap gap-2 shrink-0">'
+            + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="' + esc(row.id) + '" data-published="' + (row.published ? '0' : '1') + '">' + (row.published ? 'Unpublish' : 'Publish') + '</button>'
+            + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-refresh" data-id="' + esc(row.id) + '">Refresh</button>'
+            + '<button type="button" class="btn-pill border border-rose-400/40 text-rose-700 dark:text-rose-300 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-remove" data-id="' + esc(row.id) + '">Remove</button>'
+            + '</div></li>';
+        }).join('');
+      }
+    }
+
+    var shouldHydrate = <%= _inboxHydrate ? 'true' : 'false' %>;
+    if (shouldHydrate) {
+      var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var hydrateTimer = setTimeout(function () {
+        if (hydrateCtrl) hydrateCtrl.abort();
+      }, 12000);
+      fetch('/directory/inbox.json', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+        signal: hydrateCtrl ? hydrateCtrl.signal : undefined
+      })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (parsed) {
+          clearTimeout(hydrateTimer);
+          if (!parsed.ok || !parsed.data || !parsed.data.success) {
+            throw new Error((parsed.data && parsed.data.error) || 'Could not load directory');
+          }
+          applyInbox(parsed.data);
+        })
+        .catch(function (e) {
+          clearTimeout(hydrateTimer);
+          var msg = (e && e.name === 'AbortError')
+            ? 'Directory is taking too long — refresh to try again.'
+            : ((e && e.message) || 'Could not load directory');
+          var loading = document.getElementById('dirListLoading');
+          if (loading) {
+            loading.classList.remove('hidden');
+            loading.textContent = msg;
+          }
+          say(msg, false);
+        });
     }
 
     var settingsForm = document.getElementById('dirSettingsForm');

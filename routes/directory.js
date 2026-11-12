@@ -79,7 +79,10 @@ async function pageLocals(req, { shell = false } = {}) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req, { shell: false });
+    // Shell first — same pattern as Reviews/Q&A. Full listings hydrate from /inbox.json
+    // so SQLite busy from background lead scans cannot frost this hop.
+    const locals = await pageLocals(req, { shell: true });
+    locals.inboxHydrate = true;
     locals.pageBuilderPrompt = '';
     locals.pageBuilderPromptUrl = '/directory/page-prompt.txt';
     locals.flash = null;
