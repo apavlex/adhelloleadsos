@@ -1,0 +1,23 @@
+# Engineering memory — AdHello Leads OS
+
+## 2026-11-11 — Reviews-app lead repair must not block Agency OS (1.0.725–726)
+
+### Symptom
+- Reviews (member) app showed **Link unavailable** / “Something went wrong…”
+- After that was fixed, Agency OS **Folders**, **Business Reviews**, and **Q&A** stopped loading (nav frost / hang). Same class of “old” menu-hop failures.
+
+### Root causes
+1. **1.0.722 shared team book** used `ctx.bookMemberId` on Home/Customers but `loadContext()` never set it → `memberWork` threw `invalid scope` → invalid-link screen. Fixed in **1.0.725** by always setting `bookMemberId = work.teamBookMemberId(...)` in `loadContext`.
+2. Once the app loaded again, every Home/Customers/Referrals hop **awaited** `repairCallSmsContactLeads` → full **`getAllLeads`**, locking SQLite (`busy_timeout = 5000`) and starving Folders / Reviews / Q&A. Fixed in **1.0.726**.
+
+### Durable rules
+- Never await a full workspace `getAllLeads` on member-app request paths (Home, Customers, bell). Prefer `listLeadsWithInboundEvents` (or another SQL-prefiltered list).
+- Throttle `repairCallSmsContactLeads` (3 min per shared book); use `force: true` only after CRM sync.
+- Folders lite + SEO/Reviews/Q&A pages stay on light chrome (skip softphone / heavy nav extras on first paint).
+- If menu hops “look like old frost bugs” again, check for a new hot-path `getAllLeads` before rewriting nav frost.
+
+### Key files
+- `routes/memberApp.js` — `loadContext` must set `bookMemberId`
+- `services/memberGhlAlerts.js` — repair + pending lists; throttle + inbound-only query
+- `services/memberCustomerGhl.js` — post-sync repair with `force: true`
+- `views/partials/navbar_scripts.ejs` — Folders lite skips softphone
