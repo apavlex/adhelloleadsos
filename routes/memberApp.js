@@ -333,9 +333,13 @@ async function loadContext(token) {
     : '';
   const baseBrand = networkBrand.brandView(network, member, { heroUrl: memberHeroUrl });
   const brand = await ownerAppBrand.applyWorkspaceBrand(baseBrand, network, member);
+  // Owner + workspace staff share one customer/lead book (must be set on every load —
+  // Home/Customers call listCustomers with this id; missing → "invalid scope" → Link unavailable).
+  const bookMemberId = work.teamBookMemberId(network, member);
   const draft = {
     network,
     member,
+    bookMemberId,
     token,
     base: pathBase,
     brand,

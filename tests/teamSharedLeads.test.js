@@ -144,4 +144,19 @@ describe('team shared leads book', () => {
     assert.match(route, /teamBookMemberId/);
     assert.match(route, /touchedByName: actorName/);
   });
+
+  it('loadContext always sets bookMemberId so Home does not throw invalid scope', async () => {
+    const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
+    const loadStart = route.indexOf('async function loadContext(token)');
+    const loadEnd = route.indexOf('async function maybeEnsureDemoOwnerReviewApp');
+    assert.ok(loadStart >= 0 && loadEnd > loadStart, 'loadContext present');
+    const loadBody = route.slice(loadStart, loadEnd);
+    assert.match(loadBody, /bookMemberId\s*=\s*work\.teamBookMemberId\(network,\s*member\)/);
+    assert.match(loadBody, /bookMemberId,/);
+    // Regression: listing with undefined memberId throws and surfaces as Link unavailable.
+    await assert.rejects(
+      () => work.listCustomers(NID, undefined),
+      /invalid scope/,
+    );
+  });
 });
