@@ -75,5 +75,18 @@ jobs:
             echo "Timed out waiting for leads.adhello.io to serve v=${EXPECTED}"
             exit 1
           fi
-          curl -fsS https://leads.adhello.io/health
-          echo
+          # Brief 502s during Render cutover are common — retry health a few times.
+          health_ok=0
+          for i in $(seq 1 12); do
+            if curl -fsS https://leads.adhello.io/health; then
+              echo
+              health_ok=1
+              break
+            fi
+            echo "Health attempt ${i} failed; waiting 5s"
+            sleep 5
+          done
+          if [ "$health_ok" != 1 ]; then
+            echo "Timed out waiting for /health after version cutover"
+            exit 1
+          fi

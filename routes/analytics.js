@@ -103,6 +103,29 @@ function buildDemoAnalytics(visits, leads) {
   };
 }
 
+function emptySiteAuditLocals() {
+  return {
+    reportAuditViews: [],
+    reportAuditViews24h: 0,
+    reportAuditUniqueLeads24h: 0,
+    reportAuditAvgDuration24h: 0,
+    reportAuditRubricLegend: [
+      { name: 'Findability', max: 25 },
+      { name: 'Conversion', max: 25 },
+      { name: 'Trust', max: 20 },
+      { name: 'Performance', max: 20 },
+      { name: 'Technical', max: 10 },
+    ],
+  };
+}
+
+/** Warm lead list only — never cold-scan on Reports HTML (froze Reviews/Q&A). */
+function peekWorkspaceLeads(wid) {
+  const warm =
+    typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
+  return Array.isArray(warm) && warm.length > 0 ? warm : [];
+}
+
 router.get('/', async (req, res) => {
   try {
     const tabQ = String(req.query.tab || 'tracker').toLowerCase();
@@ -113,10 +136,13 @@ router.get('/', async (req, res) => {
     const analyticsRange = String(req.query.range || '').trim();
 
     const reportsScope = String(req.query.scope || 'workspace').toLowerCase() === 'all' ? 'all' : 'workspace';
-    // Daily tracker does not need the visit log or a second full lead scan up front.
-    // loadSalesTrackerLocals reads leads (cached after Today). Visit history is capped.
+    // Tracker + analytics: warm cache only on first paint. Cold getAllLeads here used to
+    // lock SQLite and frost Business Reviews / Q&A on every menu hop.
     const visits = reportsTab === 'tracker' ? [] : await dbService.getAllVisits();
-    const leads = reportsTab === 'tracker' ? [] : await dbService.getAllLeads(req.workspaceId);
+    let leads = reportsTab === 'tracker' ? [] : peekWorkspaceLeads(req.workspaceId);
+    if (reportsTab !== 'tracker' && !leads.length) {
+      void dbService.getAllLeads(req.workspaceId).catch(() => null);
+    }
 
     let workspaceCompare = [];
     if (reportsScope === 'all') {
@@ -124,7 +150,8 @@ router.get('/', async (req, res) => {
       const ids = await dbService.getUserWorkspaceIds(em);
       for (const id of ids) {
         const ws = await dbService.getWorkspace(id);
-        const ls = await dbService.getAllLeads(id);
+        const ls = peekWorkspaceLeads(id);
+        if (!ls.length) void dbService.getAllLeads(id).catch(() => null);
         workspaceCompare.push({
           id,
           name: (ws && ws.name) || 'Workspace',
@@ -137,28 +164,18 @@ router.get('/', async (req, res) => {
     const demoMode =
       (process.env.ANALYTICS_UI_DEMO === '1' || req.query.preview === '1') && visits.length === 0;
 
+    const trackerLocals = await loadSalesTrackerLocals(req, { allowColdScan: false });
+
     if (demoMode) {
       const d = buildDemoAnalytics(visits, leads);
-      const trackerLocals = await loadSalesTrackerLocals(req);
       const siteAuditLocals =
         reportsTab === 'site-audit'
           ? await buildSiteAuditReportLocals(req, leads)
-          : {
-              reportAuditViews: [],
-              reportAuditViews24h: 0,
-              reportAuditUniqueLeads24h: 0,
-              reportAuditAvgDuration24h: 0,
-              reportAuditRubricLegend: [
-                { name: 'Findability', max: 25 },
-                { name: 'Conversion', max: 25 },
-                { name: 'Trust', max: 20 },
-                { name: 'Performance', max: 20 },
-                { name: 'Technical', max: 10 },
-              ],
-            };
+          : emptySiteAuditLocals();
       await activationService.recordEvent(userEmail(req), 'analytics_visit');
       return res.render('analytics', {
         user: req.user,
+        activePage: 'reports',
         reportsTab,
         analyticsMetric: String(req.query.metric || '').trim(),
         analyticsRange: String(req.query.range || '').trim(),
@@ -213,27 +230,14 @@ router.get('/', async (req, res) => {
 
     await activationService.recordEvent(userEmail(req), 'analytics_visit');
 
-    const trackerLocals = await loadSalesTrackerLocals(req);
-
     const siteAuditLocals =
       reportsTab === 'site-audit'
         ? await buildSiteAuditReportLocals(req, leads)
-        : {
-            reportAuditViews: [],
-            reportAuditViews24h: 0,
-            reportAuditUniqueLeads24h: 0,
-            reportAuditAvgDuration24h: 0,
-            reportAuditRubricLegend: [
-              { name: 'Findability', max: 25 },
-              { name: 'Conversion', max: 25 },
-              { name: 'Trust', max: 20 },
-              { name: 'Performance', max: 20 },
-              { name: 'Technical', max: 10 },
-            ],
-          };
+        : emptySiteAuditLocals();
 
     res.render('analytics', {
       user: req.user,
+      activePage: 'reports',
       reportsTab,
       analyticsMetric,
       analyticsRange,

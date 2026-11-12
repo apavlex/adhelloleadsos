@@ -15,6 +15,15 @@
 - `routes/directory.js`, `routes/directoryPublic.js`, `views/directory.ejs`
 - `views/partials/bulk_action_bar.ejs` — `#bulkAddDirectoryBtn`
 
+## 2026-11-12 — Reports froze Reviews / Q&A (1.0.736)
+
+### What / why
+- `/reports` always ran `loadSalesTrackerLocals` → cold `getAllLeads` (+ outreach coach could scan again). That held SQLite and frosted Business Reviews / Q&A hops.
+- Fix: Reports uses warm `peekCachedLeads` only (`allowColdScan: false`); background warm; light chrome for reports; Reviews shell skips settings/store KV reads.
+
+### Key files
+- `routes/analytics.js`, `services/salesTrackerLocals.js`, `routes/businessReviews.js`, `views/partials/navbar_scripts.ejs`
+
 ## 2026-11-12 — Bad Gateway from OFFSET lead paging (1.0.735)
 
 ### What / why

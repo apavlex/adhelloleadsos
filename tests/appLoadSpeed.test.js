@@ -149,6 +149,25 @@ test('engagement and activity skip full-workspace lead scans on first paint', ()
   assert.match(ceo, /light:\s*true/);
 });
 
+test('Reports HTML does not await cold getAllLeads (keeps Reviews/Q&A responsive)', () => {
+  const analytics = fs.readFileSync(path.join(root, 'routes/analytics.js'), 'utf8');
+  const tracker = fs.readFileSync(path.join(root, 'services/salesTrackerLocals.js'), 'utf8');
+  const navScripts = fs.readFileSync(path.join(root, 'views/partials/navbar_scripts.ejs'), 'utf8');
+  const reviews = fs.readFileSync(path.join(root, 'routes/businessReviews.js'), 'utf8');
+  assert.match(analytics, /allowColdScan:\s*false/);
+  assert.match(analytics, /peekCachedLeads|peekWorkspaceLeads/);
+  assert.doesNotMatch(analytics, /await dbService\.getAllLeads/);
+  assert.match(tracker, /allowColdScan/);
+  assert.match(tracker, /peekCachedLeads/);
+  assert.match(navScripts, /_npShell === 'reports'/);
+  // Reviews shell must not KV-read settings before paint.
+  const shellIdx = reviews.indexOf('if (shell)');
+  assert.ok(shellIdx > 0);
+  const shellChunk = reviews.slice(shellIdx, shellIdx + 900);
+  assert.doesNotMatch(shellChunk, /getSettings\(/);
+  assert.doesNotMatch(shellChunk, /getStore\(/);
+});
+
 
 test('reassignLeadsToFolder uses workspace-scoped getAllLeads', () => {
   const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');

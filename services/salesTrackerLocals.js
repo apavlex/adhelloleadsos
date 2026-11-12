@@ -43,13 +43,28 @@ function emptyTodayRow() {
 
 /**
  * Core review-today fields (form + today's picture) — single source for sync.
+ * @param {{ allowColdScan?: boolean }} [opts]
+ *   allowColdScan false (Reports HTML): use warm cache only; never start a cold
+ *   getAllLeads that freezes Reviews / Q&A behind SQLite busy_timeout.
  */
-async function loadSalesTrackerReviewCore(req, dateStr) {
+async function loadSalesTrackerReviewCore(req, dateStr, opts = {}) {
   const email = userEmail(req);
   const wid = req.workspaceId;
   const today = dateStr || new Date().toISOString().slice(0, 10);
   const todayRow = await dbService.getDailyTracker(wid, email, today);
-  const allLeads = await dbService.getAllLeads(wid);
+  const allowColdScan = opts.allowColdScan !== false;
+  let allLeads = [];
+  const warm =
+    typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
+  if (Array.isArray(warm) && warm.length > 0) {
+    allLeads = warm;
+  } else if (allowColdScan) {
+    allLeads = await dbService.getAllLeads(wid);
+  } else {
+    // Background warm for the next hop — do not await on Reports first paint.
+    void dbService.getAllLeads(wid).catch(() => null);
+    allLeads = [];
+  }
   const leadsScoped = filterLeadsForRequest(req, allLeads);
   const trackerInferred = inferDailyTouchCountsFromLeads(leadsScoped, today);
   const trackerDisplayToday = displayTouchTotalsForDay(todayRow || null, leadsScoped, today);
@@ -59,13 +74,14 @@ async function loadSalesTrackerReviewCore(req, dateStr) {
     trackerInferred,
     trackerDisplayToday,
     leadsScoped,
+    leadsWarm: Array.isArray(warm) && warm.length > 0,
   };
 }
 
-async function loadSalesTrackerLocals(req) {
+async function loadSalesTrackerLocals(req, opts = {}) {
   const email = userEmail(req);
   const wid = req.workspaceId;
-  const core = await loadSalesTrackerReviewCore(req);
+  const core = await loadSalesTrackerReviewCore(req, null, opts);
   const { today, todayRow, trackerInferred, trackerDisplayToday, leadsScoped } = core;
   const history = await dbService.listDailyTrackers(wid, email, 14);
   const history60 = await dbService.listDailyTrackers(wid, email, 62);
@@ -73,8 +89,13 @@ async function loadSalesTrackerLocals(req) {
   const streak = computeOutreachStreakWithLeads(history60, today, leadsScoped);
   const checklistWeek = enrichRollupWithLeadInference(buildDayRollup(today, history60, 7), leadsScoped);
   const checklistMonth = enrichRollupWithLeadInference(buildDayRollup(today, history60, 30), leadsScoped);
-  const outreachCoach = await buildOutreachCoachSnapshot(req);
-  const workspaceDoc = await dbService.getWorkspace(wid);
+  // Pass leads so coach does not kick a second cold getAllLeads.
+  const outreachCoach = await buildOutreachCoachSnapshot(req, {
+    leads: leadsScoped,
+    history: history60,
+    workspace: req.workspace || null,
+  });
+  const workspaceDoc = req.workspace || (await dbService.getWorkspace(wid));
   const touchesToday = countUniqueLeadsTouchedToday(leadsScoped, workspaceDoc);
   const touchGoal = await loadDailyTouchGoal(req);
   const conversionSnapshot = buildConversionSnapshot(leadsScoped, workspaceDoc);
@@ -94,6 +115,7 @@ async function loadSalesTrackerLocals(req) {
     touchGoal,
     conversionSnapshot,
     overdueFollowUps,
+    trackerLeadsPending: !core.leadsWarm && opts.allowColdScan === false,
     trackerReturnTo: `/reports?tab=tracker&scope=${String(req.query.scope || 'workspace')}`,
   };
 }

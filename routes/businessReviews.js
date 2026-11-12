@@ -52,19 +52,25 @@ function emptySummary() {
 async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true, shell = false } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
   const paid = businessReviews.isPaidWorkspace(ws);
-  const settings = businessReviews.getSettings(req.workspaceId);
   const contact = trials.contactInfo();
   const focusId = String(req.query.review || '').trim();
 
   if (shell) {
-    // Paint immediately — do not read the reviews store or resolve agency Outscraper.
+    // Paint immediately — no settings/store KV reads (those contended with Reports lead scans).
     return {
       title: 'Business Reviews',
       activePage: 'business-reviews',
       paid,
       trialStatus: trials.status(ws),
       contact,
-      settings,
+      settings: {
+        query: '',
+        yelpQuery: '',
+        businessName: '',
+        autoSync: true,
+        reviewsLimit: 20,
+        updatedAt: null,
+      },
       store: { reviews: [], syncState: businessReviews.emptySyncState() },
       summary: emptySummary(),
       reviews: [],
@@ -78,6 +84,7 @@ async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true, sh
     };
   }
 
+  const settings = businessReviews.getSettings(req.workspaceId);
   // Unpaid: skip reading the full reviews JSON.
   const store = paid
     ? businessReviews.getStore(req.workspaceId)
