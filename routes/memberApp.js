@@ -1183,8 +1183,8 @@ router.post('/m/:token/profile/branding', (req, res, next) => {
 
 router.get('/m/:token', withMember(async (req, res, ctx) => {
   ctx = await maybeEnsureDemoOwnerReviewApp(ctx);
-  // Call/SMS contacts must sit under Leads before Home tiles count Customers.
-  await memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
+  // Never await repair on request paths — stamps contended with Agency OS Reviews/Q&A.
+  void memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
   const [referrals, members, jobs, customers, reviewStats, leadRequest] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
@@ -1391,8 +1391,9 @@ async function renderReferrals(req, res, ctx, flash, status) {
   const view = ['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received';
   const flooring = freeAppSignup.isFlooringOffer(ctx.member);
   if (view === 'received') {
-    await repairWebsiteFormContactLeads(ctx);
-    await memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
+    // Fire-and-forget: awaiting these repairs locked SQLite and stalled /business-reviews + /seo-qa.
+    void repairWebsiteFormContactLeads(ctx).catch(() => null);
+    void memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
   }
   const [referrals, members, jobs, leadRequest, contactLeadRows, contactQuoteRows] = await Promise.all([
     store.listReferrals(ctx.network.id),
@@ -1873,7 +1874,8 @@ async function renderCustomers(req, res, ctx, flash, status) {
   const view = CUSTOMER_VIEWS.has(req.query.view) ? req.query.view : 'list';
   const today = work.todayIn(memberTimeZone(req));
   if (view === 'list') {
-    await memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
+    // Fire-and-forget — do not await (full lead scans / stamps starve Agency OS Reviews/Q&A).
+    void memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
   }
   const { customers, jobs, customersById } = await loadWork(ctx);
   const pendingRefs = await pendingReferralsFor(ctx, jobs);
@@ -1898,7 +1900,11 @@ async function renderCustomers(req, res, ctx, flash, status) {
     const [tagCatalog, leadTouchIndex] = await Promise.all([
       wid ? memberCustomerGhl.listActiveWorkspaceTags(wid) : Promise.resolve([]),
       wid
-        ? dbService.getAllLeads(wid)
+        // Inbound-only SQL filter — never getAllLeads on this hop (locks Reviews/Q&A).
+        ? (typeof dbService.listLeadsWithInboundEvents === 'function'
+            ? dbService.listLeadsWithInboundEvents(wid)
+            : Promise.resolve([])
+          )
             .then((leads) => work.buildLeadTouchIndex(leads))
             .catch(() => work.buildLeadTouchIndex([]))
         : Promise.resolve(work.buildLeadTouchIndex([])),

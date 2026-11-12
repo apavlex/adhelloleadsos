@@ -586,6 +586,11 @@ describe('memberGhlAlerts', () => {
       alerts.replace(/listLeadsWithInboundEvents[\s\S]*?getAllLeads\(wid\)/g, ''),
       /repairCallSmsContactLeads[\s\S]*?getAllLeads\(wid\)/,
     );
+    // Member-app HTML hops must not await repair or full getAllLeads (SQLite busy → Agency OS frost).
+    assert.match(route, /void memberGhlAlerts\.repairCallSmsContactLeads/);
+    assert.doesNotMatch(route, /await memberGhlAlerts\.repairCallSmsContactLeads/);
+    assert.doesNotMatch(route, /getAllLeads\(wid\)/);
+    assert.match(route, /listLeadsWithInboundEvents\(wid\)/);
     const inbound = fs.readFileSync(path.join(root, 'services/inboundEvents.js'), 'utf8');
     assert.match(inbound, /MEMBER_INBOUND_ALERT_TYPES/);
     assert.match(inbound, /'form'/);
