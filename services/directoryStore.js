@@ -244,27 +244,14 @@ function uniqueSlug(listings, desired, excludeId) {
   return `${slug}-${i}`;
 }
 
-async function upsertFromLead(workspaceId, leadKey, opts = {}) {
-  const wid = String(workspaceId || '').trim();
+function applyLeadToBundle(bundle, lead, leadKey, opts = {}) {
   const key = clean(leadKey, 200);
-  if (!key) {
-    const err = new Error('Lead key is required.');
-    err.code = 'INVALID';
-    throw err;
-  }
-  const lead = await dbService.getLead(key, wid);
-  if (!lead) {
-    const err = new Error('Lead not found in this workspace.');
-    err.code = 'NOT_FOUND';
-    throw err;
-  }
   const fields = leadPublicFields(lead);
   if (!fields.name) {
     const err = new Error('That lead needs a business name before it can be listed.');
     err.code = 'INVALID';
     throw err;
   }
-  const bundle = await load(wid);
   const existing = Object.values(bundle.listings).find((r) => r && r.leadKey === key);
   const id = existing ? existing.id : newListingId();
   const now = new Date().toISOString();
@@ -287,7 +274,10 @@ async function upsertFromLead(workspaceId, leadKey, opts = {}) {
       slug,
       ...fields,
       blurb: opts.blurb != null ? opts.blurb : (existing && existing.blurb) || '',
-      description: opts.description != null ? opts.description : fields.description || (existing && existing.description) || '',
+      description:
+        opts.description != null
+          ? opts.description
+          : fields.description || (existing && existing.description) || '',
       published: publish,
       createdAt: (existing && existing.createdAt) || now,
       publishedAt: publish ? (existing && existing.publishedAt) || now : null,
@@ -296,8 +286,81 @@ async function upsertFromLead(workspaceId, leadKey, opts = {}) {
     id,
   );
   bundle.listings[id] = row;
+  return { row, created: !existing, updated: !!existing };
+}
+
+async function upsertFromLead(workspaceId, leadKey, opts = {}) {
+  const wid = String(workspaceId || '').trim();
+  const key = clean(leadKey, 200);
+  if (!key) {
+    const err = new Error('Lead key is required.');
+    err.code = 'INVALID';
+    throw err;
+  }
+  const lead = await dbService.getLead(key, wid);
+  if (!lead) {
+    const err = new Error('Lead not found in this workspace.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  const bundle = await load(wid);
+  const { row } = applyLeadToBundle(bundle, lead, key, opts);
   const saved = await save(wid, { listings: bundle.listings, settings: bundle.settings });
-  return saved.listings[id];
+  return saved.listings[row.id];
+}
+
+/**
+ * Bulk-add Pipeline leads into this workspace's directory (one load/save).
+ * Each workspace keeps its own listings — never crosses workspaces.
+ */
+async function upsertManyFromLeads(workspaceId, leadKeys, opts = {}) {
+  const wid = String(workspaceId || '').trim();
+  const keys = [
+    ...new Set(
+      (Array.isArray(leadKeys) ? leadKeys : [])
+        .map((k) => clean(k, 200))
+        .filter(Boolean),
+    ),
+  ].slice(0, 200);
+  if (!keys.length) {
+    const err = new Error('Select at least one lead.');
+    err.code = 'INVALID';
+    throw err;
+  }
+  const bundle = await load(wid);
+  const added = [];
+  const refreshed = [];
+  const errors = [];
+  for (const key of keys) {
+    try {
+      const lead = await dbService.getLead(key, wid);
+      if (!lead) {
+        errors.push({ leadKey: key, error: 'Lead not found in this workspace.' });
+        continue;
+      }
+      const result = applyLeadToBundle(bundle, lead, key, opts);
+      if (result.created) added.push(result.row);
+      else refreshed.push(result.row);
+    } catch (e) {
+      errors.push({ leadKey: key, error: (e && e.message) || 'Could not add.' });
+    }
+  }
+  if (!added.length && !refreshed.length) {
+    const err = new Error(
+      (errors[0] && errors[0].error) || 'None of those leads could be added to the directory.',
+    );
+    err.code = 'INVALID';
+    err.details = errors;
+    throw err;
+  }
+  await save(wid, { listings: bundle.listings, settings: bundle.settings });
+  return {
+    added: added.length,
+    refreshed: refreshed.length,
+    failed: errors.length,
+    listings: [...added, ...refreshed],
+    errors,
+  };
 }
 
 async function updateListing(workspaceId, listingId, patch = {}) {
@@ -373,6 +436,7 @@ module.exports = {
   listListings,
   inboxSummary,
   upsertFromLead,
+  upsertManyFromLeads,
   updateListing,
   setPublished,
   removeListing,

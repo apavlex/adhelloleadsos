@@ -69,6 +69,27 @@ describe('public business directory', () => {
     assert.equal(feed.businesses.length, 0);
   });
 
+  it('bulk-adds selected pipeline leads into the workspace directory only', async () => {
+    await dbService.saveLead({
+      key: 'lead:chimney_2',
+      workspaceId: WID,
+      title: 'Bee Cave Chimney',
+      category: 'Chimney Sweep',
+      city: 'Bee Cave',
+      state: 'TX',
+      phone: '+15559876543',
+    });
+    const result = await directoryStore.upsertManyFromLeads(
+      WID,
+      ['lead:chimney_1', 'lead:chimney_2', 'lead:missing'],
+      { published: true },
+    );
+    assert.equal(result.added, 2);
+    assert.equal(result.failed, 1);
+    const bundle = await directoryStore.load(WID);
+    assert.equal(directoryStore.listListings(bundle, { published: true }).length, 2);
+  });
+
   it('page-builder prompt wires feed + detail + schema instructions', () => {
     const prompt = buildDirectoryPagePrompt({
       siteUrl: 'https://adhello.io',
@@ -84,16 +105,25 @@ describe('public business directory', () => {
     assert.match(prompt, /AI Studio/);
   });
 
-  it('wires routes, nav, and permissions', () => {
+  it('wires routes, nav, permissions, and pipeline More → Directory', () => {
     const root = path.join(__dirname, '..');
     const server = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
     const perms = fs.readFileSync(path.join(root, 'services/rolePermissions.js'), 'utf8');
     const nav = fs.readFileSync(path.join(root, 'views/partials/app_nav_items.ejs'), 'utf8');
     const seoNav = fs.readFileSync(path.join(root, 'views/partials/seo_local_rank_nav.ejs'), 'utf8');
+    const routes = fs.readFileSync(path.join(root, 'routes/directory.js'), 'utf8');
+    const bar = fs.readFileSync(path.join(root, 'views/partials/bulk_action_bar.ejs'), 'utf8');
+    const moreIdx = bar.indexOf('id="bulkBarMore"');
     assert.match(server, /directoryPublicRoutes/);
     assert.match(server, /\/directory/);
     assert.match(perms, /id: 'directory'/);
     assert.match(nav, /href="\/directory"/);
     assert.match(seoNav, /href="\/directory"/);
+    assert.match(routes, /\/listings\/bulk/);
+    assert.match(routes, /upsertManyFromLeads/);
+    assert.ok(moreIdx >= 0);
+    assert.ok(bar.indexOf('id="bulkAddDirectoryBtn"', moreIdx) > moreIdx);
+    assert.match(bar, /\/directory\/listings\/bulk/);
+    assert.match(bar, /__bulkDirectoryBound/);
   });
 });

@@ -125,6 +125,12 @@
               <svg class="w-3.5 h-3.5 text-brand-yellow shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>
               <span>Referral</span>
             </button>
+            <% if (typeof navCan !== 'function' || navCan('directory')) { %>
+            <button type="button" id="bulkAddDirectoryBtn" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Publish selected leads to this workspace’s public Directory (SEO → Directory)" data-default-label="Directory">
+              <svg class="w-3.5 h-3.5 text-brand-yellow shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
+              <span>Directory</span>
+            </button>
+            <% } %>
             <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
             <button type="button" id="bulkCreateSubaccountBtn" class="bulk-bar-btn bulk-bar-btn--subaccount" title="Create a GHL sub-account for each selected business">
               <svg class="w-3.5 h-3.5 text-cyan-200 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" /></svg>
@@ -194,6 +200,7 @@
   if (window.__bulkBarInlineActionsBound === '1') return;
   window.__bulkBarInlineActionsBound = '1';
   window.__bulkReferralBound = '1';
+  window.__bulkDirectoryBound = '1';
 
   var BULK_BAR_MIN_KEY = 'adhello-bulk-bar-minimized';
   var phoneQuery = window.matchMedia ? window.matchMedia('(max-width: 639px)') : null;
@@ -575,6 +582,59 @@
       btn.removeAttribute('aria-busy');
       btn.textContent = label;
       say('Could not add those leads.', false);
+    });
+  }, true);
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('#bulkAddDirectoryBtn') : null;
+    if (!btn) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    if (btn.disabled || btn.getAttribute('aria-busy') === 'true') return;
+    var keys = selectedKeys();
+    if (!keys.length) {
+      say('Select a lead first.', false);
+      return;
+    }
+    var label = btn.getAttribute('data-default-label') || 'Directory';
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    btn.textContent = 'Adding…';
+    fetch('/directory/listings/bulk', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ leadKeys: keys, published: true })
+    }).then(function (res) {
+      return res.json().then(function (data) { return { ok: res.ok, data: data || {} }; }).catch(function () {
+        return { ok: false, data: {} };
+      });
+    }).then(function (result) {
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      if (!result.ok || !result.data || !result.data.success) {
+        btn.textContent = label;
+        say((result.data && result.data.error) || 'Could not add those leads to the directory.', false);
+        return;
+      }
+      var added = Number(result.data.added) || 0;
+      var refreshed = Number(result.data.refreshed) || 0;
+      var failed = Number(result.data.failed) || 0;
+      var n = added + refreshed;
+      btn.textContent = n ? 'Added' : label;
+      var msg = 'Added ' + n + ' to this workspace’s Directory';
+      if (added && refreshed) msg = 'Published ' + added + ' new, refreshed ' + refreshed;
+      else if (refreshed && !added) msg = 'Refreshed ' + refreshed + ' in this workspace’s Directory';
+      else if (added) msg = 'Published ' + added + ' to this workspace’s Directory';
+      if (failed) msg += ' (' + failed + ' skipped)';
+      msg += '. Open SEO → Directory to manage.';
+      say(msg, true);
+      window.setTimeout(function () { btn.textContent = label; }, 2200);
+    }).catch(function () {
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      btn.textContent = label;
+      say('Could not add those leads to the directory.', false);
     });
   }, true);
 })();

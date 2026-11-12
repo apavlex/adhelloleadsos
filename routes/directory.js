@@ -198,6 +198,37 @@ router.post('/listings', async (req, res, next) => {
   }
 });
 
+/** Pipeline float-menu bulk add — keys stay in the active workspace directory only. */
+router.post('/listings/bulk', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const rawKeys = Array.isArray(body.leadKeys)
+      ? body.leadKeys
+      : String(body.leadKeys || body.leadKey || '')
+          .split(/[\n,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+    const result = await directoryStore.upsertManyFromLeads(req.workspaceId, rawKeys, {
+      published: body.published === undefined ? true : body.published,
+    });
+    return res.json({
+      success: true,
+      added: result.added,
+      refreshed: result.refreshed,
+      failed: result.failed,
+      errors: result.errors,
+      directoryUrl: '/directory',
+    });
+  } catch (e) {
+    const status = e.code === 'NOT_FOUND' ? 404 : 400;
+    return res.status(status).json({
+      success: false,
+      error: e.message || 'Bulk add failed',
+      errors: e.details || [],
+    });
+  }
+});
+
 router.post('/listings/:id/publish', async (req, res, next) => {
   try {
     const body = req.body || {};
