@@ -15,6 +15,15 @@
 - `routes/directory.js`, `routes/directoryPublic.js`, `views/directory.ejs`
 - `views/partials/bulk_action_bar.ejs` — `#bulkAddDirectoryBtn`
 
+## 2026-11-12 — Bad Gateway from OFFSET lead paging (1.0.735)
+
+### What / why
+- `getAllLeads` OFFSET chunks (1.0.733) re-scanned earlier rows → long SQLite holds → Render **502 Bad Gateway** while other hops waited on `busy_timeout`.
+- Fix: **keyset** paging (`key < cursor`) + denser yields; unscoped scan also yields while parsing.
+
+### Key files
+- `services/database.js` — `getAllLeads` / `getAllLeadsUnscoped`
+
 ## 2026-11-12 — Directory shell-first paint (1.0.734)
 
 ### What / why

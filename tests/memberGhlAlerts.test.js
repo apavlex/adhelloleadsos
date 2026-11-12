@@ -600,6 +600,11 @@ describe('memberGhlAlerts', () => {
     const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
     assert.match(db, /peekCachedLeads/);
     assert.match(db, /const PAGE = 150/);
+    assert.match(db, /cursorKey/);
+    // Cold lead scan must keyset-page (OFFSET on lead:% held SQLite → Bad Gateway).
+    const leadScanChunk = db.slice(db.indexOf('async getAllLeads('), db.indexOf('async listLeadsWithInboundEvents('));
+    assert.match(leadScanChunk, /key < \?/);
+    assert.doesNotMatch(leadScanChunk, /OFFSET \?/);
     const inbound = fs.readFileSync(path.join(root, 'services/inboundEvents.js'), 'utf8');
     assert.match(inbound, /MEMBER_INBOUND_ALERT_TYPES/);
     assert.match(inbound, /'form'/);

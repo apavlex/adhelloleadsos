@@ -888,33 +888,58 @@ module.exports = {
                    OR ${leadWs} = 'default'
                  )`;
       const whereScoped = `${leadWs} = ?`;
-      // Page the scan so other HTTP hops (Reviews / Q&A / Folders) can run between chunks.
-      // A single giant .all() froze the process on 2k+ lead workspaces after deploys.
+      // Keyset pages (not OFFSET) — OFFSET re-scans earlier rows and held SQLite so long
+      // Render returned Bad Gateway while other hops waited on busy_timeout.
+      // Yield between pages so Reviews / Q&A / Directory can still paint.
       const PAGE = 150;
-      const YIELD_EVERY = 40;
+      const YIELD_EVERY = 25;
       const leads = [];
-      let offset = 0;
+      let cursorKey = null;
       let pageRows;
       do {
-        pageRows = includeLegacyDefault
-          ? sqlite
-              .prepare(
-                `SELECT key, value FROM kv
-                 WHERE key LIKE 'lead:%'
-                   AND ${whereLegacy}
-                 ORDER BY key DESC
-                 LIMIT ? OFFSET ?`,
-              )
-              .all(wid, PAGE, offset)
-          : sqlite
-              .prepare(
-                `SELECT key, value FROM kv
-                 WHERE key LIKE 'lead:%'
-                   AND ${whereScoped}
-                 ORDER BY key DESC
-                 LIMIT ? OFFSET ?`,
-              )
-              .all(wid, PAGE, offset);
+        if (includeLegacyDefault) {
+          pageRows = cursorKey
+            ? sqlite
+                .prepare(
+                  `SELECT key, value FROM kv
+                   WHERE key LIKE 'lead:%'
+                     AND ${whereLegacy}
+                     AND key < ?
+                   ORDER BY key DESC
+                   LIMIT ?`,
+                )
+                .all(wid, cursorKey, PAGE)
+            : sqlite
+                .prepare(
+                  `SELECT key, value FROM kv
+                   WHERE key LIKE 'lead:%'
+                     AND ${whereLegacy}
+                   ORDER BY key DESC
+                   LIMIT ?`,
+                )
+                .all(wid, PAGE);
+        } else {
+          pageRows = cursorKey
+            ? sqlite
+                .prepare(
+                  `SELECT key, value FROM kv
+                   WHERE key LIKE 'lead:%'
+                     AND ${whereScoped}
+                     AND key < ?
+                   ORDER BY key DESC
+                   LIMIT ?`,
+                )
+                .all(wid, cursorKey, PAGE)
+            : sqlite
+                .prepare(
+                  `SELECT key, value FROM kv
+                   WHERE key LIKE 'lead:%'
+                     AND ${whereScoped}
+                   ORDER BY key DESC
+                   LIMIT ?`,
+                )
+                .all(wid, PAGE);
+        }
         for (let i = 0; i < pageRows.length; i++) {
           if (i > 0 && i % YIELD_EVERY === 0) {
             await new Promise((r) => setImmediate(r));
@@ -933,7 +958,7 @@ module.exports = {
           if (normLeadW(parsed.workspaceId) !== wid) continue;
           leads.push({ ...parsed, key, workspaceId: wid });
         }
-        offset += pageRows.length;
+        cursorKey = pageRows.length ? pageRows[pageRows.length - 1].key : null;
         if (pageRows.length) {
           await new Promise((r) => setImmediate(r));
         }
@@ -1159,7 +1184,12 @@ module.exports = {
     const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%' ORDER BY key").all();
     rows.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
     const leads = [];
-    for (const row of rows) {
+    const YIELD_EVERY = 40;
+    for (let i = 0; i < rows.length; i++) {
+      if (i > 0 && i % YIELD_EVERY === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
+      const row = rows[i];
       let parsed;
       try {
         parsed = JSON.parse(row.value);
