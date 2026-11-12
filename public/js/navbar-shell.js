@@ -5064,9 +5064,11 @@ function readJsonReply(r) {
   (function () {
     var p = String((window.location && window.location.pathname) || '');
     var light =
-      /^\/(seo-|local-seo|backlinks|business-reviews|network|workspace|settings)/.test(p) ||
+      /^\/(seo-|local-seo|backlinks|business-reviews|directory|network|workspace|settings)/.test(p) ||
       p === '/seo-qa' ||
-      p.indexOf('/seo-qa') === 0;
+      p.indexOf('/seo-qa') === 0 ||
+      p === '/directory' ||
+      p.indexOf('/directory') === 0;
     if (light) return;
     setTimeout(function () {
       refreshSoftphoneCallOptions();

@@ -1,5 +1,17 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-11 — Public business Directory (1.0.727)
+
+### What shipped
+- SEO → **Directory** dashboard (`/directory`): curate Pipeline leads → published listings with slugs.
+- Public APIs (CORS open, no session): `/api/public/directory/:token/feed.json` + `/businesses/:slug.json` with `item_list_schema` / `local_business_schema`.
+- AI Studio page-builder prompt at `/directory/page-prompt.txt` — index + per-slug detail, SSR/JSON-LD.
+- Pattern mirrors Q&A: Leads OS owns curation/APIs; AI Studio owns design/SSR pages. Do **not** call `ensurePublicToken` on GET (mint on Save settings only).
+
+### Key files
+- `services/directoryStore.js`, `directoryPublic.js`, `directoryPagePrompt.js`
+- `routes/directory.js`, `routes/directoryPublic.js`, `views/directory.ejs`
+
 ## 2026-11-11 — Reviews-app lead repair must not block Agency OS (1.0.725–726)
 
 ### Symptom

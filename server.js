@@ -65,6 +65,8 @@ const engagementRoutes = require('./routes/engagement');
 const businessReviewsRoutes = require('./routes/businessReviews');
 const seoQaRoutes = require('./routes/seoQa');
 const seoQaPublicRoutes = require('./routes/seoQaPublic');
+const directoryRoutes = require('./routes/directory');
+const directoryPublicRoutes = require('./routes/directoryPublic');
 const messagesRoutes = require('./routes/messages');
 const referralRoutes = require('./routes/referrals');
 const appointmentRoutes = require('./routes/appointments');
@@ -598,6 +600,7 @@ app.use('/', businessVcardPublicRoutes);
 app.use('/', require('./routes/customerReferralPublic'));
 // Public website Q&A feed + visitor submit (publish token; no session)
 app.use('/', seoQaPublicRoutes);
+app.use('/', directoryPublicRoutes);
 // White-label logo, Home Screen icons and manifest (no session)
 app.use('/', whiteLabelRoutes);
 
@@ -746,6 +749,7 @@ app.use('/focus', focusRoutes);
 app.use('/engagement', engagementRoutes);
 app.use('/business-reviews', businessReviewsRoutes);
 app.use('/seo-qa', seoQaRoutes);
+app.use('/directory', directoryRoutes);
 app.use('/messages', messagesRoutes);
 app.use('/referrals', referralRoutes);
 app.use('/appointments', appointmentRoutes);

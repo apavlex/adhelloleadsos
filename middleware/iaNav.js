@@ -49,6 +49,8 @@ function iaNav(req, res, next) {
     navPrimary = 'local-seo';
   } else if (p === '/seo-qa' || p.startsWith('/seo-qa/')) {
     navPrimary = 'seo-qa';
+  } else if (p === '/directory' || p.startsWith('/directory/')) {
+    navPrimary = 'directory';
   } else if (p === '/tasks' || p.startsWith('/tasks/')) {
     navPrimary = 'tasks';
   } else if (

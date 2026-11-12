@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <main class="max-wide px-6 py-8 md:py-12">
+    <% const _summary = typeof summary !== 'undefined' && summary ? summary : { total: 0, published: 0, draft: 0 }; %>
+    <% const _settings = typeof settings !== 'undefined' && settings ? settings : {}; %>
+    <% const _listings = Array.isArray(listings) ? listings : []; %>
+    <% const _feedUrl = typeof feedUrl !== 'undefined' ? feedUrl : ''; %>
+    <% const _detailUrl = typeof detailUrlTemplate !== 'undefined' ? detailUrlTemplate : ''; %>
+    <% const _flash = typeof flash !== 'undefined' ? flash : null; %>
+    <% const _promptUrl = typeof pageBuilderPromptUrl !== 'undefined' ? String(pageBuilderPromptUrl || '') : '/directory/page-prompt.txt'; %>
+
+    <header class="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">SEO / Local Rank · Directory</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Business Directory</h1>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">Publish curated Pipeline leads to a public feed. Design the index + per-business pages in AI Studio — same pattern as Q&amp;A, with crawlable schema.</p>
+      </div>
+    </header>
+    <%- include('partials/seo_local_rank_nav') %>
+
+    <% if (_flash && _flash.ok) { %>
+    <p class="mb-4 text-sm font-semibold text-emerald-700 dark:text-emerald-300" role="status"><%= _flash.ok %></p>
+    <% } %>
+    <% if (_flash && _flash.error) { %>
+    <p class="mb-4 text-sm font-semibold text-rose-600 dark:text-rose-300" role="alert"><%= _flash.error %></p>
+    <% } %>
+    <p id="dirStatus" class="mb-4 text-sm font-semibold text-brand-muted dark:text-slate-300 min-h-[1.25rem]" role="status" aria-live="polite"></p>
+
+    <div class="grid grid-cols-3 gap-3 mb-6">
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Total</p>
+        <p class="font-display font-black text-2xl"><%= _summary.total %></p>
+      </div>
+      <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Published</p>
+        <p class="font-display font-black text-2xl"><%= _summary.published %></p>
+      </div>
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 p-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Draft</p>
+        <p class="font-display font-black text-2xl"><%= _summary.draft %></p>
+      </div>
+    </div>
+
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="dirConnectTitle">
+      <h2 id="dirConnectTitle" class="font-display font-bold text-lg mb-1">Connect your AI Studio directory</h2>
+      <p class="text-xs text-brand-muted mb-4">Save settings to mint a publish token, then paste the page-builder prompt into AI Studio so index + <code class="text-[10px]">/{slug}</code> pages use your site design.</p>
+
+      <form id="dirSettingsForm" class="grid gap-3 sm:grid-cols-2">
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Page title</span>
+          <input type="text" name="pageTitle" value="<%= _settings.pageTitle || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Brand name</span>
+          <input type="text" name="businessName" value="<%= _settings.businessName || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <label class="block sm:col-span-2">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Live directory URL (index)</span>
+          <input type="url" name="pageUrl" placeholder="https://yoursite.com/directory" value="<%= _settings.pageUrl || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Path prefix</span>
+          <input type="text" name="pathPrefix" value="<%= _settings.pathPrefix || '/directory' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <div class="flex flex-wrap items-end gap-4 text-sm">
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="showPhone" value="1" <%= _settings.showPhone !== false ? 'checked' : '' %> class="rounded border-brand-border" /> Phone</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="showWebsite" value="1" <%= _settings.showWebsite !== false ? 'checked' : '' %> class="rounded border-brand-border" /> Website</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="showAddress" value="1" <%= _settings.showAddress !== false ? 'checked' : '' %> class="rounded border-brand-border" /> Address</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="showRating" value="1" <%= _settings.showRating !== false ? 'checked' : '' %> class="rounded border-brand-border" /> Rating</label>
+        </div>
+        <div class="sm:col-span-2 flex flex-wrap gap-2">
+          <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Save settings</button>
+          <button type="button" id="dirRotateToken" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Rotate publish token</button>
+        </div>
+      </form>
+
+      <% if (_feedUrl) { %>
+      <div class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 space-y-3">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Public index feed</p>
+          <code class="block text-[11px] break-all"><%= _feedUrl %></code>
+        </div>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Public detail feed</p>
+          <code class="block text-[11px] break-all"><%= _detailUrl %></code>
+        </div>
+        <p class="text-xs text-brand-muted leading-relaxed">SEO tip: AI Studio should SSR the feed into HTML and inject <code class="text-[10px]">item_list_schema</code> / <code class="text-[10px]">local_business_schema</code> as JSON-LD. Enable Advanced SEO Support on the published project.</p>
+      </div>
+      <% } %>
+
+      <details class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/10 dark:bg-slate-950/30 p-4" data-prompt-url="<%= _promptUrl %>">
+        <summary class="cursor-pointer font-display font-bold text-sm">AI Studio page-builder prompt</summary>
+        <p class="text-xs text-brand-muted mt-2 mb-3">Copy into AI Studio chat to build index + <code class="text-[10px]">/{slug}</code> pages with your site design.</p>
+        <textarea id="dirPromptText" readonly rows="8" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/60 px-3 py-2.5 text-[11px] font-mono" placeholder="Open this panel to load the prompt…"></textarea>
+        <button type="button" id="dirCopyPrompt" class="mt-3 btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Copy prompt</button>
+      </details>
+    </section>
+
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="dirAddTitle">
+      <h2 id="dirAddTitle" class="font-display font-bold text-lg mb-1">Add a business from Pipeline</h2>
+      <p class="text-xs text-brand-muted mb-4">Paste a lead key (from a Pipeline row / lead URL). We snapshot public-safe fields onto the directory listing.</p>
+      <form id="dirAddForm" class="grid gap-3 sm:grid-cols-[1fr_auto]">
+        <label class="block">
+          <span class="sr-only">Lead key</span>
+          <input type="text" name="leadKey" required placeholder="lead:… or storage key" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Add &amp; publish</button>
+      </form>
+    </section>
+
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Directory listings">
+      <div class="px-5 sm:px-6 py-4 border-b border-brand-border/40 dark:border-white/10 flex items-center justify-between gap-3">
+        <h2 class="font-display font-bold text-lg">Listings</h2>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= _listings.length %> item<%= _listings.length === 1 ? '' : 's' %></p>
+      </div>
+      <% if (!_listings.length) { %>
+      <div class="px-6 py-12 text-center text-sm text-brand-muted">No listings yet. Add a Pipeline lead key above.</div>
+      <% } else { %>
+      <ul class="divide-y divide-brand-border/30 dark:divide-white/10 m-0 p-0 list-none">
+        <% _listings.forEach(function (row) { if (!row) return; %>
+        <li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" data-listing-id="<%= row.id %>">
+          <div class="min-w-0">
+            <p class="font-display font-bold text-brand-dark dark:text-white"><%= row.name %></p>
+            <p class="text-[11px] text-brand-muted mt-0.5">
+              <span class="font-black uppercase tracking-widest <%= row.published ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted' %>"><%= row.published ? 'Published' : 'Draft' %></span>
+              · /<%= row.slug %>
+              <% if (row.city || row.state) { %> · <%= [row.city, row.state].filter(Boolean).join(', ') %><% } %>
+              <% if (row.category) { %> · <%= row.category %><% } %>
+            </p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="<%= row.id %>" data-published="<%= row.published ? '0' : '1' %>"><%= row.published ? 'Unpublish' : 'Publish' %></button>
+            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-refresh" data-id="<%= row.id %>">Refresh</button>
+            <button type="button" class="btn-pill border border-rose-400/40 text-rose-700 dark:text-rose-300 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-remove" data-id="<%= row.id %>">Remove</button>
+          </div>
+        </li>
+        <% }); %>
+      </ul>
+      <% } %>
+    </section>
+  </main>
+
+  <%- include('partials/navbar_scripts') %>
+  <script>
+  (function () {
+    var statusEl = document.getElementById('dirStatus');
+    function say(msg, ok) {
+      if (!statusEl) return;
+      statusEl.textContent = msg || '';
+      statusEl.className = 'mb-4 text-sm font-semibold min-h-[1.25rem] ' + (ok === false ? 'text-rose-600 dark:text-rose-300' : 'text-brand-muted dark:text-slate-300');
+    }
+    async function postJson(url, body) {
+      var res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(body || {}),
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok || data.success === false) throw new Error((data && data.error) || 'Request failed');
+      return data;
+    }
+
+    var settingsForm = document.getElementById('dirSettingsForm');
+    if (settingsForm) {
+      settingsForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(settingsForm);
+        var body = Object.fromEntries(fd.entries());
+        ['showPhone', 'showWebsite', 'showAddress', 'showRating'].forEach(function (k) {
+          body[k] = fd.get(k) ? '1' : '0';
+        });
+        say('Saving…');
+        postJson('/directory/settings', body)
+          .then(function () { window.location.href = '/directory?ok=saved'; })
+          .catch(function (err) { say(err.message || 'Save failed', false); });
+      });
+    }
+    var rotateBtn = document.getElementById('dirRotateToken');
+    if (rotateBtn && settingsForm) {
+      rotateBtn.addEventListener('click', function () {
+        if (!window.confirm('Rotate the publish token? Existing AI Studio pages must be updated with the new feed URLs.')) return;
+        var fd = new FormData(settingsForm);
+        var body = Object.fromEntries(fd.entries());
+        body.rotate_token = '1';
+        ['showPhone', 'showWebsite', 'showAddress', 'showRating'].forEach(function (k) {
+          body[k] = fd.get(k) ? '1' : '0';
+        });
+        say('Rotating token…');
+        postJson('/directory/settings', body)
+          .then(function () { window.location.href = '/directory?ok=saved'; })
+          .catch(function (err) { say(err.message || 'Rotate failed', false); });
+      });
+    }
+
+    var addForm = document.getElementById('dirAddForm');
+    if (addForm) {
+      addForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var fd = new FormData(addForm);
+        say('Adding…');
+        postJson('/directory/listings', { leadKey: fd.get('leadKey'), published: true })
+          .then(function () { window.location.href = '/directory?ok=added'; })
+          .catch(function (err) { say(err.message || 'Add failed', false); });
+      });
+    }
+
+    document.addEventListener('click', function (e) {
+      var pub = e.target.closest('.js-dir-publish');
+      if (pub) {
+        e.preventDefault();
+        say('Updating…');
+        postJson('/directory/listings/' + encodeURIComponent(pub.getAttribute('data-id')) + '/publish', {
+          published: pub.getAttribute('data-published') === '1',
+        }).then(function () { window.location.href = '/directory?ok=publish'; })
+          .catch(function (err) { say(err.message || 'Publish failed', false); });
+        return;
+      }
+      var refresh = e.target.closest('.js-dir-refresh');
+      if (refresh) {
+        e.preventDefault();
+        say('Refreshing…');
+        postJson('/directory/listings/' + encodeURIComponent(refresh.getAttribute('data-id')) + '/refresh', {})
+          .then(function () { window.location.href = '/directory?ok=refreshed'; })
+          .catch(function (err) { say(err.message || 'Refresh failed', false); });
+        return;
+      }
+      var remove = e.target.closest('.js-dir-remove');
+      if (remove) {
+        e.preventDefault();
+        if (!window.confirm('Remove this listing from the directory?')) return;
+        say('Removing…');
+        postJson('/directory/listings/' + encodeURIComponent(remove.getAttribute('data-id')) + '/remove', {})
+          .then(function () { window.location.href = '/directory?ok=removed'; })
+          .catch(function (err) { say(err.message || 'Remove failed', false); });
+      }
+    });
+
+    var promptDetails = document.querySelector('details[data-prompt-url]');
+    var promptText = document.getElementById('dirPromptText');
+    var copyBtn = document.getElementById('dirCopyPrompt');
+    var promptLoaded = false;
+    if (promptDetails && promptText) {
+      promptDetails.addEventListener('toggle', function () {
+        if (!promptDetails.open || promptLoaded) return;
+        var url = promptDetails.getAttribute('data-prompt-url') || '/directory/page-prompt.txt';
+        fetch(url, { credentials: 'same-origin' })
+          .then(function (r) { return r.text(); })
+          .then(function (t) { promptText.value = t; promptLoaded = true; })
+          .catch(function () { promptText.value = 'Could not load prompt.'; });
+      });
+    }
+    if (copyBtn && promptText) {
+      copyBtn.addEventListener('click', function () {
+        if (!promptText.value) return;
+        navigator.clipboard.writeText(promptText.value).then(function () {
+          say('Prompt copied.');
+        }).catch(function () {
+          promptText.select();
+          say('Select and copy the prompt manually.');
+        });
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
