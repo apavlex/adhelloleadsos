@@ -2253,6 +2253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const rect = colBtn.getBoundingClientRect();
         const pad = 12;
+        const gap = 8;
         const width = Math.min(window.innerWidth - pad * 2, 17 * 16);
         // Prefer aligning under the button; clamp so the panel never leaves the viewport
         // (right-anchoring shoved it off-screen left on mobile when Columns sits left).
@@ -2260,28 +2261,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (left + width > window.innerWidth - pad) left = window.innerWidth - width - pad;
         if (left < pad) left = pad;
 
-        let top = rect.bottom + 8;
-        const maxH = Math.max(200, window.innerHeight - top - pad);
-        // Measure after width is set so flip-above uses real height.
+        const spaceBelow = window.innerHeight - rect.bottom - pad;
+        const spaceAbove = rect.top - pad;
+        const preferBelow = spaceBelow >= 200 || spaceBelow >= spaceAbove;
+        const available = Math.max(160, preferBelow ? spaceBelow - gap : spaceAbove - gap);
+        const maxH = Math.min(available, Math.floor(window.innerHeight * 0.7));
+
         pop.style.position = 'fixed';
         pop.style.width = `${Math.round(width)}px`;
         pop.style.maxHeight = `${Math.round(maxH)}px`;
+        pop.style.height = 'auto';
         pop.style.left = `${Math.round(left)}px`;
         pop.style.right = 'auto';
         pop.style.bottom = 'auto';
         pop.style.zIndex = '10050';
-        pop.style.top = `${Math.round(top)}px`;
-        const popH = pop.offsetHeight || Math.min(maxH, 360);
-        if (top + popH > window.innerHeight - pad) {
-          const above = Math.max(pad, rect.top - popH - 8);
-          top = above;
-          pop.style.top = `${Math.round(top)}px`;
-          pop.style.maxHeight = `${Math.round(Math.max(200, window.innerHeight - top - pad))}px`;
+        if (preferBelow) {
+          pop.style.top = `${Math.round(rect.bottom + gap)}px`;
+        } else {
+          pop.style.top = `${Math.round(Math.max(pad, rect.top - maxH - gap))}px`;
         }
       }
 
+      function columnsPopoverIsOpen() {
+        return !pop.classList.contains('hidden') && !pop.hasAttribute('hidden');
+      }
+
       function repositionColumnsPopoverIfOpen() {
-        if (pop.classList.contains('hidden')) return;
+        if (!columnsPopoverIsOpen()) return;
         positionColumnsPopover();
         applyColumnsPopoverSurface();
       }
@@ -2291,6 +2297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       function closePop() {
         pop.classList.add('hidden');
+        pop.setAttribute('hidden', '');
         colBtn.setAttribute('aria-expanded', 'false');
         if (colWrap) colWrap.classList.remove('js-pipeline-columns-wrap--open');
       }
@@ -2314,9 +2321,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       function openColumnsPopover() {
         ensureColumnCheckboxesBuilt();
+        pop.classList.remove('hidden');
+        pop.removeAttribute('hidden');
         positionColumnsPopover();
         applyColumnsPopoverSurface();
-        pop.classList.remove('hidden');
         colBtn.setAttribute('aria-expanded', 'true');
         if (colWrap) colWrap.classList.add('js-pipeline-columns-wrap--open');
         requestAnimationFrame(function () {
@@ -2326,8 +2334,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       function toggleColumnsPopover() {
-        if (pop.classList.contains('hidden')) openColumnsPopover();
-        else closePop();
+        if (columnsPopoverIsOpen()) closePop();
+        else openColumnsPopover();
       }
       window.__togglePipelineColumnsPopover = toggleColumnsPopover;
 
@@ -2342,9 +2350,12 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       document.addEventListener('click', (e) => {
-        if (pop.classList.contains('hidden')) return;
+        if (!columnsPopoverIsOpen()) return;
         if (e.target.closest('#pipelineColumnsPopover') || e.target.closest('#pipelineColumnsBtn')) return;
         closePop();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && columnsPopoverIsOpen()) closePop();
       });
 
       if (resetW) {

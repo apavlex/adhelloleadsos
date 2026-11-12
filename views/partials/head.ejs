@@ -79,8 +79,16 @@
     isolation: isolate;
   }
   [data-pipeline-menu-panel].hidden,
-  [data-pipeline-menu-panel][hidden] {
+  [data-pipeline-menu-panel][hidden],
+  .pipeline-columns-popover.hidden,
+  #pipelineColumnsPopover.hidden,
+  .pipeline-columns-popover[hidden],
+  #pipelineColumnsPopover[hidden] {
     display: none !important;
+  }
+  .pipeline-columns-popover:not(.hidden),
+  #pipelineColumnsPopover:not(.hidden) {
+    display: flex !important;
   }
   .pipeline-import-export-menu-panel,
   .pipeline-import-export-menu-panel__surface {

@@ -2823,12 +2823,24 @@ a.website-link.website-link--holding {
   isolation: isolate;
   opacity: 1 !important;
   position: fixed;
-  display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow:
     0 20px 40px -12px rgba(17, 24, 39, 0.18),
     0 8px 16px -8px rgba(17, 24, 39, 0.1);
+}
+
+/* ID display:flex was beating Tailwind .hidden — keep closed popovers actually closed. */
+.pipeline-columns-popover.hidden,
+#pipelineColumnsPopover.hidden,
+.pipeline-columns-popover[hidden],
+#pipelineColumnsPopover[hidden] {
+  display: none !important;
+}
+
+.pipeline-columns-popover:not(.hidden),
+#pipelineColumnsPopover:not(.hidden) {
+  display: flex !important;
 }
 
 .pipeline-columns-popover__header {
@@ -2840,8 +2852,22 @@ a.website-link.website-link--holding {
   background-color: inherit;
   flex: 1 1 auto;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+.pipeline-columns-popover__footer {
+  flex-shrink: 0;
+  background-color: inherit;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.dark .pipeline-columns-popover__footer,
+html.dark .pipeline-columns-popover__footer {
+  border-top-color: rgba(255, 255, 255, 0.1);
 }
 
 .dark .pipeline-columns-popover__header,
@@ -2849,13 +2875,15 @@ html.dark .pipeline-columns-popover__header {
   background-color: #1e293b !important;
 }
 
-#pipelineColumnsCheckboxes label {
-  padding: 0.15rem 0;
-}
-
 #pipelineColumnsCheckboxes {
+  max-height: none;
+  overflow: visible;
   background-color: inherit;
   padding-right: 0.25rem;
+}
+
+#pipelineColumnsCheckboxes label {
+  padding: 0.15rem 0;
 }
 
 .dark .pipeline-columns-popover,
