@@ -2105,6 +2105,12 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   z-index: 5;
   min-width: min(18rem, 78vw);
   max-width: min(22rem, 90vw);
+  max-height: min(24rem, calc(100dvh - 10.5rem));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   padding: 0.55rem;
   border-radius: 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -2121,7 +2127,6 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   margin: 0;
   padding: 0;
   border: 0;
-  overflow: visible;
 }
 #bulkActionBar .bulk-bar-more__tools .bulk-bar-btn {
   width: 100%;
@@ -2247,6 +2252,11 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     overscroll-behavior: contain;
   }
 
+  /* Don’t clip the upward More panel — scroll lives inside the panel itself. */
+  #bulkActionBar:has(#bulkBarMore[open]) {
+    overflow: visible;
+  }
+
   #bulkActionBar .bulk-bar-primary-row {
     flex-wrap: wrap;
     gap: 0.45rem;
@@ -2272,6 +2282,16 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     width: 100%;
     justify-content: center;
     min-height: 3rem;
+  }
+
+  #bulkActionBar .bulk-bar-more__panel {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(22rem, calc(100vw - 1.5rem));
+    min-width: min(18rem, calc(100vw - 1.5rem));
+    max-width: calc(100vw - 1.5rem);
+    max-height: calc(100dvh - 11.5rem);
   }
 
   #bulkActionBar .bulk-bar-tools-row {

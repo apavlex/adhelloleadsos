@@ -99,4 +99,13 @@ describe('pipeline row bookmark wiring', () => {
     assert.match(bulkJs, /Verify ['"] \+ \(i \+ 1\) \+ ['"]\/['"] \+ total/);
     assert.ok(bar.includes('canManageWorkspace') && bookmarkIdx < bar.indexOf('canManageWorkspace', bookmarkIdx));
   });
+
+  it('lets the More panel scroll on mobile instead of clipping tools', () => {
+    const css = fs.readFileSync(path.join(ROOT, 'public/css/custom.css'), 'utf8');
+    assert.match(css, /\.bulk-bar-more__panel[\s\S]*?overflow-y:\s*auto/);
+    assert.match(css, /\.bulk-bar-more__panel[\s\S]*?max-height:\s*min\(24rem,\s*calc\(100dvh - 10\.5rem\)\)/);
+    assert.match(css, /#bulkActionBar:has\(#bulkBarMore\[open\]\)[\s\S]*?overflow:\s*visible/);
+    assert.match(css, /max-height:\s*calc\(100dvh - 11\.5rem\)/);
+    assert.match(css, /-webkit-overflow-scrolling:\s*touch/);
+  });
 });
