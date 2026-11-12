@@ -23,6 +23,16 @@ const memberAppointmentLink = require('./memberAppointmentLink');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 const { createMemberPortalToken } = require('./networkLinkSign');
 
+/** Avoid re-scanning inbound leads on every Reviews Home/Customers hop (locks SQLite). */
+const REPAIR_THROTTLE_MS = 3 * 60 * 1000;
+const _repairCallSmsAt = new Map();
+
+function repairThrottleKey(network, member) {
+  const nid = String((network && network.id) || '').trim();
+  const bookId = work.teamBookMemberId(network, member);
+  return `${nid}:${bookId}`;
+}
+
 /** In-app customer profile path (member portal base is prepended in the bell UI). */
 function profileOpenHref(customer) {
   if (!customer || !customer.id) return '';
@@ -266,7 +276,10 @@ async function listPendingForMember(member, network, opts = {}) {
       console.warn('[memberGhlAlerts] form lead sync failed:', err && err.message);
     }
   }
-  const leads = await dbService.getAllLeads(wid);
+  // SQL-prefiltered inbound rows — never getAllLeads (that stalled Folders/Reviews/Q&A).
+  const leads = typeof dbService.listLeadsWithInboundEvents === 'function'
+    ? await dbService.listLeadsWithInboundEvents(wid)
+    : await dbService.getAllLeads(wid);
   const ghl = await ghlLinkContext(wid);
   const rows = pendingInboundItems(leads, {
     ...ghl,
@@ -465,9 +478,22 @@ async function repairCallSmsContactLeads(network, member, opts = {}) {
   const wid = String(network.ownerWorkspaceId || '').trim();
   if (!wid) return { ok: true, stamped: 0 };
 
+  const throttleKey = repairThrottleKey(network, member);
+  const nowMs = Date.now();
+  if (!opts.force) {
+    const last = _repairCallSmsAt.get(throttleKey) || 0;
+    if (last && nowMs - last < REPAIR_THROTTLE_MS) {
+      return { ok: true, stamped: 0, skipped: true };
+    }
+  }
+  _repairCallSmsAt.set(throttleKey, nowMs);
+
   let leads = [];
   try {
-    leads = await dbService.getAllLeads(wid);
+    // Only leads with inboundEvents — full getAllLeads contended with Agency OS menu hops.
+    leads = typeof dbService.listLeadsWithInboundEvents === 'function'
+      ? await dbService.listLeadsWithInboundEvents(wid)
+      : await dbService.getAllLeads(wid);
   } catch (err) {
     console.warn('[memberGhlAlerts] call/SMS lead repair load failed:', err && err.message);
     return { ok: false, stamped: 0, error: err && err.message };

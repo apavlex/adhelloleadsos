@@ -592,6 +592,7 @@ async function syncCustomersWithGhl(network, memberId, opts = {}) {
     const memberGhlAlerts = require('./memberGhlAlerts');
     await memberGhlAlerts.repairCallSmsContactLeads(network, member, {
       days: opts.repairDays || 90,
+      force: true,
     });
   } catch (err) {
     console.warn('[memberCustomerGhl] call/SMS lead repair after sync failed:', err && err.message);

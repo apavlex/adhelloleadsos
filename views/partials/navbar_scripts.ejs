@@ -5,7 +5,11 @@
 %>
 <%
   const _npShell = typeof activePage !== 'undefined' ? String(activePage || '') : '';
+  const _foldersLiteShell =
+    (typeof foldersManagerPage !== 'undefined' && foldersManagerPage) ||
+    (typeof tab !== 'undefined' && String(tab) === 'folders');
   const _skipSoftphoneModal =
+    _foldersLiteShell ||
     _npShell === 'seo-qa' ||
     _npShell === 'seo-gap' ||
     _npShell === 'backlinks' ||
@@ -29,6 +33,7 @@
 %>
 <%
   const _deferNavExtras =
+    _foldersLiteShell ||
     _npShell === 'seo-qa' ||
     _npShell === 'seo-gap' ||
     _npShell === 'backlinks' ||

@@ -580,8 +580,17 @@ describe('memberGhlAlerts', () => {
     assert.match(alerts, /isActiveNetworkMember/);
     assert.match(alerts, /repairCallSmsContactLeads/);
     assert.match(alerts, /CALL_SMS_LEAD_TYPES/);
+    assert.match(alerts, /listLeadsWithInboundEvents/);
+    assert.match(alerts, /REPAIR_THROTTLE_MS/);
+    assert.doesNotMatch(
+      alerts.replace(/listLeadsWithInboundEvents[\s\S]*?getAllLeads\(wid\)/g, ''),
+      /repairCallSmsContactLeads[\s\S]*?getAllLeads\(wid\)/,
+    );
     const inbound = fs.readFileSync(path.join(root, 'services/inboundEvents.js'), 'utf8');
     assert.match(inbound, /MEMBER_INBOUND_ALERT_TYPES/);
     assert.match(inbound, /'form'/);
+    const navScripts = fs.readFileSync(path.join(root, 'views/partials/navbar_scripts.ejs'), 'utf8');
+    assert.match(navScripts, /foldersManagerPage/);
+    assert.match(navScripts, /_foldersLiteShell/);
   });
 });
