@@ -1,13 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
-## 2026-11-11 — Public business Directory (1.0.727–728)
+## 2026-11-11 — Public business Directory (1.0.727–729)
 
 ### What shipped
 - SEO → **Directory** dashboard (`/directory`): curate Pipeline leads → published listings with slugs.
 - Public APIs (CORS open, no session): `/api/public/directory/:token/feed.json` + `/businesses/:slug.json` with `item_list_schema` / `local_business_schema`.
 - AI Studio page-builder prompt at `/directory/page-prompt.txt` — index + per-slug detail, SSR/JSON-LD.
 - Pipeline float bar **More → Directory** bulk-adds selected leads into **this workspace’s** directory (`POST /directory/listings/bulk`).
-- Pattern mirrors Q&A: Leads OS owns curation/APIs; AI Studio owns design/SSR pages. Do **not** call `ensurePublicToken` on GET (mint on Save settings only).
+- **Per-workspace custom domain**: Live directory URL (e.g. `https://flooringquote.com/directory`) drives the prompt. Never default the public site to AdHello.io — AdHello only hosts the JSON feeds.
+- Pattern mirrors Q&A: Leads OS owns curation/APIs; the brand’s AI Studio owns design/SSR pages. Do **not** call `ensurePublicToken` on GET (mint on Save settings only).
 
 ### Key files
 - `services/directoryStore.js`, `directoryPublic.js`, `directoryPagePrompt.js`

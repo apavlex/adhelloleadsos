@@ -5,7 +5,10 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const directoryStore = require('../services/directoryStore');
-const { buildDirectoryPagePrompt } = require('../services/directoryPagePrompt');
+const {
+  buildDirectoryPagePrompt,
+  originFromPageUrl,
+} = require('../services/directoryPagePrompt');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
 function baseUrlFromReq(req) {
@@ -104,11 +107,9 @@ router.get('/page-prompt.txt', async (req, res, next) => {
   try {
     const locals = await pageLocals(req);
     const prompt = buildDirectoryPagePrompt({
-      siteUrl: locals.settings.pageUrl
-        ? String(locals.settings.pageUrl).replace(/\/directory\/?$/i, '').replace(/\/$/, '')
-        : 'https://adhello.io',
+      siteUrl: originFromPageUrl(locals.settings.pageUrl),
       pathPrefix: locals.settings.pathPrefix || '/directory',
-      businessName: locals.settings.businessName || locals.workspaceName || 'Your Business',
+      businessName: locals.settings.businessName || locals.workspaceName || '',
       pageTitle: locals.settings.pageTitle || 'Local Business Directory',
       feedUrl: locals.feedUrl,
       detailUrlTemplate: locals.detailUrlTemplate,

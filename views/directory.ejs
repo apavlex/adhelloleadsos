@@ -18,7 +18,7 @@
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">SEO / Local Rank · Directory</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Business Directory</h1>
-        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">Publish curated Pipeline leads to a public feed. Design the index + per-business pages in AI Studio — same pattern as Q&amp;A, with crawlable schema.</p>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl">Publish curated Pipeline leads to a public feed for <strong class="text-brand-dark dark:text-white">this workspace</strong>. Host the pages on your own site / custom domain in AI Studio — same pattern as Q&amp;A, with crawlable schema.</p>
       </div>
     </header>
     <%- include('partials/seo_local_rank_nav') %>
@@ -47,8 +47,8 @@
     </div>
 
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="dirConnectTitle">
-      <h2 id="dirConnectTitle" class="font-display font-bold text-lg mb-1">Connect your AI Studio directory</h2>
-      <p class="text-xs text-brand-muted mb-4">Save settings to mint a publish token, then paste the page-builder prompt into AI Studio so index + <code class="text-[10px]">/{slug}</code> pages use your site design.</p>
+      <h2 id="dirConnectTitle" class="font-display font-bold text-lg mb-1">Connect your site / custom domain</h2>
+      <p class="text-xs text-brand-muted mb-4">Set the live directory URL for <em>this</em> workspace (e.g. <code class="text-[10px]">https://flooringquote.com/directory</code>), save to mint a publish token, then paste the page-builder prompt into that brand’s AI Studio project — not AdHello.io.</p>
 
       <form id="dirSettingsForm" class="grid gap-3 sm:grid-cols-2">
         <label class="block">
@@ -60,8 +60,8 @@
           <input type="text" name="businessName" value="<%= _settings.businessName || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
         </label>
         <label class="block sm:col-span-2">
-          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Live directory URL (index)</span>
-          <input type="url" name="pageUrl" placeholder="https://yoursite.com/directory" value="<%= _settings.pageUrl || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Live directory URL (your custom domain)</span>
+          <input type="url" name="pageUrl" placeholder="https://flooringquote.com/directory" value="<%= _settings.pageUrl || '' %>" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
         </label>
         <label class="block">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Path prefix</span>
@@ -95,7 +95,7 @@
 
       <details class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/10 dark:bg-slate-950/30 p-4" data-prompt-url="<%= _promptUrl %>">
         <summary class="cursor-pointer font-display font-bold text-sm">AI Studio page-builder prompt</summary>
-        <p class="text-xs text-brand-muted mt-2 mb-3">Copy into AI Studio chat to build index + <code class="text-[10px]">/{slug}</code> pages with your site design.</p>
+        <p class="text-xs text-brand-muted mt-2 mb-3">Copy into <strong class="text-brand-dark dark:text-white">that brand’s</strong> AI Studio chat (the site on your custom domain) to build index + <code class="text-[10px]">/{slug}</code> pages. Save settings first so feed URLs and the domain are filled in.</p>
         <textarea id="dirPromptText" readonly rows="8" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/60 px-3 py-2.5 text-[11px] font-mono" placeholder="Open this panel to load the prompt…"></textarea>
         <button type="button" id="dirCopyPrompt" class="mt-3 btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Copy prompt</button>
       </details>

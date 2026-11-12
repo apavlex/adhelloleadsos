@@ -90,19 +90,29 @@ describe('public business directory', () => {
     assert.equal(directoryStore.listListings(bundle, { published: true }).length, 2);
   });
 
-  it('page-builder prompt wires feed + detail + schema instructions', () => {
+  it('page-builder prompt uses workspace custom domain, not AdHello.io', () => {
+    const { originFromPageUrl } = require('../services/directoryPagePrompt');
+    assert.equal(originFromPageUrl('https://flooringquote.com/directory'), 'https://flooringquote.com');
+
     const prompt = buildDirectoryPagePrompt({
-      siteUrl: 'https://adhello.io',
+      siteUrl: 'https://flooringquote.com',
       pathPrefix: '/directory',
-      businessName: 'AdHello',
-      feedUrl: 'https://leads.adhello.io/api/public/directory/tok/feed.json',
-      detailUrlTemplate: 'https://leads.adhello.io/api/public/directory/tok/businesses/{slug}.json',
+      businessName: 'Flooring Quote',
+      feedUrl: 'https://leads.example.com/api/public/directory/tok/feed.json',
+      detailUrlTemplate: 'https://leads.example.com/api/public/directory/tok/businesses/{slug}.json',
     });
+    assert.match(prompt, /flooringquote\.com\/directory/);
+    assert.match(prompt, /Flooring Quote/);
     assert.match(prompt, /feed\.json/);
     assert.match(prompt, /\{slug\}/);
     assert.match(prompt, /item_list_schema/);
     assert.match(prompt, /local_business_schema/);
-    assert.match(prompt, /AI Studio/);
+    assert.match(prompt, /do not use AdHello branding/i);
+    assert.doesNotMatch(prompt, /https:\/\/adhello\.io\/directory/);
+
+    const unset = buildDirectoryPagePrompt({ businessName: 'Flooring Quote' });
+    assert.match(unset, /SET LIVE DIRECTORY URL/i);
+    assert.doesNotMatch(unset, /https:\/\/adhello\.io/);
   });
 
   it('wires routes, nav, permissions, and pipeline More → Directory', () => {
