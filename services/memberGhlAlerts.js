@@ -263,17 +263,25 @@ async function listPendingForMember(member, network, opts = {}) {
   const wid = String(network.ownerWorkspaceId || '').trim();
   if (!wid) return [];
   // Website Lead Connector forms often create a GHL contact without a Form
-  // Submitted webhook. Pull recent contacts so Reviews still gets the ping.
+  // Submitted webhook. Default: fire-and-forget (sync used to cold-scan getAllLeads
+  // and freeze every Agency OS hop). Await only when callers opt in (tests / force).
   if (!opts.skipFormSync) {
-    try {
-      const ghlFormLeadSync = require('./ghlFormLeadSync');
-      await ghlFormLeadSync.syncRecentFormLeads(wid, {
-        force: !!opts.forceFormSync,
-        maxAgeMs: opts.formSyncMaxAgeMs,
-        notifyMaxAgeMs: opts.formNotifyMaxAgeMs,
+    const ghlFormLeadSync = require('./ghlFormLeadSync');
+    const syncOpts = {
+      force: !!opts.forceFormSync,
+      maxAgeMs: opts.formSyncMaxAgeMs,
+      notifyMaxAgeMs: opts.formNotifyMaxAgeMs,
+    };
+    if (opts.forceFormSync || opts.awaitFormSync) {
+      try {
+        await ghlFormLeadSync.syncRecentFormLeads(wid, syncOpts);
+      } catch (err) {
+        console.warn('[memberGhlAlerts] form lead sync failed:', err && err.message);
+      }
+    } else {
+      void ghlFormLeadSync.syncRecentFormLeads(wid, syncOpts).catch((err) => {
+        console.warn('[memberGhlAlerts] form lead sync failed:', err && err.message);
       });
-    } catch (err) {
-      console.warn('[memberGhlAlerts] form lead sync failed:', err && err.message);
     }
   }
   // SQL-prefiltered inbound rows — never getAllLeads (that stalled Folders/Reviews/Q&A).

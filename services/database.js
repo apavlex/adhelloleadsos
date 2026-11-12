@@ -849,6 +849,20 @@ module.exports = {
     return _leadsListInflight.size;
   },
 
+  /**
+   * Warm in-memory lead list when present (no SQLite). Used by background form sync
+   * so Reviews/Q&A hops are not blocked by a cold full-workspace scan.
+   */
+  peekCachedLeads(workspaceId) {
+    const wid = String(workspaceId || '').trim();
+    if (!wid) return null;
+    const cached = _leadsListCache.get(wid);
+    if (!cached || Date.now() - cached.at >= LEADS_LIST_CACHE_TTL_MS) return null;
+    // Empty warm lists are useless to callers (and `[]` is truthy) — treat as a miss.
+    if (!Array.isArray(cached.leads) || cached.leads.length === 0) return null;
+    return cached.leads.slice();
+  },
+
   async getAllLeads(workspaceId) {
     const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
     assertLeadScopedWorkspaceId(wid, 'getAllLeads');
@@ -867,47 +881,64 @@ module.exports = {
       // Keep expression identical to idx_kv_lead_workspace so SQLite can use the index.
       const leadWs =
         "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
-      const rows = includeLegacyDefault
-        ? sqlite
-            .prepare(
-              `SELECT key, value FROM kv
-               WHERE key LIKE 'lead:%'
-                 AND (
+      const whereLegacy = `(
                    ${leadWs} = ?
                    OR ${leadWs} IS NULL
                    OR ${leadWs} = ''
                    OR ${leadWs} = 'default'
-                 )`,
-            )
-            .all(wid)
-        : sqlite
-            .prepare(
-              `SELECT key, value FROM kv
-               WHERE key LIKE 'lead:%'
-                 AND ${leadWs} = ?`,
-            )
-            .all(wid);
+                 )`;
+      const whereScoped = `${leadWs} = ?`;
+      // Page the scan so other HTTP hops (Reviews / Q&A / Folders) can run between chunks.
+      // A single giant .all() froze the process on 2k+ lead workspaces after deploys.
+      const PAGE = 150;
+      const YIELD_EVERY = 40;
       const leads = [];
-      // Yield often so switch/nav requests stay responsive while a large workspace cold-loads.
-      const YIELD_EVERY = 80;
-      for (let i = 0; i < rows.length; i++) {
-        if (i > 0 && i % YIELD_EVERY === 0) {
+      let offset = 0;
+      let pageRows;
+      do {
+        pageRows = includeLegacyDefault
+          ? sqlite
+              .prepare(
+                `SELECT key, value FROM kv
+                 WHERE key LIKE 'lead:%'
+                   AND ${whereLegacy}
+                 ORDER BY key DESC
+                 LIMIT ? OFFSET ?`,
+              )
+              .all(wid, PAGE, offset)
+          : sqlite
+              .prepare(
+                `SELECT key, value FROM kv
+                 WHERE key LIKE 'lead:%'
+                   AND ${whereScoped}
+                 ORDER BY key DESC
+                 LIMIT ? OFFSET ?`,
+              )
+              .all(wid, PAGE, offset);
+        for (let i = 0; i < pageRows.length; i++) {
+          if (i > 0 && i % YIELD_EVERY === 0) {
+            await new Promise((r) => setImmediate(r));
+          }
+          const row = pageRows[i];
+          const key = row && row.key;
+          const raw = row && row.value;
+          if (!key || raw == null) continue;
+          let parsed;
+          try {
+            parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          } catch {
+            continue;
+          }
+          if (!parsed || typeof parsed !== 'object') continue;
+          if (normLeadW(parsed.workspaceId) !== wid) continue;
+          leads.push({ ...parsed, key, workspaceId: wid });
+        }
+        offset += pageRows.length;
+        if (pageRows.length) {
           await new Promise((r) => setImmediate(r));
         }
-        const row = rows[i];
-        const key = row && row.key;
-        const raw = row && row.value;
-        if (!key || raw == null) continue;
-        let parsed;
-        try {
-          parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        } catch {
-          continue;
-        }
-        if (!parsed || typeof parsed !== 'object') continue;
-        if (normLeadW(parsed.workspaceId) !== wid) continue;
-        leads.push({ ...parsed, key, workspaceId: wid });
-      }
+      } while (pageRows.length === PAGE);
+      // Already newest-first from ORDER BY key DESC (lead: timestamps); stable re-sort by key ts.
       leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
       const entry = { at: Date.now(), leads };
       rebuildLeadsByKey(entry);

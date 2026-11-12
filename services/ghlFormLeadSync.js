@@ -259,7 +259,21 @@ async function syncRecentFormLeads(workspaceId, opts = {}) {
     console.warn('[ghlFormLeadSync] custom field catalog failed:', err && err.message);
   }
 
-  const localLeads = await dbService.getAllLeads(wid);
+  // Prefer warm cache / inbound-only — never cold getAllLeads here (froze Reviews/Q&A/Folders).
+  // Empty [] from peek is truthy — only treat a non-empty warm list as usable.
+  const warm =
+    typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
+  let localLeads = Array.isArray(warm) && warm.length > 0 ? warm.slice() : null;
+  if (!localLeads) {
+    try {
+      localLeads =
+        typeof dbService.listLeadsWithInboundEvents === 'function'
+          ? await dbService.listLeadsWithInboundEvents(wid)
+          : [];
+    } catch (_) {
+      localLeads = [];
+    }
+  }
   let synced = 0;
   let notified = 0;
   let maxSeenAdded = watermarkMs;

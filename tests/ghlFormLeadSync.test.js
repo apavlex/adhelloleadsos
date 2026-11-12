@@ -31,6 +31,11 @@ describe('ghlFormLeadSync', () => {
       await dbService.deleteLead(lead.key || lead.id);
     }
     dbService.deleteKvSync(`ghlFormLeadSync:${WID}`);
+    // Phone/contact notify claims survive lead deletes and would make the next
+    // case look "already notified" (same Alex phone across suite cases).
+    for (const key of dbService.listKvKeysSync(`formLeadNotify:${WID}:`) || []) {
+      dbService.deleteKvSync(key);
+    }
   });
 
   it('looksLikeWebsiteForm accepts form-like sources and Lead Connector extras', () => {
