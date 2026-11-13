@@ -162,6 +162,29 @@ describe('public business directory', () => {
     assert.equal(directoryStore.listListings(bundle, { published: true }).length, 2);
   });
 
+  it('updates listing fields from the edit drawer save path', async () => {
+    const listing = await directoryStore.upsertFromLead(WID, 'lead:chimney_1', { published: true });
+    const updated = await directoryStore.updateListing(WID, listing.id, {
+      name: 'Acme Chimney Pros',
+      category: 'Chimney sweep',
+      description: 'Edited description for the website.',
+      reviewSentiment: 'mostly_positive',
+      reviewSnippets: 'On time and careful.\nFair pricing.',
+      blurb: 'Trusted chimney crew',
+      published: true,
+    });
+    assert.equal(updated.name, 'Acme Chimney Pros');
+    assert.equal(updated.category, 'Chimney sweep');
+    assert.match(updated.description, /Edited description/);
+    assert.equal(updated.reviewSentiment, 'mostly_positive');
+    assert.equal(updated.reviewSnippets.length, 2);
+    assert.equal(updated.blurb, 'Trusted chimney crew');
+
+    // maps_business cannot stick as a category via edit either.
+    const cleared = await directoryStore.updateListing(WID, listing.id, { category: 'maps_business' });
+    assert.equal(cleared.category, '');
+  });
+
   it('page-builder prompt uses workspace custom domain, not AdHello.io', () => {
     const { originFromPageUrl } = require('../services/directoryPagePrompt');
     assert.equal(originFromPageUrl('https://flooringquote.com/directory'), 'https://flooringquote.com');
@@ -214,7 +237,14 @@ describe('public business directory', () => {
     assert.match(view, /applyInbox/);
     assert.match(view, /showReviews/);
     assert.match(view, /reviewSentiment/);
+    assert.match(view, /js-dir-open/);
+    assert.match(view, /dirEditDrawer/);
+    assert.match(view, /dirEditForm/);
+    assert.match(view, /openEdit/);
     assert.match(routes, /showReviews/);
+    assert.match(routes, /updateListing/);
+    assert.match(routes, /\/listings\/:id\.json/);
+    assert.match(routes, /router\.post\('\/listings\/:id'/);
     assert.ok(moreIdx >= 0);
     assert.ok(bar.indexOf('id="bulkAddDirectoryBtn"', moreIdx) > moreIdx);
     assert.match(bar, /\/directory\/listings\/bulk/);

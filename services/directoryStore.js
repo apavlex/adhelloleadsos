@@ -588,10 +588,24 @@ async function updateListing(workspaceId, listingId, patch = {}) {
   if (patch.published !== undefined) {
     published = patch.published === true || patch.published === '1' || patch.published === 'on';
   }
+  const nextPatch = { ...patch };
+  if (Object.prototype.hasOwnProperty.call(patch, 'reviewSnippets')) {
+    nextPatch.reviewSnippets = Array.isArray(patch.reviewSnippets)
+      ? patch.reviewSnippets
+      : String(patch.reviewSnippets || '')
+          .split(/\n+/)
+          .map((s) => clean(s, 400))
+          .filter(Boolean)
+          .slice(0, 5);
+  }
+  // Allow clearing category (do not keep stale maps_business from prev).
+  if (Object.prototype.hasOwnProperty.call(patch, 'category')) {
+    nextPatch.category = isJobTypeCategorySlug(patch.category) ? '' : clean(patch.category, 120);
+  }
   bundle.listings[id] = normalizeListing(
     {
       ...prev,
-      ...patch,
+      ...nextPatch,
       id,
       slug: nextSlug,
       published,

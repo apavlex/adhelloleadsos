@@ -243,6 +243,62 @@ router.post('/listings/bulk', async (req, res) => {
   }
 });
 
+/** Edit curated listing fields (name, category, description, reviews, etc.). */
+router.post('/listings/:id', async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const snippetsRaw = body.reviewSnippets;
+    const reviewSnippets = Array.isArray(snippetsRaw)
+      ? snippetsRaw
+      : String(snippetsRaw || '')
+          .split(/\n+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .slice(0, 5);
+    const row = await directoryStore.updateListing(req.workspaceId, req.params.id, {
+      name: body.name,
+      slug: body.slug,
+      category: body.category,
+      city: body.city,
+      state: body.state,
+      address: body.address,
+      phone: body.phone,
+      website: body.website,
+      rating: body.rating === '' || body.rating == null ? null : body.rating,
+      reviewCount: body.reviewCount === '' || body.reviewCount == null ? null : body.reviewCount,
+      description: body.description,
+      blurb: body.blurb,
+      reviewSummary: body.reviewSummary,
+      reviewSentiment: body.reviewSentiment,
+      reviewSnippets,
+      imageUrl: body.imageUrl,
+      published: body.published,
+    });
+    if (wantsJsonResponse(req)) return res.json({ success: true, listing: row });
+    return res.redirect('/directory?ok=saved');
+  } catch (e) {
+    if (wantsJsonResponse(req)) {
+      const status = e.code === 'NOT_FOUND' ? 404 : 400;
+      return res.status(status).json({ success: false, error: e.message || 'Save failed' });
+    }
+    next(e);
+  }
+});
+
+router.get('/listings/:id.json', async (req, res, next) => {
+  try {
+    const bundle = await directoryStore.load(req.workspaceId);
+    const id = String(req.params.id || '');
+    const row = (directoryStore.listListings(bundle) || []).find((r) => r && r.id === id);
+    if (!row) {
+      return res.status(404).json({ success: false, error: 'Listing not found.' });
+    }
+    return res.json({ success: true, listing: row });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/listings/:id/publish', async (req, res, next) => {
   try {
     const body = req.body || {};
