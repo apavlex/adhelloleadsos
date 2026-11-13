@@ -1180,25 +1180,57 @@ module.exports = {
   },
 
   async getAllLeadsUnscoped() {
-    // One scan instead of kvList + getLead per key (each getLead re-resolved and re-read its row).
-    const rows = sqlite.prepare("SELECT key, value FROM kv WHERE key LIKE 'lead:%' ORDER BY key").all();
-    rows.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
+    // Keyset pages (not one monolithic SELECT .all()) — scheduler / sequence / referral
+    // scans used to hold SQLite for the entire lead table and frost Reviews / Q&A.
+    const PAGE = 150;
+    const YIELD_EVERY = 25;
     const leads = [];
-    const YIELD_EVERY = 40;
-    for (let i = 0; i < rows.length; i++) {
-      if (i > 0 && i % YIELD_EVERY === 0) {
+    let cursorKey = null;
+    let pageRows;
+    do {
+      pageRows = cursorKey
+        ? sqlite
+            .prepare(
+              `SELECT key, value FROM kv
+               WHERE key LIKE 'lead:%'
+                 AND key < ?
+               ORDER BY key DESC
+               LIMIT ?`,
+            )
+            .all(cursorKey, PAGE)
+        : sqlite
+            .prepare(
+              `SELECT key, value FROM kv
+               WHERE key LIKE 'lead:%'
+               ORDER BY key DESC
+               LIMIT ?`,
+            )
+            .all(PAGE);
+      for (let i = 0; i < pageRows.length; i++) {
+        if (i > 0 && i % YIELD_EVERY === 0) {
+          await new Promise((r) => setImmediate(r));
+        }
+        const row = pageRows[i];
+        if (!row || row.value == null) continue;
+        let parsed;
+        try {
+          parsed = typeof row.value === 'string' ? JSON.parse(row.value) : row.value;
+        } catch {
+          continue;
+        }
+        if (!parsed || typeof parsed !== 'object') continue;
+        leads.push({
+          key: row.key,
+          ...normalizeLeadForPanel({ ...parsed, key: parsed.key || row.key }),
+        });
+      }
+      cursorKey = pageRows.length ? pageRows[pageRows.length - 1].key : null;
+      if (pageRows.length) {
         await new Promise((r) => setImmediate(r));
       }
-      const row = rows[i];
-      let parsed;
-      try {
-        parsed = JSON.parse(row.value);
-      } catch {
-        continue;
-      }
-      if (!parsed || typeof parsed !== 'object') continue;
-      leads.push({ key: row.key, ...normalizeLeadForPanel({ ...parsed, key: parsed.key || row.key }) });
-    }
+    } while (pageRows.length === PAGE);
+    // Already newest-first from ORDER BY key DESC; stable re-sort by key ts.
+    leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
     return leads;
   },
 

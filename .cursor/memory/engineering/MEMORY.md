@@ -1,5 +1,16 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-12 — Reviews/Q&A still stuck after 737 (1.0.738)
+
+### What / why
+- 1.0.737 stopped Reports cold scans, but Reviews/Q&A still failed to hydrate for some users.
+- Root causes left: (1) `getAllLeadsUnscoped` still did one monolithic `SELECT … .all()` (scheduler sequences every 15m + startup referral), locking SQLite; (2) `/today` awaited a cold `getAllLeads` on first paint; (3) client hydrate aborted at **5s** (same as `busy_timeout`) with no retry; (4) shell never applied settings from `/inbox.json`; (5) SW cache version stuck at 1.0.717.
+- Fix: keyset-page `getAllLeadsUnscoped`; Today warm-first with 1.5s race then paint; inbox.json returns `pending: true` on SQLITE_BUSY; hydrate retries (12s, up to 3); apply settings on hydrate; bump PWA cache to 1.0.738.
+
+### Key files
+- `services/database.js`, `routes/today.js`, `routes/businessReviews.js`, `routes/seoQa.js`
+- `views/business_reviews.ejs`, `views/seo_qa.ejs`, `public/sw.js`
+
 ## 2026-11-11 — Public business Directory (1.0.727–729)
 
 ### What shipped

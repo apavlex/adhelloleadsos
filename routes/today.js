@@ -101,9 +101,25 @@ router.get('/', async (req, res, next) => {
     const searchInProgressNotice = req.query.searchInProgress === '1';
     const scheduleSavedNotice = req.query.scheduleSaved === '1';
 
+    // First paint: warm leads when available. A cold full-workspace scan held SQLite and
+    // frosted Reviews / Q&A — race a short wait, then paint with [] while the inflight load finishes.
+    async function leadsForTodayPaint() {
+      const warm =
+        typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
+      if (warm) return warm;
+      const cold = dbService.getAllLeads(wid);
+      const raced = await Promise.race([
+        cold.then((leads) => ({ leads })),
+        new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+      ]);
+      if (raced && Array.isArray(raced.leads)) return raced.leads;
+      cold.catch(() => {});
+      return [];
+    }
+
     // First paint: leads + light chrome only. Coach / board / sources / network hydrate via /today/extras.json.
     const [all, history, touchGoal, activation, workspaceFolders, rawTasks] = await Promise.all([
-      dbService.getAllLeads(wid),
+      leadsForTodayPaint(),
       dbService.listDailyTrackers(wid, email, 62),
       loadDailyTouchGoal(req),
       activationService.getState(email, workspaceDoc || wid),

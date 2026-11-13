@@ -175,6 +175,38 @@ test('Reports HTML does not await cold getAllLeads (keeps Reviews/Q&A responsive
   assert.doesNotMatch(shellChunk, /getStore\(/);
 });
 
+test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
+  const today = fs.readFileSync(path.join(root, 'routes/today.js'), 'utf8');
+  const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
+  const reviewsRoute = fs.readFileSync(path.join(root, 'routes/businessReviews.js'), 'utf8');
+  const qaRoute = fs.readFileSync(path.join(root, 'routes/seoQa.js'), 'utf8');
+  const reviewsView = fs.readFileSync(path.join(root, 'views/business_reviews.ejs'), 'utf8');
+  const qaView = fs.readFileSync(path.join(root, 'views/seo_qa.ejs'), 'utf8');
+  const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
+  assert.match(today, /peekCachedLeads/);
+  assert.match(today, /leadsForTodayPaint/);
+  assert.match(today, /1500/);
+  const unscopedStart = db.indexOf('async getAllLeadsUnscoped');
+  assert.ok(unscopedStart > 0);
+  const unscopedChunk = db.slice(unscopedStart, unscopedStart + 1600);
+  assert.match(unscopedChunk, /ORDER BY key DESC/);
+  assert.match(unscopedChunk, /LIMIT \?/);
+  assert.match(unscopedChunk, /setImmediate/);
+  assert.doesNotMatch(
+    unscopedChunk,
+    /SELECT key, value FROM kv WHERE key LIKE 'lead:%' ORDER BY key"\)\.all\(\)/,
+  );
+  assert.match(reviewsRoute, /pending:\s*true/);
+  assert.match(qaRoute, /pending:\s*true/);
+  assert.match(reviewsView, /runHydrate/);
+  assert.match(reviewsView, /applySettingsForm/);
+  assert.match(reviewsView, /12000/);
+  assert.match(qaView, /runHydrate/);
+  assert.match(qaView, /applySettingsForm/);
+  assert.match(qaView, /12000/);
+  assert.match(sw, /adhello-pwa-v1\.0\.738/);
+});
+
 
 test('reassignLeadsToFolder uses workspace-scoped getAllLeads', () => {
   const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');

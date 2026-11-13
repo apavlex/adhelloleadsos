@@ -160,6 +160,12 @@ router.get('/page-prompt.txt', async (req, res, next) => {
   }
 });
 
+function isSqliteBusyError(err) {
+  const msg = String((err && err.message) || err || '');
+  const code = String((err && (err.code || err.name)) || '');
+  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
+}
+
 router.get('/inbox.json', async (req, res, next) => {
   try {
     const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
@@ -176,6 +182,13 @@ router.get('/inbox.json', async (req, res, next) => {
       submitUrl: locals.submitUrl,
     });
   } catch (e) {
+    if (isSqliteBusyError(e)) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Inbox temporarily busy — retrying…',
+      });
+    }
     next(e);
   }
 });

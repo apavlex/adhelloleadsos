@@ -470,6 +470,22 @@
       );
     }
 
+    function applySettingsForm(settings) {
+      if (!settings) return;
+      var pageUrl = document.querySelector('#sqaImportUrl, [name=pageUrl]');
+      var pageTitle = document.querySelector('[name=pageTitle]');
+      var bn = document.querySelector('[name=businessName]');
+      var cats = document.querySelector('[name=categories]');
+      var notify = document.querySelector('[name=notifyOnSubmit]');
+      if (pageUrl && settings.pageUrl != null && String(settings.pageUrl).trim()) pageUrl.value = String(settings.pageUrl);
+      if (pageTitle && settings.pageTitle != null && String(settings.pageTitle).trim()) pageTitle.value = String(settings.pageTitle);
+      if (bn && settings.businessName != null && String(settings.businessName).trim()) bn.value = String(settings.businessName);
+      if (cats && Array.isArray(settings.categories) && settings.categories.length) {
+        cats.value = settings.categories.join(', ');
+      }
+      if (notify && settings.notifyOnSubmit !== undefined) notify.checked = settings.notifyOnSubmit !== false;
+    }
+
     function applyInbox(data, focusId) {
       var questions = (data && Array.isArray(data.questions)) ? data.questions : [];
       var total = data && typeof data.questionsTotal === 'number' ? data.questionsTotal : questions.length;
@@ -481,6 +497,7 @@
       var countEl = document.getElementById('sqaInboxCount');
       var truncNote = document.getElementById('sqaInboxTruncNote');
       if (loading) loading.remove();
+      applySettingsForm(data && data.settings);
       var kpiTotal = document.getElementById('sqaKpiTotal');
       var kpiOpen = document.getElementById('sqaKpiOpen');
       var kpiAnswered = document.getElementById('sqaKpiAnswered');
@@ -520,34 +537,59 @@
     }
 
     if (shouldHydrate) {
-      var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-      var hydrateTimer = setTimeout(function () {
-        if (hydrateCtrl) hydrateCtrl.abort();
-      }, 5000);
-      fetch('/seo-qa/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focus ? ('&q=' + encodeURIComponent(focus)) : ''), {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-        signal: hydrateCtrl ? hydrateCtrl.signal : undefined
-      })
-        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
-        .then(function (parsed) {
-          clearTimeout(hydrateTimer);
-          if (!parsed.ok || !parsed.data || !parsed.data.success) {
-            throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
-          }
-          applyInbox(parsed.data, focus);
+      var hydrateUrl = '/seo-qa/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focus ? ('&q=' + encodeURIComponent(focus)) : '');
+      var hydrateAttempts = 0;
+      function runHydrate() {
+        hydrateAttempts += 1;
+        var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var hydrateTimer = setTimeout(function () {
+          if (hydrateCtrl) hydrateCtrl.abort();
+        }, 12000);
+        var loadingEl = document.getElementById('sqaInboxLoading');
+        if (loadingEl && hydrateAttempts > 1) loadingEl.textContent = 'Still loading Q&A…';
+        fetch(hydrateUrl, {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+          signal: hydrateCtrl ? hydrateCtrl.signal : undefined
         })
-        .catch(function (e) {
-          clearTimeout(hydrateTimer);
-          var msg = (e && e.name === 'AbortError')
-            ? 'Inbox is taking too long — refresh to try again.'
-            : ((e && e.message) || 'Could not load inbox');
-          var loading = document.getElementById('sqaInboxLoading');
-          if (loading) loading.textContent = msg;
-          setStatus(msg, true);
-          var empty = document.getElementById('sqaEmptyState');
-          if (empty) empty.classList.remove('hidden');
-        });
+          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }); })
+          .then(function (parsed) {
+            clearTimeout(hydrateTimer);
+            if (parsed.data && parsed.data.pending && hydrateAttempts < 3) {
+              setTimeout(runHydrate, 600 * hydrateAttempts);
+              return;
+            }
+            if (!parsed.ok || !parsed.data || !parsed.data.success) {
+              var busy = !!(parsed.data && parsed.data.pending) || parsed.status === 503;
+              if (busy && hydrateAttempts < 3) {
+                setTimeout(runHydrate, 600 * hydrateAttempts);
+                return;
+              }
+              throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
+            }
+            applyInbox(parsed.data, focus);
+          })
+          .catch(function (e) {
+            clearTimeout(hydrateTimer);
+            if (hydrateAttempts < 3 && e && e.name === 'AbortError') {
+              setTimeout(runHydrate, 600 * hydrateAttempts);
+              return;
+            }
+            if (hydrateAttempts < 3 && !(e && e.name === 'AbortError')) {
+              setTimeout(runHydrate, 800 * hydrateAttempts);
+              return;
+            }
+            var msg = (e && e.name === 'AbortError')
+              ? 'Inbox is taking too long — refresh to try again.'
+              : ((e && e.message) || 'Could not load inbox');
+            var loading = document.getElementById('sqaInboxLoading');
+            if (loading) loading.textContent = msg;
+            setStatus(msg, true);
+            var empty = document.getElementById('sqaEmptyState');
+            if (empty) empty.classList.remove('hidden');
+          });
+      }
+      runHydrate();
     } else if (focus) {
       var el = document.getElementById('sqa-' + focus);
       if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });

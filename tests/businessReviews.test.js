@@ -162,6 +162,9 @@ describe('businessReviews', () => {
     assert.match(view, /shouldHydrate/);
     assert.match(view, /\/business-reviews\/inbox\.json/);
     assert.match(view, /AbortController/);
+    assert.match(view, /runHydrate/);
+    assert.match(view, /applySettingsForm/);
+    assert.match(route, /pending:\s*true/);
     assert.match(sched, /businessReviews\.syncDueWorkspaces/);
   });
 

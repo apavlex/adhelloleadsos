@@ -665,6 +665,21 @@
         );
       }
 
+      function applySettingsForm(settings, summary) {
+        var form = document.getElementById('brSettingsForm');
+        if (!form || !settings) return;
+        var q = form.querySelector('[name=query]');
+        var bn = form.querySelector('[name=businessName]');
+        var auto = form.querySelector('[name=autoSync]');
+        if (q && settings.query != null && String(settings.query).trim()) q.value = String(settings.query);
+        if (bn) {
+          var name = String(settings.businessName || (summary && summary.placeName) || '').trim();
+          if (name) bn.value = name;
+        }
+        if (auto && settings.autoSync !== undefined) auto.checked = settings.autoSync !== false;
+        refreshEnabled();
+      }
+
       function applyInbox(data, focusId) {
         var reviews = (data && Array.isArray(data.reviews)) ? data.reviews : [];
         var total = data && typeof data.reviewsTotal === 'number' ? data.reviewsTotal : reviews.length;
@@ -677,6 +692,7 @@
         var truncNote = document.getElementById('brInboxTruncNote');
         var markSeen = document.getElementById('brMarkSeenBtn');
         if (loading) loading.remove();
+        applySettingsForm(data && data.settings, summary);
         var kpiTotal = document.getElementById('brKpiTotal');
         var kpiNew = document.getElementById('brKpiNew');
         var kpiUnreplied = document.getElementById('brKpiUnreplied');
@@ -729,51 +745,76 @@
       var hydrateLimit = <%= JSON.stringify(_inboxHydrateLimit) %>;
 
       if (shouldHydrate) {
-        var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-        var hydrateTimer = setTimeout(function () {
-          if (hydrateCtrl) hydrateCtrl.abort();
-        }, 5000);
-        fetch('/business-reviews/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focusId ? ('&review=' + encodeURIComponent(focusId)) : ''), {
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-          signal: hydrateCtrl ? hydrateCtrl.signal : undefined
-        })
-          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
-          .then(function (parsed) {
-            clearTimeout(hydrateTimer);
-            if (!parsed.ok || !parsed.data || !parsed.data.success) {
-              throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
-            }
-            applyInbox(parsed.data, focusId);
-            if (initialSyncState && initialSyncState.status === 'syncing') {
-              showLoader('Still syncing in background…', initialSyncState.message || 'Outscraper is still working.');
-              setInline(initialSyncState.message || 'Background sync still running…');
-              setEmptyProgress(initialSyncState.message || 'Background sync still running…');
-              ['brSyncBtn', 'brSaveSyncBtn', 'brEmptySyncBtn'].forEach(function (id) {
-                var b = document.getElementById(id);
-                if (b) {
-                  b.disabled = true;
-                  if (!b.dataset.brLabel) b.dataset.brLabel = b.textContent.trim();
-                  b.textContent = 'Syncing…';
-                }
-              });
-              pollSyncStatus(0);
-            } else if (initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
-              setInline(initialSyncState.error, true);
-              setEmptyProgress(initialSyncState.error);
-            }
+        var hydrateUrl = '/business-reviews/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focusId ? ('&review=' + encodeURIComponent(focusId)) : '');
+        var hydrateAttempts = 0;
+        function runHydrate() {
+          hydrateAttempts += 1;
+          var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+          var hydrateTimer = setTimeout(function () {
+            if (hydrateCtrl) hydrateCtrl.abort();
+          }, 12000);
+          var loadingEl = document.getElementById('brInboxLoading');
+          if (loadingEl && hydrateAttempts > 1) loadingEl.textContent = 'Still loading reviews…';
+          fetch(hydrateUrl, {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+            signal: hydrateCtrl ? hydrateCtrl.signal : undefined
           })
-          .catch(function (e) {
-            clearTimeout(hydrateTimer);
-            var msg = (e && e.name === 'AbortError')
-              ? 'Inbox is taking too long — refresh to try again.'
-              : ((e && e.message) || 'Could not load inbox');
-            var loading = document.getElementById('brInboxLoading');
-            if (loading) loading.textContent = msg;
-            setInline(msg, true);
-            var empty = document.getElementById('brEmptyState');
-            if (empty) empty.classList.remove('hidden');
-          });
+            .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }); })
+            .then(function (parsed) {
+              clearTimeout(hydrateTimer);
+              if (parsed.data && parsed.data.pending && hydrateAttempts < 3) {
+                setTimeout(runHydrate, 600 * hydrateAttempts);
+                return;
+              }
+              if (!parsed.ok || !parsed.data || !parsed.data.success) {
+                var busy = !!(parsed.data && parsed.data.pending) || parsed.status === 503;
+                if (busy && hydrateAttempts < 3) {
+                  setTimeout(runHydrate, 600 * hydrateAttempts);
+                  return;
+                }
+                throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
+              }
+              applyInbox(parsed.data, focusId);
+              if (initialSyncState && initialSyncState.status === 'syncing') {
+                showLoader('Still syncing in background…', initialSyncState.message || 'Outscraper is still working.');
+                setInline(initialSyncState.message || 'Background sync still running…');
+                setEmptyProgress(initialSyncState.message || 'Background sync still running…');
+                ['brSyncBtn', 'brSaveSyncBtn', 'brEmptySyncBtn'].forEach(function (id) {
+                  var b = document.getElementById(id);
+                  if (b) {
+                    b.disabled = true;
+                    if (!b.dataset.brLabel) b.dataset.brLabel = b.textContent.trim();
+                    b.textContent = 'Syncing…';
+                  }
+                });
+                pollSyncStatus(0);
+              } else if (initialSyncState && initialSyncState.status === 'error' && initialSyncState.error) {
+                setInline(initialSyncState.error, true);
+                setEmptyProgress(initialSyncState.error);
+              }
+            })
+            .catch(function (e) {
+              clearTimeout(hydrateTimer);
+              if (hydrateAttempts < 3 && e && e.name === 'AbortError') {
+                setTimeout(runHydrate, 600 * hydrateAttempts);
+                return;
+              }
+              if (hydrateAttempts < 3 && !(e && e.name === 'AbortError')) {
+                setTimeout(runHydrate, 800 * hydrateAttempts);
+                return;
+              }
+              var msg = (e && e.name === 'AbortError')
+                ? 'Inbox is taking too long — refresh to try again.'
+                : ((e && e.message) || 'Could not load inbox');
+              var loading = document.getElementById('brInboxLoading');
+              if (loading) loading.textContent = msg;
+              setInline(msg, true);
+              var empty = document.getElementById('brEmptyState');
+              if (empty) empty.classList.remove('hidden');
+            });
+        }
+        runHydrate();
       } else if (focusId) {
         var node = document.getElementById('review-' + focusId);
         if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });

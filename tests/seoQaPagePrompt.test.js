@@ -44,5 +44,8 @@ describe('SEO Q&A page-builder prompt', () => {
     assert.match(view, /shouldHydrate/);
     assert.match(view, /\/seo-qa\/inbox\.json/);
     assert.match(view, /AbortController/);
+    assert.match(view, /runHydrate/);
+    assert.match(view, /applySettingsForm/);
+    assert.match(route, /pending:\s*true/);
   });
 });
