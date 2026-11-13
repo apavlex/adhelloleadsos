@@ -15,6 +15,15 @@
 - `routes/directory.js`, `routes/directoryPublic.js`, `views/directory.ejs`
 - `views/partials/bulk_action_bar.ejs` — `#bulkAddDirectoryBtn`
 
+## 2026-11-12 — Reports still kicked cold scans (1.0.737)
+
+### What / why
+- 1.0.736 was live but Reviews/Q&A still frosted: Reports `void getAllLeads` (fire-and-forget) still ran sync SQLite on the event loop.
+- Fix: **no cold lead scan from Reports at all**; skip outreach coach when cache cold; Reports in `_lightChrome`; shorter frost failsafe on SEO/Reports hops; inbox hydrate abort 5s.
+
+### Key files
+- `services/salesTrackerLocals.js`, `routes/analytics.js`, `views/partials/head.ejs`, `public/js/navbar-shell.js`
+
 ## 2026-11-12 — Reports froze Reviews / Q&A (1.0.736)
 
 ### What / why

@@ -138,11 +138,9 @@ router.get('/', async (req, res) => {
     const reportsScope = String(req.query.scope || 'workspace').toLowerCase() === 'all' ? 'all' : 'workspace';
     // Tracker + analytics: warm cache only on first paint. Cold getAllLeads here used to
     // lock SQLite and frost Business Reviews / Q&A on every menu hop.
+    // Visits + leads: warm/peek only. Never start cold getAllLeads here (blocks Reviews/Q&A).
     const visits = reportsTab === 'tracker' ? [] : await dbService.getAllVisits();
-    let leads = reportsTab === 'tracker' ? [] : peekWorkspaceLeads(req.workspaceId);
-    if (reportsTab !== 'tracker' && !leads.length) {
-      void dbService.getAllLeads(req.workspaceId).catch(() => null);
-    }
+    const leads = reportsTab === 'tracker' ? [] : peekWorkspaceLeads(req.workspaceId);
 
     let workspaceCompare = [];
     if (reportsScope === 'all') {
@@ -151,7 +149,6 @@ router.get('/', async (req, res) => {
       for (const id of ids) {
         const ws = await dbService.getWorkspace(id);
         const ls = peekWorkspaceLeads(id);
-        if (!ls.length) void dbService.getAllLeads(id).catch(() => null);
         workspaceCompare.push({
           id,
           name: (ws && ws.name) || 'Workspace',

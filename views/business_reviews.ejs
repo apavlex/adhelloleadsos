@@ -732,7 +732,7 @@
         var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         var hydrateTimer = setTimeout(function () {
           if (hydrateCtrl) hydrateCtrl.abort();
-        }, 12000);
+        }, 5000);
         fetch('/business-reviews/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focusId ? ('&review=' + encodeURIComponent(focusId)) : ''), {
           credentials: 'same-origin',
           headers: { Accept: 'application/json' },

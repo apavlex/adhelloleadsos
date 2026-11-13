@@ -153,13 +153,20 @@ test('Reports HTML does not await cold getAllLeads (keeps Reviews/Q&A responsive
   const analytics = fs.readFileSync(path.join(root, 'routes/analytics.js'), 'utf8');
   const tracker = fs.readFileSync(path.join(root, 'services/salesTrackerLocals.js'), 'utf8');
   const navScripts = fs.readFileSync(path.join(root, 'views/partials/navbar_scripts.ejs'), 'utf8');
+  const head = fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8');
   const reviews = fs.readFileSync(path.join(root, 'routes/businessReviews.js'), 'utf8');
+  const shellJs = fs.readFileSync(path.join(root, 'public/js/navbar-shell.js'), 'utf8');
   assert.match(analytics, /allowColdScan:\s*false/);
   assert.match(analytics, /peekCachedLeads|peekWorkspaceLeads/);
   assert.doesNotMatch(analytics, /await dbService\.getAllLeads/);
+  // Even fire-and-forget cold scans freeze the event loop — must not kick from Reports.
+  assert.doesNotMatch(analytics, /void dbService\.getAllLeads/);
+  assert.doesNotMatch(tracker, /void dbService\.getAllLeads/);
   assert.match(tracker, /allowColdScan/);
   assert.match(tracker, /peekCachedLeads/);
   assert.match(navScripts, /_npShell === 'reports'/);
+  assert.match(head, /_np === 'reports'/);
+  assert.match(shellJs, /lightDest/);
   // Reviews shell must not KV-read settings before paint.
   const shellIdx = reviews.indexOf('if (shell)');
   assert.ok(shellIdx > 0);

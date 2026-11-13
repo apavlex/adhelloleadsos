@@ -61,8 +61,8 @@ async function loadSalesTrackerReviewCore(req, dateStr, opts = {}) {
   } else if (allowColdScan) {
     allLeads = await dbService.getAllLeads(wid);
   } else {
-    // Background warm for the next hop — do not await on Reports first paint.
-    void dbService.getAllLeads(wid).catch(() => null);
+    // Never kick a cold scan from Reports HTML — even fire-and-forget blocked the
+    // event loop (sync SQLite) and frosted Reviews / Q&A until pageshow.
     allLeads = [];
   }
   const leadsScoped = filterLeadsForRequest(req, allLeads);
@@ -89,12 +89,14 @@ async function loadSalesTrackerLocals(req, opts = {}) {
   const streak = computeOutreachStreakWithLeads(history60, today, leadsScoped);
   const checklistWeek = enrichRollupWithLeadInference(buildDayRollup(today, history60, 7), leadsScoped);
   const checklistMonth = enrichRollupWithLeadInference(buildDayRollup(today, history60, 30), leadsScoped);
-  // Pass leads so coach does not kick a second cold getAllLeads.
-  const outreachCoach = await buildOutreachCoachSnapshot(req, {
-    leads: leadsScoped,
-    history: history60,
-    workspace: req.workspace || null,
-  });
+  // Skip coach when there is no warm lead list — listSchedules + stage seed still hit SQLite.
+  const outreachCoach = core.leadsWarm
+    ? await buildOutreachCoachSnapshot(req, {
+        leads: leadsScoped,
+        history: history60,
+        workspace: req.workspace || null,
+      })
+    : null;
   const workspaceDoc = req.workspace || (await dbService.getWorkspace(wid));
   const touchesToday = countUniqueLeadsTouchedToday(leadsScoped, workspaceDoc);
   const touchGoal = await loadDailyTouchGoal(req);

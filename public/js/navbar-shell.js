@@ -180,10 +180,25 @@ function readJsonReply(r) {
     }
     var desktopLeave = untilPageShow && isLikelyDesktopNav();
     var ms = 3500;
+    var pendingHref = '';
+    try {
+      pendingHref = String((opts && opts.href) || showNavLoading._pendingHref || '');
+    } catch (_) {
+      pendingHref = '';
+    }
+    var lightDest = false;
+    try {
+      var pathOnly = pendingHref ? new URL(pendingHref, window.location.origin).pathname : '';
+      lightDest = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics)(\/|$)/.test(pathOnly);
+    } catch (_) {
+      lightDest = false;
+    }
     if (untilPageShow) {
       // Desktop: clear sooner so a slow SSR cannot trap every menu hop behind frost.
+      // Light SEO/Reports hops: peel frost even sooner — shell HTML is meant to paint fast.
       // iOS: keep covering the white void longer, then offer Retry.
-      ms = desktopLeave ? 5000 : 12000;
+      if (lightDest) ms = desktopLeave ? 2500 : 6000;
+      else ms = desktopLeave ? 5000 : 12000;
     } else if (typeof opts === 'number' && opts > 0) {
       ms = opts;
     } else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) {
@@ -191,7 +206,7 @@ function readJsonReply(r) {
     }
     // Cap runaway overlays.
     if (untilPageShow) {
-      ms = Math.min(ms, desktopLeave ? 8000 : 15000);
+      ms = Math.min(ms, desktopLeave ? (lightDest ? 4000 : 8000) : (lightDest ? 8000 : 15000));
     } else if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
       ms = Math.min(ms, 3500);
     } else {

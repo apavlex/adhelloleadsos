@@ -523,7 +523,7 @@
       var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       var hydrateTimer = setTimeout(function () {
         if (hydrateCtrl) hydrateCtrl.abort();
-      }, 12000);
+      }, 5000);
       fetch('/seo-qa/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focus ? ('&q=' + encodeURIComponent(focus)) : ''), {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
