@@ -20,13 +20,13 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /_pendingHref/);
     assert.match(js, /location\.assign\(pending\)/);
     assert.match(js, /isLikelyDesktopNav/);
-    assert.match(js, /desktopLeave \? 8000 : 10000/);
+    assert.match(js, /desktopLeave \? 6000 : 9000/);
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
-    // Leave-nav stall must offer Retry — never peel frost before pageshow
-    // (early hide made hops look like "nothing opens").
-    assert.match(js, /Do NOT hide frost before pageshow/);
+    // Stall shows Retry, then absolute clear — frost must not brick the app forever.
+    assert.match(js, /cannot brick the whole app/);
+    assert.match(js, /desktopLeave \? 5000 : 10000/);
     assert.doesNotMatch(
       js,
       /if \(isLikelyDesktopNav\(\)\) \{\s*hideNavLoading\(\);\s*return;/

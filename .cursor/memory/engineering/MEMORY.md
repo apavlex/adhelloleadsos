@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Frost must not brick the app (1.0.741)
+
+### What / why
+- After 740, leave-nav frost stayed forever once stalled (Retry only, no absolute clear). Full-screen `pointer-events:auto` overlay made the whole app look “not loading.”
+- Fix: stall → show Retry → absolute clear after 5s desktop / 10s mobile so hops cannot trap the UI.
+
+### Key files
+- `public/js/navbar-shell.js`
+
 ## 2026-11-13 — Remembered frost/SQLite fix reapplied (1.0.740)
 
 ### What / why

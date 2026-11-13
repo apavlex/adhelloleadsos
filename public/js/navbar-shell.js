@@ -194,11 +194,11 @@ function readJsonReply(r) {
       lightDest = false;
     }
     if (untilPageShow) {
-      // Keep frost until pageshow. Peeling early (1.0.737) made hops look like
-      // "nothing opens" while HTML was still waiting on SQLite busy_timeout.
-      // After stallMs, show Retry (desktop + iOS) — never reveal the outgoing page.
-      if (lightDest) ms = desktopLeave ? 8000 : 10000;
-      else ms = desktopLeave ? 10000 : 15000;
+      // Prefer frost until pageshow. Early peel (737) looked like "nothing opens";
+      // never-clear stall (740) trapped the whole app behind the overlay.
+      // Stall → show Retry, then absolute clear so the UI cannot stay frozen forever.
+      if (lightDest) ms = desktopLeave ? 6000 : 9000;
+      else ms = desktopLeave ? 8000 : 12000;
     } else if (typeof opts === 'number' && opts > 0) {
       ms = opts;
     } else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) {
@@ -206,14 +206,14 @@ function readJsonReply(r) {
     }
     // Cap runaway overlays.
     if (untilPageShow) {
-      ms = Math.min(ms, desktopLeave ? (lightDest ? 12000 : 15000) : (lightDest ? 15000 : 20000));
+      ms = Math.min(ms, desktopLeave ? (lightDest ? 10000 : 12000) : (lightDest ? 14000 : 18000));
     } else if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
       ms = Math.min(ms, 3500);
     } else {
       ms = Math.min(ms, 120000);
     }
-    // Leave-nav stall: offer Retry. Do NOT hide frost before pageshow — that left
-    // users clicking in a loading loop on the old document.
+    // Leave-nav stall: offer Retry, then clear frost after a short grace so a hung
+    // hop cannot brick the whole app behind pointer-events:auto overlay.
     hideNavLoading._failSafe = setTimeout(function () {
       if (untilPageShow && showNavLoading._leaving) {
         var stallEl = document.getElementById('adhelloNavLoading');
@@ -221,6 +221,9 @@ function readJsonReply(r) {
           stallEl.classList.add('is-stalled');
           var btn = stallEl.querySelector('#adhelloNavLoadingRetry');
           if (btn) btn.classList.remove('hidden');
+          hideNavLoading._failSafe = setTimeout(function () {
+            hideNavLoading();
+          }, desktopLeave ? 5000 : 10000);
           return;
         }
       }

@@ -209,7 +209,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(qaView, /runHydrate/);
   assert.match(qaView, /applySettingsForm/);
   assert.match(qaView, /12000/);
-  assert.match(sw, /adhello-pwa-v1\.0\.740/);
+  assert.match(sw, /adhello-pwa-v1\.0\.741/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {
@@ -234,7 +234,7 @@ test('Remembered fix: menu hops never await cold getAllLeads / peel frost early'
   assert.match(notifications, /800/);
   assert.match(prospecting, /leadsForPipelinePaint/);
   assert.match(prospecting, /peekCachedLeads/);
-  assert.match(shellJs, /Do NOT hide frost before pageshow/);
+  assert.match(shellJs, /cannot brick the whole app/);
   assert.match(navScripts, /_npShell === 'engagement'/);
   assert.match(sched, /90000/);
   assert.match(sched, /120000/);
