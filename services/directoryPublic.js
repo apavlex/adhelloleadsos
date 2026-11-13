@@ -8,6 +8,10 @@ function publicListingView(row, settings = {}) {
   const showWebsite = settings.showWebsite !== false;
   const showAddress = settings.showAddress !== false;
   const showRating = settings.showRating !== false;
+  const showReviews = settings.showReviews !== false;
+  const snippets = Array.isArray(row.reviewSnippets)
+    ? row.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 5)
+    : [];
   return {
     id: row.id,
     slug: row.slug,
@@ -20,6 +24,11 @@ function publicListingView(row, settings = {}) {
     website: showWebsite ? row.website || '' : '',
     rating: showRating ? row.rating : null,
     review_count: showRating ? row.reviewCount : null,
+    review_sentiment: showRating || showReviews ? row.reviewSentiment || '' : '',
+    review_summary: showReviews ? row.reviewSummary || '' : '',
+    reviews: showReviews
+      ? snippets.map((text) => ({ text }))
+      : [],
     image_url: row.imageUrl || '',
     description: row.description || '',
     blurb: row.blurb || '',
@@ -90,6 +99,17 @@ function buildLocalBusinessSchema(row, pageUrl) {
       ratingValue: Number(row.rating),
       ...(reviewCount != null ? { reviewCount: Number(reviewCount) } : {}),
     };
+  }
+  const reviewBodies = Array.isArray(row.reviews)
+    ? row.reviews.map((r) => (r && r.text) || r).map((s) => String(s || '').trim()).filter(Boolean)
+    : Array.isArray(row.reviewSnippets)
+      ? row.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean)
+      : [];
+  if (reviewBodies.length) {
+    schema.review = reviewBodies.slice(0, 5).map((text) => ({
+      '@type': 'Review',
+      reviewBody: text,
+    }));
   }
   return schema;
 }

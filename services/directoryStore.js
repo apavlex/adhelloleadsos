@@ -45,10 +45,43 @@ function emptyBundle(workspaceId) {
       showWebsite: true,
       showAddress: true,
       showRating: true,
+      showReviews: true,
     },
     listings: {},
     updatedAt: new Date().toISOString(),
   };
+}
+
+function deriveReviewSentiment(rating, reviewCount) {
+  const r = rating != null ? Number(rating) : NaN;
+  if (!Number.isFinite(r) || r <= 0) return '';
+  const n = reviewCount != null ? Number(reviewCount) : 0;
+  if (r >= 4.6) return 'positive';
+  if (r >= 4.2) return n >= 10 ? 'mostly_positive' : 'positive';
+  if (r >= 3.7) return 'mixed';
+  if (r >= 3.0) return 'needs_attention';
+  return 'negative';
+}
+
+function leadReviewSnippets(lead) {
+  const l = lead && typeof lead === 'object' ? lead : {};
+  const raw = Array.isArray(l.reviewSnippets)
+    ? l.reviewSnippets
+    : Array.isArray(l.reviews)
+      ? l.reviews.map((r) => (r && typeof r === 'object' ? r.text || r.review_text || r.snippet || '' : r))
+      : [];
+  const out = [];
+  const seen = new Set();
+  for (const item of raw) {
+    const text = clean(item, 400);
+    if (!text || text.length < 8) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+    if (out.length >= 5) break;
+  }
+  return out;
 }
 
 function leadPublicFields(lead) {
@@ -57,15 +90,53 @@ function leadPublicFields(lead) {
   const city = clean(l.city || (l.addressComponents && l.addressComponents.city), 80);
   const state = clean(l.state || (l.addressComponents && l.addressComponents.state), 40);
   const address = clean(l.address || l.fullAddress || [l.street, city, state].filter(Boolean).join(', '), 240);
-  const category = clean(l.category || l.primaryCategory || l.jobType, 120);
+  const category = clean(
+    l.categoryName || l.category || l.primaryCategory || l.industry || l.jobType,
+    120,
+  );
   const phone = clean(l.phone || l.phoneNumber || '', 40);
   const website = clean(l.website || l.websiteUrl || l.url || '', 400);
-  const ratingRaw = l.rating != null ? Number(l.rating) : (l.stars != null ? Number(l.stars) : null);
-  const rating = Number.isFinite(ratingRaw) ? Math.round(ratingRaw * 10) / 10 : null;
-  const reviewsRaw = l.reviewsCount != null ? Number(l.reviewsCount) : (l.reviewCount != null ? Number(l.reviewCount) : null);
+  const ratingRaw =
+    l.rating != null
+      ? Number(l.rating)
+      : l.totalScore != null
+        ? Number(l.totalScore)
+        : l.stars != null
+          ? Number(l.stars)
+          : null;
+  const rating = Number.isFinite(ratingRaw) && ratingRaw > 0 ? Math.round(ratingRaw * 10) / 10 : null;
+  const reviewsRaw =
+    l.reviewsCount != null
+      ? Number(l.reviewsCount)
+      : l.reviewCount != null
+        ? Number(l.reviewCount)
+        : l.reviews != null && !Array.isArray(l.reviews)
+          ? Number(l.reviews)
+          : null;
   const reviewCount = Number.isFinite(reviewsRaw) ? Math.max(0, Math.floor(reviewsRaw)) : null;
   const imageUrl = clean(l.imageUrl || l.photoUrl || l.thumbnailUrl || '', 500);
-  const description = clean(l.description || l.snippet || l.notes || '', 600);
+  const description = clean(
+    l.description ||
+      l.about ||
+      l.businessDescription ||
+      l.snippet ||
+      l.notes ||
+      '',
+    1200,
+  );
+  const reviewSnippets = leadReviewSnippets(l);
+  const intel = l.reviewIntel && typeof l.reviewIntel === 'object' ? l.reviewIntel : null;
+  const reviewSummary = clean(
+    (intel && (intel.summary || intel.text)) || '',
+    800,
+  );
+  const reviewSentiment =
+    clean(l.reviewSentiment || l.sentiment, 40) || deriveReviewSentiment(rating, reviewCount);
+  const blurb =
+    clean(l.blurb, 400) ||
+    (description ? description.slice(0, 220) : '') ||
+    (reviewSummary ? reviewSummary.slice(0, 220) : '') ||
+    (reviewSnippets[0] ? reviewSnippets[0].slice(0, 220) : '');
   return {
     name: title,
     category,
@@ -78,6 +149,10 @@ function leadPublicFields(lead) {
     reviewCount,
     imageUrl,
     description,
+    blurb,
+    reviewSnippets,
+    reviewSummary,
+    reviewSentiment,
   };
 }
 
@@ -87,6 +162,18 @@ function normalizeListing(raw, fallbackId) {
   const leadKey = clean(row.leadKey, 200);
   const name = clean(row.name, 160) || 'Business';
   const slug = slugify(row.slug || name);
+  const rating =
+    row.rating == null || row.rating === '' ? null : Number(row.rating);
+  const reviewCount =
+    row.reviewCount == null || row.reviewCount === ''
+      ? null
+      : Math.max(0, Math.floor(Number(row.reviewCount) || 0));
+  const reviewSnippets = Array.isArray(row.reviewSnippets)
+    ? row.reviewSnippets.map((s) => clean(s, 400)).filter(Boolean).slice(0, 5)
+    : [];
+  const reviewSentiment =
+    clean(row.reviewSentiment, 40) ||
+    deriveReviewSentiment(Number.isFinite(rating) ? rating : null, reviewCount);
   return {
     id,
     leadKey,
@@ -98,11 +185,14 @@ function normalizeListing(raw, fallbackId) {
     address: clean(row.address, 240),
     phone: clean(row.phone, 40),
     website: clean(row.website, 400),
-    rating: row.rating == null || row.rating === '' ? null : Number(row.rating),
-    reviewCount: row.reviewCount == null || row.reviewCount === '' ? null : Math.max(0, Math.floor(Number(row.reviewCount) || 0)),
+    rating: Number.isFinite(rating) ? rating : null,
+    reviewCount,
     imageUrl: clean(row.imageUrl, 500),
-    description: clean(row.description, 600),
+    description: clean(row.description, 1200),
     blurb: clean(row.blurb, 400),
+    reviewSnippets,
+    reviewSummary: clean(row.reviewSummary, 800),
+    reviewSentiment,
     published: row.published === true,
     createdAt: row.createdAt || new Date().toISOString(),
     publishedAt: row.publishedAt || (row.published === true ? new Date().toISOString() : null),
@@ -273,11 +363,32 @@ function applyLeadToBundle(bundle, lead, leadKey, opts = {}) {
       leadKey: key,
       slug,
       ...fields,
-      blurb: opts.blurb != null ? opts.blurb : (existing && existing.blurb) || '',
+      blurb:
+        opts.blurb != null
+          ? opts.blurb
+          : fields.blurb || (existing && existing.blurb) || '',
       description:
         opts.description != null
           ? opts.description
           : fields.description || (existing && existing.description) || '',
+      category:
+        opts.category != null
+          ? opts.category
+          : fields.category || (existing && existing.category) || '',
+      reviewSnippets:
+        opts.reviewSnippets != null
+          ? opts.reviewSnippets
+          : (fields.reviewSnippets && fields.reviewSnippets.length
+              ? fields.reviewSnippets
+              : (existing && existing.reviewSnippets) || []),
+      reviewSummary:
+        opts.reviewSummary != null
+          ? opts.reviewSummary
+          : fields.reviewSummary || (existing && existing.reviewSummary) || '',
+      reviewSentiment:
+        opts.reviewSentiment != null
+          ? opts.reviewSentiment
+          : fields.reviewSentiment || (existing && existing.reviewSentiment) || '',
       published: publish,
       createdAt: (existing && existing.createdAt) || now,
       publishedAt: publish ? (existing && existing.publishedAt) || now : null,
@@ -441,4 +552,6 @@ module.exports = {
   setPublished,
   removeListing,
   findBySlug,
+  deriveReviewSentiment,
+  leadReviewSnippets,
 };

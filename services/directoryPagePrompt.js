@@ -61,10 +61,11 @@ function buildDirectoryPagePrompt({
    - H1: “${title}” (or brand-appropriate equivalent)
    - Short intro under it
    - Search + category/city filters (client-side OK on top of SSR list)
-   - Grid/list of business cards from the feed: name, category, city/state, rating, short blurb, “View” link to ${prefix}/{slug}
+   - Grid/list of business cards from the feed: name, category, city/state, rating, review sentiment, short blurb/description, “View” link to ${prefix}/{slug}
 2) Detail — ${missingSite ? `${siteLabel}${prefix}/{slug}` : `${site}${prefix}/{slug}`}
    - One page per published business
-   - Name as H1, category, city/state, phone, website, rating/reviews, description/blurb
+   - Name as H1, category, city/state, phone, website, rating + review_count, review_sentiment, description/blurb
+   - Show review_summary when present, plus up to a few reviews[].text quotes from the feed
    - Keep the same site chrome as the index
    - 404 state when the slug is missing
 
@@ -75,7 +76,7 @@ This site is a frontend only. Content is curated per workspace in Leads OS → S
    GET ${feed || '[SAVE SETTINGS ON SEO → Directory TO GET FEED URL]'}
    CORS is open. Response includes:
    - page: { title, business_name, page_url, path_prefix }
-   - businesses: [{ slug, name, category, city, state, address, phone, website, rating, review_count, image_url, description, blurb, … }]
+   - businesses: [{ slug, name, category, city, state, address, phone, website, rating, review_count, review_sentiment, review_summary, reviews: [{ text }], image_url, description, blurb, … }]
    - item_list_schema: ItemList JSON-LD object
    - counts, seo_note
 
@@ -83,8 +84,8 @@ This site is a frontend only. Content is curated per workspace in Leads OS → S
    GET ${detail}
    Replace {slug} with the route param.
    Response includes:
-   - business: { …same fields… }
-   - local_business_schema: LocalBusiness JSON-LD object
+   - business: { …same fields including category, description, review_sentiment, reviews… }
+   - local_business_schema: LocalBusiness JSON-LD (may include aggregateRating + review[])
 
 ## SEO (critical — AI Studio SSR)
 - Use AI Studio SSR / server functions so HTML is rendered on the server (not client-only paint).

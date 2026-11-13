@@ -29,14 +29,22 @@ describe('public business directory', () => {
       key: 'lead:chimney_1',
       workspaceId: WID,
       title: 'Acme Chimney Sweep',
-      category: 'Chimney Sweep',
+      categoryName: 'Chimney Sweep',
       city: 'Austin',
       state: 'TX',
       phone: '+15551234567',
       website: 'https://acmechimney.example',
-      rating: 4.8,
+      totalScore: 4.8,
       reviewsCount: 42,
       address: '100 Main St',
+      description: 'Family-owned chimney cleaning and repair across Austin.',
+      reviewSnippets: [
+        'They were on time and cleaned everything carefully.',
+        'Great communication and fair pricing.',
+      ],
+      reviewIntel: {
+        summary: 'Customers praise punctuality and careful cleanup; a sales angle is review velocity.',
+      },
     });
   });
 
@@ -45,6 +53,13 @@ describe('public business directory', () => {
     assert.equal(listing.published, true);
     assert.equal(listing.slug, 'acme-chimney-sweep');
     assert.equal(listing.name, 'Acme Chimney Sweep');
+    assert.equal(listing.category, 'Chimney Sweep');
+    assert.match(listing.description, /Family-owned/);
+    assert.equal(listing.rating, 4.8);
+    assert.equal(listing.reviewCount, 42);
+    assert.equal(listing.reviewSentiment, 'positive');
+    assert.equal(listing.reviewSnippets.length, 2);
+    assert.match(listing.reviewSummary, /punctuality/i);
 
     const bundle = await directoryStore.ensurePublicToken(WID);
     const token = bundle.settings.publicToken;
@@ -53,6 +68,10 @@ describe('public business directory', () => {
     const feed = await directoryPublic.getPublicFeed(token);
     assert.equal(feed.businesses.length, 1);
     assert.equal(feed.businesses[0].slug, 'acme-chimney-sweep');
+    assert.equal(feed.businesses[0].category, 'Chimney Sweep');
+    assert.equal(feed.businesses[0].review_sentiment, 'positive');
+    assert.equal(feed.businesses[0].reviews.length, 2);
+    assert.match(feed.businesses[0].description, /Family-owned/);
     assert.equal(feed.item_list_schema['@type'], 'ItemList');
     assert.equal(feed.item_list_schema.numberOfItems, 1);
 
@@ -60,6 +79,9 @@ describe('public business directory', () => {
     assert.equal(detail.business.name, 'Acme Chimney Sweep');
     assert.equal(detail.local_business_schema['@type'], 'LocalBusiness');
     assert.equal(detail.local_business_schema.telephone, '+15551234567');
+    assert.equal(detail.local_business_schema.aggregateRating.ratingValue, 4.8);
+    assert.equal(detail.local_business_schema.review.length, 2);
+    assert.equal(detail.local_business_schema.review[0]['@type'], 'Review');
   });
 
   it('hides unpublished listings from the public feed', async () => {
@@ -107,6 +129,8 @@ describe('public business directory', () => {
     assert.match(prompt, /\{slug\}/);
     assert.match(prompt, /item_list_schema/);
     assert.match(prompt, /local_business_schema/);
+    assert.match(prompt, /review_sentiment/);
+    assert.match(prompt, /reviews\[\]\.text|reviews:\s*\[\{\s*text/);
     assert.match(prompt, /do not use AdHello branding/i);
     assert.doesNotMatch(prompt, /https:\/\/adhello\.io\/directory/);
 
@@ -138,6 +162,9 @@ describe('public business directory', () => {
     assert.match(routes, /\/inbox\.json/);
     assert.match(view, /\/directory\/inbox\.json/);
     assert.match(view, /applyInbox/);
+    assert.match(view, /showReviews/);
+    assert.match(view, /reviewSentiment/);
+    assert.match(routes, /showReviews/);
     assert.ok(moreIdx >= 0);
     assert.ok(bar.indexOf('id="bulkAddDirectoryBtn"', moreIdx) > moreIdx);
     assert.match(bar, /\/directory\/listings\/bulk/);

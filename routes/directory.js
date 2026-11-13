@@ -167,6 +167,10 @@ router.post('/settings', async (req, res, next) => {
           body.showRating === undefined
             ? bundle.settings.showRating !== false
             : body.showRating === '1' || body.showRating === true || body.showRating === 'on',
+        showReviews:
+          body.showReviews === undefined
+            ? bundle.settings.showReviews !== false
+            : body.showReviews === '1' || body.showReviews === true || body.showReviews === 'on',
         publicToken: rotate
           ? directoryStore.newPublicToken()
           : bundle.settings.publicToken || directoryStore.newPublicToken(),

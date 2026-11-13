@@ -74,6 +74,7 @@
           <label class="inline-flex items-center gap-2"><input type="checkbox" name="showWebsite" value="1" <%= _settings.showWebsite !== false ? 'checked' : '' %> class="rounded border-brand-border" /> Website</label>
           <label class="inline-flex items-center gap-2"><input type="checkbox" name="showAddress" value="1" <%= _settings.showAddress !== false ? 'checked' : '' %> class="rounded border-brand-border" /> Address</label>
           <label class="inline-flex items-center gap-2"><input type="checkbox" name="showRating" value="1" <%= _settings.showRating !== false ? 'checked' : '' %> class="rounded border-brand-border" /> Rating</label>
+          <label class="inline-flex items-center gap-2"><input type="checkbox" name="showReviews" value="1" <%= _settings.showReviews !== false ? 'checked' : '' %> class="rounded border-brand-border" /> Reviews / sentiment</label>
         </div>
         <div class="sm:col-span-2 flex flex-wrap gap-2">
           <button type="submit" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Save settings</button>
@@ -122,7 +123,7 @@
       <div id="dirListEmpty" class="px-6 py-12 text-center text-sm text-brand-muted<%= (!_listings.length && !(_inboxPending || _inboxHydrate)) ? '' : ' hidden' %>">No listings yet. Add a Pipeline lead key above.</div>
       <ul id="dirList" class="divide-y divide-brand-border/30 dark:divide-white/10 m-0 p-0 list-none<%= _listings.length ? '' : ' hidden' %>">
         <% _listings.forEach(function (row) { if (!row) return; %>
-        <li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" data-listing-id="<%= row.id %>">
+        <li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="<%= row.id %>">
           <div class="min-w-0">
             <p class="font-display font-bold text-brand-dark dark:text-white"><%= row.name %></p>
             <p class="text-[11px] text-brand-muted mt-0.5">
@@ -130,7 +131,12 @@
               · /<%= row.slug %>
               <% if (row.city || row.state) { %> · <%= [row.city, row.state].filter(Boolean).join(', ') %><% } %>
               <% if (row.category) { %> · <%= row.category %><% } %>
+              <% if (row.rating != null) { %> · <%= Number(row.rating).toFixed(1) %>★<% if (row.reviewCount != null) { %> (<%= row.reviewCount %>)<% } %><% } %>
+              <% if (row.reviewSentiment) { %> · <%= String(row.reviewSentiment).replace(/_/g, ' ') %><% } %>
             </p>
+            <% if (row.description || row.blurb || row.reviewSummary) { %>
+            <p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-2 leading-relaxed line-clamp-2"><%= row.blurb || row.description || row.reviewSummary %></p>
+            <% } %>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">
             <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="<%= row.id %>" data-published="<%= row.published ? '0' : '1' %>"><%= row.published ? 'Unpublish' : 'Publish' %></button>
@@ -196,7 +202,7 @@
           var input = form.querySelector('[name="' + name + '"]');
           if (input && settings[name] != null) input.value = String(settings[name]);
         });
-        ['showPhone', 'showWebsite', 'showAddress', 'showRating'].forEach(function (name) {
+        ['showPhone', 'showWebsite', 'showAddress', 'showRating', 'showReviews'].forEach(function (name) {
           var input = form.querySelector('[name="' + name + '"]');
           if (input) input.checked = settings[name] !== false;
         });
@@ -217,7 +223,14 @@
           var pubClass = row.published
             ? 'text-emerald-700 dark:text-emerald-300'
             : 'text-brand-muted';
-          return '<li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3" data-listing-id="' + esc(row.id) + '">'
+          var ratingBit = row.rating != null
+            ? (' · ' + Number(row.rating).toFixed(1) + '★' + (row.reviewCount != null ? ' (' + row.reviewCount + ')' : ''))
+            : '';
+          var sentimentBit = row.reviewSentiment
+            ? (' · ' + String(row.reviewSentiment).replace(/_/g, ' '))
+            : '';
+          var blurb = row.blurb || row.description || row.reviewSummary || '';
+          return '<li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="' + esc(row.id) + '">'
             + '<div class="min-w-0">'
             + '<p class="font-display font-bold text-brand-dark dark:text-white">' + esc(row.name) + '</p>'
             + '<p class="text-[11px] text-brand-muted mt-0.5">'
@@ -225,7 +238,13 @@
             + ' · /' + esc(row.slug || '')
             + (loc ? ' · ' + esc(loc) : '')
             + (row.category ? ' · ' + esc(row.category) : '')
-            + '</p></div>'
+            + ratingBit
+            + esc(sentimentBit)
+            + '</p>'
+            + (blurb
+              ? ('<p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-2 leading-relaxed line-clamp-2">' + esc(blurb) + '</p>')
+              : '')
+            + '</div>'
             + '<div class="flex flex-wrap gap-2 shrink-0">'
             + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="' + esc(row.id) + '" data-published="' + (row.published ? '0' : '1') + '">' + (row.published ? 'Unpublish' : 'Publish') + '</button>'
             + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-refresh" data-id="' + esc(row.id) + '">Refresh</button>'
