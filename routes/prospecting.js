@@ -50,6 +50,21 @@ const PIPELINE_SSR_ROW_CAP = Math.min(
   Math.max(25, parseInt(process.env.PIPELINE_SSR_ROW_CAP || '50', 10) || 50),
 );
 
+/** Warm-first lead list for Pipeline HTML — never hold menu hops on a cold scan. */
+async function leadsForPipelinePaint(wid) {
+  const warm =
+    typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
+  if (warm) return warm;
+  const cold = dbService.getAllLeads(wid);
+  const raced = await Promise.race([
+    cold.then((leads) => ({ leads })),
+    new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
+  ]);
+  if (raced && Array.isArray(raced.leads)) return raced.leads;
+  cold.catch(() => {});
+  return [];
+}
+
 /**
  * Max leads embedded as window.INITIAL_SAVED_LEADS.
  * Includes the SSR table slice plus on-board leads (kanban), hard-capped for HTML size.
@@ -205,15 +220,21 @@ router.get('/', async (req, res, next) => {
           new Set([scopedFolderKey]);
         all = await dbService.listLeadsByFolderKeys(wid, scopedKeys);
       } else {
-        all = await dbService.getAllLeads(wid);
+        // Remembered rule: never await a cold full-workspace scan on a menu hop —
+        // that locked SQLite and left Reviews/Q&A/Engagement/Links on frost.
+        all = await leadsForPipelinePaint(wid);
       }
     } else {
-      [all, foldersInitial, tags, wsRaw] = await Promise.all([
-        dbService.getAllLeads(wid),
+      const [warmOrCold, foldersInitialRows, tagsRows, wsDoc] = await Promise.all([
+        leadsForPipelinePaint(wid),
         ensurePipelineFolders(wid),
         dbService.listTags(wid),
         dbService.getWorkspace(wid),
       ]);
+      all = warmOrCold;
+      foldersInitial = foldersInitialRows;
+      tags = tagsRows;
+      wsRaw = wsDoc;
       folders = foldersInitial;
       const migrated = await maybeMigrateLegacyFolders(wid, folders);
       folders = migrated.folders;

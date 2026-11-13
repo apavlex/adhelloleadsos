@@ -1,5 +1,16 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Remembered frost/SQLite fix reapplied (1.0.740)
+
+### What / why
+- User: still broken on 739 — “remember the fix” (1.0.726 rule: never cold `getAllLeads` on hot paths; frost must not lie).
+- Regressions: (1) leave-nav frost peeled early on desktop → hops looked like “nothing opens”; (2) bell `/notifications` cold `listLeadsWithInboundEvents` contended with SEO hydrate; (3) Pipeline still awaited full `getAllLeads`; (4) scheduler startup unscoped scans at 8–13s post-deploy.
+- Fix: keep frost until pageshow + Retry; bell warm-first 800ms race; Pipeline `leadsForPipelinePaint`; defer Engagement/etc. bell scripts; delay startup unscoped scans to 90s+.
+
+### Key files
+- `public/js/navbar-shell.js`, `routes/notifications.js`, `routes/prospecting.js`
+- `views/partials/navbar_scripts.ejs`, `services/scheduler.js`, `services/database.js`
+
 ## 2026-11-13 — Engagement / Reviews / Q&A / Links still stuck (1.0.739)
 
 ### What / why

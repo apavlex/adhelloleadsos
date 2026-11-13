@@ -13,9 +13,31 @@ const ghlNotificationPrefs = require('../services/ghlNotificationPrefs');
 const { catchUpReviewed } = require('../services/taskPushReminders');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 
-/** Bell / inbound / GHL activity only need leads that already carry inboundEvents. */
+/**
+ * Bell / inbound only need leads with inboundEvents.
+ * Remembered rule (1.0.726+): never block Agency OS menu hops behind a cold lead scan.
+ * Warm cache → use it. Cold → short race, then empty while the scan finishes in-flight.
+ */
 async function workspaceInboundLeads(req) {
-  return filterLeadsForRequest(req, await dbService.listLeadsWithInboundEvents(req.workspaceId));
+  const wid = req.workspaceId;
+  const warm =
+    typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
+  if (warm) {
+    return filterLeadsForRequest(
+      req,
+      warm.filter((l) => l && Array.isArray(l.inboundEvents) && l.inboundEvents.length > 0),
+    );
+  }
+  const cold = dbService.listLeadsWithInboundEvents(wid);
+  const raced = await Promise.race([
+    cold.then((leads) => ({ leads })),
+    new Promise((resolve) => setTimeout(() => resolve(null), 800)),
+  ]);
+  if (raced && Array.isArray(raced.leads)) {
+    return filterLeadsForRequest(req, raced.leads);
+  }
+  cold.catch(() => {});
+  return [];
 }
 
 async function ghlLinkContext(workspaceId) {

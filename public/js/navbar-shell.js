@@ -194,11 +194,11 @@ function readJsonReply(r) {
       lightDest = false;
     }
     if (untilPageShow) {
-      // Desktop: clear sooner so a slow SSR cannot trap every menu hop behind frost.
-      // Light SEO/Reports hops: peel frost even sooner — shell HTML is meant to paint fast.
-      // iOS: keep covering the white void longer, then offer Retry.
-      if (lightDest) ms = desktopLeave ? 2500 : 6000;
-      else ms = desktopLeave ? 5000 : 12000;
+      // Keep frost until pageshow. Peeling early (1.0.737) made hops look like
+      // "nothing opens" while HTML was still waiting on SQLite busy_timeout.
+      // After stallMs, show Retry (desktop + iOS) — never reveal the outgoing page.
+      if (lightDest) ms = desktopLeave ? 8000 : 10000;
+      else ms = desktopLeave ? 10000 : 15000;
     } else if (typeof opts === 'number' && opts > 0) {
       ms = opts;
     } else if (opts && typeof opts.failSafeMs === 'number' && opts.failSafeMs > 0) {
@@ -206,20 +206,16 @@ function readJsonReply(r) {
     }
     // Cap runaway overlays.
     if (untilPageShow) {
-      ms = Math.min(ms, desktopLeave ? (lightDest ? 4000 : 8000) : (lightDest ? 8000 : 15000));
+      ms = Math.min(ms, desktopLeave ? (lightDest ? 12000 : 15000) : (lightDest ? 15000 : 20000));
     } else if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
       ms = Math.min(ms, 3500);
     } else {
       ms = Math.min(ms, 120000);
     }
-    // If leave nav stalls: desktop clears the frost; iOS surfaces Retry.
-    // pageshow/load still clear frost when the next document arrives.
+    // Leave-nav stall: offer Retry. Do NOT hide frost before pageshow — that left
+    // users clicking in a loading loop on the old document.
     hideNavLoading._failSafe = setTimeout(function () {
       if (untilPageShow && showNavLoading._leaving) {
-        if (isLikelyDesktopNav()) {
-          hideNavLoading();
-          return;
-        }
         var stallEl = document.getElementById('adhelloNavLoading');
         if (stallEl) {
           stallEl.classList.add('is-stalled');

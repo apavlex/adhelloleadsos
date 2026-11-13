@@ -427,23 +427,24 @@ module.exports = {
       );
     });
 
-    // Also run once immediately on startup for any catching up
+    // Startup catch-up — delay unscoped lead scans so post-deploy menu hops
+    // (Reviews/Q&A/Engagement/Links) are not locked behind SQLITE_BUSY.
     setTimeout(runDueSchedules, 5000);
     setTimeout(() => {
       runReferralAskReminders().catch((e) =>
         console.error('[SCHEDULER] Referral reminders (startup) failed:', e.message)
       );
-    }, 8000);
+    }, 90000);
     setTimeout(() => {
       runDueSequenceSteps().catch((e) =>
         console.error('[SCHEDULER] Sequence steps (startup) failed:', e.message)
       );
-    }, 11000);
+    }, 120000);
     setTimeout(() => {
       runWeeklyVoicemailDrops().catch((e) =>
         console.error('[SCHEDULER] Weekly voicemail drops (startup) failed:', e.message)
       );
-    }, 13000);
+    }, 150000);
     setTimeout(() => {
       require('./ghlInboundPoll').pollAllWorkspaces().catch((e) =>
         console.error('[SCHEDULER] GHL inbound poll (startup) failed:', e.message)

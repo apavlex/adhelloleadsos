@@ -209,7 +209,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(qaView, /runHydrate/);
   assert.match(qaView, /applySettingsForm/);
   assert.match(qaView, /12000/);
-  assert.match(sw, /adhello-pwa-v1\.0\.739/);
+  assert.match(sw, /adhello-pwa-v1\.0\.740/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {
@@ -222,6 +222,22 @@ test('Backlinks HTML paints without awaiting agency DFS resolve', () => {
   assert.match(view, /blDfsOffline/);
   assert.match(view, /\/backlinks\/status\.json/);
   assert.match(view, /loadDfsStatus/);
+});
+
+test('Remembered fix: menu hops never await cold getAllLeads / peel frost early', () => {
+  const notifications = fs.readFileSync(path.join(root, 'routes/notifications.js'), 'utf8');
+  const prospecting = fs.readFileSync(path.join(root, 'routes/prospecting.js'), 'utf8');
+  const shellJs = fs.readFileSync(path.join(root, 'public/js/navbar-shell.js'), 'utf8');
+  const navScripts = fs.readFileSync(path.join(root, 'views/partials/navbar_scripts.ejs'), 'utf8');
+  const sched = fs.readFileSync(path.join(root, 'services/scheduler.js'), 'utf8');
+  assert.match(notifications, /peekCachedLeads/);
+  assert.match(notifications, /800/);
+  assert.match(prospecting, /leadsForPipelinePaint/);
+  assert.match(prospecting, /peekCachedLeads/);
+  assert.match(shellJs, /Do NOT hide frost before pageshow/);
+  assert.match(navScripts, /_npShell === 'engagement'/);
+  assert.match(sched, /90000/);
+  assert.match(sched, /120000/);
 });
 
 
