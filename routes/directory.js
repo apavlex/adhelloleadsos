@@ -49,7 +49,13 @@ async function pageLocals(req, { shell = false } = {}) {
     };
   }
 
-  const bundle = await directoryStore.load(req.workspaceId, { workspace: ws, normalize: false });
+  let bundle = await directoryStore.load(req.workspaceId, { workspace: ws, normalize: false });
+  try {
+    const repaired = await directoryStore.repairJobTypeCategories(req.workspaceId, bundle);
+    if (repaired && repaired.changed) bundle = repaired.bundle;
+  } catch (_) {
+    /* keep raw listings if repair fails */
+  }
   const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
   const seedName = String(intake.businessName || ws.name || '').trim();
   const settings = {

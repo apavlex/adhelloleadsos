@@ -4,8 +4,17 @@
  */
 const crypto = require('crypto');
 const dbService = require('./database');
+const { JOB_TYPES } = require('./scrapeJobTypes');
 
 const TOKEN_KV_PREFIX = 'directoryToken:';
+
+/** Pipeline jobType slugs — never show these as a business category. */
+const JOB_TYPE_CATEGORY_SLUGS = new Set(
+  Object.values(JOB_TYPES)
+    .map((v) => String(v || '').trim().toLowerCase())
+    .filter(Boolean)
+    .concat(['maps', 'business', 'n/a', 'na', 'none', 'unknown']),
+);
 
 function newListingId() {
   return `dir_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`;
@@ -84,16 +93,49 @@ function leadReviewSnippets(lead) {
   return out;
 }
 
+function isJobTypeCategorySlug(value) {
+  const key = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_');
+  return !key || JOB_TYPE_CATEGORY_SLUGS.has(key);
+}
+
+/** Real Maps / GMB category only — never pipeline jobType like maps_business. */
+function leadCategoryLabel(lead) {
+  const l = lead && typeof lead === 'object' ? lead : {};
+  const candidates = [];
+  const push = (v) => {
+    if (Array.isArray(v)) {
+      for (const item of v) push(item);
+      return;
+    }
+    if (v && typeof v === 'object') {
+      push(v.name || v.title || v.category || v.type || '');
+      return;
+    }
+    const text = clean(v, 120);
+    if (!text || isJobTypeCategorySlug(text)) return;
+    candidates.push(text);
+  };
+  push(l.categoryName);
+  push(l.categories);
+  push(l.category);
+  push(l.primaryCategory);
+  push(l.industry);
+  push(l.subtypes);
+  push(l.type);
+  // Deliberately omit jobType / sourceType — those are pipeline buckets, not categories.
+  return candidates[0] || '';
+}
+
 function leadPublicFields(lead) {
   const l = lead && typeof lead === 'object' ? lead : {};
   const title = clean(l.title || l.name || l.companyName, 160);
   const city = clean(l.city || (l.addressComponents && l.addressComponents.city), 80);
   const state = clean(l.state || (l.addressComponents && l.addressComponents.state), 40);
   const address = clean(l.address || l.fullAddress || [l.street, city, state].filter(Boolean).join(', '), 240);
-  const category = clean(
-    l.categoryName || l.category || l.primaryCategory || l.industry || l.jobType,
-    120,
-  );
+  const category = leadCategoryLabel(l);
   const phone = clean(l.phone || l.phoneNumber || '', 40);
   const website = clean(l.website || l.websiteUrl || l.url || '', 400);
   const ratingRaw =
@@ -174,12 +216,13 @@ function normalizeListing(raw, fallbackId) {
   const reviewSentiment =
     clean(row.reviewSentiment, 40) ||
     deriveReviewSentiment(Number.isFinite(rating) ? rating : null, reviewCount);
+  const categoryRaw = clean(row.category, 120);
   return {
     id,
     leadKey,
     slug,
     name,
-    category: clean(row.category, 120),
+    category: isJobTypeCategorySlug(categoryRaw) ? '' : categoryRaw,
     city: clean(row.city, 80),
     state: clean(row.state, 40),
     address: clean(row.address, 240),
@@ -303,13 +346,64 @@ async function resolveWorkspaceIdByToken(token) {
 }
 
 function listListings(bundle, { published } = {}) {
-  let rows = Object.values((bundle && bundle.listings) || {}).filter(Boolean);
+  let rows = Object.values((bundle && bundle.listings) || {})
+    .filter(Boolean)
+    .map((r) => normalizeListing(r, r.id));
   if (published === true) rows = rows.filter((r) => r.published === true);
   if (published === false) rows = rows.filter((r) => r.published !== true);
   return rows.sort((a, b) => {
     if (!!a.published !== !!b.published) return a.published ? -1 : 1;
     return String(a.name || '').localeCompare(String(b.name || ''));
   });
+}
+
+/**
+ * Replace pipeline jobType slugs (e.g. maps_business) with the lead's real
+ * Maps/GMB category. Persists when anything changes.
+ */
+async function repairJobTypeCategories(workspaceId, bundle) {
+  const wid = String(workspaceId || '').trim();
+  const src = bundle && bundle.listings && typeof bundle.listings === 'object' ? bundle.listings : {};
+  const need = Object.values(src).filter((r) => r && isJobTypeCategorySlug(r.category));
+  if (!need.length) return { bundle, changed: 0 };
+
+  const byKey = new Map();
+  try {
+    const cached = typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
+    if (Array.isArray(cached)) {
+      for (const lead of cached) {
+        if (lead && lead.key) byKey.set(String(lead.key), lead);
+      }
+    }
+  } catch (_) {
+    /* ignore */
+  }
+
+  let changed = 0;
+  const nextListings = { ...src };
+  for (const row of need) {
+    let lead = row.leadKey ? byKey.get(String(row.leadKey)) : null;
+    if (!lead && row.leadKey) {
+      try {
+        lead = await dbService.getLead(row.leadKey, wid);
+      } catch (_) {
+        lead = null;
+      }
+    }
+    const category = leadCategoryLabel(lead) || '';
+    if (category === (row.category || '')) continue;
+    nextListings[row.id] = normalizeListing(
+      { ...row, category, updatedAt: new Date().toISOString() },
+      row.id,
+    );
+    changed += 1;
+  }
+  if (!changed) return { bundle, changed: 0 };
+  const saved = await save(wid, {
+    listings: nextListings,
+    settings: (bundle && bundle.settings) || {},
+  });
+  return { bundle: saved, changed };
 }
 
 function inboxSummary(bundle) {
@@ -374,7 +468,9 @@ function applyLeadToBundle(bundle, lead, leadKey, opts = {}) {
       category:
         opts.category != null
           ? opts.category
-          : fields.category || (existing && existing.category) || '',
+          : fields.category ||
+            (existing && !isJobTypeCategorySlug(existing.category) ? existing.category : '') ||
+            '',
       reviewSnippets:
         opts.reviewSnippets != null
           ? opts.reviewSnippets
@@ -539,6 +635,8 @@ module.exports = {
   clean,
   slugify,
   leadPublicFields,
+  leadCategoryLabel,
+  isJobTypeCategorySlug,
   emptyBundle,
   load,
   save,
@@ -546,6 +644,7 @@ module.exports = {
   resolveWorkspaceIdByToken,
   listListings,
   inboxSummary,
+  repairJobTypeCategories,
   upsertFromLead,
   upsertManyFromLeads,
   updateListing,

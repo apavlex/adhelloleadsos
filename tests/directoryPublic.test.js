@@ -91,6 +91,56 @@ describe('public business directory', () => {
     assert.equal(feed.businesses.length, 0);
   });
 
+  it('uses Maps category, never pipeline jobType maps_business', async () => {
+    await dbService.saveLead({
+      key: 'lead:hvac_1',
+      workspaceId: WID,
+      title: 'Northside Air',
+      jobType: 'maps_business',
+      sourceType: 'maps_business',
+      categoryName: 'HVAC contractor',
+      city: 'Portland',
+      state: 'OR',
+    });
+    const listing = await directoryStore.upsertFromLead(WID, 'lead:hvac_1', { published: true });
+    assert.equal(listing.category, 'HVAC contractor');
+    assert.notEqual(listing.category, 'maps_business');
+
+    await dbService.saveLead({
+      key: 'lead:jobtype_only',
+      workspaceId: WID,
+      title: 'Jobtype Only Co',
+      jobType: 'maps_business',
+      city: 'Tigard',
+      state: 'OR',
+    });
+    const bare = await directoryStore.upsertFromLead(WID, 'lead:jobtype_only', { published: true });
+    assert.equal(bare.category, '');
+
+    // Stale rows that already stored maps_business get repaired from the lead.
+    const bundle = await directoryStore.load(WID);
+    const staleId = Object.keys(bundle.listings)[0];
+    bundle.listings[staleId] = {
+      ...bundle.listings[staleId],
+      leadKey: 'lead:hvac_1',
+      category: 'maps_business',
+    };
+    await directoryStore.save(WID, { listings: bundle.listings, settings: bundle.settings });
+    const repaired = await directoryStore.repairJobTypeCategories(
+      WID,
+      await directoryStore.load(WID, { normalize: false }),
+    );
+    assert.ok(repaired.changed >= 1);
+    const fixed = directoryStore.listListings(repaired.bundle).find((r) => r.leadKey === 'lead:hvac_1');
+    assert.equal(fixed.category, 'HVAC contractor');
+    assert.equal(directoryStore.isJobTypeCategorySlug('maps_business'), true);
+    assert.equal(directoryStore.leadCategoryLabel({ jobType: 'maps_business' }), '');
+    assert.equal(
+      directoryStore.leadCategoryLabel({ jobType: 'maps_business', categoryName: 'Air duct cleaning' }),
+      'Air duct cleaning',
+    );
+  });
+
   it('bulk-adds selected pipeline leads into the workspace directory only', async () => {
     await dbService.saveLead({
       key: 'lead:chimney_2',
