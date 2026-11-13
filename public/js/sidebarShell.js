@@ -203,6 +203,99 @@
       } catch (_) {}
     }
 
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function returnToValue() {
+      var input = wsm.querySelector('form[action="/workspaces/switch"] input[name="returnTo"]');
+      return input ? String(input.value || '') : '';
+    }
+
+    function badgeHtml(w) {
+      if (w.isDemo) {
+        return '<span class="shrink-0 rounded-full bg-sky-100 dark:bg-sky-900/40 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300">Demo</span>';
+      }
+      if (w.trialState === 'trial') {
+        return '<span class="shrink-0 rounded-full bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-200">' + esc(w.trialLabel || ('Trial · ' + w.trialDaysLeft + 'd')) + '</span>';
+      }
+      if (w.trialState === 'expired') {
+        return '<span class="shrink-0 rounded-full bg-rose-100 dark:bg-rose-900/40 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-300">Expired</span>';
+      }
+      if (w.trialState === 'active') {
+        return '<span class="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Active</span>';
+      }
+      return '';
+    }
+
+    function renderWorkspaceRows(workspaces, activeId) {
+      var ret = returnToValue();
+      return (workspaces || []).map(function (w) {
+        if (!w || !w.id) return '';
+        var isActive = activeId && String(w.id) === String(activeId);
+        return (
+          '<form method="post" action="/workspaces/switch" class="block">' +
+          '<input type="hidden" name="workspaceId" value="' + esc(w.id) + '" />' +
+          (ret ? '<input type="hidden" name="returnTo" value="' + esc(ret) + '" />' : '') +
+          '<button type="submit" class="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors ' +
+          (isActive
+            ? 'bg-brand-yellow/15 text-brand-dark dark:text-white font-bold'
+            : 'text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10') +
+          '" role="menuitem"' + (isActive ? ' aria-current="true"' : '') + '>' +
+          '<span class="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white dark:ring-slate-900" style="background-color: ' + esc(w.accentColor || '#CA8A04') + '" aria-hidden="true"></span>' +
+          '<span class="truncate flex-1 min-w-0">' + esc(w.name || 'Workspace') + '</span>' +
+          badgeHtml(w) +
+          (isActive
+            ? '<svg class="w-4 h-4 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>'
+            : '') +
+          '</button></form>'
+        );
+      }).join('');
+    }
+
+    var switcherHydrating = false;
+    var switcherHydrated = false;
+    function hydrateSwitcherList() {
+      if (switcherHydrating) return;
+      var existing = wsm.querySelectorAll('form[action="/workspaces/switch"]').length;
+      // Always refresh once per page so a cold HTML paint (active-only) gets the full list.
+      if (switcherHydrated && existing > 1) return;
+      switcherHydrating = true;
+      fetch('/workspaces/switcher.json', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (parsed) {
+          switcherHydrating = false;
+          if (!parsed.ok || !parsed.data || !parsed.data.success) return;
+          var list = Array.isArray(parsed.data.workspaces) ? parsed.data.workspaces : [];
+          if (!list.length) return;
+          var label = wsm.querySelector('p');
+          var footer = wsm.querySelector('.border-t');
+          var help = null;
+          var kids = wsm.children;
+          for (var i = kids.length - 1; i >= 0; i--) {
+            var el = kids[i];
+            if (el.tagName === 'P' && el !== label) { help = el; break; }
+          }
+          var rows = renderWorkspaceRows(list, parsed.data.activeWorkspaceId || '');
+          var html = '';
+          if (label) html += label.outerHTML;
+          else html += '<p class="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-brand-muted">Your workspaces</p>';
+          html += rows;
+          if (footer) html += footer.outerHTML;
+          if (help) html += help.outerHTML;
+          wsm.innerHTML = html;
+          switcherHydrated = true;
+        })
+        .catch(function () { switcherHydrating = false; });
+    }
+
     wsm.addEventListener(
       'pointerdown',
       function (e) {
@@ -218,12 +311,22 @@
       e.preventDefault();
       e.stopPropagation();
       var open = wsm.classList.contains('hidden');
-      if (open) positionWsMenu();
+      if (open) {
+        positionWsMenu();
+        hydrateSwitcherList();
+      }
       wsm.classList.toggle('hidden');
       wsb.setAttribute('aria-expanded', open ? 'true' : 'false');
       var chev = wsb.querySelector('.ws-switcher-chevron');
       if (chev) chev.classList.toggle('rotate-180', open);
     });
+
+    // Prefetch after first paint so opening the menu is instant.
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(function () { hydrateSwitcherList(); }, { timeout: 2500 });
+    } else {
+      setTimeout(hydrateSwitcherList, 1200);
+    }
 
     window.addEventListener('resize', function () {
       if (!wsm.classList.contains('hidden')) positionWsMenu();

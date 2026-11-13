@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Workspace switcher missing workspaces (1.0.747)
+
+### What / why
+- HTML nav fast-path on switcher cache miss painted only the active workspace. Background warm filled the cache too late for the already-rendered menu, so users saw a single workspace (e.g. Flooring) until a lucky later hop.
+- Fix: race the switcher build ~400ms on miss; `GET /workspaces/switcher.json`; sidebarShell hydrates the full list on idle + menu open.
+
+### Key files
+- `middleware/withWorkspace.js`, `routes/workspaces.js`, `public/js/sidebarShell.js`
+
 ## 2026-11-13 — iOS blank white after stalled hop (1.0.746)
 
 ### What / why

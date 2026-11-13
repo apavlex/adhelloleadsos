@@ -56,8 +56,8 @@ async function buildSwitcherSummaries(email) {
 
 function warmSwitcherCache(email) {
   const sk = switcherCacheKey(email);
-  if (!sk) return;
-  if (_switcherInflight.has(sk)) return;
+  if (!sk) return Promise.resolve(null);
+  if (_switcherInflight.has(sk)) return _switcherInflight.get(sk);
   const p = buildSwitcherSummaries(email)
     .then((built) => {
       _switcherCache.set(sk, { at: Date.now(), summaries: built.summaries, canManageDemo: built.canManageDemo });
@@ -68,6 +68,7 @@ function warmSwitcherCache(email) {
       _switcherInflight.delete(sk);
     });
   _switcherInflight.set(sk, p);
+  return p;
 }
 
 function readSwitcherCache(email, activeWorkspaceId, liveDemo) {
@@ -292,25 +293,43 @@ async function withWorkspace(req, res, next) {
     let summaries = [];
     let canManageDemo = false;
     if (navFastPath || skipChromeExtras) {
-      // Cache-only on HTML / app-json hops — never block paint on N×getWorkspace.
+      // Prefer warm cache on HTML / app-json hops. On miss, briefly race the build so
+      // multi-workspace users do not only see the active workspace in the switcher.
       const cached = readSwitcherCache(email, ws.id, res.locals.liveDemo);
       if (cached.hit) {
         summaries = cached.summaries;
         canManageDemo = cached.canManageDemo;
       } else {
-        warmSwitcherCache(email);
-        summaries = [
-          {
-            id: ws.id,
-            name: ws.name || 'Workspace',
-            slug: ws.slug || '',
-            accentColor: ws.accentColor || '#CA8A04',
-            isDemo: !!ws.isDemo,
-            trialState: '',
-            trialDaysLeft: 0,
-            trialLabel: '',
-          },
-        ];
+        const building = warmSwitcherCache(email);
+        let raced = null;
+        try {
+          raced = await Promise.race([
+            building,
+            new Promise((resolve) => setTimeout(() => resolve(null), 400)),
+          ]);
+        } catch (_) {
+          raced = null;
+        }
+        if (raced && Array.isArray(raced.summaries) && raced.summaries.length) {
+          summaries = raced.summaries;
+          canManageDemo = !!raced.canManageDemo;
+          if (!canManageDemo && !res.locals.liveDemo) {
+            summaries = summaries.filter((w) => !w.isDemo || w.id === ws.id);
+          }
+        } else {
+          summaries = [
+            {
+              id: ws.id,
+              name: ws.name || 'Workspace',
+              slug: ws.slug || '',
+              accentColor: ws.accentColor || '#CA8A04',
+              isDemo: !!ws.isDemo,
+              trialState: '',
+              trialDaysLeft: 0,
+              trialLabel: '',
+            },
+          ];
+        }
       }
     } else {
       const sk = switcherCacheKey(email);
@@ -357,6 +376,18 @@ async function withWorkspace(req, res, next) {
 
 withWorkspace.clearSwitcherCache = (email) => {
   _switcherCache.delete(switcherCacheKey(email));
+};
+withWorkspace.buildSwitcherSummaries = buildSwitcherSummaries;
+withWorkspace.warmSwitcherCache = warmSwitcherCache;
+withWorkspace.readSwitcherCache = readSwitcherCache;
+withWorkspace.cacheSwitcherSummaries = (email, built) => {
+  const sk = switcherCacheKey(email);
+  if (!sk || !built) return;
+  _switcherCache.set(sk, {
+    at: Date.now(),
+    summaries: Array.isArray(built.summaries) ? built.summaries : [],
+    canManageDemo: !!built.canManageDemo,
+  });
 };
 
 module.exports = withWorkspace;

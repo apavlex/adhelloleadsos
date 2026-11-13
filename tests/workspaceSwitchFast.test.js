@@ -41,11 +41,18 @@ test('workspace switch warms leads and skips chrome extras', () => {
   assert.match(shell, /markWorkspaceSwitchBusy/);
   assert.match(shell, /clearWorkspaceSwitchBusy/);
   assert.match(shell, /warmOneWorkspace/);
+  assert.match(shell, /hydrateSwitcherList/);
+  assert.match(shell, /\/workspaces\/switcher\.json/);
   assert.doesNotMatch(shell, /warmSwitcherWorkspaces/);
   assert.match(shell, /getAttribute\('action'\) !== '\/workspaces\/switch'/);
 
   const nav = fs.readFileSync(path.join(__dirname, '../views/partials/navbar.ejs'), 'utf8');
-  assert.match(nav, /sidebarShell\.js\?v=sidebar11/);
+  assert.match(nav, /sidebarShell\.js\?v=sidebar12/);
+
+  // Cold HTML hops must not permanently stick the switcher on the active workspace only.
+  assert.match(mw, /Promise\.race/);
+  assert.match(mw, /400/);
+  assert.match(switchSrc, /router\.get\('\/switcher\.json'/);
 });
 
 test('concurrent getAllLeads cold loads share one in-flight scan', async () => {

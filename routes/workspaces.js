@@ -866,6 +866,53 @@ router.get('/storage.json', async (req, res, next) => {
 });
 
 /**
+ * Full workspace list for the sidebar switcher.
+ * HTML hops may paint with only the active workspace when the switcher cache is cold —
+ * the client refreshes from this endpoint when the menu opens.
+ */
+router.get('/switcher.json', async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) return res.status(401).json({ success: false, error: 'Sign in required.' });
+    const activeId = String(
+      (req.workspace && req.workspace.id) ||
+        (req.session && (req.session.activeWorkspaceId || req.session.workspaceId)) ||
+        '',
+    );
+    if (typeof withWorkspace.readSwitcherCache === 'function') {
+      const cached = withWorkspace.readSwitcherCache(email, activeId, res.locals.liveDemo);
+      if (cached && cached.hit && Array.isArray(cached.summaries) && cached.summaries.length > 1) {
+        return res.json({
+          success: true,
+          workspaces: cached.summaries,
+          canManageDemo: !!cached.canManageDemo,
+          activeWorkspaceId: activeId,
+          fromCache: true,
+        });
+      }
+    }
+    const built = await withWorkspace.buildSwitcherSummaries(email);
+    let summaries = (built && built.summaries) || [];
+    const canManageDemo = !!(built && built.canManageDemo);
+    if (!canManageDemo && !res.locals.liveDemo) {
+      summaries = summaries.filter((w) => !w.isDemo || w.id === activeId);
+    }
+    if (typeof withWorkspace.cacheSwitcherSummaries === 'function') {
+      withWorkspace.cacheSwitcherSummaries(email, { summaries: built.summaries || [], canManageDemo });
+    }
+    return res.json({
+      success: true,
+      workspaces: summaries,
+      canManageDemo,
+      activeWorkspaceId: activeId,
+      fromCache: false,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
  * Pre-warm lead list cache for a workspace the user can access.
  * Fired when the switcher opens so switch→Today shares an in-flight/cold scan.
  */
