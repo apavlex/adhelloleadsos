@@ -64,9 +64,11 @@
 <script src="/js/send-lead-modal.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
 <% } %>
 <% if (_deferNavExtras) { %>
-<%# Reviews / Q&A / SEO hops: pull bell/inbound after first paint (~120KB+ extras). %>
+<%# Reviews / Q&A / SEO hops: wait for inbox hydrate (or long fallback) before bell/inbound —
+    early /notifications/recent.json used to start a cold inbound scan and frost hydrate. %>
 <script>
 (function () {
+  var booted = false;
   function load(src) {
     var s = document.createElement('script');
     s.src = src;
@@ -75,12 +77,15 @@
   }
   var v = <%= JSON.stringify(typeof assetVersion !== 'undefined' ? String(assetVersion) : '1') %>;
   function boot() {
+    if (booted) return;
+    booted = true;
     load('/js/push-alerts.js?v=' + encodeURIComponent(v));
     load('/js/nav-notifications.js?v=' + encodeURIComponent(v));
     load('/js/nav-inbound.js?v=' + encodeURIComponent(v));
   }
-  if ('requestIdleCallback' in window) requestIdleCallback(boot, { timeout: 1800 });
-  else setTimeout(boot, 600);
+  window.addEventListener('adhello:inbox-hydrated', boot, { once: true });
+  if ('requestIdleCallback' in window) requestIdleCallback(boot, { timeout: 12000 });
+  else setTimeout(boot, 12000);
 })();
 </script>
 <% } else { %>

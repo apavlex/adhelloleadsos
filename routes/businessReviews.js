@@ -151,6 +151,14 @@ function isSqliteBusyError(err) {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
+    // Soft-busy when a cold lead scan already owns SQLite — client retries.
+    if (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Inbox temporarily busy — retrying…',
+      });
+    }
     const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
     const limit = Number.isFinite(limitRaw) ? Math.min(200, Math.max(1, Math.floor(limitRaw))) : INBOX_JSON_LIMIT;
     // Skip agency Outscraper resolve — Sync re-checks; hydrate uses env/configured flag.

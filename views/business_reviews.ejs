@@ -776,6 +776,7 @@
                 throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
               }
               applyInbox(parsed.data, focusId);
+              try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
               if (initialSyncState && initialSyncState.status === 'syncing') {
                 showLoader('Still syncing in background…', initialSyncState.message || 'Outscraper is still working.');
                 setInline(initialSyncState.message || 'Background sync still running…');
@@ -812,6 +813,7 @@
               setInline(msg, true);
               var empty = document.getElementById('brEmptyState');
               if (empty) empty.classList.remove('hidden');
+              try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
             });
         }
         runHydrate();

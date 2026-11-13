@@ -110,10 +110,12 @@ test('light pages skip softphone helper scripts in head (lazy on dialer open)', 
   assert.match(head, /_rp\.startsWith\('\/engagement'\)/);
   assert.match(js, /function ensureSoftphoneHelperScripts/);
   assert.match(js, /ensureSoftphoneHelperScripts\(\)/);
-  /* Reviews / Q&A / SEO defer bell JS until idle so first paint is not blocked. */
+  /* Reviews / Q&A / SEO defer bell until inbox hydrate (or long fallback). */
   assert.match(navScripts, /_deferNavExtras/);
   assert.match(navScripts, /business-reviews/);
+  assert.match(navScripts, /adhello:inbox-hydrated/);
   assert.match(navScripts, /requestIdleCallback/);
+  assert.match(navScripts, /12000/);
 });
 
 test('opportunities board does not load maps scripts', () => {
@@ -209,7 +211,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(qaView, /runHydrate/);
   assert.match(qaView, /applySettingsForm/);
   assert.match(qaView, /12000/);
-  assert.match(sw, /adhello-pwa-v1\.0\.741/);
+  assert.match(sw, /adhello-pwa-v1\.0\.744/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {
@@ -230,14 +232,30 @@ test('Remembered fix: menu hops never await cold getAllLeads / peel frost early'
   const shellJs = fs.readFileSync(path.join(root, 'public/js/navbar-shell.js'), 'utf8');
   const navScripts = fs.readFileSync(path.join(root, 'views/partials/navbar_scripts.ejs'), 'utf8');
   const sched = fs.readFileSync(path.join(root, 'services/scheduler.js'), 'utf8');
+  const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
+  const reviewsRoute = fs.readFileSync(path.join(root, 'routes/businessReviews.js'), 'utf8');
+  const qaRoute = fs.readFileSync(path.join(root, 'routes/seoQa.js'), 'utf8');
   assert.match(notifications, /peekCachedLeads/);
-  assert.match(notifications, /800/);
+  // Bell polls: warm-only. Never start cold listLeadsWithInboundEvents (locks SQLite).
+  assert.match(notifications, /allowColdScan/);
+  assert.match(notifications, /allowColdScan:\s*false/);
+  assert.doesNotMatch(notifications, /Promise\.race/);
   assert.match(prospecting, /leadsForPipelinePaint/);
   assert.match(prospecting, /peekCachedLeads/);
   assert.match(shellJs, /cannot brick the whole app/);
   assert.match(navScripts, /_npShell === 'engagement'/);
   assert.match(sched, /90000/);
   assert.match(sched, /120000/);
+  // Inbound cold path must keyset-page like getAllLeads (no one-shot .all()).
+  const inboundChunk = db.slice(
+    db.indexOf('async listLeadsWithInboundEvents'),
+    db.indexOf('async listLeadsForEngagementInbox'),
+  );
+  assert.match(inboundChunk, /ORDER BY key DESC/);
+  assert.match(inboundChunk, /LIMIT \?/);
+  assert.match(inboundChunk, /cursorKey/);
+  assert.match(reviewsRoute, /countLeadsListInflight/);
+  assert.match(qaRoute, /countLeadsListInflight/);
 });
 
 

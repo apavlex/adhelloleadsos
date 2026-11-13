@@ -16,9 +16,10 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 /**
  * Bell / inbound only need leads with inboundEvents.
  * Remembered rule (1.0.726+): never block Agency OS menu hops behind a cold lead scan.
- * Warm cache → use it. Cold → short race, then empty while the scan finishes in-flight.
+ * Warm cache → use it. Cold → empty for bell polls (do NOT start a scan — better-sqlite3
+ * .all() is sync and frosts Reviews/Q&A hydrate). Full Notifications page may allowColdScan.
  */
-async function workspaceInboundLeads(req) {
+async function workspaceInboundLeads(req, { allowColdScan = false } = {}) {
   const wid = req.workspaceId;
   const warm =
     typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
@@ -28,16 +29,11 @@ async function workspaceInboundLeads(req) {
       warm.filter((l) => l && Array.isArray(l.inboundEvents) && l.inboundEvents.length > 0),
     );
   }
-  const cold = dbService.listLeadsWithInboundEvents(wid);
-  const raced = await Promise.race([
-    cold.then((leads) => ({ leads })),
-    new Promise((resolve) => setTimeout(() => resolve(null), 800)),
-  ]);
-  if (raced && Array.isArray(raced.leads)) {
-    return filterLeadsForRequest(req, raced.leads);
+  if (!allowColdScan) {
+    return [];
   }
-  cold.catch(() => {});
-  return [];
+  const leads = await dbService.listLeadsWithInboundEvents(wid);
+  return filterLeadsForRequest(req, Array.isArray(leads) ? leads : []);
 }
 
 async function ghlLinkContext(workspaceId) {
@@ -48,12 +44,12 @@ async function ghlLinkContext(workspaceId) {
   };
 }
 
-async function historyForRequest(req, { kind, limit } = {}) {
+async function historyForRequest(req, { kind, limit, allowColdScan = false } = {}) {
   const wid = req.workspaceId;
   const email = userEmail(req);
   // Inbound history only reads inboundEvents — do not load every prospect on each bell poll.
   const [leads, allSearches] = await Promise.all([
-    workspaceInboundLeads(req),
+    workspaceInboundLeads(req, { allowColdScan }),
     dbService.getAllSearches(),
   ]);
   const history = buildNotificationHistory({
@@ -75,7 +71,8 @@ async function historyForRequest(req, { kind, limit } = {}) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const history = await historyForRequest(req);
+    // Full history page may cold-scan (keyset-paged). Bell polls must not.
+    const history = await historyForRequest(req, { allowColdScan: true });
     res.render('notifications', {
       title: 'Notifications',
       activePage: 'notifications',
@@ -90,7 +87,7 @@ router.get('/', async (req, res, next) => {
 router.get('/recent.json', async (req, res, next) => {
   try {
     res.set('Cache-Control', 'no-store');
-    const history = await historyForRequest(req, { kind: 'all', limit: 40 });
+    const history = await historyForRequest(req, { kind: 'all', limit: 40, allowColdScan: false });
     const items = (history.unreadCount ? history.unreadItems : history.items).slice(0, 12);
     res.json({
       success: true,

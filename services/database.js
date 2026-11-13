@@ -982,8 +982,8 @@ module.exports = {
 
   /**
    * Leads that carry inboundEvents — for navbar bell / inbound feed.
-   * Uses the warm list cache when present; otherwise SQL-filters so a 1k+ workspace
-   * does not JSON.parse every prospect on every poll.
+   * Uses the warm list cache when present; otherwise keyset-pages SQL so a cold
+   * scan cannot lock SQLite with one monolithic .all() (frosts Reviews/Q&A).
    */
   async listLeadsWithInboundEvents(workspaceId) {
     const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
@@ -1002,50 +1002,90 @@ module.exports = {
       "json_extract(CASE WHEN json_valid(value) THEN value END, '$.workspaceId')";
     const inboundLen =
       "json_array_length(json_extract(CASE WHEN json_valid(value) THEN value END, '$.inboundEvents'))";
-    const rows = includeLegacyDefault
-      ? sqlite
-          .prepare(
-            `SELECT key, value FROM kv
-             WHERE key LIKE 'lead:%'
-               AND ${inboundLen} > 0
-               AND (
-                 ${leadWs} = ?
-                 OR ${leadWs} IS NULL
-                 OR ${leadWs} = ''
-                 OR ${leadWs} = 'default'
-               )`,
-          )
-          .all(wid)
-      : sqlite
-          .prepare(
-            `SELECT key, value FROM kv
-             WHERE key LIKE 'lead:%'
-               AND ${inboundLen} > 0
-               AND ${leadWs} = ?`,
-          )
-          .all(wid);
-
-    const leads = [];
+    const whereLegacy = `(
+                   ${leadWs} = ?
+                   OR ${leadWs} IS NULL
+                   OR ${leadWs} = ''
+                   OR ${leadWs} = 'default'
+                 )`;
+    const whereScoped = `${leadWs} = ?`;
+    const PAGE = 150;
     const YIELD_EVERY = 25;
-    for (let i = 0; i < rows.length; i++) {
-      if (i > 0 && i % YIELD_EVERY === 0) {
+    const leads = [];
+    let cursorKey = null;
+    let pageRows;
+    do {
+      if (includeLegacyDefault) {
+        pageRows = cursorKey
+          ? sqlite
+              .prepare(
+                `SELECT key, value FROM kv
+                 WHERE key LIKE 'lead:%'
+                   AND ${inboundLen} > 0
+                   AND ${whereLegacy}
+                   AND key < ?
+                 ORDER BY key DESC
+                 LIMIT ?`,
+              )
+              .all(wid, cursorKey, PAGE)
+          : sqlite
+              .prepare(
+                `SELECT key, value FROM kv
+                 WHERE key LIKE 'lead:%'
+                   AND ${inboundLen} > 0
+                   AND ${whereLegacy}
+                 ORDER BY key DESC
+                 LIMIT ?`,
+              )
+              .all(wid, PAGE);
+      } else {
+        pageRows = cursorKey
+          ? sqlite
+              .prepare(
+                `SELECT key, value FROM kv
+                 WHERE key LIKE 'lead:%'
+                   AND ${inboundLen} > 0
+                   AND ${whereScoped}
+                   AND key < ?
+                 ORDER BY key DESC
+                 LIMIT ?`,
+              )
+              .all(wid, cursorKey, PAGE)
+          : sqlite
+              .prepare(
+                `SELECT key, value FROM kv
+                 WHERE key LIKE 'lead:%'
+                   AND ${inboundLen} > 0
+                   AND ${whereScoped}
+                 ORDER BY key DESC
+                 LIMIT ?`,
+              )
+              .all(wid, PAGE);
+      }
+      for (let i = 0; i < pageRows.length; i++) {
+        if (i > 0 && i % YIELD_EVERY === 0) {
+          await new Promise((r) => setImmediate(r));
+        }
+        const row = pageRows[i];
+        const key = row && row.key;
+        const raw = row && row.value;
+        if (!key || raw == null) continue;
+        let parsed;
+        try {
+          parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        } catch {
+          continue;
+        }
+        if (!parsed || typeof parsed !== 'object') continue;
+        if (normLeadW(parsed.workspaceId) !== wid) continue;
+        if (!Array.isArray(parsed.inboundEvents) || !parsed.inboundEvents.length) continue;
+        leads.push({ ...parsed, key, workspaceId: wid });
+      }
+      cursorKey = pageRows.length ? pageRows[pageRows.length - 1].key : null;
+      if (pageRows.length) {
         await new Promise((r) => setImmediate(r));
       }
-      const row = rows[i];
-      const key = row && row.key;
-      const raw = row && row.value;
-      if (!key || raw == null) continue;
-      let parsed;
-      try {
-        parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      } catch {
-        continue;
-      }
-      if (!parsed || typeof parsed !== 'object') continue;
-      if (normLeadW(parsed.workspaceId) !== wid) continue;
-      if (!Array.isArray(parsed.inboundEvents) || !parsed.inboundEvents.length) continue;
-      leads.push({ ...parsed, key, workspaceId: wid });
-    }
+    } while (pageRows.length === PAGE);
     leads.sort((a, b) => leadKeySortTs(b.key) - leadKeySortTs(a.key));
     return leads;
   },

@@ -568,6 +568,7 @@
               throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
             }
             applyInbox(parsed.data, focus);
+            try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
           })
           .catch(function (e) {
             clearTimeout(hydrateTimer);
@@ -587,6 +588,7 @@
             setStatus(msg, true);
             var empty = document.getElementById('sqaEmptyState');
             if (empty) empty.classList.remove('hidden');
+            try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
           });
       }
       runHydrate();

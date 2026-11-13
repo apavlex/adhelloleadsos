@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Reviews/Q&A still stuck: bell cold scan (1.0.744)
+
+### What / why
+- 740’s “warm-first 800ms race” still **started** `listLeadsWithInboundEvents` on cache miss. better-sqlite3 `.all()` is sync — that scan locked SQLite and frosted Reviews/Q&A `/inbox.json` hydrate.
+- Fix: bell/inbound polls are **warm-only** (never start a cold scan). Full Notifications page may cold-scan. Keyset-page inbound list like `getAllLeads`. Defer bell scripts until `adhello:inbox-hydrated` (12s fallback). Inbox returns `pending` while `countLeadsListInflight() > 0`.
+
+### Key files
+- `routes/notifications.js`, `services/database.js`, `routes/businessReviews.js`, `routes/seoQa.js`
+- `views/partials/navbar_scripts.ejs`, `views/business_reviews.ejs`, `views/seo_qa.ejs`
+
 ## 2026-11-13 — Frost must not brick the app (1.0.741)
 
 ### What / why

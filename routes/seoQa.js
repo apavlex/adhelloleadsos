@@ -168,6 +168,13 @@ function isSqliteBusyError(err) {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
+    if (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Inbox temporarily busy — retrying…',
+      });
+    }
     const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
     const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, Math.floor(limitRaw))) : INBOX_JSON_LIMIT;
     const locals = await pageLocals(req, { inboxLimit: limit });

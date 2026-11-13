@@ -164,7 +164,9 @@ describe('businessReviews', () => {
     assert.match(view, /AbortController/);
     assert.match(view, /runHydrate/);
     assert.match(view, /applySettingsForm/);
+    assert.match(view, /adhello:inbox-hydrated/);
     assert.match(route, /pending:\s*true/);
+    assert.match(route, /countLeadsListInflight/);
     assert.match(sched, /businessReviews\.syncDueWorkspaces/);
   });
 
