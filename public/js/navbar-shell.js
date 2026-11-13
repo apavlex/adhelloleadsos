@@ -212,8 +212,9 @@ function readJsonReply(r) {
     } else {
       ms = Math.min(ms, 120000);
     }
-    // Leave-nav stall: offer Retry, then clear frost after a short grace so a hung
-    // hop cannot brick the whole app behind pointer-events:auto overlay.
+    // Leave-nav stall: offer Retry, then force the hop (or reload). Never just peel
+    // frost on iOS — the outgoing document is already gone, so hide-only reveals a
+    // pure white void (blank screen) until HTML arrives.
     hideNavLoading._failSafe = setTimeout(function () {
       if (untilPageShow && showNavLoading._leaving) {
         var stallEl = document.getElementById('adhelloNavLoading');
@@ -222,7 +223,15 @@ function readJsonReply(r) {
           var btn = stallEl.querySelector('#adhelloNavLoadingRetry');
           if (btn) btn.classList.remove('hidden');
           hideNavLoading._failSafe = setTimeout(function () {
+            var pending = showNavLoading._pendingHref || '';
             hideNavLoading();
+            try {
+              if (pending && pending !== window.location.href) {
+                window.location.assign(pending);
+              } else {
+                window.location.reload();
+              }
+            } catch (e) { /* ignore */ }
           }, desktopLeave ? 5000 : 10000);
           return;
         }

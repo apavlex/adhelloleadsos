@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — iOS blank white after stalled hop (1.0.746)
+
+### What / why
+- Absolute frost clear after Retry grace called `hideNavLoading()` only. On iOS the outgoing page is already discarded, so peeling frost revealed a pure white void when the next HTML never arrived.
+- Fix: after stall grace, `location.assign(pendingHref)` or `reload()` (same as Retry). Directory edit drawer also starts `hidden` (not translate-only) and drops the SSR JSON seed that HTML-escaped into broken JS.
+
+### Key files
+- `public/js/navbar-shell.js`, `views/directory.ejs`
+
 ## 2026-11-13 — Reviews/Q&A still stuck: bell cold scan (1.0.744)
 
 ### What / why

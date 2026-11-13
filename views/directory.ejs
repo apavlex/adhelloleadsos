@@ -151,7 +151,7 @@
   </main>
 
   <div id="dirEditBackdrop" class="fixed inset-0 bg-black/40 z-40 hidden" aria-hidden="true"></div>
-  <aside id="dirEditDrawer" class="fixed top-0 right-0 h-full w-full max-w-lg z-50 bg-white dark:bg-slate-900 border-l border-brand-border/60 dark:border-white/10 shadow-2xl translate-x-full transition-transform duration-300 flex flex-col" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dirEditTitle">
+  <aside id="dirEditDrawer" class="fixed top-0 right-0 h-full w-full max-w-lg z-50 bg-white dark:bg-slate-900 border-l border-brand-border/60 dark:border-white/10 shadow-2xl translate-x-full transition-transform duration-300 flex flex-col hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="dirEditTitle">
     <div class="flex items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/50 dark:border-white/10 shrink-0">
       <div class="min-w-0">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Directory listing</p>
@@ -288,11 +288,21 @@
     }
     function setEditOpen(open) {
       if (!drawer || !backdrop) return;
-      drawer.classList.toggle('translate-x-full', !open);
+      if (open) {
+        drawer.classList.remove('hidden');
+        // Next frame so translate transition still runs after un-hiding.
+        requestAnimationFrame(function () {
+          drawer.classList.remove('translate-x-full');
+        });
+      } else {
+        drawer.classList.add('translate-x-full');
+        setTimeout(function () { drawer.classList.add('hidden'); }, 300);
+      }
       drawer.setAttribute('aria-hidden', open ? 'false' : 'true');
       backdrop.classList.toggle('hidden', !open);
       backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
       document.body.style.overflow = open ? 'hidden' : '';
+      document.body.classList.toggle('overflow-hidden', !!open);
       if (!open) editOpenId = '';
     }
     function fillEditForm(row) {
@@ -430,16 +440,15 @@
       }
     }
 
-    // Seed from SSR rows so Edit works before hydrate finishes.
-    <% if (_listings && _listings.length) { %>
-    applyInbox({
-      summary: <%= JSON.stringify(_summary || { total: 0, published: 0, draft: 0 }) %>,
-      settings: <%= JSON.stringify(_settings || {}) %>,
-      feedUrl: <%= JSON.stringify(_feedUrl || '') %>,
-      detailUrlTemplate: <%= JSON.stringify(_detailUrl || '') %>,
-      listings: <%= JSON.stringify(_listings) %>,
+    // Do not SSR-embed listing JSON into this script (<%= escapes quotes and can
+    // blank the page). Hydrate from /inbox.json / :id.json instead.
+    // iOS / bfcache: never leave overflow locked from a prior drawer open.
+    window.addEventListener('pageshow', function () {
+      document.body.style.overflow = '';
+      document.body.classList.remove('overflow-hidden');
+      setEditOpen(false);
+      try { if (typeof window.hideNavLoading === 'function') window.hideNavLoading(); } catch (_) {}
     });
-    <% } %>
 
     var shouldHydrate = <%= _inboxHydrate ? 'true' : 'false' %>;
     if (shouldHydrate) {

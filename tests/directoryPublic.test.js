@@ -241,6 +241,8 @@ describe('public business directory', () => {
     assert.match(view, /dirEditDrawer/);
     assert.match(view, /dirEditForm/);
     assert.match(view, /openEdit/);
+    assert.match(view, /dirEditDrawer[\s\S]*\bhidden\b/);
+    assert.doesNotMatch(view, /listings:\s*<%=\s*JSON\.stringify\(_listings\)/);
     assert.match(routes, /showReviews/);
     assert.match(routes, /updateListing/);
     assert.match(routes, /\/listings\/:id\.json/);

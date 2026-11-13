@@ -24,9 +24,11 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
-    // Stall shows Retry, then absolute clear — frost must not brick the app forever.
-    assert.match(js, /cannot brick the whole app/);
+    // Stall shows Retry, then force the hop/reload — never peel frost into an iOS white void.
+    assert.match(js, /pure white void/);
     assert.match(js, /desktopLeave \? 5000 : 10000/);
+    assert.match(js, /location\.assign\(pending\)/);
+    assert.match(js, /location\.reload\(\)/);
     assert.doesNotMatch(
       js,
       /if \(isLikelyDesktopNav\(\)\) \{\s*hideNavLoading\(\);\s*return;/
