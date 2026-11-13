@@ -18,47 +18,105 @@ function hostFrom(raw) {
   return dataForSeo.hostFromWebsite(raw);
 }
 
-async function pageLocals(req, project) {
-  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
-  const projects = await backlinksStore.listProjects(req.workspaceId);
-  const localSeo = await localSeoStore.load(req.workspaceId);
-  const profile = localSeoStore.resolveBusinessProfile(req.workspace || { id: req.workspaceId }, localSeo.profile);
+function projectsFromWorkspace(ws) {
+  const bundle = ws && ws.backlinks && typeof ws.backlinks === 'object' ? ws.backlinks : {};
+  return Object.values(bundle.projects || {})
+    .filter(Boolean)
+    .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+}
+
+function projectFromWorkspace(ws, projectId) {
+  const id = String(projectId || '');
+  if (!id) return null;
+  const bundle = ws && ws.backlinks && typeof ws.backlinks === 'object' ? ws.backlinks : {};
+  const projects = bundle.projects && typeof bundle.projects === 'object' ? bundle.projects : {};
+  return projects[id] || null;
+}
+
+function localDefaultsFromWorkspace(ws) {
+  const localSeo = ws && ws.localSeo && typeof ws.localSeo === 'object' ? ws.localSeo : {};
+  const profile =
+    localSeo.profile && typeof localSeo.profile === 'object'
+      ? localSeo.profile
+      : localSeoStore.resolveBusinessProfile(ws || {}, {});
+  const intake = ws && ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
+  return {
+    keyword:
+      (Array.isArray(profile.keywords) && profile.keywords[0]) ||
+      [profile.vertical, profile.city, profile.state].filter(Boolean).join(' ') ||
+      '',
+    city: profile.city || intake.city || '',
+    state: profile.state || intake.state || '',
+    businessName: profile.businessName || intake.businessName || (ws && ws.name) || '',
+  };
+}
+
+/**
+ * HTML first paint: use req.workspace only — never await agency DFS resolve /
+ * localSeoStore.load / getWorkspace again (those contended with Reviews/Q&A).
+ */
+function pageLocalsLight(req, project) {
+  const ws = req.workspace || { id: req.workspaceId };
   return {
     title: project
       ? `${project.seedDomain} · Backlinks | Agency OS`
       : 'Backlinks | Agency OS',
     activePage: 'backlinks',
-    dfsReady: dataForSeo.isConfigured(integrationEnv),
-    projects,
+    // Env-only until /status.json upgrades with agency shared keys.
+    dfsReady: dataForSeo.isConfigured(null),
+    projects: projectsFromWorkspace(ws),
     project: project || null,
     flashError: null,
-    localSearchDefaults: {
-      keyword:
-        (Array.isArray(profile.keywords) && profile.keywords[0]) ||
-        [profile.vertical, profile.city, profile.state].filter(Boolean).join(' ') ||
-        '',
-      city: profile.city || '',
-      state: profile.state || '',
-      businessName: profile.businessName || '',
-    },
+    localSearchDefaults: localDefaultsFromWorkspace(ws),
+    dfsStatusPending: true,
   };
 }
 
 router.get('/', async (req, res, next) => {
   try {
-    res.render('backlinks', await pageLocals(req, null));
+    res.render('backlinks', pageLocalsLight(req, null));
   } catch (err) {
     next(err);
   }
 });
 
+router.get('/status.json', async (req, res) => {
+  try {
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    return res.json({
+      success: true,
+      dfsReady: dataForSeo.isConfigured(integrationEnv),
+    });
+  } catch (err) {
+    const msg = String((err && err.message) || '');
+    if (/SQLITE_BUSY|database is locked|busy|locked/i.test(msg)) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        dfsReady: dataForSeo.isConfigured(null),
+        error: 'Status temporarily busy',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      dfsReady: dataForSeo.isConfigured(null),
+      error: err && err.message ? err.message : 'Status failed',
+    });
+  }
+});
+
 router.get('/:id', async (req, res, next) => {
   try {
-    const project = await backlinksStore.getProject(req.workspaceId, req.params.id);
+    const ws = req.workspace || { id: req.workspaceId };
+    let project = projectFromWorkspace(ws, req.params.id);
+    if (!project) {
+      // Rare: workspace doc on req is stale — one targeted read.
+      project = await backlinksStore.getProject(req.workspaceId, req.params.id);
+    }
     if (!project) {
       return res.status(404).render('error', { message: 'Backlinks project not found.', activePage: 'backlinks' });
     }
-    res.render('backlinks', await pageLocals(req, project));
+    res.render('backlinks', pageLocalsLight(req, project));
   } catch (err) {
     next(err);
   }

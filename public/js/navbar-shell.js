@@ -189,7 +189,7 @@ function readJsonReply(r) {
     var lightDest = false;
     try {
       var pathOnly = pendingHref ? new URL(pendingHref, window.location.origin).pathname : '';
-      lightDest = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics)(\/|$)/.test(pathOnly);
+      lightDest = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement)(\/|$)/.test(pathOnly);
     } catch (_) {
       lightDest = false;
     }

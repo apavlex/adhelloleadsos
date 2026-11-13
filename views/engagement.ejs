@@ -161,19 +161,43 @@
       var slot = document.getElementById('engagementInboxSlot');
       if (!slot) return;
       var q = window.location.search || '';
-      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-      var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 20000);
-      fetch('/engagement/inbox.fragment' + q, { credentials: 'same-origin', signal: ctrl ? ctrl.signal : undefined })
-        .then(function (r) { if (!r.ok) throw new Error('Could not load engagement'); return r.text(); })
-        .then(function (html) {
-          clearTimeout(timer);
-          slot.innerHTML = html;
-        })
-        .catch(function () {
-          clearTimeout(timer);
-          var el = document.getElementById('engagementInboxLoading');
-          if (el) el.textContent = 'Engagement is taking too long. Refresh to try again.';
-        });
+      var attempts = 0;
+      function runHydrate() {
+        attempts += 1;
+        var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 20000);
+        var loading = document.getElementById('engagementInboxLoading');
+        if (loading && attempts > 1) loading.textContent = 'Still loading engagement…';
+        fetch('/engagement/inbox.fragment' + q, { credentials: 'same-origin', signal: ctrl ? ctrl.signal : undefined })
+          .then(function (r) {
+            if (r.status === 503 && attempts < 3) {
+              clearTimeout(timer);
+              setTimeout(runHydrate, 600 * attempts);
+              return null;
+            }
+            if (!r.ok) throw new Error('Could not load engagement');
+            return r.text();
+          })
+          .then(function (html) {
+            if (html == null) return;
+            clearTimeout(timer);
+            slot.innerHTML = html;
+          })
+          .catch(function (e) {
+            clearTimeout(timer);
+            if (attempts < 3) {
+              setTimeout(runHydrate, 800 * attempts);
+              return;
+            }
+            var el = document.getElementById('engagementInboxLoading');
+            if (el) {
+              el.textContent = (e && e.name === 'AbortError')
+                ? 'Engagement is taking too long. Refresh to try again.'
+                : 'Could not load engagement. Refresh to try again.';
+            }
+          });
+      }
+      runHydrate();
     })();
   </script>
   <% } %>

@@ -1,5 +1,16 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Engagement / Reviews / Q&A / Links still stuck (1.0.739)
+
+### What / why
+- 1.0.738 PR never merged — production stayed on **1.0.737**.
+- Same freeze class also hit Engagement (fragment hydrate) and Backlinks (HTML awaited agency DFS resolve + localSeo load).
+- Fix on top of 738: Backlinks `pageLocalsLight` (req.workspace only) + `/status.json` DFS upgrade; Engagement fragment retries + busy 503; yield while parsing engagement/activity lead filters; Engagement in light frost destinations; ship **1.0.739** to main.
+
+### Key files
+- `routes/backlinks.js`, `views/backlinks.ejs`, `routes/engagement.js`, `views/engagement.ejs`
+- `services/database.js`, `public/js/navbar-shell.js`, plus 738 Review/Q&A/Today files
+
 ## 2026-11-12 — Reviews/Q&A still stuck after 737 (1.0.738)
 
 ### What / why

@@ -73,8 +73,11 @@ describe('backlinks local competitors wiring', () => {
     const view = fs.readFileSync(path.join(__dirname, '../views/backlinks.ejs'), 'utf8');
     assert.match(route, /local-competitors/);
     assert.match(route, /autoDiscoverCompetitors:\s*false/);
+    assert.match(route, /pageLocalsLight/);
+    assert.match(route, /status\.json/);
     assert.match(sync, /Never auto-pick Labs|Labs auto-discover is disabled/);
     assert.match(view, /Search Google Maps/);
     assert.match(view, /Local competitors/);
+    assert.match(view, /\/backlinks\/status\.json/);
   });
 });

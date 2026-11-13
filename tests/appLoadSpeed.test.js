@@ -137,13 +137,18 @@ test('tasks page does not SSR every lead into the picker', () => {
 
 test('engagement and activity skip full-workspace lead scans on first paint', () => {
   const eng = fs.readFileSync(path.join(root, 'routes/engagement.js'), 'utf8');
+  const engView = fs.readFileSync(path.join(root, 'views/engagement.ejs'), 'utf8');
   const act = fs.readFileSync(path.join(root, 'routes/activity.js'), 'utf8');
   const ceo = fs.readFileSync(path.join(root, 'routes/ceo.js'), 'utf8');
   const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
+  const shellJs = fs.readFileSync(path.join(root, 'public/js/navbar-shell.js'), 'utf8');
   assert.match(db, /listLeadsForEngagementInbox/);
   assert.match(db, /listLeadsWithActivityTail/);
   assert.match(eng, /listLeadsForEngagementInbox/);
   assert.doesNotMatch(eng, /getAllLeads/);
+  assert.match(eng, /pending:\s*true/);
+  assert.match(engView, /runHydrate/);
+  assert.match(shellJs, /engagement/);
   assert.match(act, /listLeadsWithActivityTail/);
   assert.doesNotMatch(act, /getAllLeads/);
   assert.match(ceo, /light:\s*true/);
@@ -204,7 +209,19 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(qaView, /runHydrate/);
   assert.match(qaView, /applySettingsForm/);
   assert.match(qaView, /12000/);
-  assert.match(sw, /adhello-pwa-v1\.0\.738/);
+  assert.match(sw, /adhello-pwa-v1\.0\.739/);
+});
+
+test('Backlinks HTML paints without awaiting agency DFS resolve', () => {
+  const route = fs.readFileSync(path.join(root, 'routes/backlinks.js'), 'utf8');
+  const view = fs.readFileSync(path.join(root, 'views/backlinks.ejs'), 'utf8');
+  assert.match(route, /pageLocalsLight/);
+  assert.match(route, /status\.json/);
+  assert.match(route, /projectsFromWorkspace/);
+  assert.doesNotMatch(route, /res\.render\('backlinks', await pageLocals/);
+  assert.match(view, /blDfsOffline/);
+  assert.match(view, /\/backlinks\/status\.json/);
+  assert.match(view, /loadDfsStatus/);
 });
 
 

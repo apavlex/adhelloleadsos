@@ -14,6 +14,12 @@ const {
 } = require('../services/engagementInbox');
 const { signalLabel } = require('../services/engagementSignals');
 
+function isSqliteBusyError(err) {
+  const msg = String((err && err.message) || err || '');
+  const code = String((err && (err.code || err.name)) || '');
+  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
+}
+
 async function visibleBusinessLeads(req) {
   /* Do not cold-scan every prospect — inbox only needs leads with signal history. */
   const candidates = await dbService.listLeadsForEngagementInbox(req.workspaceId);
@@ -113,6 +119,9 @@ router.get('/inbox.fragment', async (req, res, next) => {
     const locals = await renderInbox(req, { fragment: true });
     res.render('engagement', locals);
   } catch (e) {
+    if (isSqliteBusyError(e)) {
+      return res.status(503).type('text/plain').send('busy');
+    }
     next(e);
   }
 });
@@ -126,6 +135,13 @@ router.get('/inbox.json', async (req, res, next) => {
     const inbox = buildEngagementInbox(leads, { windowDays, signalType, limit });
     res.json({ success: true, ...inbox });
   } catch (e) {
+    if (isSqliteBusyError(e)) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Inbox temporarily busy — retrying…',
+      });
+    }
     next(e);
   }
 });

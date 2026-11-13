@@ -18,15 +18,12 @@
 
     <%- include('partials/seo_local_rank_nav') %>
 
-    <% if (!dfsReady) { %>
-    <div class="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+    <div id="blDfsOffline" class="mb-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-950 dark:text-amber-100<%= dfsReady ? ' hidden' : '' %>">
       Connect DataForSEO under <a class="underline font-semibold" href="/workspace/integrations#integration-dataforseo">Workspace → Integrations</a> before syncing.
     </div>
-    <% } else { %>
-    <div class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100">
+    <div id="blDfsOnline" class="mb-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-900 dark:text-emerald-100<%= dfsReady ? '' : ' hidden' %>">
       DataForSEO connected. Create a project and sync to pull backlink research.
     </div>
-    <% } %>
 
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
       <section class="xl:col-span-1 space-y-4">
@@ -37,7 +34,7 @@
               <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Your domain</label>
               <input name="seedDomain" required placeholder="acmeflooring.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-950 px-3 py-2 text-sm" />
             </div>
-            <button type="submit" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest" <%= dfsReady ? '' : 'disabled' %>>Create project</button>
+            <button type="submit" id="blCreateBtn" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest" <%= dfsReady ? '' : 'disabled' %>>Create project</button>
           </form>
           <p id="blCreateErr" class="text-sm text-rose-600 dark:text-rose-400 mt-3 hidden"></p>
         </div>
@@ -294,6 +291,42 @@
   </main>
   <script>
     (function () {
+      var dfsReady = <%= dfsReady ? 'true' : 'false' %>;
+      var dfsPending = <%= typeof dfsStatusPending !== 'undefined' && dfsStatusPending ? 'true' : 'false' %>;
+
+      function applyDfsReady(ready) {
+        dfsReady = !!ready;
+        var off = document.getElementById('blDfsOffline');
+        var on = document.getElementById('blDfsOnline');
+        var btn = document.getElementById('blCreateBtn');
+        if (off) off.classList.toggle('hidden', dfsReady);
+        if (on) on.classList.toggle('hidden', !dfsReady);
+        if (btn) btn.disabled = !dfsReady;
+      }
+
+      // Agency shared DFS keys resolve after paint — do not block HTML on that hop.
+      if (dfsPending) {
+        var attempts = 0;
+        function loadDfsStatus() {
+          attempts += 1;
+          fetch('/backlinks/status.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+            .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }); })
+            .then(function (parsed) {
+              if (parsed.data && parsed.data.pending && attempts < 3) {
+                setTimeout(loadDfsStatus, 500 * attempts);
+                return;
+              }
+              if (parsed.data && typeof parsed.data.dfsReady === 'boolean') {
+                applyDfsReady(parsed.data.dfsReady);
+              }
+            })
+            .catch(function () {
+              if (attempts < 3) setTimeout(loadDfsStatus, 700 * attempts);
+            });
+        }
+        loadDfsStatus();
+      }
+
       var createForm = document.getElementById('blCreate');
       var createErr = document.getElementById('blCreateErr');
       if (createForm) {

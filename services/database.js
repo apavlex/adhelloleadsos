@@ -1094,7 +1094,12 @@ module.exports = {
           .all(wid);
 
     const leads = [];
-    for (const row of rows) {
+    const YIELD_EVERY = 25;
+    for (let i = 0; i < rows.length; i++) {
+      if (i > 0 && i % YIELD_EVERY === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
+      const row = rows[i];
       const key = row && row.key;
       const raw = row && row.value;
       if (!key || raw == null) continue;
@@ -1160,7 +1165,12 @@ module.exports = {
           .all(wid);
 
     const leads = [];
-    for (const row of rows) {
+    const YIELD_EVERY = 25;
+    for (let i = 0; i < rows.length; i++) {
+      if (i > 0 && i % YIELD_EVERY === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
+      const row = rows[i];
       const key = row && row.key;
       const raw = row && row.value;
       if (!key || raw == null) continue;
