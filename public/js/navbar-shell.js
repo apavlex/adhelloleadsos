@@ -255,9 +255,9 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Desktop: skip frost on common menu hops (overlay felt broken).
-    // iOS: keep a light untilPageShow frost — skipFrost left a silent white void
-    // when Reviews/Q&A HTML was slow (tap looked frozen; menu :active stuck).
+    // Skip frost on common menu hops (Reviews/Q&A/Directory/Today/…). 760 put frost
+    // back on iOS and users sat behind the spinner for every hop. Shell-first HTML
+    // + clean menu taps (no swipe-steal) are enough — browser owns the navigation.
     var skipFrost = false;
     try {
       var leavePath = href ? new URL(href, window.location.origin).pathname : '';
@@ -267,7 +267,7 @@ function readJsonReply(r) {
     } catch (_) {
       skipFrost = false;
     }
-    if (skipFrost && isLikelyDesktopNav()) {
+    if (skipFrost) {
       hideNavLoading();
       return;
     }

@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Drop iOS frost on Reviews/Q&A hops (1.0.761)
+
+### What / why
+- 760 re-enabled untilPageShow frost on iPhone for SEO hops; users sat behind the AdHello spinner on every Reviews/Q&A tap (“loading too slow”).
+- Keep the open-menu tap-steal fix; skip frost again for common menu hops on phone and desktop.
+
+### Key files
+- `public/js/navbar-shell.js`
+
 ## 2026-11-14 — iOS menu tap to Reviews froze (1.0.760)
 
 ### What / why

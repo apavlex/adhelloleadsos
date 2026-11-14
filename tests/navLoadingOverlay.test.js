@@ -19,10 +19,10 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /untilPageShow:\s*true/);
     assert.match(js, /_pendingHref/);
     assert.match(js, /isLikelyDesktopNav/);
-    // Desktop skips frost on common hops; iOS keeps light frost (silent white void).
+    // Common menu hops skip frost on phone and desktop (760 iOS frost felt stuck).
     assert.match(js, /function clearNavOverlaysForLeave/);
     assert.match(js, /skipFrost/);
-    assert.match(js, /if \(skipFrost && isLikelyDesktopNav\(\)\)/);
+    assert.match(js, /if \(skipFrost\) \{\s*hideNavLoading\(\);\s*return;/);
     assert.match(js, /never claim the gesture for swipe-close/i);
     assert.match(js, /Never auto location\.assign/);
     assert.match(js, /adhelloNavLoadingRetry/);
