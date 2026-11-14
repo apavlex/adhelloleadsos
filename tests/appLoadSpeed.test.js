@@ -212,10 +212,13 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(qaView, /runHydrate/);
   assert.match(qaView, /applySettingsForm/);
   assert.match(qaView, /20000/);
-  assert.match(reviewsRoute, /countSwitcherInflight/);
-  assert.match(qaRoute, /countSwitcherInflight/);
   assert.match(reviewsRoute, /failFast:\s*true/);
-  assert.match(sw, /adhello-pwa-v1\.0\.752/);
+  // Must NOT soft-busy Reviews/Q&A just because a lead scan is running.
+  assert.doesNotMatch(reviewsRoute, /countLeadsListInflight/);
+  assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
+  assert.match(reviewsRoute, /Prefer SSR/);
+  assert.match(qaRoute, /Prefer SSR/);
+  assert.match(sw, /adhello-pwa-v1\.0\.753/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {
@@ -261,8 +264,8 @@ test('Remembered fix: menu hops never await cold getAllLeads / peel frost early'
   assert.match(inboundChunk, /ORDER BY key DESC/);
   assert.match(inboundChunk, /LIMIT \?/);
   assert.match(inboundChunk, /cursorKey/);
-  assert.match(reviewsRoute, /countLeadsListInflight/);
-  assert.match(qaRoute, /countLeadsListInflight/);
+  assert.doesNotMatch(reviewsRoute, /countLeadsListInflight/);
+  assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
 });
 
 

@@ -7,7 +7,6 @@ const dbService = require('../services/database');
 const seoQaStore = require('../services/seoQaStore');
 const seoQaImport = require('../services/seoQaImport');
 const { buildSeoQaPagePrompt } = require('../services/seoQaPagePrompt');
-const withWorkspace = require('../middleware/withWorkspace');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
 function baseUrlFromReq(req) {
@@ -131,12 +130,20 @@ async function pageLocals(req, { inboxLimit = null, shell = false } = {}) {
 
 router.get('/', async (req, res, next) => {
   try {
-    // Page-builder prompt is lazy-loaded when the details card opens (see /page-prompt.txt).
-    const locals = await pageLocals(req, { shell: true });
+    // Prefer SSR from req.workspace.seoQa — no lead-scan soft-busy (that froze Loading).
+    let locals;
+    try {
+      locals = await pageLocals(req, { inboxLimit: INBOX_HYDRATE_LIMIT });
+      locals.inboxHydrate = false;
+      locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
+    } catch (e) {
+      if (!isSqliteBusyError(e)) throw e;
+      locals = await pageLocals(req, { shell: true });
+      locals.inboxHydrate = true;
+      locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
+    }
     locals.pageBuilderPrompt = '';
     locals.pageBuilderPromptUrl = '/seo-qa/page-prompt.txt';
-    locals.inboxHydrate = true;
-    locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
     res.render('seo_qa', locals);
   } catch (e) {
     next(e);
@@ -169,18 +176,7 @@ function isSqliteBusyError(err) {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
-    const switcherBusy =
-      typeof withWorkspace.countSwitcherInflight === 'function' && withWorkspace.countSwitcherInflight() > 0;
-    if (
-      (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) ||
-      switcherBusy
-    ) {
-      return res.status(503).json({
-        success: false,
-        pending: true,
-        error: 'Inbox temporarily busy — retrying…',
-      });
-    }
+    // Q&A lives on the workspace doc — never soft-busy just because a lead scan is running.
     const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
     const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, Math.floor(limitRaw))) : INBOX_JSON_LIMIT;
     const locals = await pageLocals(req, { inboxLimit: limit });

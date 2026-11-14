@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Reviews/Q&A false busy on lead scans (1.0.753)
+
+### What / why
+- `/inbox.json` returned soft-busy whenever *any* lead list scan or switcher build was inflight. Reviews/Q&A do not need leads — that gate left Loading stuck during folder searches / warm scans while MCP still read the store fine.
+- Fix: remove lead/switcher soft-busy; SSR inbox with fail-fast KV (shell+hydrate only on real SQLITE_BUSY).
+
+### Key files
+- `routes/businessReviews.js`, `routes/seoQa.js`
+
 ## 2026-11-13 — Stop light-hop frost assign loop + fix SW syntax (1.0.752)
 
 ### What / why

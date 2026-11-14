@@ -7,7 +7,6 @@ const dbService = require('../services/database');
 const trials = require('../services/trials');
 const outscraper = require('../services/outscraperClient');
 const businessReviews = require('../services/businessReviews');
-const withWorkspace = require('../middleware/withWorkspace');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
 /**
@@ -136,9 +135,22 @@ async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true, sh
 
 router.get('/', async (req, res, next) => {
   try {
-    const locals = await pageLocals(req, { shell: true });
-    locals.inboxHydrate = true;
-    locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
+    // Prefer SSR with fail-fast KV. Do NOT soft-busy on lead-list inflight — reviews
+    // KV does not need the lead scan, and that gate left Loading stuck during searches.
+    let locals;
+    try {
+      locals = await pageLocals(req, {
+        inboxLimit: INBOX_HYDRATE_LIMIT,
+        resolveOutscraper: false,
+      });
+      locals.inboxHydrate = false;
+      locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
+    } catch (e) {
+      if (!isSqliteBusyError(e)) throw e;
+      locals = await pageLocals(req, { shell: true });
+      locals.inboxHydrate = true;
+      locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
+    }
     res.render('business_reviews', locals);
   } catch (e) {
     next(e);
@@ -153,19 +165,8 @@ function isSqliteBusyError(err) {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
-    // Soft-busy when a cold lead scan or switcher rebuild owns SQLite — client retries.
-    const switcherBusy =
-      typeof withWorkspace.countSwitcherInflight === 'function' && withWorkspace.countSwitcherInflight() > 0;
-    if (
-      (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) ||
-      switcherBusy
-    ) {
-      return res.status(503).json({
-        success: false,
-        pending: true,
-        error: 'Inbox temporarily busy — retrying…',
-      });
-    }
+    // No lead-scan / switcher soft-busy — those blocked hydrate while reviews KV was free.
+    // failFast getStore throws SQLITE_BUSY → pending below.
     const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
     const limit = Number.isFinite(limitRaw) ? Math.min(200, Math.max(1, Math.floor(limitRaw))) : INBOX_JSON_LIMIT;
     // Skip agency Outscraper resolve — Sync re-checks; hydrate uses env/configured flag.

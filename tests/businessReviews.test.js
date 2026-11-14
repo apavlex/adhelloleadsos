@@ -166,7 +166,8 @@ describe('businessReviews', () => {
     assert.match(view, /applySettingsForm/);
     assert.match(view, /adhello:inbox-hydrated/);
     assert.match(route, /pending:\s*true/);
-    assert.match(route, /countLeadsListInflight/);
+    assert.doesNotMatch(route, /countLeadsListInflight/);
+    assert.match(route, /Prefer SSR/);
     assert.match(sched, /businessReviews\.syncDueWorkspaces/);
   });
 
