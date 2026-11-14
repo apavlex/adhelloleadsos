@@ -229,14 +229,16 @@ describe('public business directory', () => {
     assert.match(seoNav, /href="\/directory"/);
     assert.match(routes, /\/listings\/bulk/);
     assert.match(routes, /upsertManyFromLeads/);
-    // Prefer SSR listings; category repair is background-only (not on the request path).
-    assert.match(routes, /Prefer SSR/);
-    assert.match(routes, /kickCategoryRepair/);
+    // Shell-first + hydrate; category repair only after HTML finish (not same-tick / not inbox).
+    assert.match(routes, /Shell-first always/);
+    assert.match(routes, /scheduleCategoryRepairAfterPaint/);
     assert.match(routes, /shell:\s*true/);
     assert.match(routes, /inboxHydrate/);
     assert.match(routes, /\/inbox\.json/);
+    assert.doesNotMatch(routes, /kickCategoryRepair\(/);
     assert.match(view, /\/directory\/inbox\.json/);
     assert.match(view, /runHydrate/);
+    assert.match(view, /adhello:inbox-hydrated/);
     assert.match(view, /applyInbox/);
     assert.match(view, /showReviews/);
     assert.match(view, /reviewSentiment/);

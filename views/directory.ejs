@@ -485,6 +485,7 @@
               throw new Error((parsed.data && parsed.data.error) || 'Could not load directory');
             }
             applyInbox(parsed.data);
+            try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
           })
           .catch(function (e) {
             clearTimeout(hydrateTimer);
@@ -505,6 +506,7 @@
               loading.textContent = msg;
             }
             say(msg, false);
+            try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
           });
       }
       runHydrate();
@@ -512,6 +514,7 @@
       // SSR already has listings — hide the hydrate spinner if present.
       var bootLoading = document.getElementById('dirListLoading');
       if (bootLoading && <%= JSON.stringify(!_inboxPending) %>) bootLoading.classList.add('hidden');
+      try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
     }
 
     var settingsForm = document.getElementById('dirSettingsForm');

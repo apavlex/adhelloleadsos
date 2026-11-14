@@ -33,17 +33,43 @@ function isSqliteBusyError(err) {
   return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
 }
 
-function kickCategoryRepair(req, ws) {
-  // Never await N×getLead + saveWorkspace on HTML/inbox — that left Loading stuck.
-  if (req.session && req.session._dirRepairKick) return;
-  if (req.session) req.session._dirRepairKick = 1;
-  const wid = req.workspaceId;
-  void (async () => {
-    const bundle = await directoryStore.load(wid, { workspace: ws, normalize: false });
-    await directoryStore.repairJobTypeCategories(wid, bundle);
-  })().catch((e) => {
-    console.warn('[directory] background category repair failed:', e && e.message);
-  });
+/** In-memory only — never touch req.session (same SQLite as workspace writes). */
+const _dirRepairInflight = new Set();
+
+/**
+ * Category repair does N×getLead + saveWorkspace on the app SQLite file.
+ * Sessions use that same file — kicking repair in the same tick as res.render
+ * blocked session save / HTML flush and left Directory looking dead after 756.
+ * Only schedule after the response finishes, and never from inbox hydrate.
+ */
+function scheduleCategoryRepairAfterPaint(res, workspaceId, workspace) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid || _dirRepairInflight.has(wid)) return;
+  const ws = workspace && typeof workspace === 'object' ? workspace : null;
+  let armed = false;
+  const kick = () => {
+    if (armed || _dirRepairInflight.has(wid)) return;
+    armed = true;
+    _dirRepairInflight.add(wid);
+    void (async () => {
+      try {
+        // Yield so session save + other hops get the event loop first.
+        await new Promise((r) => setTimeout(r, 2500));
+        const bundle = await directoryStore.load(wid, { workspace: ws || undefined, normalize: false });
+        await directoryStore.repairJobTypeCategories(wid, bundle);
+      } catch (e) {
+        console.warn('[directory] background category repair failed:', e && e.message);
+      } finally {
+        _dirRepairInflight.delete(wid);
+      }
+    })();
+  };
+  if (res && typeof res.once === 'function' && !res.writableEnded) {
+    res.once('finish', kick);
+    res.once('close', kick);
+  } else {
+    kick();
+  }
 }
 
 async function pageLocals(req, { shell = false } = {}) {
@@ -99,17 +125,11 @@ async function pageLocals(req, { shell = false } = {}) {
 
 router.get('/', async (req, res, next) => {
   try {
-    // Prefer SSR from workspace.directory (same as Reviews/Q&A after 1.0.753).
-    let locals;
-    try {
-      locals = await pageLocals(req, { shell: false });
-      locals.inboxHydrate = false;
-      kickCategoryRepair(req, req.workspace);
-    } catch (e) {
-      if (!isSqliteBusyError(e)) throw e;
-      locals = await pageLocals(req, { shell: true });
-      locals.inboxHydrate = true;
-    }
+    // Shell-first always: paint chrome from req.workspace, hydrate listings from
+    // /inbox.json. Prefer-SSR + same-tick repair (756) contended SQLite with
+    // express-session and could block the HTML response entirely.
+    const locals = await pageLocals(req, { shell: true });
+    locals.inboxHydrate = true;
     locals.pageBuilderPrompt = '';
     locals.pageBuilderPromptUrl = '/directory/page-prompt.txt';
     locals.flash = null;
@@ -127,6 +147,7 @@ router.get('/', async (req, res, next) => {
     if (req.query.err) {
       locals.flash = { error: String(req.query.err).slice(0, 200) };
     }
+    scheduleCategoryRepairAfterPaint(res, req.workspaceId, req.workspace);
     res.render('directory', locals);
   } catch (e) {
     next(e);
@@ -152,8 +173,8 @@ router.get('/page-prompt.txt', async (req, res, next) => {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
+    // Never kick category repair here — hydrate must stay free of getLead/saveWorkspace.
     const locals = await pageLocals(req);
-    kickCategoryRepair(req, req.workspace);
     res.json({
       success: true,
       settings: locals.settings,

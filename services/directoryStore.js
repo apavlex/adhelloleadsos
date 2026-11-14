@@ -381,7 +381,8 @@ async function repairJobTypeCategories(workspaceId, bundle) {
 
   let changed = 0;
   const nextListings = { ...src };
-  for (const row of need) {
+  for (let i = 0; i < need.length; i += 1) {
+    const row = need[i];
     let lead = row.leadKey ? byKey.get(String(row.leadKey)) : null;
     if (!lead && row.leadKey) {
       try {
@@ -389,6 +390,10 @@ async function repairJobTypeCategories(workspaceId, bundle) {
       } catch (_) {
         lead = null;
       }
+    }
+    // Yield between sync SQLite reads so menu hops / session save aren't starved.
+    if (i > 0 && i % 5 === 0) {
+      await new Promise((r) => setImmediate(r));
     }
     const category = leadCategoryLabel(lead) || '';
     if (category === (row.category || '')) continue;

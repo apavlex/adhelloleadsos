@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Directory still blocked after 756 (1.0.757)
+
+### What / why
+- 756 deferred repair but kicked it in the same tick as `res.render` and dirtied `req.session`. Sessions share the app SQLite file — N×getLead/saveWorkspace starved session save / HTML flush so Directory still never painted.
+- Fix: shell-first + `/inbox.json` hydrate; schedule repair only on `res.finish` (+2.5s delay); in-memory inflight guard (no session flag); yield every 5 getLeads; fire `adhello:inbox-hydrated`.
+
+### Key files
+- `routes/directory.js`, `services/directoryStore.js`, `views/directory.ejs`
+
 ## 2026-11-13 — Directory stuck on Loading (1.0.756)
 
 ### What / why
