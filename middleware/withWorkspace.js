@@ -89,6 +89,26 @@ function isLightInboxHop(originalUrl) {
   );
 }
 
+/** Process-local script-seed kick — never dirty the session just to remember a kick. */
+const _scriptSeedKicked = new Set();
+const SCRIPT_SEED_KICK_TTL_MS = 10 * 60 * 1000;
+const _workspaceDocCache = new Map();
+const WORKSPACE_DOC_TTL_MS = 15_000;
+
+async function getWorkspaceCached(wid) {
+  const id = String(wid || '');
+  if (!id) return null;
+  const hit = _workspaceDocCache.get(id);
+  if (hit && Date.now() - hit.at < WORKSPACE_DOC_TTL_MS) return hit.ws;
+  const ws = await dbService.getWorkspace(id);
+  if (ws) _workspaceDocCache.set(id, { at: Date.now(), ws });
+  return ws;
+}
+
+function invalidateWorkspaceDocCache(wid) {
+  if (wid) _workspaceDocCache.delete(String(wid));
+}
+
 function readSwitcherCache(email, activeWorkspaceId, liveDemo) {
   const sk = switcherCacheKey(email);
   const hit = sk && _switcherCache.get(sk);
@@ -227,13 +247,13 @@ async function withWorkspace(req, res, next) {
       wid = ids[0] || null;
     }
 
-    let ws = wid ? await dbService.getWorkspace(wid) : null;
+    let ws = wid ? await getWorkspaceCached(wid) : null;
     if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
       const ids = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
       wid = null;
       ws = null;
       for (const id of ids) {
-        const cand = await dbService.getWorkspace(id);
+        const cand = await getWorkspaceCached(id);
         if (cand && workspaceBootstrap.userCanAccessWorkspace(cand, email)) {
           wid = id;
           ws = cand;
@@ -282,19 +302,27 @@ async function withWorkspace(req, res, next) {
         !workspaceScriptBootstrap.workspaceScriptsAlreadySeeded(ws) ||
         workspaceScriptBootstrap.shouldRepairAgencyCatalogLeak(ws);
       if (needsScriptSeed) {
-        // HTML + app *.json (inbox hydrate): never await a full workspace rewrite —
-        // that timed out to 502s / left Reviews+Q&A stuck on Loading. Kick once per session.
+        // HTML + app *.json: never await a full workspace rewrite (502 / Loading stuck).
+        // Never kick seed on HTML menu hops (contends with paint). Process-local Set
+        // so we don't dirty the session with _scriptSeedKick.
         if (navFastPath) {
-          // Skip seed on Reviews/Q&A HTML — saveWorkspace would contend with inbox hydrate.
-          if (!isLightInboxHop(original) && !(req.session && req.session._scriptSeedKick)) {
-            if (req.session) req.session._scriptSeedKick = 1;
-            void workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id).catch((e) => {
-              console.warn('[withWorkspace] background script seed failed:', e && e.message);
-            });
+          if (!htmlNavFastPath) {
+            const seedKey = String(ws.id);
+            if (!_scriptSeedKicked.has(seedKey)) {
+              _scriptSeedKicked.add(seedKey);
+              setTimeout(() => _scriptSeedKicked.delete(seedKey), SCRIPT_SEED_KICK_TTL_MS);
+              void workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id).catch((e) => {
+                console.warn('[withWorkspace] background script seed failed:', e && e.message);
+              });
+            }
           }
         } else {
           const refreshed = await workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id);
           ws = refreshed || ws;
+          if (ws) {
+            invalidateWorkspaceDocCache(ws.id);
+            _workspaceDocCache.set(String(ws.id), { at: Date.now(), ws });
+          }
         }
       }
     }
@@ -332,11 +360,9 @@ async function withWorkspace(req, res, next) {
         summaries = cached.summaries;
         canManageDemo = cached.canManageDemo;
       } else {
-        // Warm in background on HTML only — never kick a build from inbox.json,
-        // and never on Reviews/Q&A/Directory (inbox hydrate needs SQLite immediately).
-        if (htmlNavFastPath && !appJsonFastPath && !isLightInboxHop(original)) {
-          warmSwitcherCache(email);
-        }
+        // Never kick switcher builds from HTML/json menu hops — they contend with
+        // paint/hydrate. Client loads /workspaces/switcher.json after paint.
+        // (isLightInboxHop kept for tests / docs; HTML hops all skip warm now.)
         summaries = [
           {
             id: ws.id,

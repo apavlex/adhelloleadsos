@@ -983,7 +983,13 @@ router.post('/switch', express.urlencoded({ extended: true }), async (req, res, 
     }
 
     // Warm target leads while we persist prefs — landing page can share the in-flight scan.
-    void dbService.getAllLeads(raw).catch(() => {});
+    // Never start a second cold scan while one already owns SQLite.
+    const switchInflight = typeof dbService.countLeadsListInflight === 'function'
+      ? dbService.countLeadsListInflight()
+      : 0;
+    if (switchInflight < 1) {
+      void dbService.getAllLeads(raw).catch(() => {});
+    }
 
     await dbService.saveUserPrefs(email, { activeWorkspaceId: raw });
     if (req.session) {
@@ -1035,7 +1041,12 @@ router.get('/open', async (req, res, next) => {
     if (!raw || raw === req.workspaceId) return res.redirect(target);
     const ws = await dbService.getWorkspace(raw);
     if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) return res.redirect('/today');
-    void dbService.getAllLeads(raw).catch(() => {});
+    const openInflight = typeof dbService.countLeadsListInflight === 'function'
+      ? dbService.countLeadsListInflight()
+      : 0;
+    if (openInflight < 1) {
+      void dbService.getAllLeads(raw).catch(() => {});
+    }
     await dbService.saveUserPrefs(email, { activeWorkspaceId: raw });
     if (req.session) {
       req.session.activeWorkspaceId = raw;

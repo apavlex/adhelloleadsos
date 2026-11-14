@@ -54,11 +54,8 @@ const PIPELINE_SSR_ROW_CAP = Math.min(
 async function leadsForPipelinePaint(wid) {
   const warm =
     typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
-  if (warm) return warm;
-  setTimeout(() => {
-    void dbService.getAllLeads(wid).catch(() => {});
-  }, 4000);
-  return [];
+  // Do not schedule deferred getAllLeads — it contended with the next menu hop.
+  return warm || [];
 }
 
 /**

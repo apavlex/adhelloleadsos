@@ -19,12 +19,13 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /untilPageShow:\s*true/);
     assert.match(js, /_pendingHref/);
     assert.match(js, /isLikelyDesktopNav/);
-    // Light hops: no full-screen frost; thin pointer-events:none progress instead.
+    // In-app same-origin hops: thin pointer-events:none progress (never frost).
     assert.match(js, /function clearNavOverlaysForLeave/);
-    assert.match(js, /skipFrost/);
+    assert.match(js, /useProgress/);
     assert.match(js, /showNavProgress\(href/);
     assert.match(js, /function showNavProgress/);
     assert.match(js, /adhelloNavProgress/);
+    assert.match(js, /isAuthLeave/);
     assert.match(js, /Never claim touches that start on controls/i);
     assert.match(js, /hamburger lives in the left EDGE_PX/);
     assert.match(js, /Stale overflow lock/);

@@ -195,13 +195,17 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(today, /peekCachedLeads/);
   assert.match(today, /leadsForTodayPaint/);
   assert.match(today, /warm leads only/);
+  assert.match(today, /Never schedule a deferred cold getAllLeads/);
   assert.doesNotMatch(today, /Promise\.race/);
   assert.match(prospecting, /Warm-only lead list/);
+  assert.match(prospecting, /Do not schedule deferred getAllLeads/);
   const pipelinePaint = prospecting.slice(
     prospecting.indexOf('async function leadsForPipelinePaint'),
     prospecting.indexOf('async function leadsForPipelinePaint') + 500,
   );
   assert.doesNotMatch(pipelinePaint, /Promise\.race/);
+  assert.doesNotMatch(pipelinePaint, /setTimeout/);
+  assert.doesNotMatch(pipelinePaint, /void dbService\.getAllLeads/);
   const unscopedStart = db.indexOf('async getAllLeadsUnscoped');
   assert.ok(unscopedStart > 0);
   const unscopedChunk = db.slice(unscopedStart, unscopedStart + 1600);
@@ -228,7 +232,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Shell-first always/);
   assert.match(qaRoute, /Shell-first always/);
-  assert.match(sw, /adhello-pwa-v1\.0\.763/);
+  assert.match(sw, /adhello-pwa-v1\.0\.764/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {

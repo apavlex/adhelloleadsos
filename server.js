@@ -194,7 +194,9 @@ app.use(
 );
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'adhello-secret-key',
-  store: new SqliteSessionStore({ db: dbService.getSqlite() }),
+  // touchAfterMs: skip expires UPDATEs for 5m so menu hops don't fight lead/workspace KV
+  // on the same SQLite connection (express-session touches every unmodified response).
+  store: new SqliteSessionStore({ db: dbService.getSqlite(), touchAfterMs: 5 * 60 * 1000 }),
   resave: false,
   saveUninitialized: false,
   cookie: {

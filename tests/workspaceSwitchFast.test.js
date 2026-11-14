@@ -30,8 +30,11 @@ test('workspace switch warms leads and skips chrome extras', () => {
     /const skipChromeExtras = telephonyFastPath \|\| workspaceSwitchFastPath;/
   );
   // 1.0.698 awaited seed on HTML and could 502 — background kick instead.
-  assert.match(mw, /_scriptSeedKick/);
+  // 1.0.764: process-local Set (never dirty session with _scriptSeedKick).
+  assert.match(mw, /_scriptSeedKicked/);
   assert.match(mw, /background script seed failed/);
+  assert.match(mw, /Never kick seed on HTML/);
+  assert.match(mw, /getWorkspaceCached/);
   // 1.0.700: Reviews/Q&A inbox.json must share the same non-blocking chrome as HTML.
   assert.match(mw, /appJsonFastPath/);
   assert.match(mw, /const navFastPath = htmlNavFastPath \|\| appJsonFastPath;/);
@@ -60,6 +63,13 @@ test('workspace switch warms leads and skips chrome extras', () => {
   // 1.0.763+: do not dirty session workspace ids on every hop.
   assert.match(mw, /Only dirty the session when the active workspace actually changes/);
   assert.match(mw, /String\(req\.session\.activeWorkspaceId \|\| ''\) !== nextId/);
+  // 1.0.764+: never warm switcher from HTML hops; session touch throttled in store.
+  assert.match(mw, /Never kick switcher builds from HTML/);
+  const server = fs.readFileSync(path.join(__dirname, '../server.js'), 'utf8');
+  assert.match(server, /touchAfterMs:\s*5 \* 60 \* 1000/);
+  const store = fs.readFileSync(path.join(__dirname, '../lib/sqliteSessionStore.js'), 'utf8');
+  assert.match(store, /touchAfterMs/);
+  assert.match(store, /_lastTouchAt/);
   assert.match(switchSrc, /router\.get\('\/switcher\.json'/);
   assert.match(switchSrc, /warmSwitcherCache/);
   assert.match(switchSrc, /countLeadsListInflight/);

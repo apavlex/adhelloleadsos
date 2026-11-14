@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — App-wide loading: SQLite session + deferred scans (1.0.764)
+
+### What / why
+- App still felt stuck after 763 because every hop `touch()`ed http_sessions on the same SQLite as leads, and Today/Pipeline scheduled cold `getAllLeads` 4s after paint.
+- Throttle session touch 5m; remove deferred paint scans; gate switch/open warm; progress (not frost) on all in-app hops; short workspace doc cache; no HTML switcher/seed kicks.
+
+### Key files
+- `lib/sqliteSessionStore.js`, `server.js`, `routes/today.js`, `routes/prospecting.js`, `routes/workspaces.js`, `middleware/withWorkspace.js`, `public/js/navbar-shell.js`
+
 ## 2026-11-14 — Durable Reviews/Q&A open path (1.0.763)
 
 ### What / why

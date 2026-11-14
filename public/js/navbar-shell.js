@@ -330,18 +330,20 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Light hops (Reviews/Q&A/…): never use full-screen frost (760 trap) and never
-    // go fully silent (761 white void). Thin pointer-events:none progress instead.
-    var skipFrost = false;
+    // In-app same-origin hops: thin progress only (never full-screen frost).
+    // Frost trapped taps (760) and skip-lists left gaps (history/sequences/sales).
+    // Keep frost only for auth/logout/external leaves.
+    var useProgress = false;
     try {
-      var leavePath = href ? new URL(href, window.location.origin).pathname : '';
-      skipFrost = /\/(today|pipeline|prospecting|folders|business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement|tasks|activity|messages|notifications|network|opportunities|workspace|settings|ceo|chat|referrals|appointments|resources|sops|fb-groups|direct-mail|social-posts)(\/|$)/.test(
-        leavePath,
-      );
+      var leaveUrl = href ? new URL(href, window.location.origin) : null;
+      var leavePath = leaveUrl ? leaveUrl.pathname : '';
+      var sameOrigin = !!(leaveUrl && leaveUrl.origin === window.location.origin);
+      var isAuthLeave = /\/(login|logout|signup|auth|oauth)(\/|$)/i.test(leavePath);
+      useProgress = sameOrigin && !isAuthLeave && leavePath.charAt(0) === '/';
     } catch (_) {
-      skipFrost = false;
+      useProgress = false;
     }
-    if (skipFrost) {
+    if (useProgress) {
       hideNavLoading();
       showNavProgress(href || '');
       return;

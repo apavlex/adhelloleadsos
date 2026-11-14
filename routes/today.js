@@ -101,16 +101,13 @@ router.get('/', async (req, res, next) => {
     const searchInProgressNotice = req.query.searchInProgress === '1';
     const scheduleSavedNotice = req.query.scheduleSaved === '1';
 
-    // First paint: warm leads only. Starting a cold getAllLeads here (even raced)
-    // kept SQLite locked and made the next menu hops fail until manual refresh.
+    // First paint: warm leads only. Never schedule a deferred cold getAllLeads —
+    // that raced the next menu hop and locked SQLite for seconds (app-wide stalls).
+    // Warm via /workspaces/warm, switch, or extras.json when the client asks.
     async function leadsForTodayPaint() {
       const warm =
         typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
-      if (warm) return warm;
-      setTimeout(() => {
-        void dbService.getAllLeads(wid).catch(() => {});
-      }, 4000);
-      return [];
+      return warm || [];
     }
 
     // First paint: leads + light chrome only. Coach / board / sources / network hydrate via /today/extras.json.
@@ -267,11 +264,17 @@ router.get('/extras.json', async (req, res, next) => {
     const wid = req.workspaceId;
     const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
     const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
-    // Prefer warm leads — a cold getAllLeads here contended with the next menu hop.
+    // Prefer warm leads — only kick one cold scan when none is already inflight.
     const warm =
       typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
     if (!warm) {
-      void dbService.getAllLeads(wid).catch(() => {});
+      const inflight =
+        typeof dbService.countLeadsListInflight === 'function'
+          ? dbService.countLeadsListInflight()
+          : 0;
+      if (inflight < 1) {
+        void dbService.getAllLeads(wid).catch(() => {});
+      }
       return res.status(503).json({
         success: false,
         pending: true,
