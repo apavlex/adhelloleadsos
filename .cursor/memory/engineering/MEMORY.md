@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Stop light-hop frost assign loop + fix SW syntax (1.0.752)
+
+### What / why
+- Leave-nav frost auto-`location.assign` on Reviews/Q&A aborted the in-flight HTML document and looped; 751’s shorter stall made it worse.
+- `public/sw.js` had `CACHE_VERSION = '…',` (comma) since 742 — SyntaxError, clients stuck on last good SW.
+- Fix: skip untilPageShow frost for light SEO hops; semicolon in SW; bump to 752.
+
+### Key files
+- `public/js/navbar-shell.js`, `public/sw.js`
+
 ## 2026-11-13 — Fail-fast hydrate + short light frost (1.0.751)
 
 ### What / why

@@ -233,6 +233,8 @@ function readJsonReply(r) {
           stallEl.classList.add('is-stalled');
           var btn = stallEl.querySelector('#adhelloNavLoadingRetry');
           if (btn) btn.classList.remove('hidden');
+          // Non-light hops only: auto-assign can abort an almost-ready document.
+          // Light hops never arm untilPageShow frost (see clearNavOverlaysForLeave).
           hideNavLoading._failSafe = setTimeout(function () {
             var pending = showNavLoading._pendingHref || '';
             hideNavLoading();
@@ -243,7 +245,7 @@ function readJsonReply(r) {
                 window.location.reload();
               }
             } catch (e) { /* ignore */ }
-          }, lightDest ? (desktopLeave ? 2500 : 4000) : (desktopLeave ? 5000 : 10000));
+          }, desktopLeave ? 5000 : 10000);
           return;
         }
       }
@@ -267,6 +269,19 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
+    // Reviews/Q&A/Directory already show in-page Loading. Full-page frost + auto
+    // location.assign on stall aborted the in-flight HTML hop and looped forever.
+    var lightHop = false;
+    try {
+      var leavePath = href ? new URL(href, window.location.origin).pathname : '';
+      lightHop = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement)(\/|$)/.test(leavePath);
+    } catch (_) {
+      lightHop = false;
+    }
+    if (lightHop) {
+      hideNavLoading();
+      return;
+    }
     // Frost stays until next pageshow — do not preventDefault (browser owns nav).
     showNavLoading({ untilPageShow: true, href: href || '' });
   }

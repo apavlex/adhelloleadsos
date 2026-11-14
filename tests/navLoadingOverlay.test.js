@@ -20,14 +20,16 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /_pendingHref/);
     assert.match(js, /location\.assign\(pending\)/);
     assert.match(js, /isLikelyDesktopNav/);
-    // Light SEO hops use a short frost; other hops keep the longer leave budget.
-    assert.match(js, /if \(lightDest\) ms = desktopLeave \? 2200 : 3500/);
+    // Light SEO hops skip untilPageShow frost — auto-assign was aborting in-flight HTML.
+    assert.match(js, /function clearNavOverlaysForLeave/);
+    assert.match(js, /lightHop/);
+    assert.match(js, /if \(lightHop\) \{\s*hideNavLoading\(\);\s*return;/);
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
     // Stall shows Retry, then force the hop/reload — never peel frost into an iOS white void.
     assert.match(js, /pure white void/);
-    assert.match(js, /lightDest \? \(desktopLeave \? 2500 : 4000\)/);
+    assert.match(js, /desktopLeave \? 5000 : 10000/);
     assert.match(js, /location\.assign\(pending\)/);
     assert.match(js, /location\.reload\(\)/);
     assert.doesNotMatch(
@@ -38,6 +40,9 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
 
   it('service worker never intercepts HTML and cache-firsts shell assets', () => {
     const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
+    // Trailing comma after CACHE_VERSION made the SW a SyntaxError since 1.0.742.
+    assert.match(sw, /const CACHE_VERSION = 'adhello-pwa-v1\.0\.\d+';/);
+    assert.doesNotMatch(sw, /const CACHE_VERSION = '[^']+',\s*\nconst SHELL/);
     assert.match(sw, /adhello-pwa-v1\.0\.\d+/);
     assert.doesNotMatch(sw, /AbortController/);
     assert.match(sw, /req\.mode === 'navigate'\) return/);
