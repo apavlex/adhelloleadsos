@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Inbox JSON skip member ensure + bell searches (1.0.750)
+
+### What / why
+- After 749, `/inbox.json` still awaited `ensureWorkspaceAndMember` (extra sync getWorkspace) and bell polls still ran `getAllSearches` (kvList + N parses), racing Reviews/Q&A hydrate.
+- Fix: skip member ensure on `appJsonFastPath`; bell polls use logged notifications only (full Notifications page still loads searches).
+
+### Key files
+- `middleware/withWorkspace.js`, `routes/notifications.js`
+
 ## 2026-11-13 — Bell idle boot still frosted hydrate (1.0.749)
 
 ### What / why

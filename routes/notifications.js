@@ -48,13 +48,17 @@ async function historyForRequest(req, { kind, limit, allowColdScan = false } = {
   const wid = req.workspaceId;
   const email = userEmail(req);
   // Inbound history only reads inboundEvents — do not load every prospect on each bell poll.
-  const [leads, allSearches] = await Promise.all([
-    workspaceInboundLeads(req, { allowColdScan }),
-    dbService.getAllSearches(),
-  ]);
+  // Bell polls also skip getAllSearches (sync kvList + N parses) — that frosted Reviews/Q&A.
+  // Full Notifications page (allowColdScan) still loads search rows.
+  const leads = await workspaceInboundLeads(req, { allowColdScan });
+  let searches = [];
+  if (allowColdScan) {
+    const allSearches = await dbService.getAllSearches();
+    searches = allSearches.filter((s) => (s.workspaceId || 'default') === wid);
+  }
   const history = buildNotificationHistory({
     leads,
-    searches: allSearches.filter((s) => (s.workspaceId || 'default') === wid),
+    searches,
     logged: notificationLog.list(wid),
     userEmail: email,
     kind: kind != null ? String(kind) : String(req.query.kind || ''),

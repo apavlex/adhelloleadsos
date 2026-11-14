@@ -271,7 +271,11 @@ async function withWorkspace(req, res, next) {
       return res.redirect('/signup');
     }
 
-    ws = (await workspaceService.ensureWorkspaceAndMember(ws.id, email)) || ws;
+    // Inbox hydrate (*.json): reuse the workspace already loaded — another getWorkspace /
+    // possible saveWorkspace here contended with sync getStore and frosted Reviews/Q&A.
+    if (!appJsonFastPath) {
+      ws = (await workspaceService.ensureWorkspaceAndMember(ws.id, email)) || ws;
+    }
 
     if (!skipChromeExtras) {
       const needsScriptSeed =
