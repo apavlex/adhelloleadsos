@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Mobile menu would not open (1.0.762)
+
+### What / why
+- Hamburger sits in the left 30px edge strip. Swipe handler `preventDefault`’d those touches; any finger wobble skipped the click replay → menu dead.
+- Also cleared stuck frost on open and stale `overflow-hidden` when the drawer was already closed.
+- Fix: never claim touches that start on `button`/`a`/controls (open or closed).
+
+### Key files
+- `public/js/navbar-shell.js`
+
 ## 2026-11-14 — Drop iOS frost on Reviews/Q&A hops (1.0.761)
 
 ### What / why

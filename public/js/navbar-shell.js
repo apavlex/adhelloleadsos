@@ -30,10 +30,16 @@ function readJsonReply(r) {
 
   function openMobileMenu() {
     if (!mobileMenu || !mobileMenuPanel) return;
+    // Clear a stuck leave-nav frost so it cannot block the hamburger / drawer.
+    try { if (typeof hideNavLoading === 'function') hideNavLoading(); } catch (_) {}
     document.dispatchEvent(new CustomEvent('adhello:nav-popover', { detail: { id: 'mobile-menu' } }));
     // Force a cheap paint path (no blur) in case a stale stylesheet still has backdrop-filter.
     mobileMenu.style.setProperty('backdrop-filter', 'none', 'important');
     mobileMenu.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+    mobileMenu.style.removeProperty('opacity');
+    mobileMenu.style.removeProperty('transition');
+    mobileMenuPanel.style.removeProperty('transform');
+    mobileMenuPanel.style.removeProperty('transition');
     mobileMenu.classList.remove('hidden', 'pointer-events-none', 'opacity-0');
     mobileMenu.classList.add('opacity-100');
     mobileMenuPanel.classList.remove('-translate-x-full');
@@ -487,16 +493,23 @@ function readJsonReply(r) {
       var open = isOpen();
       var target = e.target;
       var edge = false;
-      // Open menu + tap on a nav link: never claim the gesture for swipe-close.
-      // Slight finger wobble used to preventDefault the click — Reviews/Q&A looked
-      // frozen (menu stayed open, :active highlight stuck, page never changed).
-      if (open && target && target.closest) {
+      // Never claim touches that start on controls — open or closed.
+      // The hamburger lives in the left EDGE_PX strip; claiming it + preventDefault
+      // ate the click (menu would not open). Same for nav links when the drawer is open.
+      if (target && target.closest) {
         if (target.closest('a[href], button, summary, label, input, textarea, select, [role="button"]')) {
           return;
         }
       }
       if (!open) {
-        if (document.body.classList.contains('overflow-hidden')) return;
+        // Stale overflow lock (aborted swipe) with menu closed blocked re-open.
+        if (document.body.classList.contains('overflow-hidden')) {
+          if (mobileMenu.classList.contains('hidden')) {
+            document.body.classList.remove('overflow-hidden');
+          } else {
+            return;
+          }
+        }
         if (target.closest && target.closest(NO_SWIPE)) return;
         edge = t.clientX <= EDGE_PX;
         if (!edge && inHorizontalScroller(target)) return;

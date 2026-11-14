@@ -23,7 +23,9 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /function clearNavOverlaysForLeave/);
     assert.match(js, /skipFrost/);
     assert.match(js, /if \(skipFrost\) \{\s*hideNavLoading\(\);\s*return;/);
-    assert.match(js, /never claim the gesture for swipe-close/i);
+    assert.match(js, /Never claim touches that start on controls/i);
+    assert.match(js, /hamburger lives in the left EDGE_PX/);
+    assert.match(js, /Stale overflow lock/);
     assert.match(js, /Never auto location\.assign/);
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /is-stalled/);
