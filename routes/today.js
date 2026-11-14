@@ -267,8 +267,19 @@ router.get('/extras.json', async (req, res, next) => {
     const wid = req.workspaceId;
     const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
     const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
+    // Prefer warm leads — a cold getAllLeads here contended with the next menu hop.
+    const warm =
+      typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
+    if (!warm) {
+      void dbService.getAllLeads(wid).catch(() => {});
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Extras warming — retrying…',
+      });
+    }
     const [all, history, touchGoal] = await Promise.all([
-      dbService.getAllLeads(wid),
+      Promise.resolve(warm),
       dbService.listDailyTrackers(wid, email, 62).catch(() => []),
       loadDailyTouchGoal(req),
     ]);

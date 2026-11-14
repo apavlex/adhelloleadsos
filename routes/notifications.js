@@ -75,8 +75,9 @@ async function historyForRequest(req, { kind, limit, allowColdScan = false } = {
 
 router.get('/', async (req, res, next) => {
   try {
-    // Full history page may cold-scan (keyset-paged). Bell polls must not.
-    const history = await historyForRequest(req, { allowColdScan: true });
+    // Warm-only on HTML paint — cold inbound/search scans locked SQLite and made
+    // the next menu hop fail. Logged notifications still render; inbound fills when warm.
+    const history = await historyForRequest(req, { allowColdScan: false });
     res.render('notifications', {
       title: 'Notifications',
       activePage: 'notifications',

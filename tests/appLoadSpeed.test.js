@@ -226,7 +226,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Prefer SSR/);
   assert.match(qaRoute, /Prefer SSR/);
-  assert.match(sw, /adhello-pwa-v1\.0\.754/);
+  assert.match(sw, /adhello-pwa-v1\.0\.755/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {
@@ -255,7 +255,9 @@ test('Remembered fix: menu hops never await cold getAllLeads / peel frost early'
   assert.match(notifications, /allowColdScan/);
   assert.match(notifications, /allowColdScan:\s*false/);
   assert.doesNotMatch(notifications, /Promise\.race/);
-  // Bell polls skip getAllSearches — only the full Notifications page loads them.
+  // Notifications HTML is warm-only (no cold inbound/search scan on paint).
+  assert.match(notifications, /Warm-only on HTML paint/);
+  assert.doesNotMatch(notifications, /allowColdScan:\s*true/);
   assert.match(notifications, /if \(allowColdScan\)/);
   assert.match(notifications, /getAllSearches/);
   assert.match(prospecting, /leadsForPipelinePaint/);

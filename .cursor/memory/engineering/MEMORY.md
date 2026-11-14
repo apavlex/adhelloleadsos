@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Notifications + Today extras warm-only (1.0.755)
+
+### What / why
+- Follow-up to 754: Notifications HTML still cold-scanned inbound/searches; Today `extras.json` awaited full `getAllLeads` and contended the next menu hop.
+- Fix: Notifications paint warm-only; extras soft-busy until lead cache is warm + client retries.
+
+### Key files
+- `routes/notifications.js`, `routes/today.js`, `views/today.ejs`
+
 ## 2026-11-13 — Site-wide menu hops: no frost abort, no cold paint scan (1.0.754)
 
 ### What / why

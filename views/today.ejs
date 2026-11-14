@@ -1404,10 +1404,18 @@
         '<p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed">' + esc(wr.experiment || '') + '</p></div></div></div>'
       );
     }
-    fetch('/today/extras.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        if (!data || !data.success) return;
+    var extrasAttempts = 0;
+    function loadTodayExtras() {
+      extrasAttempts += 1;
+      fetch('/today/extras.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
+      .then(function (parsed) {
+        var data = parsed.data;
+        if (data && data.pending && extrasAttempts < 6) {
+          setTimeout(loadTodayExtras, 800 * extrasAttempts);
+          return;
+        }
+        if (!parsed.ok || !data || !data.success) return;
         applyRoi(data.bestRoiActivity);
         var oppSlot = document.getElementById('todayOppBoardSlot');
         if (oppSlot && data.opportunityBoardHtml) oppSlot.innerHTML = data.opportunityBoardHtml;
@@ -1454,9 +1462,15 @@
         }
       })
       .catch(function () {
+        if (extrasAttempts < 4) {
+          setTimeout(loadTodayExtras, 1000 * extrasAttempts);
+          return;
+        }
         var sk = document.getElementById('todayOppBoardSkeleton');
         if (sk) sk.remove();
       });
+    }
+    loadTodayExtras();
   })();
   </script>
   <% } %>
