@@ -216,17 +216,19 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(qaRoute, /pending:\s*true/);
   assert.match(reviewsView, /runHydrate/);
   assert.match(reviewsView, /applySettingsForm/);
-  assert.match(reviewsView, /20000/);
+  assert.match(reviewsView, /hydrateMax = 5/);
+  assert.match(reviewsView, /10000/);
   assert.match(qaView, /runHydrate/);
   assert.match(qaView, /applySettingsForm/);
-  assert.match(qaView, /20000/);
+  assert.match(qaView, /hydrateMax = 5/);
+  assert.match(qaView, /10000/);
   assert.match(reviewsRoute, /failFast:\s*true/);
   // Must NOT soft-busy Reviews/Q&A just because a lead scan is running.
   assert.doesNotMatch(reviewsRoute, /countLeadsListInflight/);
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Shell-first always/);
   assert.match(qaRoute, /Shell-first always/);
-  assert.match(sw, /adhello-pwa-v1\.0\.762/);
+  assert.match(sw, /adhello-pwa-v1\.0\.763/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {

@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Durable Reviews/Q&A open path (1.0.763)
+
+### What / why
+- Kept bouncing: full-screen frost trapped taps (760) ↔ silent white void (761) while every hop dirtied the SQLite session and hydrate retried for minutes.
+- Durable fix: thin `pointer-events:none` top progress (not frost); only write session workspace ids when changed; hydrate max 5 + Retry button.
+
+### Key files
+- `public/js/navbar-shell.js`, `public/css/custom.css`, `middleware/withWorkspace.js`, Reviews/Q&A views
+
 ## 2026-11-14 — Mobile menu would not open (1.0.762)
 
 ### What / why

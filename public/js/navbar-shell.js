@@ -30,8 +30,9 @@ function readJsonReply(r) {
 
   function openMobileMenu() {
     if (!mobileMenu || !mobileMenuPanel) return;
-    // Clear a stuck leave-nav frost so it cannot block the hamburger / drawer.
+    // Clear stuck leave-nav frost / progress so they cannot block the hamburger.
     try { if (typeof hideNavLoading === 'function') hideNavLoading(); } catch (_) {}
+    try { if (typeof hideNavProgress === 'function') hideNavProgress(); } catch (_) {}
     document.dispatchEvent(new CustomEvent('adhello:nav-popover', { detail: { id: 'mobile-menu' } }));
     // Force a cheap paint path (no blur) in case a stale stylesheet still has backdrop-filter.
     mobileMenu.style.setProperty('backdrop-filter', 'none', 'important');
@@ -251,6 +252,74 @@ function readJsonReply(r) {
   // Boot / restore: never leave a stuck frost from bfcache or a prior hop.
   hideNavLoading();
 
+  function ensureNavProgressEl() {
+    var el = document.getElementById('adhelloNavProgress');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'adhelloNavProgress';
+    el.className = 'app-body-portal';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-hidden', 'true');
+    el.innerHTML =
+      '<div class="adhello-nav-progress-bar" aria-hidden="true"></div>' +
+      '<button type="button" class="adhello-nav-progress-retry hidden" id="adhelloNavProgressRetry">Still opening — tap to retry</button>';
+    var retry = el.querySelector('#adhelloNavProgressRetry');
+    if (retry) {
+      retry.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var pending = showNavProgress._pendingHref || '';
+        hideNavProgress();
+        if (pending) {
+          try { window.location.assign(pending); } catch (_) { window.location.href = pending; }
+        } else {
+          try { window.location.reload(); } catch (_) {}
+        }
+      });
+    }
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function hideNavProgress() {
+    clearTimeout(hideNavProgress._stall);
+    hideNavProgress._stall = null;
+    showNavProgress._pendingHref = '';
+    var el = document.getElementById('adhelloNavProgress');
+    if (!el) return;
+    el.classList.remove('is-on', 'is-stalled');
+    el.setAttribute('aria-hidden', 'true');
+    var retry = el.querySelector('#adhelloNavProgressRetry');
+    if (retry) retry.classList.add('hidden');
+  }
+
+  /** Thin top progress for light hops — never covers the screen or steals taps. */
+  function showNavProgress(href) {
+    var el = ensureNavProgressEl();
+    hideNavLoading();
+    try {
+      showNavProgress._pendingHref = href
+        ? new URL(String(href), window.location.origin).href
+        : '';
+    } catch (_) {
+      showNavProgress._pendingHref = String(href || '');
+    }
+    el.classList.add('is-on');
+    el.classList.remove('is-stalled');
+    el.setAttribute('aria-hidden', 'false');
+    var retry = el.querySelector('#adhelloNavProgressRetry');
+    if (retry) retry.classList.add('hidden');
+    clearTimeout(hideNavProgress._stall);
+    hideNavProgress._stall = setTimeout(function () {
+      var bar = document.getElementById('adhelloNavProgress');
+      if (!bar || !bar.classList.contains('is-on')) return;
+      bar.classList.add('is-stalled');
+      var btn = bar.querySelector('#adhelloNavProgressRetry');
+      if (btn) btn.classList.remove('hidden');
+    }, 4500);
+  }
+
   function clearNavOverlaysForLeave(href) {
     closeMobileMenu({ instant: true });
     var panel = document.getElementById('mobilePanel');
@@ -261,9 +330,8 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Skip frost on common menu hops (Reviews/Q&A/Directory/Today/…). 760 put frost
-    // back on iOS and users sat behind the spinner for every hop. Shell-first HTML
-    // + clean menu taps (no swipe-steal) are enough — browser owns the navigation.
+    // Light hops (Reviews/Q&A/…): never use full-screen frost (760 trap) and never
+    // go fully silent (761 white void). Thin pointer-events:none progress instead.
     var skipFrost = false;
     try {
       var leavePath = href ? new URL(href, window.location.origin).pathname : '';
@@ -275,8 +343,10 @@ function readJsonReply(r) {
     }
     if (skipFrost) {
       hideNavLoading();
+      showNavProgress(href || '');
       return;
     }
+    hideNavProgress();
     // Frost stays until next pageshow — do not preventDefault (browser owns nav).
     // Stall shows Retry only (never auto-assign).
     showNavLoading({ untilPageShow: true, href: href || '' });
@@ -337,9 +407,15 @@ function readJsonReply(r) {
 
   window.addEventListener('pageshow', function () {
     hideNavLoading();
+    hideNavProgress();
     closeMobileMenu({ instant: true });
   });
-  window.addEventListener('load', hideNavLoading);
+  window.addEventListener('load', function () {
+    hideNavLoading();
+    hideNavProgress();
+  });
+  window.hideNavProgress = hideNavProgress;
+  window.showNavProgress = showNavProgress;
   // Do not clear frost on tab focus while a leave nav is in flight — that revealed
   // the iOS white void under the spinner (blank screen after 1.0.673).
   document.addEventListener('visibilitychange', function () {

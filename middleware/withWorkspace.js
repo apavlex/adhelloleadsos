@@ -308,9 +308,17 @@ async function withWorkspace(req, res, next) {
       teamActivity.rememberMemberProfile(req).catch(() => {});
     }
 
+    // Only dirty the session when the active workspace actually changes.
+    // Re-assigning the same ids on every hop forced a SQLite session write that
+    // contended with Reviews/Q&A inbox hydrate (same file as workspace KV).
     if (req.session) {
-      req.session.activeWorkspaceId = ws.id;
-      req.session.workspaceId = ws.id;
+      const nextId = String(ws.id);
+      if (String(req.session.activeWorkspaceId || '') !== nextId) {
+        req.session.activeWorkspaceId = nextId;
+      }
+      if (String(req.session.workspaceId || '') !== nextId) {
+        req.session.workspaceId = nextId;
+      }
     }
 
     let summaries = [];

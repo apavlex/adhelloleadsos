@@ -19,15 +19,18 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /untilPageShow:\s*true/);
     assert.match(js, /_pendingHref/);
     assert.match(js, /isLikelyDesktopNav/);
-    // Common menu hops skip frost on phone and desktop (760 iOS frost felt stuck).
+    // Light hops: no full-screen frost; thin pointer-events:none progress instead.
     assert.match(js, /function clearNavOverlaysForLeave/);
     assert.match(js, /skipFrost/);
-    assert.match(js, /if \(skipFrost\) \{\s*hideNavLoading\(\);\s*return;/);
+    assert.match(js, /showNavProgress\(href/);
+    assert.match(js, /function showNavProgress/);
+    assert.match(js, /adhelloNavProgress/);
     assert.match(js, /Never claim touches that start on controls/i);
     assert.match(js, /hamburger lives in the left EDGE_PX/);
     assert.match(js, /Stale overflow lock/);
     assert.match(js, /Never auto location\.assign/);
     assert.match(js, /adhelloNavLoadingRetry/);
+    assert.match(js, /adhelloNavProgressRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
     // Manual Retry still assigns — automatic stall must not.
@@ -36,6 +39,8 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
       js,
       /hideNavLoading\._failSafe = setTimeout\(function \(\) \{\s*var pending = showNavLoading\._pendingHref/,
     );
+    assert.match(css, /#adhelloNavProgress/);
+    assert.match(css, /#adhelloNavProgress[\s\S]*pointer-events:\s*none\s*!important/);
   });
 
   it('service worker never intercepts HTML and cache-firsts shell assets', () => {

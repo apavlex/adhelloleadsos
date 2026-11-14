@@ -163,6 +163,8 @@ describe('businessReviews', () => {
     assert.match(view, /\/business-reviews\/inbox\.json/);
     assert.match(view, /AbortController/);
     assert.match(view, /runHydrate/);
+    assert.match(view, /hydrateMax = 5/);
+    assert.match(view, /showHydrateRetry/);
     assert.match(view, /applySettingsForm/);
     assert.match(view, /adhello:inbox-hydrated/);
     assert.match(route, /pending:\s*true/);

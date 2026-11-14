@@ -57,6 +57,9 @@ test('workspace switch warms leads and skips chrome extras', () => {
   // 1.0.754+: all HTML/json nav hops skip ensureWorkspaceAndMember.
   assert.match(mw, /if \(!navFastPath\)/);
   assert.match(mw, /ensureWorkspaceAndMember/);
+  // 1.0.763+: do not dirty session workspace ids on every hop.
+  assert.match(mw, /Only dirty the session when the active workspace actually changes/);
+  assert.match(mw, /String\(req\.session\.activeWorkspaceId \|\| ''\) !== nextId/);
   assert.match(switchSrc, /router\.get\('\/switcher\.json'/);
   assert.match(switchSrc, /warmSwitcherCache/);
   assert.match(switchSrc, /countLeadsListInflight/);
