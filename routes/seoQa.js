@@ -130,18 +130,12 @@ async function pageLocals(req, { inboxLimit = null, shell = false } = {}) {
 
 router.get('/', async (req, res, next) => {
   try {
-    // Prefer SSR from req.workspace.seoQa — no lead-scan soft-busy (that froze Loading).
-    let locals;
-    try {
-      locals = await pageLocals(req, { inboxLimit: INBOX_HYDRATE_LIMIT });
-      locals.inboxHydrate = false;
-      locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
-    } catch (e) {
-      if (!isSqliteBusyError(e)) throw e;
-      locals = await pageLocals(req, { shell: true });
-      locals.inboxHydrate = true;
-      locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
-    }
+    // Shell-first always: paint chrome from req.workspace, hydrate from /inbox.json.
+    // Prefer-SSR still raced SQLite with Directory repair / session saves and left
+    // Loading… stuck even when the store was fine.
+    const locals = await pageLocals(req, { shell: true });
+    locals.inboxHydrate = true;
+    locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
     locals.pageBuilderPrompt = '';
     locals.pageBuilderPromptUrl = '/seo-qa/page-prompt.txt';
     res.render('seo_qa', locals);

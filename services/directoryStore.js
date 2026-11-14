@@ -361,11 +361,14 @@ function listListings(bundle, { published } = {}) {
  * Replace pipeline jobType slugs (e.g. maps_business) with the lead's real
  * Maps/GMB category. Persists when anything changes.
  */
-async function repairJobTypeCategories(workspaceId, bundle) {
+async function repairJobTypeCategories(workspaceId, bundle, opts = {}) {
   const wid = String(workspaceId || '').trim();
   const src = bundle && bundle.listings && typeof bundle.listings === 'object' ? bundle.listings : {};
   const need = Object.values(src).filter((r) => r && isJobTypeCategorySlug(r.category));
   if (!need.length) return { bundle, changed: 0 };
+  // Background page kicks must stay warm-cache-only. N×getLead locked SQLite and
+  // froze Reviews/Q&A hydrate. Explicit repairs (tests / admin) may pass allowGetLead.
+  const allowGetLead = opts.allowGetLead === true;
 
   const byKey = new Map();
   try {
@@ -384,17 +387,17 @@ async function repairJobTypeCategories(workspaceId, bundle) {
   for (let i = 0; i < need.length; i += 1) {
     const row = need[i];
     let lead = row.leadKey ? byKey.get(String(row.leadKey)) : null;
-    if (!lead && row.leadKey) {
+    if (!lead && allowGetLead && row.leadKey) {
       try {
         lead = await dbService.getLead(row.leadKey, wid);
       } catch (_) {
         lead = null;
       }
+      if (i > 0 && i % 5 === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
     }
-    // Yield between sync SQLite reads so menu hops / session save aren't starved.
-    if (i > 0 && i % 5 === 0) {
-      await new Promise((r) => setImmediate(r));
-    }
+    if (!lead) continue;
     const category = leadCategoryLabel(lead) || '';
     if (category === (row.category || '')) continue;
     nextListings[row.id] = normalizeListing(

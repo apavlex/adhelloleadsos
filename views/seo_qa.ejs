@@ -539,6 +539,7 @@
     if (shouldHydrate) {
       var hydrateUrl = '/seo-qa/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focus ? ('&q=' + encodeURIComponent(focus)) : '');
       var hydrateAttempts = 0;
+      var hydrateMax = 10;
       function runHydrate() {
         hydrateAttempts += 1;
         var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -555,14 +556,14 @@
           .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }); })
           .then(function (parsed) {
             clearTimeout(hydrateTimer);
-            if (parsed.data && parsed.data.pending && hydrateAttempts < 6) {
-              setTimeout(runHydrate, 700 * hydrateAttempts);
+            if (parsed.data && parsed.data.pending && hydrateAttempts < hydrateMax) {
+              setTimeout(runHydrate, 600 * hydrateAttempts);
               return;
             }
             if (!parsed.ok || !parsed.data || !parsed.data.success) {
               var busy = !!(parsed.data && parsed.data.pending) || parsed.status === 503;
-              if (busy && hydrateAttempts < 6) {
-                setTimeout(runHydrate, 700 * hydrateAttempts);
+              if (busy && hydrateAttempts < hydrateMax) {
+                setTimeout(runHydrate, 600 * hydrateAttempts);
                 return;
               }
               throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
@@ -572,12 +573,12 @@
           })
           .catch(function (e) {
             clearTimeout(hydrateTimer);
-            if (hydrateAttempts < 6 && e && e.name === 'AbortError') {
-              setTimeout(runHydrate, 700 * hydrateAttempts);
+            if (hydrateAttempts < hydrateMax && e && e.name === 'AbortError') {
+              setTimeout(runHydrate, 600 * hydrateAttempts);
               return;
             }
-            if (hydrateAttempts < 6 && !(e && e.name === 'AbortError')) {
-              setTimeout(runHydrate, 800 * hydrateAttempts);
+            if (hydrateAttempts < hydrateMax && !(e && e.name === 'AbortError')) {
+              setTimeout(runHydrate, 700 * hydrateAttempts);
               return;
             }
             var msg = (e && e.name === 'AbortError')

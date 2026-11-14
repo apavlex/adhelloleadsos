@@ -147,6 +147,8 @@ router.get('/', async (req, res, next) => {
     if (req.query.err) {
       locals.flash = { error: String(req.query.err).slice(0, 200) };
     }
+    // Category repair is warm-cache-only and deferred; skip entirely on HTML if
+    // another hop is more important — Reviews/Q&A were freezing under getLead repair.
     scheduleCategoryRepairAfterPaint(res, req.workspaceId, req.workspace);
     res.render('directory', locals);
   } catch (e) {

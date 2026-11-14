@@ -224,9 +224,9 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   // Must NOT soft-busy Reviews/Q&A just because a lead scan is running.
   assert.doesNotMatch(reviewsRoute, /countLeadsListInflight/);
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
-  assert.match(reviewsRoute, /Prefer SSR/);
-  assert.match(qaRoute, /Prefer SSR/);
-  assert.match(sw, /adhello-pwa-v1\.0\.758/);
+  assert.match(reviewsRoute, /Shell-first always/);
+  assert.match(qaRoute, /Shell-first always/);
+  assert.match(sw, /adhello-pwa-v1\.0\.759/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {

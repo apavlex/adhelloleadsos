@@ -134,6 +134,7 @@ describe('public business directory', () => {
     const repaired = await directoryStore.repairJobTypeCategories(
       WID,
       await directoryStore.load(WID, { normalize: false }),
+      { allowGetLead: true },
     );
     assert.ok(repaired.changed >= 1);
     const fixed = directoryStore.listListings(repaired.bundle).find((r) => r.leadKey === 'lead:hvac_1');

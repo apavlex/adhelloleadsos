@@ -49,6 +49,6 @@ describe('SEO Q&A page-builder prompt', () => {
     assert.match(view, /adhello:inbox-hydrated/);
     assert.match(route, /pending:\s*true/);
     assert.doesNotMatch(route, /countLeadsListInflight/);
-    assert.match(route, /Prefer SSR/);
+    assert.match(route, /Shell-first always/);
   });
 });

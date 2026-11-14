@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Reviews/Q&A shell-first; Directory repair cache-only (1.0.759)
+
+### What / why
+- Directory fixed (758), but Reviews/Q&A stayed on Loading. Prefer-SSR still did sync store reads on HTML; Directory background repair’s N×getLead contended SQLite with fail-fast hydrate.
+- Fix: shell-first HTML for Reviews + Q&A (hydrate `/inbox.json`); repair warm-cache only unless `allowGetLead`; more hydrate retries.
+
+### Key files
+- `routes/businessReviews.js`, `routes/seoQa.js`, `services/directoryStore.js`, views
+
 ## 2026-11-13 — Directory EJS crash: `<%= ` in JS comment (1.0.758)
 
 ### What / why

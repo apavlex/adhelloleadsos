@@ -135,22 +135,12 @@ async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true, sh
 
 router.get('/', async (req, res, next) => {
   try {
-    // Prefer SSR with fail-fast KV. Do NOT soft-busy on lead-list inflight — reviews
-    // KV does not need the lead scan, and that gate left Loading stuck during searches.
-    let locals;
-    try {
-      locals = await pageLocals(req, {
-        inboxLimit: INBOX_HYDRATE_LIMIT,
-        resolveOutscraper: false,
-      });
-      locals.inboxHydrate = false;
-      locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
-    } catch (e) {
-      if (!isSqliteBusyError(e)) throw e;
-      locals = await pageLocals(req, { shell: true });
-      locals.inboxHydrate = true;
-      locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
-    }
+    // Shell-first always: Prefer-SSR JSON.parse of the reviews store blocked paint
+    // under SQLite contention (Directory repair / lead scans). Cards hydrate from
+    // /inbox.json with fail-fast pending retries — same pattern that unstuck Directory.
+    const locals = await pageLocals(req, { shell: true });
+    locals.inboxHydrate = true;
+    locals.inboxHydrateLimit = INBOX_HYDRATE_LIMIT;
     res.render('business_reviews', locals);
   } catch (e) {
     next(e);
