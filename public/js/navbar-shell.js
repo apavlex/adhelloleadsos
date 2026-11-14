@@ -119,7 +119,17 @@ function readJsonReply(r) {
       if (showNavLoading._leaving) {
         var started = showNavLoading._shownAt || 0;
         // Desktop: allow dismiss sooner. iOS needs a longer lock to avoid white void.
-        var lockMs = showNavLoading._isCoarsePointer === false ? 2500 : 8000;
+        // Light SEO hops: shorter lock — frost was trapping Reviews/Q&A for too long.
+        var pending = showNavLoading._pendingHref || '';
+        var light = false;
+        try {
+          light = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement)(\/|$)/.test(
+            pending ? new URL(pending, window.location.origin).pathname : '',
+          );
+        } catch (_) { light = false; }
+        var lockMs = light
+          ? (showNavLoading._isCoarsePointer === false ? 900 : 2000)
+          : (showNavLoading._isCoarsePointer === false ? 2500 : 8000);
         if (Date.now() - started < lockMs) return;
       }
       hideNavLoading();
@@ -196,8 +206,9 @@ function readJsonReply(r) {
     if (untilPageShow) {
       // Prefer frost until pageshow. Early peel (737) looked like "nothing opens";
       // never-clear stall (740) trapped the whole app behind the overlay.
-      // Stall → show Retry, then absolute clear so the UI cannot stay frozen forever.
-      if (lightDest) ms = desktopLeave ? 6000 : 9000;
+      // Reviews/Q&A/Directory must not sit behind frost for many seconds — that looked
+      // like "nothing works" even when HTML/hydrate was only briefly busy.
+      if (lightDest) ms = desktopLeave ? 2200 : 3500;
       else ms = desktopLeave ? 8000 : 12000;
     } else if (typeof opts === 'number' && opts > 0) {
       ms = opts;
@@ -206,7 +217,7 @@ function readJsonReply(r) {
     }
     // Cap runaway overlays.
     if (untilPageShow) {
-      ms = Math.min(ms, desktopLeave ? (lightDest ? 10000 : 12000) : (lightDest ? 14000 : 18000));
+      ms = Math.min(ms, desktopLeave ? (lightDest ? 3500 : 12000) : (lightDest ? 5000 : 18000));
     } else if (!opts || (typeof opts !== 'number' && !(opts && opts.failSafeMs))) {
       ms = Math.min(ms, 3500);
     } else {
@@ -232,7 +243,7 @@ function readJsonReply(r) {
                 window.location.reload();
               }
             } catch (e) { /* ignore */ }
-          }, desktopLeave ? 5000 : 10000);
+          }, lightDest ? (desktopLeave ? 2500 : 4000) : (desktopLeave ? 5000 : 10000));
           return;
         }
       }

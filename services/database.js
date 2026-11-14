@@ -1297,6 +1297,19 @@ module.exports = {
   getKvSync(key) {
     return kvGet(key);
   },
+  /**
+   * Fail-fast sync KV read (busy_timeout 0). Use for Reviews/Q&A hydrate so a
+   * contended write returns SQLITE_BUSY immediately instead of waiting 5s and
+   * aborting the client fetch.
+   */
+  tryGetKvSync(key) {
+    sqlite.pragma('busy_timeout = 0');
+    try {
+      return kvGet(key);
+    } finally {
+      sqlite.pragma('busy_timeout = 5000');
+    }
+  },
   setKvSync(key, value) {
     const payload = typeof value === 'string' ? value : JSON.stringify(value);
     const hint = typeof value === 'string' ? undefined : value;

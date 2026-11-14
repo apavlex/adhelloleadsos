@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Fail-fast hydrate + short light frost (1.0.751)
+
+### What / why
+- Soft-busy retries still left Reviews/Q&A looking dead: sync KV waited full `busy_timeout=5000`, and light-hop frost sat 6–14s.
+- Fix: `tryGetKvSync` (busy_timeout 0) for inbox reads → immediate `pending`; skip member ensure on light HTML; shorten Reviews/Q&A frost + tap-dismiss.
+
+### Key files
+- `services/database.js`, `services/businessReviews.js`, `routes/businessReviews.js`, `middleware/withWorkspace.js`, `public/js/navbar-shell.js`
+
 ## 2026-11-13 — Inbox JSON skip member ensure + bell searches (1.0.750)
 
 ### What / why

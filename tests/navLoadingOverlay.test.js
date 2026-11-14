@@ -20,13 +20,14 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /_pendingHref/);
     assert.match(js, /location\.assign\(pending\)/);
     assert.match(js, /isLikelyDesktopNav/);
-    assert.match(js, /desktopLeave \? 6000 : 9000/);
+    // Light SEO hops use a short frost; other hops keep the longer leave budget.
+    assert.match(js, /if \(lightDest\) ms = desktopLeave \? 2200 : 3500/);
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
     // Stall shows Retry, then force the hop/reload — never peel frost into an iOS white void.
     assert.match(js, /pure white void/);
-    assert.match(js, /desktopLeave \? 5000 : 10000/);
+    assert.match(js, /lightDest \? \(desktopLeave \? 2500 : 4000\)/);
     assert.match(js, /location\.assign\(pending\)/);
     assert.match(js, /location\.reload\(\)/);
     assert.doesNotMatch(

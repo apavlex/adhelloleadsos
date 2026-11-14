@@ -271,9 +271,9 @@ async function withWorkspace(req, res, next) {
       return res.redirect('/signup');
     }
 
-    // Inbox hydrate (*.json): reuse the workspace already loaded — another getWorkspace /
-    // possible saveWorkspace here contended with sync getStore and frosted Reviews/Q&A.
-    if (!appJsonFastPath) {
+    // Inbox hydrate + Reviews/Q&A HTML: reuse the workspace already loaded — another
+    // getWorkspace / possible saveWorkspace contended with sync getStore and frosted paint.
+    if (!appJsonFastPath && !isLightInboxHop(original)) {
       ws = (await workspaceService.ensureWorkspaceAndMember(ws.id, email)) || ws;
     }
 

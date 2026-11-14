@@ -135,8 +135,13 @@ function sanitizeReviewText(value, max = 4000) {
   return s.slice(0, max);
 }
 
-function readJson(key, fallback) {
-  let raw = dbService.getKvSync(key);
+function readJson(key, fallback, { failFast = false } = {}) {
+  // failFast uses busy_timeout=0 so SQLITE_BUSY throws immediately (caller → pending).
+  const rawValue =
+    failFast && typeof dbService.tryGetKvSync === 'function'
+      ? dbService.tryGetKvSync(key)
+      : dbService.getKvSync(key);
+  let raw = rawValue;
   if (typeof raw === 'string') {
     try {
       raw = JSON.parse(raw);
@@ -174,10 +179,10 @@ function defaultSettings() {
   };
 }
 
-function getSettings(workspaceId) {
+function getSettings(workspaceId, { failFast = false } = {}) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return defaultSettings();
-  const raw = readJson(settingsKey(wid), null);
+  const raw = readJson(settingsKey(wid), null, { failFast });
   const base = defaultSettings();
   if (!raw) return base;
   return {
@@ -252,10 +257,10 @@ function emptyStore() {
  * Load the reviews store. Text is sanitized at write/merge time — skip heavy
  * re-sanitize on every GET so /business-reviews stays responsive.
  */
-function getStore(workspaceId, { resanitize = false } = {}) {
+function getStore(workspaceId, { resanitize = false, failFast = false } = {}) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return emptyStore();
-  const raw = readJson(storeKey(wid), null);
+  const raw = readJson(storeKey(wid), null, { failFast });
   if (!raw) return emptyStore();
   const rawReviews = Array.isArray(raw.reviews) ? raw.reviews : [];
   // Fast GET path: reuse stored array (no per-row clone). Sanitization happens at write/merge.

@@ -85,10 +85,11 @@ async function pageLocals(req, { inboxLimit = null, resolveOutscraper = true, sh
     };
   }
 
-  const settings = businessReviews.getSettings(req.workspaceId);
+  // failFast: never sit on busy_timeout=5s during hydrate — return pending instead.
+  const settings = businessReviews.getSettings(req.workspaceId, { failFast: true });
   // Unpaid: skip reading the full reviews JSON.
   const store = paid
-    ? businessReviews.getStore(req.workspaceId)
+    ? businessReviews.getStore(req.workspaceId, { failFast: true })
     : { reviews: [], syncState: businessReviews.emptySyncState() };
   const summary = businessReviews.inboxSummary(store);
   let outscraperConfigured = false;
