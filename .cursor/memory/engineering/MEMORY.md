@@ -1,5 +1,16 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Site-wide menu hops: no frost abort, no cold paint scan (1.0.754)
+
+### What / why
+- User: whole site slow; half of menu items need manual refresh.
+- Frost auto-`location.assign` on stall aborted in-flight HTML for Today/Pipeline/Folders.
+- Today/Pipeline still *started* cold `getAllLeads` on cache miss (raced 1.5s) — scan kept SQLite locked for the next hop.
+- Fix: skip frost on common menu paths; stall shows Retry only (no auto-assign); warm-only paint + deferred cold scan; skip `ensureWorkspaceAndMember` on all navFastPath hops.
+
+### Key files
+- `public/js/navbar-shell.js`, `routes/today.js`, `routes/prospecting.js`, `middleware/withWorkspace.js`
+
 ## 2026-11-13 — Reviews/Q&A false busy on lead scans (1.0.753)
 
 ### What / why

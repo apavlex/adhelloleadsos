@@ -223,9 +223,8 @@ function readJsonReply(r) {
     } else {
       ms = Math.min(ms, 120000);
     }
-    // Leave-nav stall: offer Retry, then force the hop (or reload). Never just peel
-    // frost on iOS — the outgoing document is already gone, so hide-only reveals a
-    // pure white void (blank screen) until HTML arrives.
+    // Leave-nav stall: show Retry only. Never auto location.assign/reload — that
+    // aborted in-flight HTML for Today/Pipeline/Folders and forced manual refresh.
     hideNavLoading._failSafe = setTimeout(function () {
       if (untilPageShow && showNavLoading._leaving) {
         var stallEl = document.getElementById('adhelloNavLoading');
@@ -233,19 +232,6 @@ function readJsonReply(r) {
           stallEl.classList.add('is-stalled');
           var btn = stallEl.querySelector('#adhelloNavLoadingRetry');
           if (btn) btn.classList.remove('hidden');
-          // Non-light hops only: auto-assign can abort an almost-ready document.
-          // Light hops never arm untilPageShow frost (see clearNavOverlaysForLeave).
-          hideNavLoading._failSafe = setTimeout(function () {
-            var pending = showNavLoading._pendingHref || '';
-            hideNavLoading();
-            try {
-              if (pending && pending !== window.location.href) {
-                window.location.assign(pending);
-              } else {
-                window.location.reload();
-              }
-            } catch (e) { /* ignore */ }
-          }, desktopLeave ? 5000 : 10000);
           return;
         }
       }
@@ -269,16 +255,18 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Reviews/Q&A/Directory already show in-page Loading. Full-page frost + auto
-    // location.assign on stall aborted the in-flight HTML hop and looped forever.
-    var lightHop = false;
+    // Skip full-page frost for common menu hops — overlay + stall made half the
+    // app feel broken (user had to refresh). Browser owns the navigation.
+    var skipFrost = false;
     try {
       var leavePath = href ? new URL(href, window.location.origin).pathname : '';
-      lightHop = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement)(\/|$)/.test(leavePath);
+      skipFrost = /\/(today|pipeline|prospecting|folders|business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement|tasks|activity|messages|notifications|network|opportunities|workspace|settings|ceo|chat|referrals|appointments|resources|sops|fb-groups|direct-mail|social-posts)(\/|$)/.test(
+        leavePath,
+      );
     } catch (_) {
-      lightHop = false;
+      skipFrost = false;
     }
-    if (lightHop) {
+    if (skipFrost) {
       hideNavLoading();
       return;
     }

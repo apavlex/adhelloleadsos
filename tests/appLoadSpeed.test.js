@@ -185,6 +185,7 @@ test('Reports HTML does not await cold getAllLeads (keeps Reviews/Q&A responsive
 
 test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   const today = fs.readFileSync(path.join(root, 'routes/today.js'), 'utf8');
+  const prospecting = fs.readFileSync(path.join(root, 'routes/prospecting.js'), 'utf8');
   const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
   const reviewsRoute = fs.readFileSync(path.join(root, 'routes/businessReviews.js'), 'utf8');
   const qaRoute = fs.readFileSync(path.join(root, 'routes/seoQa.js'), 'utf8');
@@ -193,7 +194,14 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   const sw = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
   assert.match(today, /peekCachedLeads/);
   assert.match(today, /leadsForTodayPaint/);
-  assert.match(today, /1500/);
+  assert.match(today, /warm leads only/);
+  assert.doesNotMatch(today, /Promise\.race/);
+  assert.match(prospecting, /Warm-only lead list/);
+  const pipelinePaint = prospecting.slice(
+    prospecting.indexOf('async function leadsForPipelinePaint'),
+    prospecting.indexOf('async function leadsForPipelinePaint') + 500,
+  );
+  assert.doesNotMatch(pipelinePaint, /Promise\.race/);
   const unscopedStart = db.indexOf('async getAllLeadsUnscoped');
   assert.ok(unscopedStart > 0);
   const unscopedChunk = db.slice(unscopedStart, unscopedStart + 1600);
@@ -218,7 +226,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Prefer SSR/);
   assert.match(qaRoute, /Prefer SSR/);
-  assert.match(sw, /adhello-pwa-v1\.0\.753/);
+  assert.match(sw, /adhello-pwa-v1\.0\.754/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {

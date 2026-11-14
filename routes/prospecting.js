@@ -50,18 +50,14 @@ const PIPELINE_SSR_ROW_CAP = Math.min(
   Math.max(25, parseInt(process.env.PIPELINE_SSR_ROW_CAP || '50', 10) || 50),
 );
 
-/** Warm-first lead list for Pipeline HTML — never hold menu hops on a cold scan. */
+/** Warm-only lead list for Pipeline HTML — never start a cold scan on paint. */
 async function leadsForPipelinePaint(wid) {
   const warm =
     typeof dbService.peekCachedLeads === 'function' ? dbService.peekCachedLeads(wid) : null;
   if (warm) return warm;
-  const cold = dbService.getAllLeads(wid);
-  const raced = await Promise.race([
-    cold.then((leads) => ({ leads })),
-    new Promise((resolve) => setTimeout(() => resolve(null), 1500)),
-  ]);
-  if (raced && Array.isArray(raced.leads)) return raced.leads;
-  cold.catch(() => {});
+  setTimeout(() => {
+    void dbService.getAllLeads(wid).catch(() => {});
+  }, 4000);
   return [];
 }
 

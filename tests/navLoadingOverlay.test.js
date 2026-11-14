@@ -18,23 +18,24 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /untilPageShow/);
     assert.match(js, /untilPageShow:\s*true/);
     assert.match(js, /_pendingHref/);
-    assert.match(js, /location\.assign\(pending\)/);
     assert.match(js, /isLikelyDesktopNav/);
-    // Light SEO hops skip untilPageShow frost — auto-assign was aborting in-flight HTML.
+    // Common menu hops skip frost; stall never auto-assigns (Retry only).
     assert.match(js, /function clearNavOverlaysForLeave/);
-    assert.match(js, /lightHop/);
-    assert.match(js, /if \(lightHop\) \{\s*hideNavLoading\(\);\s*return;/);
+    assert.match(js, /skipFrost/);
+    assert.match(js, /if \(skipFrost\) \{\s*hideNavLoading\(\);\s*return;/);
+    assert.match(js, /Never auto location\.assign/);
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
-    // Stall shows Retry, then force the hop/reload — never peel frost into an iOS white void.
-    assert.match(js, /pure white void/);
-    assert.match(js, /desktopLeave \? 5000 : 10000/);
-    assert.match(js, /location\.assign\(pending\)/);
-    assert.match(js, /location\.reload\(\)/);
+    // Manual Retry still assigns — automatic stall must not.
+    assert.match(js, /adhelloNavLoadingRetry[\s\S]*location\.assign\(pending\)/);
     assert.doesNotMatch(
       js,
-      /if \(isLikelyDesktopNav\(\)\) \{\s*hideNavLoading\(\);\s*return;/
+      /hideNavLoading\._failSafe = setTimeout\(function \(\) \{\s*var pending = showNavLoading\._pendingHref/,
+    );
+    assert.doesNotMatch(
+      js,
+      /if \(isLikelyDesktopNav\(\)\) \{\s*hideNavLoading\(\);\s*return;/,
     );
   });
 

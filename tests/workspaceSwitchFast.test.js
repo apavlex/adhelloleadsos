@@ -54,8 +54,8 @@ test('workspace switch warms leads and skips chrome extras', () => {
   assert.match(mw, /Cache-only on HTML/);
   assert.match(mw, /isLightInboxHop/);
   assert.match(mw, /countSwitcherInflight/);
-  // 1.0.750+: inbox.json / light HTML must not re-enter ensureWorkspaceAndMember.
-  assert.match(mw, /!appJsonFastPath && !isLightInboxHop/);
+  // 1.0.754+: all HTML/json nav hops skip ensureWorkspaceAndMember.
+  assert.match(mw, /if \(!navFastPath\)/);
   assert.match(mw, /ensureWorkspaceAndMember/);
   assert.match(switchSrc, /router\.get\('\/switcher\.json'/);
   assert.match(switchSrc, /warmSwitcherCache/);
