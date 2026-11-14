@@ -440,8 +440,8 @@
       }
     }
 
-    // Do not SSR-embed listing JSON into this script (<%= escapes quotes and can
-    // blank the page). Hydrate from /inbox.json / :id.json instead.
+    // Do not SSR-embed listing JSON into this script (EJS escaping breaks JS and
+    // can blank the page). Hydrate from /inbox.json / :id.json instead.
     // iOS / bfcache: never leave overflow locked from a prior drawer open.
     window.addEventListener('pageshow', function () {
       document.body.style.overflow = '';

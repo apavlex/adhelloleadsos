@@ -9,10 +9,15 @@ process.env.APP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'directory-publ
 
 const { describe, it, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
+const ejs = require('ejs');
 const dbService = require('../services/database');
 const directoryStore = require('../services/directoryStore');
 const directoryPublic = require('../services/directoryPublic');
 const { buildDirectoryPagePrompt } = require('../services/directoryPagePrompt');
+
+function ejsCompileOrThrow(src) {
+  ejs.compile(src, { filename: 'directory.ejs' });
+}
 
 const WID = 'ws_directory_public';
 
@@ -240,6 +245,12 @@ describe('public business directory', () => {
     assert.match(view, /runHydrate/);
     assert.match(view, /adhello:inbox-hydrated/);
     assert.match(view, /applyInbox/);
+    // A JS comment once contained literal "<%=" and EJS threw on every /directory render.
+    assert.equal(
+      view.split(/\n/).some((line) => /^\s*\/\//.test(line) && line.includes('<%=')),
+      false,
+    );
+    ejsCompileOrThrow(view);
     assert.match(view, /showReviews/);
     assert.match(view, /reviewSentiment/);
     assert.match(view, /js-dir-open/);

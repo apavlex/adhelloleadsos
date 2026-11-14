@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Directory EJS crash: `<%= ` in JS comment (1.0.758)
+
+### What / why
+- `views/directory.ejs` had a script comment containing literal `<%=`. EJS treated it as an open tag → "Could not find matching close tag" → every `/directory` HTML render 500'd (crash / not loading). Prior 756/757 work never reached a successful paint for that reason.
+- Fix: rewrite the comment without `<%=`; test asserts the view compiles and has no `<%= ` inside `//` comments.
+
+### Key files
+- `views/directory.ejs`, `tests/directoryPublic.test.js`
+
 ## 2026-11-13 — Directory still blocked after 756 (1.0.757)
 
 ### What / why
