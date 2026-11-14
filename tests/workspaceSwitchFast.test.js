@@ -47,12 +47,16 @@ test('workspace switch warms leads and skips chrome extras', () => {
   assert.match(shell, /getAttribute\('action'\) !== '\/workspaces\/switch'/);
 
   const nav = fs.readFileSync(path.join(__dirname, '../views/partials/navbar.ejs'), 'utf8');
-  assert.match(nav, /sidebarShell\.js\?v=sidebar12/);
+  assert.match(nav, /sidebarShell\.js\?v=sidebar13/);
 
-  // Cold HTML hops must not permanently stick the switcher on the active workspace only.
-  assert.match(mw, /Promise\.race/);
-  assert.match(mw, /400/);
+  // 1.0.748: never await switcher build on nav/inbox hops (747's 400ms race re-froze hydrate).
+  assert.doesNotMatch(mw, /Promise\.race/);
+  assert.match(mw, /Cache-only on HTML/);
+  assert.match(mw, /lightInboxHop/);
   assert.match(switchSrc, /router\.get\('\/switcher\.json'/);
+  assert.match(switchSrc, /warmSwitcherCache/);
+  assert.match(switchSrc, /countLeadsListInflight/);
+  assert.doesNotMatch(shell, /requestIdleCallback/);
 });
 
 test('concurrent getAllLeads cold loads share one in-flight scan', async () => {

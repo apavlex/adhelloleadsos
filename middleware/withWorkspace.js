@@ -35,9 +35,16 @@ function switcherCacheKey(email) {
 async function buildSwitcherSummaries(email) {
   const canManageDemo = await publicDemo.canManage(email);
   const allIds = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
-  const docs = await Promise.all(allIds.map((id) => dbService.getWorkspace(id)));
   const summaries = [];
-  for (const w of docs) {
+  // Sequential + yield — never Promise.all N sync kvGet/JSON.parse blasts that freeze hydrate.
+  for (let i = 0; i < allIds.length; i++) {
+    if (i > 0) await new Promise((r) => setImmediate(r));
+    let w = null;
+    try {
+      w = await dbService.getWorkspace(allIds[i]);
+    } catch (_) {
+      w = null;
+    }
     if (!w || w.archivedAt) continue;
     const trialBadge = trials.switcherBadge(w);
     summaries.push({
@@ -293,43 +300,35 @@ async function withWorkspace(req, res, next) {
     let summaries = [];
     let canManageDemo = false;
     if (navFastPath || skipChromeExtras) {
-      // Prefer warm cache on HTML / app-json hops. On miss, briefly race the build so
-      // multi-workspace users do not only see the active workspace in the switcher.
+      // Cache-only on HTML / app-json hops — never await N×getWorkspace here.
+      // 1.0.747 raced a 400ms build and re-froze Reviews/Q&A hydrate (sync KV cannot
+      // be interrupted by setTimeout). Full list comes from /workspaces/switcher.json.
       const cached = readSwitcherCache(email, ws.id, res.locals.liveDemo);
       if (cached.hit) {
         summaries = cached.summaries;
         canManageDemo = cached.canManageDemo;
       } else {
-        const building = warmSwitcherCache(email);
-        let raced = null;
-        try {
-          raced = await Promise.race([
-            building,
-            new Promise((resolve) => setTimeout(() => resolve(null), 400)),
-          ]);
-        } catch (_) {
-          raced = null;
+        // Warm in background on HTML only — never kick a build from inbox.json,
+        // and never on Reviews/Q&A/Directory (inbox hydrate needs SQLite immediately).
+        if (htmlNavFastPath && !appJsonFastPath) {
+          const lightInboxHop =
+            /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|engagement)(?:\/|$|\?)/.test(
+              original,
+            );
+          if (!lightInboxHop) warmSwitcherCache(email);
         }
-        if (raced && Array.isArray(raced.summaries) && raced.summaries.length) {
-          summaries = raced.summaries;
-          canManageDemo = !!raced.canManageDemo;
-          if (!canManageDemo && !res.locals.liveDemo) {
-            summaries = summaries.filter((w) => !w.isDemo || w.id === ws.id);
-          }
-        } else {
-          summaries = [
-            {
-              id: ws.id,
-              name: ws.name || 'Workspace',
-              slug: ws.slug || '',
-              accentColor: ws.accentColor || '#CA8A04',
-              isDemo: !!ws.isDemo,
-              trialState: '',
-              trialDaysLeft: 0,
-              trialLabel: '',
-            },
-          ];
-        }
+        summaries = [
+          {
+            id: ws.id,
+            name: ws.name || 'Workspace',
+            slug: ws.slug || '',
+            accentColor: ws.accentColor || '#CA8A04',
+            isDemo: !!ws.isDemo,
+            trialState: '',
+            trialDaysLeft: 0,
+            trialLabel: '',
+          },
+        ];
       }
     } else {
       const sk = switcherCacheKey(email);

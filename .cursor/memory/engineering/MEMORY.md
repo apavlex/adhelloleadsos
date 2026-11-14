@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Unstick switcher race that froze Reviews/Q&A (1.0.748)
+
+### What / why
+- 1.0.747 raced a 400ms switcher build on cold HTML hops. better-sqlite3 KV is sync — `setTimeout` cannot cancel it — so Reviews/Q&A `/inbox.json` hydrate stayed busy.
+- Fix: cache-only on nav/inbox hops; warm only on non-inbox HTML; no idle switcher prefetch; `switcher.json` shares inflight + soft-busy when lead scan owns SQLite; more hydrate retries.
+
+### Key files
+- `middleware/withWorkspace.js`, `routes/workspaces.js`, `public/js/sidebarShell.js`, `views/business_reviews.ejs`, `views/seo_qa.ejs`
+
 ## 2026-11-13 — Workspace switcher missing workspaces (1.0.747)
 
 ### What / why

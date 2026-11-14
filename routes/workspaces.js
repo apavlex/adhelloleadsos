@@ -881,7 +881,8 @@ router.get('/switcher.json', async (req, res, next) => {
     );
     if (typeof withWorkspace.readSwitcherCache === 'function') {
       const cached = withWorkspace.readSwitcherCache(email, activeId, res.locals.liveDemo);
-      if (cached && cached.hit && Array.isArray(cached.summaries) && cached.summaries.length > 1) {
+      // Any warm cache (even 1 workspace) is enough — avoid rebuilding during hydrate.
+      if (cached && cached.hit && Array.isArray(cached.summaries) && cached.summaries.length >= 1) {
         return res.json({
           success: true,
           workspaces: cached.summaries,
@@ -891,14 +892,38 @@ router.get('/switcher.json', async (req, res, next) => {
         });
       }
     }
-    const built = await withWorkspace.buildSwitcherSummaries(email);
+    // Soft-busy while a cold lead scan owns SQLite — client can retry later.
+    if (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Switcher temporarily busy — retrying…',
+        workspaces: activeId
+          ? [
+              {
+                id: activeId,
+                name: (req.workspace && req.workspace.name) || 'Workspace',
+                slug: (req.workspace && req.workspace.slug) || '',
+                accentColor: (req.workspace && req.workspace.accentColor) || '#CA8A04',
+                isDemo: !!(req.workspace && req.workspace.isDemo),
+                trialState: '',
+                trialDaysLeft: 0,
+                trialLabel: '',
+              },
+            ]
+          : [],
+        activeWorkspaceId: activeId,
+      });
+    }
+    // Share in-flight warm — never start a second unbound N×getWorkspace.
+    const built =
+      typeof withWorkspace.warmSwitcherCache === 'function'
+        ? await withWorkspace.warmSwitcherCache(email)
+        : await withWorkspace.buildSwitcherSummaries(email);
     let summaries = (built && built.summaries) || [];
     const canManageDemo = !!(built && built.canManageDemo);
     if (!canManageDemo && !res.locals.liveDemo) {
       summaries = summaries.filter((w) => !w.isDemo || w.id === activeId);
-    }
-    if (typeof withWorkspace.cacheSwitcherSummaries === 'function') {
-      withWorkspace.cacheSwitcherSummaries(email, { summaries: built.summaries || [], canManageDemo });
     }
     return res.json({
       success: true,

@@ -259,19 +259,29 @@
 
     var switcherHydrating = false;
     var switcherHydrated = false;
+    var switcherAttempts = 0;
     function hydrateSwitcherList() {
       if (switcherHydrating) return;
       var existing = wsm.querySelectorAll('form[action="/workspaces/switch"]').length;
       // Always refresh once per page so a cold HTML paint (active-only) gets the full list.
       if (switcherHydrated && existing > 1) return;
       switcherHydrating = true;
+      switcherAttempts += 1;
       fetch('/workspaces/switcher.json', {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
       })
-        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }); })
         .then(function (parsed) {
           switcherHydrating = false;
+          var busy =
+            !!(parsed.data && parsed.data.pending) ||
+            parsed.status === 503 ||
+            (!parsed.ok && !(parsed.data && parsed.data.success));
+          if (busy && switcherAttempts < 4) {
+            setTimeout(hydrateSwitcherList, 500 * switcherAttempts);
+            return;
+          }
           if (!parsed.ok || !parsed.data || !parsed.data.success) return;
           var list = Array.isArray(parsed.data.workspaces) ? parsed.data.workspaces : [];
           if (!list.length) return;
@@ -313,6 +323,8 @@
       var open = wsm.classList.contains('hidden');
       if (open) {
         positionWsMenu();
+        // Only fetch the full list when the menu opens — never idle-prefetch on
+        // Reviews/Q&A (that contended with inbox hydrate).
         hydrateSwitcherList();
       }
       wsm.classList.toggle('hidden');
@@ -320,13 +332,6 @@
       var chev = wsb.querySelector('.ws-switcher-chevron');
       if (chev) chev.classList.toggle('rotate-180', open);
     });
-
-    // Prefetch after first paint so opening the menu is instant.
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(function () { hydrateSwitcherList(); }, { timeout: 2500 });
-    } else {
-      setTimeout(hydrateSwitcherList, 1200);
-    }
 
     window.addEventListener('resize', function () {
       if (!wsm.classList.contains('hidden')) positionWsMenu();

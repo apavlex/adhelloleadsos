@@ -555,14 +555,14 @@
           .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }); })
           .then(function (parsed) {
             clearTimeout(hydrateTimer);
-            if (parsed.data && parsed.data.pending && hydrateAttempts < 3) {
-              setTimeout(runHydrate, 600 * hydrateAttempts);
+            if (parsed.data && parsed.data.pending && hydrateAttempts < 6) {
+              setTimeout(runHydrate, 700 * hydrateAttempts);
               return;
             }
             if (!parsed.ok || !parsed.data || !parsed.data.success) {
               var busy = !!(parsed.data && parsed.data.pending) || parsed.status === 503;
-              if (busy && hydrateAttempts < 3) {
-                setTimeout(runHydrate, 600 * hydrateAttempts);
+              if (busy && hydrateAttempts < 6) {
+                setTimeout(runHydrate, 700 * hydrateAttempts);
                 return;
               }
               throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
