@@ -7,6 +7,7 @@ const dbService = require('../services/database');
 const trials = require('../services/trials');
 const outscraper = require('../services/outscraperClient');
 const businessReviews = require('../services/businessReviews');
+const withWorkspace = require('../middleware/withWorkspace');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
 /**
@@ -151,8 +152,13 @@ function isSqliteBusyError(err) {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
-    // Soft-busy when a cold lead scan already owns SQLite — client retries.
-    if (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) {
+    // Soft-busy when a cold lead scan or switcher rebuild owns SQLite — client retries.
+    const switcherBusy =
+      typeof withWorkspace.countSwitcherInflight === 'function' && withWorkspace.countSwitcherInflight() > 0;
+    if (
+      (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) ||
+      switcherBusy
+    ) {
       return res.status(503).json({
         success: false,
         pending: true,

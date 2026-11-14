@@ -49,10 +49,11 @@ test('workspace switch warms leads and skips chrome extras', () => {
   const nav = fs.readFileSync(path.join(__dirname, '../views/partials/navbar.ejs'), 'utf8');
   assert.match(nav, /sidebarShell\.js\?v=sidebar13/);
 
-  // 1.0.748: never await switcher build on nav/inbox hops (747's 400ms race re-froze hydrate).
+  // 1.0.748+: never await switcher build on nav/inbox hops (747's 400ms race re-froze hydrate).
   assert.doesNotMatch(mw, /Promise\.race/);
   assert.match(mw, /Cache-only on HTML/);
-  assert.match(mw, /lightInboxHop/);
+  assert.match(mw, /isLightInboxHop/);
+  assert.match(mw, /countSwitcherInflight/);
   assert.match(switchSrc, /router\.get\('\/switcher\.json'/);
   assert.match(switchSrc, /warmSwitcherCache/);
   assert.match(switchSrc, /countLeadsListInflight/);

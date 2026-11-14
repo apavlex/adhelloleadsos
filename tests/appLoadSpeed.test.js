@@ -114,8 +114,9 @@ test('light pages skip softphone helper scripts in head (lazy on dialer open)', 
   assert.match(navScripts, /_deferNavExtras/);
   assert.match(navScripts, /business-reviews/);
   assert.match(navScripts, /adhello:inbox-hydrated/);
-  assert.match(navScripts, /requestIdleCallback/);
-  assert.match(navScripts, /12000/);
+  // Absolute fallback only — idle callback was firing right after paint and frosting hydrate.
+  assert.doesNotMatch(navScripts, /requestIdleCallback\(boot/);
+  assert.match(navScripts, /setTimeout\(boot,\s*15000\)/);
 });
 
 test('opportunities board does not load maps scripts', () => {
@@ -207,11 +208,13 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(qaRoute, /pending:\s*true/);
   assert.match(reviewsView, /runHydrate/);
   assert.match(reviewsView, /applySettingsForm/);
-  assert.match(reviewsView, /12000/);
+  assert.match(reviewsView, /20000/);
   assert.match(qaView, /runHydrate/);
   assert.match(qaView, /applySettingsForm/);
-  assert.match(qaView, /12000/);
-  assert.match(sw, /adhello-pwa-v1\.0\.748/);
+  assert.match(qaView, /20000/);
+  assert.match(reviewsRoute, /countSwitcherInflight/);
+  assert.match(qaRoute, /countSwitcherInflight/);
+  assert.match(sw, /adhello-pwa-v1\.0\.749/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {

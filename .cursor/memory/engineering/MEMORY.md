@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Bell idle boot still frosted hydrate (1.0.749)
+
+### What / why
+- `_deferNavExtras` used `requestIdleCallback(boot, {timeout:12000})`. Idle often fires right after paint — not after 12s — so bell/inbound raced Reviews/Q&A `/inbox.json`.
+- Fix: absolute `setTimeout(boot, 15000)` only; skip script-seed on light inbox hops; inbox soft-busy while switcher inflight; longer hydrate abort/retries.
+
+### Key files
+- `views/partials/navbar_scripts.ejs`, `middleware/withWorkspace.js`, `routes/businessReviews.js`, `routes/seoQa.js`
+
 ## 2026-11-13 — Unstick switcher race that froze Reviews/Q&A (1.0.748)
 
 ### What / why

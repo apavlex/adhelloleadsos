@@ -83,9 +83,10 @@
     load('/js/nav-notifications.js?v=' + encodeURIComponent(v));
     load('/js/nav-inbound.js?v=' + encodeURIComponent(v));
   }
+  // Absolute fallback only — requestIdleCallback({timeout}) can fire as soon as
+  // the browser is idle (often right after paint), which re-contends with hydrate.
   window.addEventListener('adhello:inbox-hydrated', boot, { once: true });
-  if ('requestIdleCallback' in window) requestIdleCallback(boot, { timeout: 12000 });
-  else setTimeout(boot, 12000);
+  setTimeout(boot, 15000);
 })();
 </script>
 <% } else { %>

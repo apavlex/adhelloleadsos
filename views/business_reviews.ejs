@@ -752,7 +752,7 @@
           var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
           var hydrateTimer = setTimeout(function () {
             if (hydrateCtrl) hydrateCtrl.abort();
-          }, 12000);
+          }, 20000);
           var loadingEl = document.getElementById('brInboxLoading');
           if (loadingEl && hydrateAttempts > 1) loadingEl.textContent = 'Still loading reviews…';
           fetch(hydrateUrl, {
@@ -797,11 +797,11 @@
             })
             .catch(function (e) {
               clearTimeout(hydrateTimer);
-              if (hydrateAttempts < 3 && e && e.name === 'AbortError') {
-                setTimeout(runHydrate, 600 * hydrateAttempts);
+              if (hydrateAttempts < 6 && e && e.name === 'AbortError') {
+                setTimeout(runHydrate, 700 * hydrateAttempts);
                 return;
               }
-              if (hydrateAttempts < 3 && !(e && e.name === 'AbortError')) {
+              if (hydrateAttempts < 6 && !(e && e.name === 'AbortError')) {
                 setTimeout(runHydrate, 800 * hydrateAttempts);
                 return;
               }

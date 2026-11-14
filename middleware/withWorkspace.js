@@ -78,6 +78,17 @@ function warmSwitcherCache(email) {
   return p;
 }
 
+function countSwitcherInflight() {
+  return _switcherInflight.size;
+}
+
+/** Reviews / Q&A / Directory HTML — hydrate needs SQLite; skip background switcher warm. */
+function isLightInboxHop(originalUrl) {
+  return /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|engagement)(?:\/|$|\?)/.test(
+    String(originalUrl || ''),
+  );
+}
+
 function readSwitcherCache(email, activeWorkspaceId, liveDemo) {
   const sk = switcherCacheKey(email);
   const hit = sk && _switcherCache.get(sk);
@@ -270,7 +281,8 @@ async function withWorkspace(req, res, next) {
         // HTML + app *.json (inbox hydrate): never await a full workspace rewrite —
         // that timed out to 502s / left Reviews+Q&A stuck on Loading. Kick once per session.
         if (navFastPath) {
-          if (!(req.session && req.session._scriptSeedKick)) {
+          // Skip seed on Reviews/Q&A HTML — saveWorkspace would contend with inbox hydrate.
+          if (!isLightInboxHop(original) && !(req.session && req.session._scriptSeedKick)) {
             if (req.session) req.session._scriptSeedKick = 1;
             void workspaceScriptBootstrap.ensureWorkspaceScriptsSeeded(ws.id).catch((e) => {
               console.warn('[withWorkspace] background script seed failed:', e && e.message);
@@ -310,12 +322,8 @@ async function withWorkspace(req, res, next) {
       } else {
         // Warm in background on HTML only — never kick a build from inbox.json,
         // and never on Reviews/Q&A/Directory (inbox hydrate needs SQLite immediately).
-        if (htmlNavFastPath && !appJsonFastPath) {
-          const lightInboxHop =
-            /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|engagement)(?:\/|$|\?)/.test(
-              original,
-            );
-          if (!lightInboxHop) warmSwitcherCache(email);
+        if (htmlNavFastPath && !appJsonFastPath && !isLightInboxHop(original)) {
+          warmSwitcherCache(email);
         }
         summaries = [
           {
@@ -379,6 +387,7 @@ withWorkspace.clearSwitcherCache = (email) => {
 withWorkspace.buildSwitcherSummaries = buildSwitcherSummaries;
 withWorkspace.warmSwitcherCache = warmSwitcherCache;
 withWorkspace.readSwitcherCache = readSwitcherCache;
+withWorkspace.countSwitcherInflight = countSwitcherInflight;
 withWorkspace.cacheSwitcherSummaries = (email, built) => {
   const sk = switcherCacheKey(email);
   if (!sk || !built) return;

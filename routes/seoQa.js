@@ -7,6 +7,7 @@ const dbService = require('../services/database');
 const seoQaStore = require('../services/seoQaStore');
 const seoQaImport = require('../services/seoQaImport');
 const { buildSeoQaPagePrompt } = require('../services/seoQaPagePrompt');
+const withWorkspace = require('../middleware/withWorkspace');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 
 function baseUrlFromReq(req) {
@@ -168,7 +169,12 @@ function isSqliteBusyError(err) {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
-    if (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) {
+    const switcherBusy =
+      typeof withWorkspace.countSwitcherInflight === 'function' && withWorkspace.countSwitcherInflight() > 0;
+    if (
+      (typeof dbService.countLeadsListInflight === 'function' && dbService.countLeadsListInflight() > 0) ||
+      switcherBusy
+    ) {
       return res.status(503).json({
         success: false,
         pending: true,
