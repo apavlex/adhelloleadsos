@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-13 — Directory stuck on Loading (1.0.756)
+
+### What / why
+- `/directory` shell+hydrate awaited `repairJobTypeCategories` on every `/inbox.json` (N×getLead + saveWorkspace). Under load that hung past the 12s abort with no retries.
+- Fix: SSR listings from workspace.directory; category repair is background once/session; hydrate retries + SQLITE_BUSY pending.
+
+### Key files
+- `routes/directory.js`, `views/directory.ejs`
+
 ## 2026-11-13 — Notifications + Today extras warm-only (1.0.755)
 
 ### What / why

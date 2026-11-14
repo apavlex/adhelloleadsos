@@ -229,11 +229,14 @@ describe('public business directory', () => {
     assert.match(seoNav, /href="\/directory"/);
     assert.match(routes, /\/listings\/bulk/);
     assert.match(routes, /upsertManyFromLeads/);
-    // First paint is a shell (like Reviews/Q&A); listings hydrate from inbox.json.
+    // Prefer SSR listings; category repair is background-only (not on the request path).
+    assert.match(routes, /Prefer SSR/);
+    assert.match(routes, /kickCategoryRepair/);
     assert.match(routes, /shell:\s*true/);
     assert.match(routes, /inboxHydrate/);
     assert.match(routes, /\/inbox\.json/);
     assert.match(view, /\/directory\/inbox\.json/);
+    assert.match(view, /runHydrate/);
     assert.match(view, /applyInbox/);
     assert.match(view, /showReviews/);
     assert.match(view, /reviewSentiment/);

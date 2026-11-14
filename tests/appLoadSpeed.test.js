@@ -226,7 +226,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Prefer SSR/);
   assert.match(qaRoute, /Prefer SSR/);
-  assert.match(sw, /adhello-pwa-v1\.0\.755/);
+  assert.match(sw, /adhello-pwa-v1\.0\.756/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {

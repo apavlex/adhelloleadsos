@@ -452,35 +452,66 @@
 
     var shouldHydrate = <%= _inboxHydrate ? 'true' : 'false' %>;
     if (shouldHydrate) {
-      var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-      var hydrateTimer = setTimeout(function () {
-        if (hydrateCtrl) hydrateCtrl.abort();
-      }, 12000);
-      fetch('/directory/inbox.json', {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-        signal: hydrateCtrl ? hydrateCtrl.signal : undefined
-      })
-        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
-        .then(function (parsed) {
-          clearTimeout(hydrateTimer);
-          if (!parsed.ok || !parsed.data || !parsed.data.success) {
-            throw new Error((parsed.data && parsed.data.error) || 'Could not load directory');
-          }
-          applyInbox(parsed.data);
+      var hydrateAttempts = 0;
+      function runHydrate() {
+        hydrateAttempts += 1;
+        var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+        var hydrateTimer = setTimeout(function () {
+          if (hydrateCtrl) hydrateCtrl.abort();
+        }, 20000);
+        var loadingEl = document.getElementById('dirListLoading');
+        if (loadingEl && hydrateAttempts > 1) {
+          loadingEl.classList.remove('hidden');
+          loadingEl.textContent = 'Still loading listings…';
+        }
+        fetch('/directory/inbox.json', {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+          signal: hydrateCtrl ? hydrateCtrl.signal : undefined
         })
-        .catch(function (e) {
-          clearTimeout(hydrateTimer);
-          var msg = (e && e.name === 'AbortError')
-            ? 'Directory is taking too long — refresh to try again.'
-            : ((e && e.message) || 'Could not load directory');
-          var loading = document.getElementById('dirListLoading');
-          if (loading) {
-            loading.classList.remove('hidden');
-            loading.textContent = msg;
-          }
-          say(msg, false);
-        });
+          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, status: res.status, data: data }; }); })
+          .then(function (parsed) {
+            clearTimeout(hydrateTimer);
+            if (parsed.data && parsed.data.pending && hydrateAttempts < 6) {
+              setTimeout(runHydrate, 700 * hydrateAttempts);
+              return;
+            }
+            if (!parsed.ok || !parsed.data || !parsed.data.success) {
+              var busy = !!(parsed.data && parsed.data.pending) || parsed.status === 503;
+              if (busy && hydrateAttempts < 6) {
+                setTimeout(runHydrate, 700 * hydrateAttempts);
+                return;
+              }
+              throw new Error((parsed.data && parsed.data.error) || 'Could not load directory');
+            }
+            applyInbox(parsed.data);
+          })
+          .catch(function (e) {
+            clearTimeout(hydrateTimer);
+            if (hydrateAttempts < 6 && e && e.name === 'AbortError') {
+              setTimeout(runHydrate, 700 * hydrateAttempts);
+              return;
+            }
+            if (hydrateAttempts < 6 && !(e && e.name === 'AbortError')) {
+              setTimeout(runHydrate, 800 * hydrateAttempts);
+              return;
+            }
+            var msg = (e && e.name === 'AbortError')
+              ? 'Directory is taking too long — refresh to try again.'
+              : ((e && e.message) || 'Could not load directory');
+            var loading = document.getElementById('dirListLoading');
+            if (loading) {
+              loading.classList.remove('hidden');
+              loading.textContent = msg;
+            }
+            say(msg, false);
+          });
+      }
+      runHydrate();
+    } else {
+      // SSR already has listings — hide the hydrate spinner if present.
+      var bootLoading = document.getElementById('dirListLoading');
+      if (bootLoading && <%= JSON.stringify(!_inboxPending) %>) bootLoading.classList.add('hidden');
     }
 
     var settingsForm = document.getElementById('dirSettingsForm');

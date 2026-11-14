@@ -27,6 +27,25 @@ function shellSettingsFromWorkspace(ws) {
   return settings;
 }
 
+function isSqliteBusyError(err) {
+  const msg = String((err && err.message) || err || '');
+  const code = String((err && (err.code || err.name)) || '');
+  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
+}
+
+function kickCategoryRepair(req, ws) {
+  // Never await N×getLead + saveWorkspace on HTML/inbox — that left Loading stuck.
+  if (req.session && req.session._dirRepairKick) return;
+  if (req.session) req.session._dirRepairKick = 1;
+  const wid = req.workspaceId;
+  void (async () => {
+    const bundle = await directoryStore.load(wid, { workspace: ws, normalize: false });
+    await directoryStore.repairJobTypeCategories(wid, bundle);
+  })().catch((e) => {
+    console.warn('[directory] background category repair failed:', e && e.message);
+  });
+}
+
 async function pageLocals(req, { shell = false } = {}) {
   const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
   const origin = baseUrlFromReq(req);
@@ -49,13 +68,8 @@ async function pageLocals(req, { shell = false } = {}) {
     };
   }
 
-  let bundle = await directoryStore.load(req.workspaceId, { workspace: ws, normalize: false });
-  try {
-    const repaired = await directoryStore.repairJobTypeCategories(req.workspaceId, bundle);
-    if (repaired && repaired.changed) bundle = repaired.bundle;
-  } catch (_) {
-    /* keep raw listings if repair fails */
-  }
+  // Listings live on the workspace doc — no lead scan / category repair on the request path.
+  const bundle = await directoryStore.load(req.workspaceId, { workspace: ws, normalize: false });
   const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
   const seedName = String(intake.businessName || ws.name || '').trim();
   const settings = {
@@ -85,10 +99,17 @@ async function pageLocals(req, { shell = false } = {}) {
 
 router.get('/', async (req, res, next) => {
   try {
-    // Shell first — same pattern as Reviews/Q&A. Full listings hydrate from /inbox.json
-    // so SQLite busy from background lead scans cannot frost this hop.
-    const locals = await pageLocals(req, { shell: true });
-    locals.inboxHydrate = true;
+    // Prefer SSR from workspace.directory (same as Reviews/Q&A after 1.0.753).
+    let locals;
+    try {
+      locals = await pageLocals(req, { shell: false });
+      locals.inboxHydrate = false;
+      kickCategoryRepair(req, req.workspace);
+    } catch (e) {
+      if (!isSqliteBusyError(e)) throw e;
+      locals = await pageLocals(req, { shell: true });
+      locals.inboxHydrate = true;
+    }
     locals.pageBuilderPrompt = '';
     locals.pageBuilderPromptUrl = '/directory/page-prompt.txt';
     locals.flash = null;
@@ -132,6 +153,7 @@ router.get('/page-prompt.txt', async (req, res, next) => {
 router.get('/inbox.json', async (req, res, next) => {
   try {
     const locals = await pageLocals(req);
+    kickCategoryRepair(req, req.workspace);
     res.json({
       success: true,
       settings: locals.settings,
@@ -141,6 +163,13 @@ router.get('/inbox.json', async (req, res, next) => {
       detailUrlTemplate: locals.detailUrlTemplate,
     });
   } catch (e) {
+    if (isSqliteBusyError(e)) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Directory temporarily busy — retrying…',
+      });
+    }
     next(e);
   }
 });
