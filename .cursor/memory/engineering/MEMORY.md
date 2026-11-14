@@ -1,5 +1,16 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — iOS menu tap to Reviews froze (1.0.760)
+
+### What / why
+- Screenshot: Directory still showing, menu open, Reviews `:active` — tap never navigated.
+- Open-menu swipe-close claimed touches on nav links (slight wobble → preventDefault → no click).
+- skipFrost on iOS also hid the hop behind a silent white void when HTML was slow.
+- Fix: don’t start swipe-drag when menu is open and target is a link/button; desktop-only skipFrost; iOS keeps light frost + Retry.
+
+### Key files
+- `public/js/navbar-shell.js`, `tests/navLoadingOverlay.test.js`
+
 ## 2026-11-14 — Reviews/Q&A shell-first; Directory repair cache-only (1.0.759)
 
 ### What / why

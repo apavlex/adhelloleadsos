@@ -255,8 +255,9 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
-    // Skip full-page frost for common menu hops — overlay + stall made half the
-    // app feel broken (user had to refresh). Browser owns the navigation.
+    // Desktop: skip frost on common menu hops (overlay felt broken).
+    // iOS: keep a light untilPageShow frost — skipFrost left a silent white void
+    // when Reviews/Q&A HTML was slow (tap looked frozen; menu :active stuck).
     var skipFrost = false;
     try {
       var leavePath = href ? new URL(href, window.location.origin).pathname : '';
@@ -266,11 +267,12 @@ function readJsonReply(r) {
     } catch (_) {
       skipFrost = false;
     }
-    if (skipFrost) {
+    if (skipFrost && isLikelyDesktopNav()) {
       hideNavLoading();
       return;
     }
     // Frost stays until next pageshow — do not preventDefault (browser owns nav).
+    // Stall shows Retry only (never auto-assign).
     showNavLoading({ untilPageShow: true, href: href || '' });
   }
 
@@ -485,6 +487,14 @@ function readJsonReply(r) {
       var open = isOpen();
       var target = e.target;
       var edge = false;
+      // Open menu + tap on a nav link: never claim the gesture for swipe-close.
+      // Slight finger wobble used to preventDefault the click — Reviews/Q&A looked
+      // frozen (menu stayed open, :active highlight stuck, page never changed).
+      if (open && target && target.closest) {
+        if (target.closest('a[href], button, summary, label, input, textarea, select, [role="button"]')) {
+          return;
+        }
+      }
       if (!open) {
         if (document.body.classList.contains('overflow-hidden')) return;
         if (target.closest && target.closest(NO_SWIPE)) return;
