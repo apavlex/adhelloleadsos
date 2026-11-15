@@ -539,7 +539,7 @@
     if (shouldHydrate) {
       var hydrateUrl = '/seo-qa/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focus ? ('&q=' + encodeURIComponent(focus)) : '');
       var hydrateAttempts = 0;
-      var hydrateMax = 5;
+      var hydrateMax = 8;
       function showHydrateRetry(msg) {
         var loading = document.getElementById('sqaInboxLoading');
         if (loading) {

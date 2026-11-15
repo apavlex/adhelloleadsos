@@ -251,8 +251,10 @@ async function pageLocals(req, { shell = false } = {}) {
   const detailUrlTemplate = token
     ? `${origin}/api/public/directory/${encodeURIComponent(token)}/businesses/{slug}.json`
     : '';
+  // Light list: skip re-normalize/toPublicReview* on every hydrate — that sync
+  // work blocked the event loop and starved Reviews/Q&A inbox.json.
   const listings = directoryStore
-    .listListings(bundle)
+    .listListings(bundle, { light: true })
     .map(slimListingForInbox)
     .filter(Boolean);
   return {
@@ -320,9 +322,9 @@ router.get('/', async (req, res, next) => {
     if (req.query.err) {
       locals.flash = { error: String(req.query.err).slice(0, 200) };
     }
-    // Category repair is warm-cache-only and deferred; skip entirely on HTML if
-    // another hop is more important — Reviews/Q&A were freezing under getLead repair.
-    scheduleCategoryRepairAfterPaint(res, req.workspaceId, req.workspace);
+    // Never schedule category repair on HTML hops. Even deferred saveWorkspace
+    // of the directory blob locked SQLite and left Reviews/Q&A hydrate pending
+    // until abort. Repair stays available for explicit admin/tests via store API.
     res.render('directory', locals);
   } catch (e) {
     next(e);

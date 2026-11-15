@@ -237,13 +237,16 @@ describe('public business directory', () => {
     assert.match(seoNav, /href="\/directory"/);
     assert.match(routes, /\/listings\/bulk/);
     assert.match(routes, /upsertManyFromLeads/);
-    // Shell-first + hydrate; category repair only after HTML finish (not same-tick / not inbox).
+    // Shell-first + hydrate; never kick category repair on HTML (locks Reviews/Q&A).
     assert.match(routes, /Shell-first always/);
-    assert.match(routes, /scheduleCategoryRepairAfterPaint/);
+    assert.match(routes, /Never schedule category repair on HTML hops/);
     assert.match(routes, /shell:\s*true/);
     assert.match(routes, /inboxHydrate/);
     assert.match(routes, /\/inbox\.json/);
+    assert.match(routes, /light:\s*true/);
     assert.doesNotMatch(routes, /kickCategoryRepair\(/);
+    const htmlGet = routes.slice(routes.indexOf("router.get('/',"), routes.indexOf("router.get('/page-prompt"));
+    assert.doesNotMatch(htmlGet, /scheduleCategoryRepairAfterPaint\(/);
     assert.match(view, /\/directory\/inbox\.json/);
     assert.match(view, /runHydrate/);
     assert.match(view, /adhello:inbox-hydrated/);

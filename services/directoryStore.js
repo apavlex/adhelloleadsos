@@ -353,14 +353,56 @@ async function resolveWorkspaceIdByToken(token) {
   return '';
 }
 
-function listListings(bundle, { published } = {}) {
+/**
+ * Fast dashboard/inbox projection — no reviewIntel sanitize, no slug rewrite.
+ * Full normalizeListing stays for writes / public feed.
+ */
+function lightListing(raw, fallbackId) {
+  const row = raw && typeof raw === 'object' ? raw : {};
+  const id = clean(row.id || fallbackId || newListingId(), 80) || newListingId();
+  const ratingRaw = row.rating == null || row.rating === '' ? NaN : Number(row.rating);
+  const countRaw =
+    row.reviewCount == null || row.reviewCount === '' ? NaN : Number(row.reviewCount);
+  const categoryRaw = clean(row.category, 120);
+  return {
+    id,
+    leadKey: clean(row.leadKey, 200),
+    slug: clean(row.slug, 120) || slugify(row.name || id),
+    name: clean(row.name, 160) || 'Business',
+    category: isJobTypeCategorySlug(categoryRaw) ? '' : categoryRaw,
+    city: clean(row.city, 80),
+    state: clean(row.state, 40),
+    address: clean(row.address, 240),
+    phone: clean(row.phone, 40),
+    website: clean(row.website, 400),
+    rating: Number.isFinite(ratingRaw) ? ratingRaw : null,
+    reviewCount: Number.isFinite(countRaw) ? Math.max(0, Math.floor(countRaw)) : null,
+    imageUrl: clean(row.imageUrl, 500),
+    description: clean(row.description, 1200),
+    blurb: clean(row.blurb, 400),
+    reviewSnippets: Array.isArray(row.reviewSnippets)
+      ? row.reviewSnippets.map((s) => clean(s, 400)).filter(Boolean).slice(0, 5)
+      : [],
+    // Strip sales-coaching leftovers without the heavier snippet hunt-label parse.
+    reviewSummary: toPublicReviewSummary(row.reviewSummary || '', 800),
+    reviewSentiment: clean(row.reviewSentiment, 40),
+    published: row.published === true,
+    createdAt: row.createdAt || null,
+    publishedAt: row.publishedAt || null,
+    updatedAt: row.updatedAt || null,
+  };
+}
+
+function listListings(bundle, { published, light = false } = {}) {
   let rows = Object.values((bundle && bundle.listings) || {})
     .filter(Boolean)
     .map((r) => {
       try {
-        return normalizeListing(r, r && r.id);
+        return light
+          ? lightListing(r, r && r.id)
+          : normalizeListing(r, r && r.id);
       } catch (e) {
-        console.warn('[directoryStore] normalizeListing failed:', e && e.message);
+        console.warn('[directoryStore] listing project failed:', e && e.message);
         return null;
       }
     })
@@ -681,6 +723,7 @@ module.exports = {
   ensurePublicToken,
   resolveWorkspaceIdByToken,
   listListings,
+  lightListing,
   inboxSummary,
   repairJobTypeCategories,
   applyLeadToBundle,

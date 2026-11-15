@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Unstick Reviews/Q&A after Directory (1.0.774)
+
+### What / why
+- Directory HTML still deferred category repair (saveWorkspace) and inbox re-normalized every listing — blocked SQLite / event loop so Reviews/Q&A hydrate failed.
+- Stop repair on HTML hops; directory inbox uses light listing projection; Reviews/Q&A hydrateMax 8.
+
+### Key files
+- `routes/directory.js`, `services/directoryStore.js`, `views/seo_qa.ejs`, `views/business_reviews.ejs`
+
 ## 2026-11-14 — Directory listing hydrate crash harden (1.0.773)
 
 ### What / why

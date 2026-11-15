@@ -747,7 +747,7 @@
       if (shouldHydrate) {
         var hydrateUrl = '/business-reviews/inbox.json?limit=' + encodeURIComponent(hydrateLimit) + (focusId ? ('&review=' + encodeURIComponent(focusId)) : '');
         var hydrateAttempts = 0;
-        var hydrateMax = 5;
+        var hydrateMax = 8;
         function showHydrateRetry(msg) {
           var loading = document.getElementById('brInboxLoading');
           if (loading) {
