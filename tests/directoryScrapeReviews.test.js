@@ -16,7 +16,14 @@ test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings
   assert.match(route, /status\(202\)/);
   assert.match(route, /scrape-reviews\/:jobId\.json/);
   assert.match(route, /_scrapeBusyByWs/);
-  assert.match(route, /upsertFromLead/);
+  // Batch apply in-memory then one directoryStore.save — never N× upsertFromLead/saveWorkspace.
+  assert.match(route, /applyLeadToBundle/);
+  assert.match(route, /listingsDirty/);
+  assert.match(route, /directoryStore\.save/);
+  assert.doesNotMatch(
+    route.slice(route.indexOf('async function runDirectoryScrapeJob'), route.indexOf('function baseUrlFromReq')),
+    /upsertFromLead/,
+  );
   assert.match(route, /updateLead/);
   assert.match(route, /outscraper\.isConfigured/);
   // Must be declared before /listings/:id so Express does not treat scrape-reviews as an id.

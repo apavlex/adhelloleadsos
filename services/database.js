@@ -3052,10 +3052,19 @@ module.exports = {
 
   // --- Workspaces (multi-seat) ---
 
-  async getWorkspace(workspaceId) {
+  /**
+   * @param {string} workspaceId
+   * @param {{ failFast?: boolean }} [opts] failFast — busy_timeout 0 so SQLITE_BUSY
+   *   throws immediately (Reviews/Q&A hydrate → pending) instead of waiting 5s.
+   */
+  async getWorkspace(workspaceId, opts = {}) {
     const id = workspaceId != null ? String(workspaceId).trim() : '';
     if (!id) return null;
-    const raw = kvGet(`workspace:${id}`);
+    const key = `workspace:${id}`;
+    const raw =
+      opts && opts.failFast && typeof this.tryGetKvSync === 'function'
+        ? this.tryGetKvSync(key)
+        : kvGet(key);
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;

@@ -667,6 +667,7 @@ module.exports = {
   listListings,
   inboxSummary,
   repairJobTypeCategories,
+  applyLeadToBundle,
   upsertFromLead,
   upsertManyFromLeads,
   updateListing,

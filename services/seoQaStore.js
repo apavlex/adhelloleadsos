@@ -88,7 +88,7 @@ async function load(workspaceId, opts = {}) {
   const ws =
     opts.workspace && typeof opts.workspace === 'object'
       ? opts.workspace
-      : (await dbService.getWorkspace(wid)) || { id: wid };
+      : (await dbService.getWorkspace(wid, { failFast: !!opts.failFast })) || { id: wid };
   const raw = ws.seoQa && typeof ws.seoQa === 'object' ? ws.seoQa : null;
   const base = emptyBundle(wid);
   if (!raw) return { ...base, workspace: ws };

@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Directory scrape batch save (unstick Reviews/Q&A) (1.0.770)
+
+### What / why
+- 769 background scrape still called per-listing directory save (full workspace rewrite) → SQLite writer locked Reviews/Q&A hydrate.
+- Fix: mutate listings in memory via `applyLeadToBundle`, one `directoryStore.save` at end; Q&A inbox + middleware failFast → 503 pending.
+
+### Key files
+- `routes/directory.js`, `services/directoryStore.js`, `routes/seoQa.js`, `middleware/withWorkspace.js`
+
 ## 2026-11-14 — Directory scrape background (unstick app) (1.0.769)
 
 ### What / why

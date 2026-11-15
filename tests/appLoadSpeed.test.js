@@ -258,12 +258,13 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(qaView, /hydrateMax = 5/);
   assert.match(qaView, /10000/);
   assert.match(reviewsRoute, /failFast:\s*true/);
+  assert.match(qaRoute, /failFast:\s*true/);
   // Must NOT soft-busy Reviews/Q&A just because a lead scan is running.
   assert.doesNotMatch(reviewsRoute, /countLeadsListInflight/);
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Shell-first always/);
   assert.match(qaRoute, /Shell-first always/);
-  assert.match(sw, /adhello-pwa-v1\.0\.769/);
+  assert.match(sw, /adhello-pwa-v1\.0\.770/);
 });
 
 test('Marketing Studio HTML never awaits getAllLeads (menu hops stay responsive)', () => {

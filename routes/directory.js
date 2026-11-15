@@ -47,6 +47,7 @@ function scrapeJobPublic(job) {
 
 async function runDirectoryScrapeJob(job) {
   const wid = job.workspaceId;
+  let listingsDirty = false;
   try {
     const integrationEnv = await workspaceIntegrations
       .getResolvedIntegrationEnv(wid)
@@ -57,6 +58,8 @@ async function runDirectoryScrapeJob(job) {
       job.finishedAt = Date.now();
       return;
     }
+    // One load + one saveWorkspace at the end. Per-listing directory saves rewrote the
+    // whole workspace doc N times and locked Reviews/Q&A (and the rest of the app).
     const bundle = await directoryStore.load(wid);
     const byId = bundle && bundle.listings && typeof bundle.listings === 'object' ? bundle.listings : {};
     for (let i = 0; i < job.listingIds.length; i++) {
@@ -94,13 +97,15 @@ async function runDirectoryScrapeJob(job) {
         await new Promise((r) => setImmediate(r));
         if (pack.patch && Object.keys(pack.patch).length) {
           await dbService.updateLead(prev.leadKey, pack.patch, wid);
+          Object.assign(lead, pack.patch);
         }
         await new Promise((r) => setImmediate(r));
-        const row = await directoryStore.upsertFromLead(wid, prev.leadKey, {
+        const { row } = directoryStore.applyLeadToBundle(bundle, lead, prev.leadKey, {
           published: prev.published,
           blurb: prev.blurb,
           slug: prev.slug,
         });
+        listingsDirty = true;
         if (pack.used || pack.reviewsFetched) job.scraped += 1;
         job.refreshed += 1;
         job.done += 1;
@@ -128,6 +133,13 @@ async function runDirectoryScrapeJob(job) {
       if (i < job.listingIds.length - 1 && SCRAPE_REVIEWS_GAP_MS > 0) {
         await new Promise((r) => setTimeout(r, SCRAPE_REVIEWS_GAP_MS));
       }
+    }
+    if (listingsDirty) {
+      await new Promise((r) => setImmediate(r));
+      await directoryStore.save(wid, {
+        listings: bundle.listings,
+        settings: bundle.settings || {},
+      });
     }
     job.status = job.cancel ? 'cancelled' : 'done';
     job.finishedAt = Date.now();

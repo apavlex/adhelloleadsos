@@ -53,8 +53,11 @@ function shellSettingsFromWorkspace(ws) {
   return settings;
 }
 
-async function pageLocals(req, { inboxLimit = null, shell = false } = {}) {
-  const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+async function pageLocals(req, { inboxLimit = null, shell = false, failFast = false } = {}) {
+  const ws =
+    req.workspace ||
+    (await dbService.getWorkspace(req.workspaceId, { failFast })) ||
+    { id: req.workspaceId };
   const focusQuestionId = String(req.query.q || '').trim();
   const origin = baseUrlFromReq(req);
 
@@ -80,7 +83,12 @@ async function pageLocals(req, { inboxLimit = null, shell = false } = {}) {
 
   // Reuse req.workspace + skip full normalize on read (writes still normalize).
   // Never ensurePublicToken on GET/hydrate — that rewrote the workspace and stalled inbox.json.
-  const bundle = await seoQaStore.load(req.workspaceId, { workspace: ws, normalize: false });
+  // failFast: inbox.json must not sit on busy_timeout while Directory scrape holds the writer.
+  const bundle = await seoQaStore.load(req.workspaceId, {
+    workspace: ws,
+    normalize: false,
+    failFast,
+  });
   const intake = ws.salesIntake && typeof ws.salesIntake === 'object' ? ws.salesIntake : {};
   const seedName = String(intake.businessName || ws.name || '').trim();
   const settings = {
@@ -170,10 +178,11 @@ function isSqliteBusyError(err) {
 
 router.get('/inbox.json', async (req, res, next) => {
   try {
-    // Q&A lives on the workspace doc — never soft-busy just because a lead scan is running.
+    // Q&A lives on the workspace doc — failFast so a contended Directory scrape
+    // returns pending (client retries) instead of hanging until abort.
     const limitRaw = req.query && req.query.limit != null ? Number(req.query.limit) : INBOX_JSON_LIMIT;
     const limit = Number.isFinite(limitRaw) ? Math.min(500, Math.max(1, Math.floor(limitRaw))) : INBOX_JSON_LIMIT;
-    const locals = await pageLocals(req, { inboxLimit: limit });
+    const locals = await pageLocals(req, { inboxLimit: limit, failFast: true });
     res.json({
       success: true,
       settings: locals.settings,

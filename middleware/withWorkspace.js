@@ -95,12 +95,12 @@ const SCRIPT_SEED_KICK_TTL_MS = 10 * 60 * 1000;
 const _workspaceDocCache = new Map();
 const WORKSPACE_DOC_TTL_MS = 15_000;
 
-async function getWorkspaceCached(wid) {
+async function getWorkspaceCached(wid, opts = {}) {
   const id = String(wid || '');
   if (!id) return null;
   const hit = _workspaceDocCache.get(id);
   if (hit && Date.now() - hit.at < WORKSPACE_DOC_TTL_MS) return hit.ws;
-  const ws = await dbService.getWorkspace(id);
+  const ws = await dbService.getWorkspace(id, opts);
   if (ws) _workspaceDocCache.set(id, { at: Date.now(), ws });
   return ws;
 }
@@ -160,6 +160,12 @@ async function withWorkspace(req, res, next) {
       /\.json(?:\?|$)/.test(original) &&
       !/^\/api(?:\/|$)/.test(original) &&
       !/^\/mcp(?:\/|$)/.test(original);
+    // Reviews/Q&A inbox hydrate: never wait on busy_timeout while Directory scrape
+    // holds the SQLite writer — throw SQLITE_BUSY → 503 pending (client retries).
+    const inboxHydrateFailFast =
+      appJsonFastPath &&
+      (/\/(?:seo-qa|business-reviews)\/inbox\.json/.test(original) ||
+        /\/(?:seo-qa|business-reviews)\/inbox\.json/.test(path));
     const navFastPath = htmlNavFastPath || appJsonFastPath;
     // Only dial/switch skip script seed + member-profile writes.
     const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
@@ -247,13 +253,14 @@ async function withWorkspace(req, res, next) {
       wid = ids[0] || null;
     }
 
-    let ws = wid ? await getWorkspaceCached(wid) : null;
+    const wsReadOpts = inboxHydrateFailFast ? { failFast: true } : {};
+    let ws = wid ? await getWorkspaceCached(wid, wsReadOpts) : null;
     if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
       const ids = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
       wid = null;
       ws = null;
       for (const id of ids) {
-        const cand = await getWorkspaceCached(id);
+        const cand = await getWorkspaceCached(id, wsReadOpts);
         if (cand && workspaceBootstrap.userCanAccessWorkspace(cand, email)) {
           wid = id;
           ws = cand;
@@ -415,6 +422,21 @@ async function withWorkspace(req, res, next) {
 
     next();
   } catch (err) {
+    const msg = String((err && err.message) || err || '');
+    const code = String((err && (err.code || err.name)) || '');
+    const busy = /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
+    const original = String(req.originalUrl || req.path || '');
+    if (
+      busy &&
+      req.method === 'GET' &&
+      /\/(?:seo-qa|business-reviews)\/inbox\.json/.test(original)
+    ) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Inbox temporarily busy — retrying…',
+      });
+    }
     next(err);
   }
 }
