@@ -35,8 +35,13 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /adhelloNavProgressRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
-    // Manual Retry still assigns — automatic stall frost must not.
+    // Manual Retry still assigns — automatic stall frost / menu watchdog must not.
     assert.match(js, /adhelloNavLoadingRetry[\s\S]*location\.assign\(pending\)/);
+    assert.match(js, /Do NOT auto location\.assign here/);
+    assert.doesNotMatch(
+      js,
+      /_menuNavWatch = setTimeout\(function \(\) \{\s*if \(window\.location\.href === from\)/,
+    );
     assert.doesNotMatch(
       js,
       /hideNavLoading\._failSafe = setTimeout\(function \(\) \{\s*var pending = showNavLoading\._pendingHref/,
