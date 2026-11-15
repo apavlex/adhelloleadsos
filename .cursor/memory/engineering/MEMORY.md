@@ -1,5 +1,13 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Nav timing evidence (1.0.766)
+
+### What / why
+- Stop claiming “fixed” from code review alone. Client posts click→pageshow / hydrate to `/nav-timing.json`; owners read `/nav-timing/recent.json`. Pass: pageshow < 1.5s, hydrate < 4s.
+
+### Key files
+- `lib/navTimingStore.js`, `routes/navTiming.js`, `public/js/navbar-shell.js`
+
 ## 2026-11-14 — Shell-first Activity/Cadences + Pipeline no-302 (1.0.765)
 
 ### What / why

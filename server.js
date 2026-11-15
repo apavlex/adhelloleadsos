@@ -745,6 +745,7 @@ app.use('/pipeline-table-prefs', pipelineTablePrefsRoutes);
 app.use(iaNav);
 app.use(leadRunBanner);
 app.use(iaRedirects);
+app.use('/', require('./routes/navTiming'));
 app.use('/today', todayRoutes);
 app.use('/agent-ops', agentOpsRoutes);
 app.use('/focus', focusRoutes);

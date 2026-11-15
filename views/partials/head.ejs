@@ -1,5 +1,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="adhello-app-version" content="<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
+<script>try{document.documentElement.setAttribute('data-app-version',<%= JSON.stringify(typeof assetVersion !== 'undefined' ? String(assetVersion) : '1') %>);}catch(e){}</script>
 <meta name="theme-color" content="#FFDB3A" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0F172A" media="(prefers-color-scheme: dark)">
 <meta name="mobile-web-app-capable" content="yes">

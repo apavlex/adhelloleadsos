@@ -320,6 +320,117 @@ function readJsonReply(r) {
     }, 4500);
   }
 
+  /** Real evidence for menu hops: click → pageshow / hydrate (not code-review guesses). */
+  var NAV_TIMING_KEY = 'adhelloNavTimingPending';
+  function markNavLeave(href) {
+    try {
+      var leaveUrl = href ? new URL(href, window.location.origin) : null;
+      var payload = {
+        t0: Date.now(),
+        from: window.location.pathname + window.location.search,
+        to: leaveUrl ? leaveUrl.pathname + leaveUrl.search : String(href || ''),
+        coarse: !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches),
+        version: (document.documentElement && document.documentElement.getAttribute('data-app-version')) || '',
+      };
+      sessionStorage.setItem(NAV_TIMING_KEY, JSON.stringify(payload));
+    } catch (_) {}
+  }
+  function postNavTiming(body) {
+    try {
+      var json = JSON.stringify(body || {});
+      if (navigator.sendBeacon) {
+        var blob = new Blob([json], { type: 'application/json' });
+        navigator.sendBeacon('/nav-timing.json', blob);
+        return;
+      }
+      fetch('/nav-timing.json', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: json,
+        keepalive: true,
+      }).catch(function () {});
+    } catch (_) {}
+  }
+  function reportNavPageshow() {
+    var raw = null;
+    try {
+      raw = sessionStorage.getItem(NAV_TIMING_KEY);
+    } catch (_) {}
+    if (!raw) return;
+    var pending = null;
+    try {
+      pending = JSON.parse(raw);
+    } catch (_) {
+      pending = null;
+    }
+    if (!pending || !pending.t0) return;
+    var pageshowMs = Date.now() - Number(pending.t0);
+    var path = window.location.pathname + window.location.search;
+    try {
+      pending.pageshowAt = Date.now();
+      pending.clickToPageshowMs = pageshowMs;
+      pending.path = path;
+      sessionStorage.setItem(NAV_TIMING_KEY, JSON.stringify(pending));
+    } catch (_) {}
+    postNavTiming({
+      path: path,
+      from: pending.from || '',
+      version: pending.version || '',
+      clickToPageshowMs: pageshowMs,
+      coarse: !!pending.coarse,
+    });
+    if (window.location.search.indexOf('navDebug=1') >= 0) {
+      try {
+        console.info('[nav-timing] pageshow', path, pageshowMs + 'ms');
+      } catch (_) {}
+    }
+  }
+  function reportNavHydrate() {
+    var raw = null;
+    try {
+      raw = sessionStorage.getItem(NAV_TIMING_KEY);
+    } catch (_) {}
+    if (!raw) return;
+    var pending = null;
+    try {
+      pending = JSON.parse(raw);
+    } catch (_) {
+      pending = null;
+    }
+    if (!pending || !pending.t0) return;
+    var hydrateMs = Date.now() - Number(pending.t0);
+    var path = window.location.pathname + window.location.search;
+    postNavTiming({
+      path: path,
+      from: pending.from || '',
+      version: pending.version || '',
+      clickToPageshowMs: pending.clickToPageshowMs != null ? pending.clickToPageshowMs : null,
+      clickToHydrateMs: hydrateMs,
+      coarse: !!pending.coarse,
+    });
+    try {
+      sessionStorage.removeItem(NAV_TIMING_KEY);
+    } catch (_) {}
+    if (window.location.search.indexOf('navDebug=1') >= 0) {
+      try {
+        console.info('[nav-timing] hydrate', path, hydrateMs + 'ms');
+      } catch (_) {}
+    }
+  }
+  window.addEventListener('adhello:inbox-hydrated', reportNavHydrate);
+  // Pages without hydrate still clear the pending mark after a short settle.
+  window.setTimeout(function () {
+    try {
+      var raw = sessionStorage.getItem(NAV_TIMING_KEY);
+      if (!raw) return;
+      var pending = JSON.parse(raw);
+      if (pending && pending.pageshowAt && Date.now() - pending.pageshowAt > 8000) {
+        sessionStorage.removeItem(NAV_TIMING_KEY);
+      }
+    } catch (_) {}
+  }, 9000);
+
   function clearNavOverlaysForLeave(href) {
     closeMobileMenu({ instant: true });
     var panel = document.getElementById('mobilePanel');
@@ -330,6 +441,7 @@ function readJsonReply(r) {
     }
     document.body.classList.remove('overflow-hidden');
     document.documentElement.classList.remove('ws-settings-navigating');
+    markNavLeave(href || '');
     // In-app same-origin hops: thin progress only (never full-screen frost).
     // Frost trapped taps (760) and skip-lists left gaps (history/sequences/sales).
     // Keep frost only for auth/logout/external leaves.
@@ -411,6 +523,7 @@ function readJsonReply(r) {
     hideNavLoading();
     hideNavProgress();
     closeMobileMenu({ instant: true });
+    reportNavPageshow();
   });
   window.addEventListener('load', function () {
     hideNavLoading();
@@ -418,6 +531,7 @@ function readJsonReply(r) {
   });
   window.hideNavProgress = hideNavProgress;
   window.showNavProgress = showNavProgress;
+  window.reportNavHydrate = reportNavHydrate;
   // Do not clear frost on tab focus while a leave nav is in flight — that revealed
   // the iOS white void under the spinner (blank screen after 1.0.673).
   document.addEventListener('visibilitychange', function () {
