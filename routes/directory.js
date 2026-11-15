@@ -40,6 +40,7 @@ function scrapeJobPublic(job) {
     refreshed: job.refreshed,
     failed: job.failed,
     error: job.error || null,
+    listingIds: Array.isArray(job.listingIds) ? job.listingIds.slice() : [],
     results: job.results || [],
     startedAt: job.startedAt,
     finishedAt: job.finishedAt || null,

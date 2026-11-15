@@ -36,7 +36,12 @@ test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings
   assert.match(view, /dir-select/);
   assert.match(view, /\/directory\/listings\/scrape-reviews/);
   assert.match(view, /jobId/);
-  assert.match(view, /Pulling reviews in the background/);
+  assert.match(view, /Scraping Google reviews/);
+  assert.match(view, /Launching review scrape/);
+  assert.match(view, /js-dir-scrape-status/);
+  assert.match(view, /setRowScrapeUi/);
+  assert.match(view, /applyJobRowProgress/);
+  assert.match(route, /listingIds:/);
   // Dashboard rows show contact + review score/summary via hydrate renderRow.
   assert.match(view, /function renderRow/);
   assert.match(view, /webParts/);
