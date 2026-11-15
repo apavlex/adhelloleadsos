@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Reviews/Q&A still won’t open: session busy + HTML failFast (1.0.775)
+
+### What / why
+- Sync SQLite writers made session `get` / workspace HTML reads fail or wait 5s — nav spinner never cleared (“doesn’t open”).
+- Session store retries SQLITE_BUSY; Reviews/Q&A/Directory HTML uses failFast + stale/stub workspace so the shell always paints.
+
+### Key files
+- `lib/sqliteSessionStore.js`, `middleware/withWorkspace.js`, `services/directoryStore.js`
+
 ## 2026-11-14 — Unstick Reviews/Q&A after Directory (1.0.774)
 
 ### What / why

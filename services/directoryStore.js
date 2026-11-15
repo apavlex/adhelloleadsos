@@ -319,7 +319,10 @@ async function save(workspaceId, patch) {
     listings,
     updatedAt: new Date().toISOString(),
   };
+  // Yield so Reviews/Q&A / session reads can run before the sync writer locks SQLite.
+  await new Promise((r) => setImmediate(r));
   await dbService.saveWorkspace(wid, { ...ws, id: wid, directory: next });
+  await new Promise((r) => setImmediate(r));
   await indexPublicToken(wid, next.settings.publicToken, prev.settings.publicToken);
   return { ...next, workspace: { ...ws, directory: next } };
 }

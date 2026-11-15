@@ -95,14 +95,26 @@ const SCRIPT_SEED_KICK_TTL_MS = 10 * 60 * 1000;
 const _workspaceDocCache = new Map();
 const WORKSPACE_DOC_TTL_MS = 15_000;
 
+function isSqliteBusyError(err) {
+  const msg = String((err && err.message) || err || '');
+  const code = String((err && (err.code || err.name)) || '');
+  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
+}
+
 async function getWorkspaceCached(wid, opts = {}) {
   const id = String(wid || '');
   if (!id) return null;
   const hit = _workspaceDocCache.get(id);
   if (hit && Date.now() - hit.at < WORKSPACE_DOC_TTL_MS) return hit.ws;
-  const ws = await dbService.getWorkspace(id, opts);
-  if (ws) _workspaceDocCache.set(id, { at: Date.now(), ws });
-  return ws;
+  try {
+    const ws = await dbService.getWorkspace(id, opts);
+    if (ws) _workspaceDocCache.set(id, { at: Date.now(), ws });
+    return ws;
+  } catch (e) {
+    // Prefer a slightly stale workspace over failing the Reviews/Q&A HTML shell.
+    if (opts && opts.failFast && isSqliteBusyError(e) && hit && hit.ws) return hit.ws;
+    throw e;
+  }
 }
 
 function invalidateWorkspaceDocCache(wid) {
@@ -166,6 +178,9 @@ async function withWorkspace(req, res, next) {
       appJsonFastPath &&
       (/\/(?:seo-qa|business-reviews)\/inbox\.json/.test(original) ||
         /\/(?:seo-qa|business-reviews)\/inbox\.json/.test(path));
+    // Same for the HTML shell itself — a 5s busy wait left the nav spinner up and
+    // looked like Reviews/Q&A “won’t open”.
+    const lightHtmlFailFast = htmlNavFastPath && isLightInboxHop(original);
     const navFastPath = htmlNavFastPath || appJsonFastPath;
     // Only dial/switch skip script seed + member-profile writes.
     const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
@@ -253,19 +268,61 @@ async function withWorkspace(req, res, next) {
       wid = ids[0] || null;
     }
 
-    const wsReadOpts = inboxHydrateFailFast ? { failFast: true } : {};
-    let ws = wid ? await getWorkspaceCached(wid, wsReadOpts) : null;
-    if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
+    const wsReadOpts =
+      inboxHydrateFailFast || lightHtmlFailFast ? { failFast: true } : {};
+    let ws = null;
+    let wsBusy = false;
+    try {
+      ws = wid ? await getWorkspaceCached(wid, wsReadOpts) : null;
+    } catch (e) {
+      if ((inboxHydrateFailFast || lightHtmlFailFast) && isSqliteBusyError(e)) {
+        wsBusy = true;
+        ws = null;
+      } else {
+        throw e;
+      }
+    }
+    if (!wsBusy && (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email))) {
       const ids = await workspaceBootstrap.collectWorkspaceIdsForEmail(email);
       wid = null;
       ws = null;
       for (const id of ids) {
-        const cand = await getWorkspaceCached(id, wsReadOpts);
+        let cand = null;
+        try {
+          cand = await getWorkspaceCached(id, wsReadOpts);
+        } catch (e) {
+          if ((inboxHydrateFailFast || lightHtmlFailFast) && isSqliteBusyError(e)) {
+            wsBusy = true;
+            break;
+          }
+          throw e;
+        }
         if (cand && workspaceBootstrap.userCanAccessWorkspace(cand, email)) {
           wid = id;
           ws = cand;
           break;
         }
+      }
+    }
+    // Light HTML hop + busy: paint shell from session id rather than 500 / spinner trap.
+    if (lightHtmlFailFast && wsBusy && !ws) {
+      const stubId =
+        (req.session &&
+          (req.session.activeWorkspaceId || req.session.workspaceId) &&
+          String(req.session.activeWorkspaceId || req.session.workspaceId)) ||
+        wid ||
+        '';
+      if (stubId) {
+        wid = stubId;
+        const em = String(email || '')
+          .toLowerCase()
+          .trim();
+        ws = {
+          id: stubId,
+          name: 'Workspace',
+          ownerUserId: em || undefined,
+          members: em ? { [em]: { role: 'owner' } } : {},
+        };
       }
     }
 

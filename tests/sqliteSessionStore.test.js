@@ -61,6 +61,31 @@ test('expired sessions are not returned and get pruned', async () => {
   db.close();
 });
 
+test('session store retries SQLITE_BUSY instead of failing the hop', async () => {
+  const db = new Database(':memory:');
+  const store = new SqliteSessionStore({ db, pruneEveryMs: 0, touchAfterMs: 0 });
+  assert.equal(typeof store._withBusyRetry, 'function');
+  assert.equal(store._isBusy({ message: 'SQLITE_BUSY: database is locked' }), true);
+  let attempts = 0;
+  const value = await new Promise((resolve, reject) => {
+    store._withBusyRetry(
+      () => {
+        attempts += 1;
+        if (attempts < 3) {
+          const err = new Error('SQLITE_BUSY: database is locked');
+          err.code = 'SQLITE_BUSY';
+          throw err;
+        }
+        resolve('ok');
+      },
+      reject,
+    );
+  });
+  assert.equal(value, 'ok');
+  assert.ok(attempts >= 3);
+  db.close();
+});
+
 test('touch is throttled so menu hops do not rewrite expires every request', async () => {
   const db = new Database(':memory:');
   const store = new SqliteSessionStore({ db, pruneEveryMs: 0, touchAfterMs: 60_000 });
