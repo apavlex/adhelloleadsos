@@ -133,55 +133,7 @@
       <div id="dirListLoading" class="px-6 py-12 text-center text-sm text-brand-muted<%= (_inboxPending || _inboxHydrate) && !_listings.length ? '' : ' hidden' %>">Loading listings…</div>
       <div id="dirListEmpty" class="px-6 py-12 text-center text-sm text-brand-muted<%= (!_listings.length && !(_inboxPending || _inboxHydrate)) ? '' : ' hidden' %>">No listings yet. Add a Pipeline lead key above.</div>
       <ul id="dirList" class="divide-y divide-brand-border/30 dark:divide-white/10 m-0 p-0 list-none<%= _listings.length ? '' : ' hidden' %>">
-        <% _listings.forEach(function (row) { if (!row) return;
-          const _summary = String(row.reviewSummary || '').trim();
-          const _addr = String(row.address || '').trim() || [row.city, row.state].filter(Boolean).join(', ');
-          const _phone = String(row.phone || '').trim();
-          const _web = String(row.website || '').trim();
-          const _webHref = _web && !/^https?:\/\//i.test(_web) ? ('https://' + _web) : _web;
-          const _webLabel = _web.replace(/^https?:\/\//i, '').replace(/\/$/, '');
-        %>
-        <li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="<%= row.id %>">
-          <div class="flex items-start gap-3 min-w-0">
-            <input type="checkbox" class="dir-select mt-1.5 rounded border-brand-border shrink-0" value="<%= row.id %>" aria-label="Select <%= row.name %>" />
-            <div class="min-w-0">
-              <button type="button" class="js-dir-open font-display font-bold text-left text-brand-dark dark:text-white hover:text-brand-yellow underline-offset-2 hover:underline" data-id="<%= row.id %>"><%= row.name %></button>
-              <p class="text-[11px] text-brand-muted mt-0.5">
-                <span class="font-black uppercase tracking-widest <%= row.published ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted' %>"><%= row.published ? 'Published' : 'Draft' %></span>
-                · /<%= row.slug %>
-                <% if (row.category) { %> · <%= row.category %><% } %>
-              </p>
-              <% if (_addr || _phone || _web) { %>
-              <p class="text-[11px] text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed break-words">
-                <% if (_addr) { %><span><%= _addr %></span><% } %>
-                <% if (_phone) { %><% if (_addr) { %> · <% } %><a class="underline-offset-2 hover:underline" href="tel:<%= _phone.replace(/[^\d+]/g, '') %>"><%= _phone %></a><% } %>
-                <% if (_web) { %><% if (_addr || _phone) { %> · <% } %><a class="underline-offset-2 hover:underline break-all" href="<%= _webHref %>" target="_blank" rel="noopener noreferrer"><%= _webLabel %></a><% } %>
-              </p>
-              <% } %>
-              <p class="text-[11px] mt-1.5 <%= row.rating != null ? 'text-brand-dark dark:text-slate-200 font-semibold' : 'text-brand-muted' %>">
-                <% if (row.rating != null) { %>
-                  <%= Number(row.rating).toFixed(1) %>★<% if (row.reviewCount != null) { %> (<%= row.reviewCount %> review<%= Number(row.reviewCount) === 1 ? '' : 's' %>)<% } %>
-                  <% if (row.reviewSentiment) { %> · <%= String(row.reviewSentiment).replace(/_/g, ' ') %><% } %>
-                <% } else { %>
-                  No review score yet
-                <% } %>
-              </p>
-              <% if (_summary) { %>
-              <p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed line-clamp-3"><%= _summary %></p>
-              <% } else { %>
-              <p class="text-[11px] text-brand-muted mt-1.5 italic">No review summary yet — use Pull reviews</p>
-              <% } %>
-            </div>
-          </div>
-          <div class="flex flex-wrap gap-2 shrink-0">
-            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-open" data-id="<%= row.id %>">Edit</button>
-            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-scrape" data-id="<%= row.id %>" title="Pull Google reviews for this business">Reviews</button>
-            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="<%= row.id %>" data-published="<%= row.published ? '0' : '1' %>"><%= row.published ? 'Unpublish' : 'Publish' %></button>
-            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-refresh" data-id="<%= row.id %>">Refresh</button>
-            <button type="button" class="btn-pill border border-rose-400/40 text-rose-700 dark:text-rose-300 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-remove" data-id="<%= row.id %>">Remove</button>
-          </div>
-        </li>
-        <% }); %>
+        <%/* Contact + reviews rows are painted by hydrate (renderRow). Shell stays empty. */%>
       </ul>
     </section>
   </main>
@@ -393,77 +345,108 @@
       fillEditForm(row);
       setEditOpen(true);
     }
+    function digPhone(phone) {
+      return String(phone || '').replace(/[^\d+]/g, '');
+    }
+    function webParts(website) {
+      var web = String(website || '').trim();
+      if (!web || web === '[object Object]') return { href: '', label: '' };
+      var lower = web.toLowerCase();
+      var href = web;
+      if (lower.indexOf('http://') !== 0 && lower.indexOf('https://') !== 0) {
+        href = 'https://' + web;
+      }
+      var label = web;
+      var schemeAt = label.indexOf('://');
+      if (schemeAt >= 0) label = label.slice(schemeAt + 3);
+      while (label.length > 1 && label.charAt(label.length - 1) === '/') {
+        label = label.slice(0, -1);
+      }
+      return { href: href, label: label };
+    }
+    function ratingLabel(row) {
+      var n = row && row.rating != null && row.rating !== '' ? Number(row.rating) : NaN;
+      if (!Number.isFinite(n)) return { text: 'No review score yet', ok: false };
+      var text = n.toFixed(1) + '\u2605';
+      var count = row.reviewCount != null ? Number(row.reviewCount) : NaN;
+      if (Number.isFinite(count)) {
+        text += ' (' + String(Math.max(0, Math.floor(count))) + ' review' + (count === 1 ? '' : 's') + ')';
+      }
+      if (row.reviewSentiment) {
+        text += ' \u00b7 ' + String(row.reviewSentiment).replace(/_/g, ' ');
+      }
+      return { text: text, ok: true };
+    }
     function renderRow(row) {
-      var pubClass = row.published
-        ? 'text-emerald-700 dark:text-emerald-300'
-        : 'text-brand-muted';
-      var summary = String(row.reviewSummary || '').trim();
-      var addr = String(row.address || '').trim() || [row.city, row.state].filter(Boolean).join(', ');
-      var phone = String(row.phone || '').trim();
-      var web = String(row.website || '').trim();
-      var webHref = web && !/^https?:\/\//i.test(web) ? ('https://' + web) : web;
-      var webLabel = web.replace(/^https?:\/\//i, '').replace(/\/$/, '');
-      var contactBits = [];
-      if (addr) contactBits.push('<span>' + esc(addr) + '</span>');
-      if (phone) {
-        contactBits.push(
-          '<a class="underline-offset-2 hover:underline" href="tel:' +
-            esc(phone.replace(/[^\d+]/g, '')) +
-            '">' +
-            esc(phone) +
-            '</a>'
-        );
-      }
-      if (web) {
-        contactBits.push(
-          '<a class="underline-offset-2 hover:underline break-all" href="' +
-            esc(webHref) +
-            '" target="_blank" rel="noopener noreferrer">' +
-            esc(webLabel) +
-            '</a>'
-        );
-      }
-      var ratingLine =
-        row.rating != null
-          ? (esc(Number(row.rating).toFixed(1) + '★') +
-              (row.reviewCount != null
-                ? ' (' + esc(String(row.reviewCount)) + ' review' + (Number(row.reviewCount) === 1 ? '' : 's') + ')'
-                : '') +
-              (row.reviewSentiment
-                ? ' · ' + esc(String(row.reviewSentiment).replace(/_/g, ' '))
-                : ''))
-          : 'No review score yet';
-      var ratingClass =
-        row.rating != null
+      try {
+        if (!row || !row.id) return '';
+        var pubClass = row.published
+          ? 'text-emerald-700 dark:text-emerald-300'
+          : 'text-brand-muted';
+        var summary = String(row.reviewSummary || '').trim();
+        if (summary === '[object Object]' || /^paragraph\s*text\.?$/i.test(summary)) summary = '';
+        var addr = String(row.address || '').trim();
+        if (!addr || addr === '[object Object]') {
+          addr = [row.city, row.state].filter(Boolean).join(', ');
+        }
+        var phone = String(row.phone || '').trim();
+        if (phone === '[object Object]') phone = '';
+        var web = webParts(row.website);
+        var contactBits = [];
+        if (addr) contactBits.push('<span>' + esc(addr) + '</span>');
+        if (phone) {
+          contactBits.push(
+            '<a class="underline-offset-2 hover:underline" href="tel:' +
+              esc(digPhone(phone)) +
+              '">' +
+              esc(phone) +
+              '</a>'
+          );
+        }
+        if (web.href) {
+          contactBits.push(
+            '<a class="underline-offset-2 hover:underline break-all" href="' +
+              esc(web.href) +
+              '" target="_blank" rel="noopener noreferrer">' +
+              esc(web.label) +
+              '</a>'
+          );
+        }
+        var rating = ratingLabel(row);
+        var ratingClass = rating.ok
           ? 'text-brand-dark dark:text-slate-200 font-semibold'
           : 'text-brand-muted';
-      return '<li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="' + esc(row.id) + '">'
-        + '<div class="flex items-start gap-3 min-w-0">'
-        + '<input type="checkbox" class="dir-select mt-1.5 rounded border-brand-border shrink-0" value="' + esc(row.id) + '" aria-label="Select ' + esc(row.name) + '" />'
-        + '<div class="min-w-0">'
-        + '<button type="button" class="js-dir-open font-display font-bold text-left text-brand-dark dark:text-white hover:text-brand-yellow underline-offset-2 hover:underline" data-id="' + esc(row.id) + '">' + esc(row.name) + '</button>'
-        + '<p class="text-[11px] text-brand-muted mt-0.5">'
-        + '<span class="font-black uppercase tracking-widest ' + pubClass + '">' + (row.published ? 'Published' : 'Draft') + '</span>'
-        + ' · /' + esc(row.slug || '')
-        + (row.category ? ' · ' + esc(row.category) : '')
-        + '</p>'
-        + (contactBits.length
-          ? ('<p class="text-[11px] text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed break-words">' +
-              contactBits.join(' · ') +
-              '</p>')
-          : '')
-        + '<p class="text-[11px] mt-1.5 ' + ratingClass + '">' + ratingLine + '</p>'
-        + (summary
-          ? ('<p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed line-clamp-3">' + esc(summary) + '</p>')
-          : '<p class="text-[11px] text-brand-muted mt-1.5 italic">No review summary yet — use Pull reviews</p>')
-        + '</div></div>'
-        + '<div class="flex flex-wrap gap-2 shrink-0">'
-        + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-open" data-id="' + esc(row.id) + '">Edit</button>'
-        + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-scrape" data-id="' + esc(row.id) + '" title="Pull Google reviews for this business">Reviews</button>'
-        + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="' + esc(row.id) + '" data-published="' + (row.published ? '0' : '1') + '">' + (row.published ? 'Unpublish' : 'Publish') + '</button>'
-        + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-refresh" data-id="' + esc(row.id) + '">Refresh</button>'
-        + '<button type="button" class="btn-pill border border-rose-400/40 text-rose-700 dark:text-rose-300 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-remove" data-id="' + esc(row.id) + '">Remove</button>'
-        + '</div></li>';
+        return '<li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="' + esc(row.id) + '">'
+          + '<div class="flex items-start gap-3 min-w-0">'
+          + '<input type="checkbox" class="dir-select mt-1.5 rounded border-brand-border shrink-0" value="' + esc(row.id) + '" aria-label="Select ' + esc(row.name) + '" />'
+          + '<div class="min-w-0">'
+          + '<button type="button" class="js-dir-open font-display font-bold text-left text-brand-dark dark:text-white hover:text-brand-yellow underline-offset-2 hover:underline" data-id="' + esc(row.id) + '">' + esc(row.name) + '</button>'
+          + '<p class="text-[11px] text-brand-muted mt-0.5">'
+          + '<span class="font-black uppercase tracking-widest ' + pubClass + '">' + (row.published ? 'Published' : 'Draft') + '</span>'
+          + ' · /' + esc(row.slug || '')
+          + (row.category ? ' · ' + esc(row.category) : '')
+          + '</p>'
+          + (contactBits.length
+            ? ('<p class="text-[11px] text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed break-words">' +
+                contactBits.join(' · ') +
+                '</p>')
+            : '')
+          + '<p class="text-[11px] mt-1.5 ' + ratingClass + '">' + esc(rating.text) + '</p>'
+          + (summary
+            ? ('<p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed line-clamp-3">' + esc(summary) + '</p>')
+            : '<p class="text-[11px] text-brand-muted mt-1.5 italic">No review summary yet - use Pull reviews</p>')
+          + '</div></div>'
+          + '<div class="flex flex-wrap gap-2 shrink-0">'
+          + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-open" data-id="' + esc(row.id) + '">Edit</button>'
+          + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-scrape" data-id="' + esc(row.id) + '" title="Pull Google reviews for this business">Reviews</button>'
+          + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="' + esc(row.id) + '" data-published="' + (row.published ? '0' : '1') + '">' + (row.published ? 'Unpublish' : 'Publish') + '</button>'
+          + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-refresh" data-id="' + esc(row.id) + '">Refresh</button>'
+          + '<button type="button" class="btn-pill border border-rose-400/40 text-rose-700 dark:text-rose-300 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-remove" data-id="' + esc(row.id) + '">Remove</button>'
+          + '</div></li>';
+      } catch (err) {
+        try { console.warn('[directory] renderRow failed', err); } catch (_) {}
+        return '';
+      }
     }
     function selectedListingIds() {
       return Array.prototype.map.call(document.querySelectorAll('.dir-select:checked'), function (el) {
@@ -602,7 +585,13 @@
       if (empty) empty.classList.toggle('hidden', rows.length > 0);
       if (list) {
         list.classList.toggle('hidden', rows.length === 0);
-        list.innerHTML = rows.map(renderRow).join('');
+        try {
+          list.innerHTML = rows.map(renderRow).join('');
+        } catch (err) {
+          try { console.warn('[directory] applyInbox list render failed', err); } catch (_) {}
+          list.innerHTML = '';
+          say('Could not render listings — refresh the page.', false);
+        }
       }
       syncBulkBar();
     }

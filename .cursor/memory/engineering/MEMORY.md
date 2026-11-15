@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Directory listing hydrate crash harden (1.0.773)
+
+### What / why
+- After 772, Directory “crashed / doesn’t load”. Shell stays empty; hydrate renderRow is the only paint path.
+- Hardened renderRow (no EJS `//` regex landmines, finite ratings, per-row try/catch), slim inbox JSON, tolerate bad listing rows in listListings.
+
+### Key files
+- `views/directory.ejs`, `routes/directory.js`, `services/directoryStore.js`
+
 ## 2026-11-14 — Directory listing rows: address/phone/web/rating/summary (1.0.772)
 
 ### What

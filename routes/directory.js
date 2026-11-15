@@ -251,7 +251,10 @@ async function pageLocals(req, { shell = false } = {}) {
   const detailUrlTemplate = token
     ? `${origin}/api/public/directory/${encodeURIComponent(token)}/businesses/{slug}.json`
     : '';
-  const listings = directoryStore.listListings(bundle);
+  const listings = directoryStore
+    .listListings(bundle)
+    .map(slimListingForInbox)
+    .filter(Boolean);
   return {
     title: 'Directory',
     activePage: 'directory',
@@ -262,6 +265,34 @@ async function pageLocals(req, { shell = false } = {}) {
     detailUrlTemplate,
     workspaceName: (ws && ws.name) || 'Your workspace',
     inboxPending: false,
+  };
+}
+
+/** Plain JSON fields for hydrate — never leak non-JSON or huge blobs into inbox.json. */
+function slimListingForInbox(row) {
+  if (!row || typeof row !== 'object') return null;
+  const ratingRaw = row.rating != null && row.rating !== '' ? Number(row.rating) : NaN;
+  const countRaw = row.reviewCount != null && row.reviewCount !== '' ? Number(row.reviewCount) : NaN;
+  return {
+    id: row.id || '',
+    leadKey: row.leadKey || '',
+    slug: row.slug || '',
+    name: row.name || '',
+    category: row.category || '',
+    city: row.city || '',
+    state: row.state || '',
+    address: row.address || '',
+    phone: row.phone || '',
+    website: row.website || '',
+    rating: Number.isFinite(ratingRaw) ? ratingRaw : null,
+    reviewCount: Number.isFinite(countRaw) ? Math.max(0, Math.floor(countRaw)) : null,
+    reviewSentiment: row.reviewSentiment || '',
+    reviewSummary: row.reviewSummary || '',
+    reviewSnippets: Array.isArray(row.reviewSnippets) ? row.reviewSnippets.slice(0, 5) : [],
+    description: row.description || '',
+    blurb: row.blurb || '',
+    imageUrl: row.imageUrl || '',
+    published: row.published === true,
   };
 }
 

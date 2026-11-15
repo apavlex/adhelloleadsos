@@ -356,7 +356,15 @@ async function resolveWorkspaceIdByToken(token) {
 function listListings(bundle, { published } = {}) {
   let rows = Object.values((bundle && bundle.listings) || {})
     .filter(Boolean)
-    .map((r) => normalizeListing(r, r.id));
+    .map((r) => {
+      try {
+        return normalizeListing(r, r && r.id);
+      } catch (e) {
+        console.warn('[directoryStore] normalizeListing failed:', e && e.message);
+        return null;
+      }
+    })
+    .filter(Boolean);
   if (published === true) rows = rows.filter((r) => r.published === true);
   if (published === false) rows = rows.filter((r) => r.published !== true);
   return rows.sort((a, b) => {
