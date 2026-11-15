@@ -440,13 +440,44 @@
       var btn = document.getElementById('dirPullReviewsBtn');
       if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Pulling…';
+        btn.textContent = 'Starting…';
       }
-      say('Pulling reviews for ' + listingIds.length + ' listing' + (listingIds.length === 1 ? '' : 's') + '…');
+      say('Starting review pull for ' + listingIds.length + ' listing' + (listingIds.length === 1 ? '' : 's') + '…');
       return postJson('/directory/listings/scrape-reviews', { listingIds: listingIds })
         .then(function (data) {
-          var scraped = data && data.scraped != null ? data.scraped : 0;
-          var failed = data && data.failed != null ? data.failed : 0;
+          var jobId = data && data.jobId;
+          if (!jobId) throw new Error((data && data.error) || 'Could not start scrape');
+          say('Pulling reviews in the background…');
+          if (btn) btn.textContent = 'Pulling…';
+          return new Promise(function (resolve, reject) {
+            var tries = 0;
+            function poll() {
+              tries += 1;
+              fetch('/directory/listings/scrape-reviews/' + encodeURIComponent(jobId) + '.json', {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+              })
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                .then(function (parsed) {
+                  var job = parsed.data && parsed.data.job;
+                  if (!parsed.ok || !job) throw new Error((parsed.data && parsed.data.error) || 'Job missing');
+                  say('Pulling reviews… ' + (job.done || 0) + '/' + (job.total || listingIds.length));
+                  if (job.status === 'running') {
+                    if (tries > 180) throw new Error('Review pull is taking too long — refresh Directory later.');
+                    setTimeout(poll, 2000);
+                    return;
+                  }
+                  if (job.status === 'error') throw new Error(job.error || 'Scrape failed');
+                  resolve(job);
+                })
+                .catch(reject);
+            }
+            setTimeout(poll, 1200);
+          });
+        })
+        .then(function (job) {
+          var scraped = job && job.scraped != null ? job.scraped : 0;
+          var failed = job && job.failed != null ? job.failed : 0;
           say(
             'Reviews done — ' + scraped + ' updated' + (failed ? ', ' + failed + ' failed' : '') + '.',
             !failed

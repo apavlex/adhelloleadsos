@@ -496,8 +496,9 @@ function readJsonReply(r) {
           && !(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || el.target === '_blank');
         if (leaving) {
           clearNavOverlaysForLeave(href);
-          // Evidence: stuck :active on Reviews with drawer still open meant the
-          // browser never navigated. If we are still here after 1.8s, finish the hop.
+          // Stuck :active with drawer open meant the browser never navigated.
+          // Wait longer than 1.8s — that watchdog hammered assign during SQLite
+          // busy (Directory scrape) and made the whole app feel crashed.
           try {
             var abs = new URL(href, window.location.origin).href;
             var from = window.location.href;
@@ -506,7 +507,7 @@ function readJsonReply(r) {
               if (window.location.href === from) {
                 try { window.location.assign(abs); } catch (_) { window.location.href = abs; }
               }
-            }, 1800);
+            }, 5000);
           } catch (_) {}
         } else closeMobileMenu();
       });

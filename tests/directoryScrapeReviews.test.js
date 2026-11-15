@@ -11,7 +11,11 @@ test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings
   assert.match(route, /listings\/scrape-reviews/);
   assert.match(route, /Registered before \/listings\/:id/);
   assert.match(route, /SCRAPE_REVIEWS_MAX/);
+  assert.match(route, /runDirectoryScrapeJob/);
   assert.match(route, /runReviewHuntForLead/);
+  assert.match(route, /status\(202\)/);
+  assert.match(route, /scrape-reviews\/:jobId\.json/);
+  assert.match(route, /_scrapeBusyByWs/);
   assert.match(route, /upsertFromLead/);
   assert.match(route, /updateLead/);
   assert.match(route, /outscraper\.isConfigured/);
@@ -24,4 +28,6 @@ test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings
   assert.match(view, /js-dir-scrape/);
   assert.match(view, /dir-select/);
   assert.match(view, /\/directory\/listings\/scrape-reviews/);
+  assert.match(view, /jobId/);
+  assert.match(view, /Pulling reviews in the background/);
 });

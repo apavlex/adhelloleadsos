@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Directory scrape background (unstick app) (1.0.769)
+
+### What / why
+- 768 ran Outscraper+saveWorkspace inline on POST and froze authenticated hops (health stayed green).
+- Scrape now returns 202 + background job; UI polls status. Menu nav watchdog 5s (was 1.8s).
+
+### Key files
+- `routes/directory.js`, `views/directory.ejs`, `public/js/navbar-shell.js`
+
 ## 2026-11-14 — Directory Pull reviews (Outscraper) (1.0.768)
 
 ### What

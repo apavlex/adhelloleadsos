@@ -21,8 +21,125 @@ const SCRAPE_REVIEWS_MAX = Math.min(
 );
 const SCRAPE_REVIEWS_GAP_MS = Math.min(
   5000,
-  Math.max(0, parseInt(process.env.DIRECTORY_SCRAPE_REVIEWS_GAP_MS || '600', 10) || 600),
+  Math.max(250, parseInt(process.env.DIRECTORY_SCRAPE_REVIEWS_GAP_MS || '1200', 10) || 1200),
 );
+
+/** In-memory scrape jobs — never block the HTTP request (768 froze the app). */
+const _scrapeJobs = new Map();
+const _scrapeBusyByWs = new Set();
+
+function scrapeJobPublic(job) {
+  if (!job) return null;
+  return {
+    id: job.id,
+    status: job.status,
+    total: job.total,
+    done: job.done,
+    scraped: job.scraped,
+    refreshed: job.refreshed,
+    failed: job.failed,
+    error: job.error || null,
+    results: job.results || [],
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt || null,
+  };
+}
+
+async function runDirectoryScrapeJob(job) {
+  const wid = job.workspaceId;
+  try {
+    const integrationEnv = await workspaceIntegrations
+      .getResolvedIntegrationEnv(wid)
+      .catch(() => ({}));
+    if (!outscraper.isConfigured(integrationEnv)) {
+      job.status = 'error';
+      job.error = 'Outscraper is not configured for this workspace.';
+      job.finishedAt = Date.now();
+      return;
+    }
+    const bundle = await directoryStore.load(wid);
+    const byId = bundle && bundle.listings && typeof bundle.listings === 'object' ? bundle.listings : {};
+    for (let i = 0; i < job.listingIds.length; i++) {
+      if (job.cancel) break;
+      const id = job.listingIds[i];
+      const prev = byId[id];
+      if (!prev || !prev.leadKey) {
+        job.failed += 1;
+        job.done += 1;
+        job.results.push({ id, ok: false, error: 'Listing not found.' });
+        continue;
+      }
+      try {
+        const lead = await dbService.getLead(prev.leadKey, wid);
+        if (!lead) {
+          job.failed += 1;
+          job.done += 1;
+          job.results.push({ id, leadKey: prev.leadKey, ok: false, error: 'Lead not found.' });
+          continue;
+        }
+        // Yield so menu/session hops can use SQLite between Outscraper calls.
+        await new Promise((r) => setImmediate(r));
+        const pack = await reviewHunt.runReviewHuntForLead(lead, integrationEnv);
+        if (!pack || !pack.outscraperConfigured) {
+          job.failed += 1;
+          job.done += 1;
+          job.results.push({
+            id,
+            leadKey: prev.leadKey,
+            ok: false,
+            error: 'Outscraper is not configured.',
+          });
+          continue;
+        }
+        await new Promise((r) => setImmediate(r));
+        if (pack.patch && Object.keys(pack.patch).length) {
+          await dbService.updateLead(prev.leadKey, pack.patch, wid);
+        }
+        await new Promise((r) => setImmediate(r));
+        const row = await directoryStore.upsertFromLead(wid, prev.leadKey, {
+          published: prev.published,
+          blurb: prev.blurb,
+          slug: prev.slug,
+        });
+        if (pack.used || pack.reviewsFetched) job.scraped += 1;
+        job.refreshed += 1;
+        job.done += 1;
+        job.results.push({
+          id,
+          leadKey: prev.leadKey,
+          ok: true,
+          used: !!pack.used,
+          reviewsFetched: !!pack.reviewsFetched,
+          reviewError: pack.reviewError || null,
+          rating: row && row.rating != null ? row.rating : null,
+          reviewCount: row && row.reviewCount != null ? row.reviewCount : null,
+          reviewSummary: row && row.reviewSummary ? row.reviewSummary : '',
+        });
+      } catch (e) {
+        job.failed += 1;
+        job.done += 1;
+        job.results.push({
+          id,
+          leadKey: prev.leadKey,
+          ok: false,
+          error: (e && e.message) || 'Scrape failed',
+        });
+      }
+      if (i < job.listingIds.length - 1 && SCRAPE_REVIEWS_GAP_MS > 0) {
+        await new Promise((r) => setTimeout(r, SCRAPE_REVIEWS_GAP_MS));
+      }
+    }
+    job.status = job.cancel ? 'cancelled' : 'done';
+    job.finishedAt = Date.now();
+  } catch (e) {
+    job.status = 'error';
+    job.error = (e && e.message) || 'Scrape failed';
+    job.finishedAt = Date.now();
+  } finally {
+    _scrapeBusyByWs.delete(String(wid));
+    setTimeout(() => _scrapeJobs.delete(job.id), 30 * 60 * 1000);
+  }
+}
 
 function baseUrlFromReq(req) {
   const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
@@ -310,12 +427,21 @@ router.post('/listings/bulk', async (req, res) => {
 
 /**
  * Pull Google reviews for selected Directory listings (Outscraper + optional AI summary).
- * Writes onto the Pipeline lead, then refreshes the listing so the public API picks it up.
+ * Returns immediately and runs in the background — the sync 768 path froze the whole app
+ * while Outscraper polled (up to minutes) and saveWorkspace locked SQLite.
  * Registered before /listings/:id so "scrape-reviews" is not captured as an id.
  */
 router.post('/listings/scrape-reviews', async (req, res) => {
   try {
     res.set('Cache-Control', 'no-store');
+    const wid = String(req.workspaceId || '');
+    if (_scrapeBusyByWs.has(wid)) {
+      return res.status(409).json({
+        success: false,
+        pending: true,
+        error: 'A review scrape is already running for this workspace. Wait for it to finish.',
+      });
+    }
     const body = req.body || {};
     const rawIds = Array.isArray(body.listingIds)
       ? body.listingIds
@@ -338,7 +464,7 @@ router.post('/listings/scrape-reviews', async (req, res) => {
     }
 
     const integrationEnv = await workspaceIntegrations
-      .getResolvedIntegrationEnv(req.workspaceId)
+      .getResolvedIntegrationEnv(wid)
       .catch(() => ({}));
     if (!outscraper.isConfigured(integrationEnv)) {
       return res.status(400).json({
@@ -347,90 +473,51 @@ router.post('/listings/scrape-reviews', async (req, res) => {
       });
     }
 
-    const bundle = await directoryStore.load(req.workspaceId);
-    const byId = bundle && bundle.listings && typeof bundle.listings === 'object' ? bundle.listings : {};
-    const results = [];
-    let scraped = 0;
-    let refreshed = 0;
-    let failed = 0;
+    const jobId = `dirrev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const job = {
+      id: jobId,
+      workspaceId: wid,
+      listingIds,
+      status: 'running',
+      total: listingIds.length,
+      done: 0,
+      scraped: 0,
+      refreshed: 0,
+      failed: 0,
+      results: [],
+      error: null,
+      startedAt: Date.now(),
+      finishedAt: null,
+      cancel: false,
+    };
+    _scrapeJobs.set(jobId, job);
+    _scrapeBusyByWs.add(wid);
+    setImmediate(() => {
+      void runDirectoryScrapeJob(job);
+    });
 
-    for (let i = 0; i < listingIds.length; i++) {
-      const id = listingIds[i];
-      const prev = byId[id];
-      if (!prev || !prev.leadKey) {
-        failed += 1;
-        results.push({ id, ok: false, error: 'Listing not found.' });
-        continue;
-      }
-      try {
-        const lead = await dbService.getLead(prev.leadKey, req.workspaceId);
-        if (!lead) {
-          failed += 1;
-          results.push({ id, leadKey: prev.leadKey, ok: false, error: 'Lead not found.' });
-          continue;
-        }
-        const pack = await reviewHunt.runReviewHuntForLead(lead, integrationEnv);
-        if (!pack || !pack.outscraperConfigured) {
-          failed += 1;
-          results.push({
-            id,
-            leadKey: prev.leadKey,
-            ok: false,
-            error: 'Outscraper is not configured.',
-          });
-          continue;
-        }
-        if (pack.patch && Object.keys(pack.patch).length) {
-          await dbService.updateLead(prev.leadKey, pack.patch, req.workspaceId);
-        }
-        const row = await directoryStore.upsertFromLead(req.workspaceId, prev.leadKey, {
-          published: prev.published,
-          blurb: prev.blurb,
-          slug: prev.slug,
-        });
-        if (pack.used || pack.reviewsFetched) scraped += 1;
-        refreshed += 1;
-        results.push({
-          id,
-          leadKey: prev.leadKey,
-          ok: true,
-          used: !!pack.used,
-          reviewsFetched: !!pack.reviewsFetched,
-          reviewError: pack.reviewError || null,
-          rating: row && row.rating != null ? row.rating : null,
-          reviewCount: row && row.reviewCount != null ? row.reviewCount : null,
-          reviewSummary: row && row.reviewSummary ? row.reviewSummary : '',
-          listing: row,
-        });
-      } catch (e) {
-        failed += 1;
-        results.push({
-          id,
-          leadKey: prev.leadKey,
-          ok: false,
-          error: (e && e.message) || 'Scrape failed',
-        });
-      }
-      if (i < listingIds.length - 1 && SCRAPE_REVIEWS_GAP_MS > 0) {
-        await new Promise((r) => setTimeout(r, SCRAPE_REVIEWS_GAP_MS));
-      }
-    }
-
-    return res.json({
+    return res.status(202).json({
       success: true,
-      scraped,
-      refreshed,
-      failed,
+      pending: true,
+      jobId,
       max: SCRAPE_REVIEWS_MAX,
-      results,
+      job: scrapeJobPublic(job),
     });
   } catch (e) {
-    const status = e.code === 'NOT_FOUND' ? 404 : 500;
-    return res.status(status).json({
+    return res.status(500).json({
       success: false,
       error: (e && e.message) || 'Scrape failed',
     });
   }
+});
+
+router.get('/listings/scrape-reviews/:jobId.json', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const job = _scrapeJobs.get(String(req.params.jobId || ''));
+  if (!job || String(job.workspaceId) !== String(req.workspaceId || '')) {
+    return res.status(404).json({ success: false, error: 'Job not found.' });
+  }
+  return res.json({ success: true, job: scrapeJobPublic(job) });
 });
 
 /** Edit curated listing fields (name, category, description, reviews, etc.). */
