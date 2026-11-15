@@ -8,6 +8,7 @@ const trials = require('../services/trials');
 const outscraper = require('../services/outscraperClient');
 const businessReviews = require('../services/businessReviews');
 const { wantsJsonResponse } = require('../lib/httpRequest');
+const { isSqliteBusyError } = require('../lib/isSqliteBusyError');
 
 /**
  * HTML first paint: true empty shell (no store JSON.parse). Cards + KPIs hydrate from /inbox.json.
@@ -146,12 +147,6 @@ router.get('/', async (req, res, next) => {
     next(e);
   }
 });
-
-function isSqliteBusyError(err) {
-  const msg = String((err && err.message) || err || '');
-  const code = String((err && (err.code || err.name)) || '');
-  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
-}
 
 router.get('/inbox.json', async (req, res, next) => {
   try {

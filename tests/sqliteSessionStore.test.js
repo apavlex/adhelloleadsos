@@ -65,7 +65,11 @@ test('session store retries SQLITE_BUSY instead of failing the hop', async () =>
   const db = new Database(':memory:');
   const store = new SqliteSessionStore({ db, pruneEveryMs: 0, touchAfterMs: 0 });
   assert.equal(typeof store._withBusyRetry, 'function');
-  assert.equal(store._isBusy({ message: 'SQLITE_BUSY: database is locked' }), true);
+  assert.equal(typeof store._runFailFast, 'function');
+  assert.equal(store._isBusy({ message: 'SQLITE_BUSY: database is locked', code: 'SQLITE_BUSY' }), true);
+  // Over-broad /busy|locked/i must not treat unrelated errors as busy.
+  assert.equal(store._isBusy({ code: 'ENOTLOCKED', message: 'not locked' }), false);
+  assert.equal(store._isBusy({ message: 'Something blocked the request' }), false);
   let attempts = 0;
   const value = await new Promise((resolve, reject) => {
     store._withBusyRetry(

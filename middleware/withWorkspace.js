@@ -4,6 +4,7 @@ const teamActivity = require('../services/teamActivity');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
 const workspaceScriptBootstrap = require('../services/workspaceScriptBootstrap');
 const { wantsJsonResponse } = require('../lib/httpRequest');
+const { isSqliteBusyError } = require('../lib/isSqliteBusyError');
 const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 const { getQuickLogClientPayload } = require('../services/quickLogConfig');
@@ -95,12 +96,6 @@ const SCRIPT_SEED_KICK_TTL_MS = 10 * 60 * 1000;
 const _workspaceDocCache = new Map();
 const WORKSPACE_DOC_TTL_MS = 15_000;
 
-function isSqliteBusyError(err) {
-  const msg = String((err && err.message) || err || '');
-  const code = String((err && (err.code || err.name)) || '');
-  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
-}
-
 async function getWorkspaceCached(wid, opts = {}) {
   const id = String(wid || '');
   if (!id) return null;
@@ -174,13 +169,12 @@ async function withWorkspace(req, res, next) {
       !/^\/mcp(?:\/|$)/.test(original);
     // Reviews/Q&A inbox hydrate: never wait on busy_timeout while Directory scrape
     // holds the SQLite writer — throw SQLITE_BUSY → 503 pending (client retries).
+    // Do NOT failFast the HTML shell (1.0.775): stub workspaces + over-broad busy
+    // matching left Engagement/Reviews/Q&A looking "down" under any contention.
     const inboxHydrateFailFast =
       appJsonFastPath &&
       (/\/(?:seo-qa|business-reviews)\/inbox\.json/.test(original) ||
         /\/(?:seo-qa|business-reviews)\/inbox\.json/.test(path));
-    // Same for the HTML shell itself — a 5s busy wait left the nav spinner up and
-    // looked like Reviews/Q&A “won’t open”.
-    const lightHtmlFailFast = htmlNavFastPath && isLightInboxHop(original);
     const navFastPath = htmlNavFastPath || appJsonFastPath;
     // Only dial/switch skip script seed + member-profile writes.
     const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
@@ -268,14 +262,13 @@ async function withWorkspace(req, res, next) {
       wid = ids[0] || null;
     }
 
-    const wsReadOpts =
-      inboxHydrateFailFast || lightHtmlFailFast ? { failFast: true } : {};
+    const wsReadOpts = inboxHydrateFailFast ? { failFast: true } : {};
     let ws = null;
     let wsBusy = false;
     try {
       ws = wid ? await getWorkspaceCached(wid, wsReadOpts) : null;
     } catch (e) {
-      if ((inboxHydrateFailFast || lightHtmlFailFast) && isSqliteBusyError(e)) {
+      if (inboxHydrateFailFast && isSqliteBusyError(e)) {
         wsBusy = true;
         ws = null;
       } else {
@@ -291,7 +284,7 @@ async function withWorkspace(req, res, next) {
         try {
           cand = await getWorkspaceCached(id, wsReadOpts);
         } catch (e) {
-          if ((inboxHydrateFailFast || lightHtmlFailFast) && isSqliteBusyError(e)) {
+          if (inboxHydrateFailFast && isSqliteBusyError(e)) {
             wsBusy = true;
             break;
           }
@@ -304,26 +297,15 @@ async function withWorkspace(req, res, next) {
         }
       }
     }
-    // Light HTML hop + busy: paint shell from session id rather than 500 / spinner trap.
-    if (lightHtmlFailFast && wsBusy && !ws) {
-      const stubId =
-        (req.session &&
-          (req.session.activeWorkspaceId || req.session.workspaceId) &&
-          String(req.session.activeWorkspaceId || req.session.workspaceId)) ||
-        wid ||
-        '';
-      if (stubId) {
-        wid = stubId;
-        const em = String(email || '')
-          .toLowerCase()
-          .trim();
-        ws = {
-          id: stubId,
-          name: 'Workspace',
-          ownerUserId: em || undefined,
-          members: em ? { [em]: { role: 'owner' } } : {},
-        };
-      }
+
+    // inbox.json failFast busy with no cached workspace — 503 so the client retries
+    // instead of a false "not on a workspace" 403.
+    if (wsBusy && !ws && inboxHydrateFailFast) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Inbox temporarily busy — retrying…',
+      });
     }
 
     if (!ws || !wid) {
@@ -481,7 +463,7 @@ async function withWorkspace(req, res, next) {
   } catch (err) {
     const msg = String((err && err.message) || err || '');
     const code = String((err && (err.code || err.name)) || '');
-    const busy = /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
+    const busy = isSqliteBusyError({ code, message: msg });
     const original = String(req.originalUrl || req.path || '');
     if (
       busy &&

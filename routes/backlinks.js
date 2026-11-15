@@ -11,6 +11,7 @@ const { syncBacklinksProject } = require('../services/backlinksSync');
 const { searchLocalCompetitors, cleanDomain } = require('../services/backlinksLocalCompetitors');
 const localSeoStore = require('../services/localSeoStore');
 const { isDirectoryOrPlatformDomain } = require('../services/backlinksParse');
+const { isSqliteBusyError } = require('../lib/isSqliteBusyError');
 
 const router = express.Router();
 
@@ -88,8 +89,7 @@ router.get('/status.json', async (req, res) => {
       dfsReady: dataForSeo.isConfigured(integrationEnv),
     });
   } catch (err) {
-    const msg = String((err && err.message) || '');
-    if (/SQLITE_BUSY|database is locked|busy|locked/i.test(msg)) {
+    if (isSqliteBusyError(err)) {
       return res.status(503).json({
         success: false,
         pending: true,
