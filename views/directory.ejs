@@ -133,7 +133,14 @@
       <div id="dirListLoading" class="px-6 py-12 text-center text-sm text-brand-muted<%= (_inboxPending || _inboxHydrate) && !_listings.length ? '' : ' hidden' %>">Loading listings…</div>
       <div id="dirListEmpty" class="px-6 py-12 text-center text-sm text-brand-muted<%= (!_listings.length && !(_inboxPending || _inboxHydrate)) ? '' : ' hidden' %>">No listings yet. Add a Pipeline lead key above.</div>
       <ul id="dirList" class="divide-y divide-brand-border/30 dark:divide-white/10 m-0 p-0 list-none<%= _listings.length ? '' : ' hidden' %>">
-        <% _listings.forEach(function (row) { if (!row) return; %>
+        <% _listings.forEach(function (row) { if (!row) return;
+          const _summary = String(row.reviewSummary || '').trim();
+          const _addr = String(row.address || '').trim() || [row.city, row.state].filter(Boolean).join(', ');
+          const _phone = String(row.phone || '').trim();
+          const _web = String(row.website || '').trim();
+          const _webHref = _web && !/^https?:\/\//i.test(_web) ? ('https://' + _web) : _web;
+          const _webLabel = _web.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+        %>
         <li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="<%= row.id %>">
           <div class="flex items-start gap-3 min-w-0">
             <input type="checkbox" class="dir-select mt-1.5 rounded border-brand-border shrink-0" value="<%= row.id %>" aria-label="Select <%= row.name %>" />
@@ -142,13 +149,27 @@
               <p class="text-[11px] text-brand-muted mt-0.5">
                 <span class="font-black uppercase tracking-widest <%= row.published ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted' %>"><%= row.published ? 'Published' : 'Draft' %></span>
                 · /<%= row.slug %>
-                <% if (row.city || row.state) { %> · <%= [row.city, row.state].filter(Boolean).join(', ') %><% } %>
                 <% if (row.category) { %> · <%= row.category %><% } %>
-                <% if (row.rating != null) { %> · <%= Number(row.rating).toFixed(1) %>★<% if (row.reviewCount != null) { %> (<%= row.reviewCount %>)<% } %><% } %>
-                <% if (row.reviewSentiment) { %> · <%= String(row.reviewSentiment).replace(/_/g, ' ') %><% } %>
               </p>
-              <% if (row.description || row.blurb || row.reviewSummary) { %>
-              <p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-2 leading-relaxed line-clamp-2"><%= row.blurb || row.description || row.reviewSummary %></p>
+              <% if (_addr || _phone || _web) { %>
+              <p class="text-[11px] text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed break-words">
+                <% if (_addr) { %><span><%= _addr %></span><% } %>
+                <% if (_phone) { %><% if (_addr) { %> · <% } %><a class="underline-offset-2 hover:underline" href="tel:<%= _phone.replace(/[^\d+]/g, '') %>"><%= _phone %></a><% } %>
+                <% if (_web) { %><% if (_addr || _phone) { %> · <% } %><a class="underline-offset-2 hover:underline break-all" href="<%= _webHref %>" target="_blank" rel="noopener noreferrer"><%= _webLabel %></a><% } %>
+              </p>
+              <% } %>
+              <p class="text-[11px] mt-1.5 <%= row.rating != null ? 'text-brand-dark dark:text-slate-200 font-semibold' : 'text-brand-muted' %>">
+                <% if (row.rating != null) { %>
+                  <%= Number(row.rating).toFixed(1) %>★<% if (row.reviewCount != null) { %> (<%= row.reviewCount %> review<%= Number(row.reviewCount) === 1 ? '' : 's' %>)<% } %>
+                  <% if (row.reviewSentiment) { %> · <%= String(row.reviewSentiment).replace(/_/g, ' ') %><% } %>
+                <% } else { %>
+                  No review score yet
+                <% } %>
+              </p>
+              <% if (_summary) { %>
+              <p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed line-clamp-3"><%= _summary %></p>
+              <% } else { %>
+              <p class="text-[11px] text-brand-muted mt-1.5 italic">No review summary yet — use Pull reviews</p>
               <% } %>
             </div>
           </div>
@@ -373,17 +394,49 @@
       setEditOpen(true);
     }
     function renderRow(row) {
-      var loc = [row.city, row.state].filter(Boolean).join(', ');
       var pubClass = row.published
         ? 'text-emerald-700 dark:text-emerald-300'
         : 'text-brand-muted';
-      var ratingBit = row.rating != null
-        ? (' · ' + Number(row.rating).toFixed(1) + '★' + (row.reviewCount != null ? ' (' + row.reviewCount + ')' : ''))
-        : '';
-      var sentimentBit = row.reviewSentiment
-        ? (' · ' + String(row.reviewSentiment).replace(/_/g, ' '))
-        : '';
-      var blurb = row.blurb || row.description || row.reviewSummary || '';
+      var summary = String(row.reviewSummary || '').trim();
+      var addr = String(row.address || '').trim() || [row.city, row.state].filter(Boolean).join(', ');
+      var phone = String(row.phone || '').trim();
+      var web = String(row.website || '').trim();
+      var webHref = web && !/^https?:\/\//i.test(web) ? ('https://' + web) : web;
+      var webLabel = web.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+      var contactBits = [];
+      if (addr) contactBits.push('<span>' + esc(addr) + '</span>');
+      if (phone) {
+        contactBits.push(
+          '<a class="underline-offset-2 hover:underline" href="tel:' +
+            esc(phone.replace(/[^\d+]/g, '')) +
+            '">' +
+            esc(phone) +
+            '</a>'
+        );
+      }
+      if (web) {
+        contactBits.push(
+          '<a class="underline-offset-2 hover:underline break-all" href="' +
+            esc(webHref) +
+            '" target="_blank" rel="noopener noreferrer">' +
+            esc(webLabel) +
+            '</a>'
+        );
+      }
+      var ratingLine =
+        row.rating != null
+          ? (esc(Number(row.rating).toFixed(1) + '★') +
+              (row.reviewCount != null
+                ? ' (' + esc(String(row.reviewCount)) + ' review' + (Number(row.reviewCount) === 1 ? '' : 's') + ')'
+                : '') +
+              (row.reviewSentiment
+                ? ' · ' + esc(String(row.reviewSentiment).replace(/_/g, ' '))
+                : ''))
+          : 'No review score yet';
+      var ratingClass =
+        row.rating != null
+          ? 'text-brand-dark dark:text-slate-200 font-semibold'
+          : 'text-brand-muted';
       return '<li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="' + esc(row.id) + '">'
         + '<div class="flex items-start gap-3 min-w-0">'
         + '<input type="checkbox" class="dir-select mt-1.5 rounded border-brand-border shrink-0" value="' + esc(row.id) + '" aria-label="Select ' + esc(row.name) + '" />'
@@ -392,14 +445,17 @@
         + '<p class="text-[11px] text-brand-muted mt-0.5">'
         + '<span class="font-black uppercase tracking-widest ' + pubClass + '">' + (row.published ? 'Published' : 'Draft') + '</span>'
         + ' · /' + esc(row.slug || '')
-        + (loc ? ' · ' + esc(loc) : '')
         + (row.category ? ' · ' + esc(row.category) : '')
-        + ratingBit
-        + esc(sentimentBit)
         + '</p>'
-        + (blurb
-          ? ('<p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-2 leading-relaxed line-clamp-2">' + esc(blurb) + '</p>')
+        + (contactBits.length
+          ? ('<p class="text-[11px] text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed break-words">' +
+              contactBits.join(' · ') +
+              '</p>')
           : '')
+        + '<p class="text-[11px] mt-1.5 ' + ratingClass + '">' + ratingLine + '</p>'
+        + (summary
+          ? ('<p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed line-clamp-3">' + esc(summary) + '</p>')
+          : '<p class="text-[11px] text-brand-muted mt-1.5 italic">No review summary yet — use Pull reviews</p>')
         + '</div></div>'
         + '<div class="flex flex-wrap gap-2 shrink-0">'
         + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-open" data-id="' + esc(row.id) + '">Edit</button>'

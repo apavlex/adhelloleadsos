@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Directory listing rows: address/phone/web/rating/summary (1.0.772)
+
+### What
+- Dashboard listing cards show address, phone, website, review score, and review summary (not city/blurb only).
+- Drop bogus AI placeholder “paragraph text” from public summaries.
+
+### Key files
+- `views/directory.ejs`, `services/reviewIntel.js`
+
 ## 2026-11-14 — Directory review summary customer-facing (1.0.771)
 
 ### What / why

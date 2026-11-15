@@ -37,4 +37,11 @@ test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings
   assert.match(view, /\/directory\/listings\/scrape-reviews/);
   assert.match(view, /jobId/);
   assert.match(view, /Pulling reviews in the background/);
+  // Dashboard rows show contact + review score/summary (not just city/blurb).
+  assert.match(view, /row\.address/);
+  assert.match(view, /row\.phone/);
+  assert.match(view, /row\.website/);
+  assert.match(view, /reviewSummary/);
+  assert.match(view, /No review score yet/);
+  assert.match(view, /No review summary yet/);
 });

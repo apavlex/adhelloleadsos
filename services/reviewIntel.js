@@ -15,6 +15,8 @@ const { chatCompletion, parseLlmJson } = require('./llmClient');
 function toPublicReviewSummary(text, maxLen = 800) {
   const raw = String(text || '').trim();
   if (!raw) return '';
+  // Reject LLM placeholder leakage from the JSON schema example.
+  if (/^paragraph\s*text\.?$/i.test(raw)) return '';
   const salesy =
     /\b(sales angle|sales conversation|good sales|cold\s*-?\s*call|outreach angle|talking point|when you (?:call|pitch|reach out)|pitch (?:them|the owner)|use (?:this|their|the).{0,60}\bto (?:discuss|sell|pitch|close|attract more))\b/i;
   const parts = raw.split(/(?<=[.!?])\s+/).map((p) => p.trim()).filter(Boolean);
@@ -29,6 +31,7 @@ function toPublicReviewSummary(text, maxLen = 800) {
       .replace(/\s{2,}/g, ' ')
       .trim();
   }
+  if (/^paragraph\s*text\.?$/i.test(out)) return '';
   if (out.length > maxLen) out = `${out.slice(0, Math.max(0, maxLen - 1)).trim()}…`;
   return out;
 }

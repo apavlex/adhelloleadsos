@@ -264,7 +264,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Shell-first always/);
   assert.match(qaRoute, /Shell-first always/);
-  assert.match(sw, /adhello-pwa-v1\.0\.771/);
+  assert.match(sw, /adhello-pwa-v1\.0\.772/);
 });
 
 test('Marketing Studio HTML never awaits getAllLeads (menu hops stay responsive)', () => {

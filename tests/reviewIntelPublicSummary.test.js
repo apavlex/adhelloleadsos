@@ -7,6 +7,11 @@ const {
   toPublicReviewSnippet,
 } = require('../services/reviewIntel');
 
+test('toPublicReviewSummary drops LLM placeholder "paragraph text"', () => {
+  assert.equal(toPublicReviewSummary('paragraph text'), '');
+  assert.equal(toPublicReviewSummary('Paragraph text.'), '');
+});
+
 test('toPublicReviewSummary strips sales-coaching sentences', () => {
   const raw =
     '4 Elements Landscape & Design has a perfect 5-star rating from 2 reviews, and customers praise the team for going out of their way. A good sales angle is to use their strong reputation and positive customer feedback to discuss ways to attract more local leads and improve visibility.';
