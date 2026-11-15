@@ -43,8 +43,13 @@
     </div>
 
     <div id="activityFeed" class="space-y-4">
+      <% const _hydrate = typeof activityHydrate !== 'undefined' && !!activityHydrate; %>
       <% const _groups = typeof activityGroups !== 'undefined' && activityGroups ? activityGroups : []; %>
-      <% if (!_groups.length) { %>
+      <% if (_hydrate && !_groups.length) { %>
+      <div id="activityLoading" class="brand-card p-12 text-center dark:bg-slate-900 dark:border-white/10" role="status">
+        <p class="text-brand-muted dark:text-slate-400 font-medium">Loading activity…</p>
+      </div>
+      <% } else if (!_groups.length) { %>
       <div class="brand-card p-12 text-center dark:bg-slate-900 dark:border-white/10">
         <p class="text-brand-muted dark:text-slate-400 font-medium">No activity in this filter yet.</p>
         <p class="text-xs text-brand-muted mt-2">Post notes, log calls, or update pipeline status from the lead panel.</p>
@@ -144,13 +149,11 @@
       <% } %>
     </div>
 
-    <% if (_total > _shown) { %>
-    <div class="mt-6 text-center">
-      <button type="button" id="activityLoadMore" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">
+    <div class="mt-6 text-center<%= (_hydrate || _total > _shown) ? '' : ' hidden' %>">
+      <button type="button" id="activityLoadMore" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors<%= _hydrate && !_groups.length ? ' hidden' : '' %>">
         Load more leads
       </button>
     </div>
-    <% } %>
   </main>
 
   <%- include('partials/lead_detail_panel') %>
@@ -183,6 +186,7 @@
       totalEvents: <%= _totalEvents %>,
       shownEvents: <%= _shownEvents %>,
       sinceDays: <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %>,
+      hydrate: <%= _hydrate ? 'true' : 'false' %>,
     };
   </script>
   <script src="/js/activity-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>

@@ -145,29 +145,23 @@ router.get('/', async (req, res, next) => {
   try {
     const filter = String(req.query.filter || 'all').trim().toLowerCase();
     const safeFilter = FILTERS.some((f) => f.id === filter) ? filter : 'all';
-    const { leads, folders, folderMap, tags, tagMap, pipelineStages } = await loadActivityContext(req);
-    const feed = buildWorkspaceActivityFeed(leads, {
-      filter: safeFilter,
-      limit: 50,
-      offset: 0,
-    });
-    const groups = attachTeammates(req, feed.groups).map((group) => enrichActivityGroup(group, folderMap, tagMap));
-    const shownEvents = groups.reduce(function (sum, g) {
-      return sum + (g.eventCount || (g.events && g.events.length) || 0);
-    }, 0);
+    // Shell-first: never await listLeadsWithActivityTail on HTML — that one-shot
+    // .all() locked SQLite and froze the whole menu. Feed hydrates via /activity/api.
+    res.set('Cache-Control', 'private, no-store');
     res.render('activity', {
       title: 'Recent Activity | Agency OS',
       activePage: 'activity',
       activityFilters: FILTERS,
       activeFilter: safeFilter,
-      activityGroups: groups,
-      activityTotal: feed.total,
-      activityTotalEvents: feed.totalEvents,
-      activityShownEvents: shownEvents,
-      activitySinceDays: feed.sinceDays,
-      folders,
-      tags,
-      pipelineStages,
+      activityGroups: [],
+      activityTotal: 0,
+      activityTotalEvents: 0,
+      activityShownEvents: 0,
+      activitySinceDays: 14,
+      activityHydrate: true,
+      folders: [],
+      tags: [],
+      pipelineStages: [],
     });
   } catch (e) {
     next(e);

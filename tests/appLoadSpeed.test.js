@@ -142,9 +142,13 @@ test('engagement and activity skip full-workspace lead scans on first paint', ()
   const eng = fs.readFileSync(path.join(root, 'routes/engagement.js'), 'utf8');
   const engView = fs.readFileSync(path.join(root, 'views/engagement.ejs'), 'utf8');
   const act = fs.readFileSync(path.join(root, 'routes/activity.js'), 'utf8');
+  const actView = fs.readFileSync(path.join(root, 'views/activity.ejs'), 'utf8');
+  const actJs = fs.readFileSync(path.join(root, 'public/js/activity-page.js'), 'utf8');
+  const seq = fs.readFileSync(path.join(root, 'routes/sequences.js'), 'utf8');
   const ceo = fs.readFileSync(path.join(root, 'routes/ceo.js'), 'utf8');
   const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
   const shellJs = fs.readFileSync(path.join(root, 'public/js/navbar-shell.js'), 'utf8');
+  const nav = fs.readFileSync(path.join(root, 'views/partials/app_nav_items.ejs'), 'utf8');
   assert.match(db, /listLeadsForEngagementInbox/);
   assert.match(db, /listLeadsWithActivityTail/);
   assert.match(eng, /listLeadsForEngagementInbox/);
@@ -152,8 +156,28 @@ test('engagement and activity skip full-workspace lead scans on first paint', ()
   assert.match(eng, /pending:\s*true/);
   assert.match(engView, /runHydrate/);
   assert.match(shellJs, /engagement/);
+  // Activity HTML is shell-first; heavy scan only on /activity/api.
+  assert.match(act, /activityHydrate:\s*true/);
+  assert.match(act, /Shell-first/);
+  const actHtmlGet = act.slice(act.indexOf("router.get('/')"), act.indexOf("router.get('/api'"));
+  assert.doesNotMatch(actHtmlGet, /loadActivityContext/);
+  assert.match(actView, /activityHydrate/);
+  assert.match(actJs, /cfg\.hydrate/);
   assert.match(act, /listLeadsWithActivityTail/);
   assert.doesNotMatch(act, /getAllLeads/);
+  // Sequences never await getAllLeads on HTML (warm peek or extras.json only).
+  assert.match(seq, /Never await getAllLeads on HTML/);
+  assert.match(seq, /extras\.json/);
+  assert.match(seq, /peekCachedLeads/);
+  assert.match(seq, /sequencesHydrate/);
+  // HTML GET must not await getAllLeads (POST handlers still may).
+  assert.doesNotMatch(
+    seq.slice(seq.indexOf('// Never await getAllLeads on HTML'), seq.indexOf("router.get('/extras.json'")),
+    /await dbService\.getAllLeads/,
+  );
+  // Pipeline nav skips the /pipeline 302 hop.
+  assert.match(nav, /href="\/prospecting\?tab=pipeline"/);
+  assert.doesNotMatch(nav, /href="\/pipeline"/);
   assert.match(ceo, /light:\s*true/);
 });
 
@@ -199,6 +223,8 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(today, /Promise\.race/);
   assert.match(prospecting, /Warm-only lead list/);
   assert.match(prospecting, /Do not schedule deferred getAllLeads/);
+  assert.match(prospecting, /Warm cache only on HTML/);
+  assert.match(prospecting, /never start a folder-key cold scan/);
   const pipelinePaint = prospecting.slice(
     prospecting.indexOf('async function leadsForPipelinePaint'),
     prospecting.indexOf('async function leadsForPipelinePaint') + 500,
@@ -206,6 +232,11 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(pipelinePaint, /Promise\.race/);
   assert.doesNotMatch(pipelinePaint, /setTimeout/);
   assert.doesNotMatch(pipelinePaint, /void dbService\.getAllLeads/);
+  const openFolderChunk = prospecting.slice(
+    prospecting.indexOf('if (openFolderScoped)'),
+    prospecting.indexOf('if (openFolderScoped)') + 1200,
+  );
+  assert.doesNotMatch(openFolderChunk, /await dbService\.listLeadsByFolderKeys/);
   const unscopedStart = db.indexOf('async getAllLeadsUnscoped');
   assert.ok(unscopedStart > 0);
   const unscopedChunk = db.slice(unscopedStart, unscopedStart + 1600);
@@ -232,7 +263,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Shell-first always/);
   assert.match(qaRoute, /Shell-first always/);
-  assert.match(sw, /adhello-pwa-v1\.0\.764/);
+  assert.match(sw, /adhello-pwa-v1\.0\.765/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {

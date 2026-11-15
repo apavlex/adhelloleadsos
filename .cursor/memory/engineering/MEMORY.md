@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Shell-first Activity/Cadences + Pipeline no-302 (1.0.765)
+
+### What / why
+- 764 throttled session touch but Activity/Cadences/Pipeline still awaited fat lead scans before paint — user still felt “not fixed.”
+- Activity HTML shells + `/activity/api` hydrate; Cadences warm-or-shell + `/sequences/extras.json`; Pipeline nav goes straight to `/prospecting?tab=pipeline` and uses warm leads + lite folders (no `listLeadsByFolderKeys` on paint).
+
+### Key files
+- `routes/activity.js`, `public/js/activity-page.js`, `routes/sequences.js`, `routes/prospecting.js`, `views/partials/app_nav_items.ejs`
+
 ## 2026-11-14 — App-wide loading: SQLite session + deferred scans (1.0.764)
 
 ### What / why

@@ -235,9 +235,9 @@ router.post('/custom/stop', express.json(), async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    const ws = await dbService.getWorkspace(req.workspaceId);
-    const all = await dbService.getAllLeads(req.workspaceId);
-    const leads = filterLeadsForRequest(req, all);
+    // Never await getAllLeads on HTML — Cadences was the worst menu freeze.
+    // Prefer warm lead cache; otherwise paint shell and hydrate via /sequences/extras.json.
+    const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId));
     const templates = serializeSequenceTemplates(req, ws).map((t) => ({
       id: t.id,
       persona: t.persona,
@@ -245,12 +245,51 @@ router.get('/', async (req, res, next) => {
       description: t.description,
       stepCount: t.stepCount,
     }));
+    const warm =
+      typeof dbService.peekCachedLeads === 'function'
+        ? dbService.peekCachedLeads(req.workspaceId)
+        : null;
+    const leads = warm ? filterLeadsForRequest(req, warm) : [];
+    const needsHydrate = !warm;
+    if (needsHydrate) {
+      const inflight =
+        typeof dbService.countLeadsListInflight === 'function'
+          ? dbService.countLeadsListInflight()
+          : 0;
+      if (inflight < 1) {
+        void dbService.getAllLeads(req.workspaceId).catch(() => {});
+      }
+    }
     const active = leads.filter(
-      (l) => l.sequenceState && l.sequenceState.status === 'active'
+      (l) => l.sequenceState && l.sequenceState.status === 'active',
     );
-    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
-    const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
-    const ghlLocals = await buildGhlOutreachLocals(req, ws, leads);
+    let pipelineStages = [];
+    let ghlLocals = {
+      ghlStatus: { configured: false },
+      ghlOutreach: {
+        tagName: prospectingEnroll.AUTO_OUTREACH_TAG_NAME,
+        dailyCap: prospectingEnroll.AUTO_OUTREACH_DAILY_CAP,
+        enrolledToday: 0,
+        campaigns: null,
+      },
+      ghlOutreachLeads: [],
+      folderPrompts: [],
+      senderOffers: [],
+    };
+    if (warm) {
+      const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
+      pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
+      ghlLocals = await buildGhlOutreachLocals(req, ws, leads);
+    } else {
+      try {
+        const env = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId).catch(() => ({}));
+        ghlLocals.ghlStatus = ghlSync.statusFromEnv(env);
+      } catch (_) {}
+      try {
+        ghlLocals.senderOffers = senderOfferPicklist(ws);
+      } catch (_) {}
+    }
+    res.set('Cache-Control', 'private, no-store');
     res.render('sequences', {
       title: 'Cadences | Agency OS',
       activePage: 'sequences',
@@ -261,6 +300,62 @@ router.get('/', async (req, res, next) => {
       customCadences: customCadences.cadencesWithLeads(ws, leads),
       cadenceChannels: customCadences.CHANNELS,
       cadenceMergeTokens: Object.keys(customCadences.MERGE_TOKENS),
+      sequencesHydrate: needsHydrate,
+      ...ghlLocals,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/extras.json', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const warm =
+      typeof dbService.peekCachedLeads === 'function'
+        ? dbService.peekCachedLeads(req.workspaceId)
+        : null;
+    if (!warm) {
+      const inflight =
+        typeof dbService.countLeadsListInflight === 'function'
+          ? dbService.countLeadsListInflight()
+          : 0;
+      if (inflight < 1) {
+        void dbService.getAllLeads(req.workspaceId).catch(() => {});
+      }
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Cadences warming — retrying…',
+      });
+    }
+    const ws = req.workspace || (await dbService.getWorkspace(req.workspaceId));
+    const leads = filterLeadsForRequest(req, warm);
+    const active = leads.filter(
+      (l) => l.sequenceState && l.sequenceState.status === 'active',
+    );
+    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
+    const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
+    const ghlLocals = await buildGhlOutreachLocals(req, ws, leads);
+    res.json({
+      success: true,
+      activeSequences: active.map((l) => ({
+        key: l.key,
+        title: l.title,
+        sequenceState: l.sequenceState || null,
+      })),
+      activeCount: active.length,
+      pipelineStages,
+      customCadences: customCadences.cadencesWithLeads(ws, leads).map((c) => ({
+        id: c.id,
+        name: c.name,
+        goal: c.goal,
+        summary: c.summary,
+        tagName: c.tagName,
+        ghlSetupAt: c.ghlSetupAt || '',
+        leads: (c.leads || []).slice(0, 25),
+        leadCount: (c.leads || []).length,
+      })),
       ...ghlLocals,
     });
   } catch (e) {

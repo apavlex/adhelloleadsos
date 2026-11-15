@@ -194,10 +194,19 @@ router.get('/', async (req, res, next) => {
     let folderTree;
     let scopedFolderKey = folderKeyFromQuery;
     if (openFolderScoped) {
+      // Prefer lite folders + warm leads on first paint. listLeadsByFolderKeys parses
+      // every lead in the Businesses tree and froze menu hops when the folder was large.
+      // Remaining rows still load via /prospecting/table-rows.
+      const foldersPromise =
+        typeof dbService.listFoldersLite === 'function'
+          ? dbService.listFoldersLite(wid)
+          : dbService.listFolders(wid);
       [foldersInitial, tags, wsRaw] = await Promise.all([
-        dbService.listFolders(wid),
+        foldersPromise,
         dbService.listTags(wid),
-        dbService.getWorkspace(wid),
+        Promise.resolve(req.workspace || null).then((cached) =>
+          cached || dbService.getWorkspace(wid),
+        ),
       ]);
       folders = Array.isArray(foldersInitial) ? foldersInitial : [];
       folderTree = buildFolderTree(folders);
@@ -207,15 +216,13 @@ router.get('/', async (req, res, next) => {
         );
         if (bizFolder && bizFolder.key) scopedFolderKey = String(bizFolder.key);
       }
-      if (scopedFolderKey) {
+      // Warm cache only on HTML — never start a folder-key cold scan on menu paint.
+      all = await leadsForPipelinePaint(wid);
+      if (scopedFolderKey && Array.isArray(all) && all.length) {
         const scopedKeys =
           folderKeysIncludingDescendants(folderTree, scopedFolderKey) ||
           new Set([scopedFolderKey]);
-        all = await dbService.listLeadsByFolderKeys(wid, scopedKeys);
-      } else {
-        // Remembered rule: never await a cold full-workspace scan on a menu hop —
-        // that locked SQLite and left Reviews/Q&A/Engagement/Links on frost.
-        all = await leadsForPipelinePaint(wid);
+        all = all.filter((l) => l && scopedKeys.has(String(l.folderKey || '')));
       }
     } else {
       const [warmOrCold, foldersInitialRows, tagsRows, wsDoc] = await Promise.all([

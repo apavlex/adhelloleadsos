@@ -131,12 +131,15 @@
       <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Active in-app cadences</h2>
-          <p class="text-sm text-brand-muted"><%= typeof activeCount !== 'undefined' ? activeCount : 0 %> lead(s) with status <span class="font-semibold text-brand-yellow">active</span></p>
+          <p id="seqActiveCount" class="text-sm text-brand-muted"><%= typeof activeCount !== 'undefined' ? activeCount : 0 %> lead(s) with status <span class="font-semibold text-brand-yellow">active</span></p>
         </div>
-        <a href="/pipeline" class="text-sm font-black uppercase tracking-widest text-brand-yellow hover:underline">Open Pipeline</a>
+        <a href="/prospecting?tab=pipeline" class="text-sm font-black uppercase tracking-widest text-brand-yellow hover:underline">Open Pipeline</a>
       </div>
-      <% if (!activeSequences || activeSequences.length === 0) { %>
-        <p class="text-sm text-brand-muted italic">No active sequences. Open a lead on <a href="/pipeline" class="text-brand-yellow font-bold hover:underline">Pipeline</a> (saved leads), run a touch from the row (e.g. voicemail disposition auto-attaches the audit cadence), or start via the API below.</p>
+      <div id="seqActiveList">
+      <% if (typeof sequencesHydrate !== 'undefined' && sequencesHydrate && (!activeSequences || !activeSequences.length)) { %>
+        <p id="seqActiveLoading" class="text-sm text-brand-muted" role="status">Loading active cadences…</p>
+      <% } else if (!activeSequences || activeSequences.length === 0) { %>
+        <p class="text-sm text-brand-muted italic">No active sequences. Open a lead on <a href="/prospecting?tab=pipeline" class="text-brand-yellow font-bold hover:underline">Pipeline</a> (saved leads), run a touch from the row (e.g. voicemail disposition auto-attaches the audit cadence), or start via the API below.</p>
       <% } else { %>
         <ul class="space-y-2">
           <% activeSequences.slice(0, 20).forEach((l) => { %>
@@ -150,6 +153,7 @@
         </ul>
         <p class="text-[11px] text-brand-muted mt-3">Tip: click a row to open the same business sidebar as on Pipeline.</p>
       <% } %>
+      </div>
     </div>
 
     <% const _gs = typeof ghlStatus !== 'undefined' && ghlStatus ? ghlStatus : {}; %>
@@ -356,6 +360,62 @@
         .catch(function () { setConn(false, 'Could not check'); });
     })();
   </script>
+  <% if (typeof sequencesHydrate !== 'undefined' && sequencesHydrate) { %>
+  <script>
+    (function () {
+      var attempts = 0;
+      var max = 5;
+      function esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      function run() {
+        attempts += 1;
+        fetch('/sequences/extras.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, data: d }; }); })
+          .then(function (parsed) {
+            if (parsed.data && parsed.data.pending && attempts < max) {
+              setTimeout(run, Math.min(1500, 500 * attempts));
+              return;
+            }
+            if (!parsed.ok || !parsed.data || !parsed.data.success) {
+              if (attempts < max) {
+                setTimeout(run, Math.min(1500, 600 * attempts));
+                return;
+              }
+              var loading = document.getElementById('seqActiveLoading');
+              if (loading) loading.textContent = 'Could not load enrollments — refresh to retry.';
+              return;
+            }
+            var data = parsed.data;
+            var countEl = document.getElementById('seqActiveCount');
+            if (countEl) {
+              countEl.innerHTML = (data.activeCount || 0) + ' lead(s) with status <span class="font-semibold text-brand-yellow">active</span>';
+            }
+            var list = document.getElementById('seqActiveList');
+            var rows = Array.isArray(data.activeSequences) ? data.activeSequences : [];
+            if (list) {
+              if (!rows.length) {
+                list.innerHTML = '<p class="text-sm text-brand-muted italic">No active sequences. Open a lead on <a href="/prospecting?tab=pipeline" class="text-brand-yellow font-bold hover:underline">Pipeline</a>.</p>';
+              } else {
+                var html = '<ul class="space-y-2">';
+                rows.slice(0, 20).forEach(function (l) {
+                  var st = l.sequenceState || {};
+                  html += '<li><button type="button" class="cadence-lead-open group w-full flex flex-wrap justify-between gap-2 p-4 rounded-2xl bg-brand-cream/40 dark:bg-white/5 border border-brand-border/50 text-left" data-lead-key="' + esc(l.key) + '"><span class="font-bold">' + esc(l.title) + '</span><span class="text-xs text-brand-muted">' + esc(st.templateId || '—') + '</span></button></li>';
+                });
+                html += '</ul>';
+                list.innerHTML = html;
+              }
+            }
+            try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
+          })
+          .catch(function () {
+            if (attempts < max) setTimeout(run, Math.min(1500, 600 * attempts));
+          });
+      }
+      run();
+    })();
+  </script>
+  <% } %>
   <%- include('partials/footer') %>
 </body>
 </html>

@@ -407,4 +407,25 @@
   document.querySelectorAll('.activity-folder-select').forEach(function (sel) {
     sel.dataset.prevValue = String(sel.value || '');
   });
+
+  // Shell-first HTML: first paint has no feed; load via /activity/api immediately.
+  if (cfg.hydrate && offset === 0) {
+    var loading = document.getElementById('activityLoading');
+    if (loadMoreBtn) loadMoreBtn.classList.add('hidden');
+    setStatus('Loading activity…');
+    void loadMore().then(function () {
+      if (loading) loading.remove();
+      if (loadMoreBtn && offset < total) loadMoreBtn.classList.remove('hidden');
+      if (!offset && feedEl && !feedEl.querySelector('.activity-group')) {
+        feedEl.innerHTML =
+          '<div class="brand-card p-12 text-center dark:bg-slate-900 dark:border-white/10">' +
+          '<p class="text-brand-muted dark:text-slate-400 font-medium">No activity in this filter yet.</p>' +
+          '<p class="text-xs text-brand-muted mt-2">Post notes, log calls, or update pipeline status from the lead panel.</p>' +
+          '</div>';
+      }
+      try {
+        window.dispatchEvent(new Event('adhello:inbox-hydrated'));
+      } catch (_) {}
+    });
+  }
 })();
