@@ -2,6 +2,7 @@
  * Public feed + detail helpers for the business directory.
  */
 const directoryStore = require('./directoryStore');
+const { toPublicReviewSummary, toPublicReviewSnippet } = require('./reviewIntel');
 
 function publicListingView(row, settings = {}) {
   const showPhone = settings.showPhone !== false;
@@ -10,7 +11,10 @@ function publicListingView(row, settings = {}) {
   const showRating = settings.showRating !== false;
   const showReviews = settings.showReviews !== false;
   const snippets = Array.isArray(row.reviewSnippets)
-    ? row.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean).slice(0, 5)
+    ? row.reviewSnippets
+        .map((s) => toPublicReviewSnippet(String(s || ''), 400))
+        .filter(Boolean)
+        .slice(0, 5)
     : [];
   return {
     id: row.id,
@@ -25,7 +29,8 @@ function publicListingView(row, settings = {}) {
     rating: showRating ? row.rating : null,
     review_count: showRating ? row.reviewCount : null,
     review_sentiment: showRating || showReviews ? row.reviewSentiment || '' : '',
-    review_summary: showReviews ? row.reviewSummary || '' : '',
+    // Customer-facing only — strip leftover sales-coaching sentences from old hunts.
+    review_summary: showReviews ? toPublicReviewSummary(row.reviewSummary || '', 800) : '',
     reviews: showReviews
       ? snippets.map((text) => ({ text }))
       : [],

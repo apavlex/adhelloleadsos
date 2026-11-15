@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Directory review summary customer-facing (1.0.771)
+
+### What / why
+- Review hunt AI prompt was written for sales reps and ended with a “sales angle”; that same text fed the public directory.
+- Prompt is now Google-Maps-style for shoppers; `toPublicReviewSummary` / `toPublicReviewSnippet` strip sales coaching and hunt labels on publish + public API.
+
+### Key files
+- `services/reviewIntel.js`, `services/directoryStore.js`, `services/directoryPublic.js`, `services/directoryPagePrompt.js`
+
 ## 2026-11-14 — Directory scrape batch save (unstick Reviews/Q&A) (1.0.770)
 
 ### What / why

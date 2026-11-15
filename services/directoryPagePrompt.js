@@ -65,7 +65,8 @@ function buildDirectoryPagePrompt({
 2) Detail — ${missingSite ? `${siteLabel}${prefix}/{slug}` : `${site}${prefix}/{slug}`}
    - One page per published business
    - Name as H1, category, city/state, phone, website, rating + review_count, review_sentiment, description/blurb
-   - Show review_summary when present, plus up to a few reviews[].text quotes from the feed
+   - Show review_summary when present as a customer-facing reputation blurb (like Google Maps) — never sales coaching, pitch angles, or “how to use reviews to sell”
+   - Plus up to a few reviews[].text quotes from the feed (plain customer quotes only)
    - Keep the same site chrome as the index
    - 404 state when the slug is missing
 
@@ -104,6 +105,7 @@ This site is a frontend only. Content is curated per workspace in Leads OS → S
 ## Constraints
 - Only show published businesses from the API.
 - Do not invent phone/website/address fields that the API omits.
+- review_summary and reviews are for shoppers hiring the business — never frame them as internal sales intel.
 - If feed URLs are missing, still build the UI with clear TODO comments for the endpoints.
 
 Deliver production-ready AI Studio pages (index + dynamic {slug} detail) that work on ${siteLabel}.`;

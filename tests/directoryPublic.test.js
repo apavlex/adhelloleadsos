@@ -48,7 +48,8 @@ describe('public business directory', () => {
         'Great communication and fair pricing.',
       ],
       reviewIntel: {
-        summary: 'Customers praise punctuality and careful cleanup; a sales angle is review velocity.',
+        summary:
+          'Customers praise punctuality and careful cleanup. A sales angle is review velocity.',
       },
     });
   });
@@ -65,6 +66,7 @@ describe('public business directory', () => {
     assert.equal(listing.reviewSentiment, 'positive');
     assert.equal(listing.reviewSnippets.length, 2);
     assert.match(listing.reviewSummary, /punctuality/i);
+    assert.doesNotMatch(listing.reviewSummary, /sales angle/i);
 
     const bundle = await directoryStore.ensurePublicToken(WID);
     const token = bundle.settings.publicToken;

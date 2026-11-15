@@ -5,6 +5,7 @@
 const crypto = require('crypto');
 const dbService = require('./database');
 const { JOB_TYPES } = require('./scrapeJobTypes');
+const { toPublicReviewSummary, toPublicReviewSnippet } = require('./reviewIntel');
 
 const TOKEN_KV_PREFIX = 'directoryToken:';
 
@@ -166,9 +167,13 @@ function leadPublicFields(lead) {
       '',
     1200,
   );
-  const reviewSnippets = leadReviewSnippets(l);
+  const reviewSnippets = leadReviewSnippets(l)
+    .map((s) => toPublicReviewSnippet(s, 400))
+    .filter(Boolean)
+    .slice(0, 5);
   const intel = l.reviewIntel && typeof l.reviewIntel === 'object' ? l.reviewIntel : null;
-  const reviewSummary = clean(
+  // Public directory is customer-facing — never publish sales-coaching intel copy.
+  const reviewSummary = toPublicReviewSummary(
     (intel && (intel.summary || intel.text)) || '',
     800,
   );
@@ -211,7 +216,10 @@ function normalizeListing(raw, fallbackId) {
       ? null
       : Math.max(0, Math.floor(Number(row.reviewCount) || 0));
   const reviewSnippets = Array.isArray(row.reviewSnippets)
-    ? row.reviewSnippets.map((s) => clean(s, 400)).filter(Boolean).slice(0, 5)
+    ? row.reviewSnippets
+        .map((s) => toPublicReviewSnippet(s, 400))
+        .filter(Boolean)
+        .slice(0, 5)
     : [];
   const reviewSentiment =
     clean(row.reviewSentiment, 40) ||
@@ -234,7 +242,7 @@ function normalizeListing(raw, fallbackId) {
     description: clean(row.description, 1200),
     blurb: clean(row.blurb, 400),
     reviewSnippets,
-    reviewSummary: clean(row.reviewSummary, 800),
+    reviewSummary: toPublicReviewSummary(row.reviewSummary || '', 800),
     reviewSentiment,
     published: row.published === true,
     createdAt: row.createdAt || new Date().toISOString(),
