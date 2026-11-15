@@ -311,13 +311,15 @@ function readJsonReply(r) {
     var retry = el.querySelector('#adhelloNavProgressRetry');
     if (retry) retry.classList.add('hidden');
     clearTimeout(hideNavProgress._stall);
+    // Mobile: surface Retry sooner — without auto-assign (that aborted in-flight HTML).
+    var stallMs = isLikelyDesktopNav() ? 4500 : 2800;
     hideNavProgress._stall = setTimeout(function () {
       var bar = document.getElementById('adhelloNavProgress');
       if (!bar || !bar.classList.contains('is-on')) return;
       bar.classList.add('is-stalled');
       var btn = bar.querySelector('#adhelloNavProgressRetry');
       if (btn) btn.classList.remove('hidden');
-    }, 4500);
+    }, stallMs);
   }
 
   /** Real evidence for menu hops: click → pageshow / hydrate (not code-review guesses). */
@@ -496,19 +498,12 @@ function readJsonReply(r) {
           && !(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || el.target === '_blank');
         if (leaving) {
           clearNavOverlaysForLeave(href);
-          // Stuck :active with drawer open meant the browser never navigated.
-          // Wait longer than 1.8s — that watchdog hammered assign during SQLite
-          // busy (Directory scrape) and made the whole app feel crashed.
-          try {
-            var abs = new URL(href, window.location.origin).href;
-            var from = window.location.href;
-            clearTimeout(clearNavOverlaysForLeave._menuNavWatch);
-            clearNavOverlaysForLeave._menuNavWatch = setTimeout(function () {
-              if (window.location.href === from) {
-                try { window.location.assign(abs); } catch (_) { window.location.href = abs; }
-              }
-            }, 5000);
-          } catch (_) {}
+          // Do NOT auto location.assign here. On iOS the URL often stays on the
+          // outgoing page until HTML starts arriving — a 5s assign aborted the
+          // in-flight Reviews/Q&A hop and looped "doesn't load" on mobile.
+          // Progress stall already offers "Still opening — tap to retry".
+          clearTimeout(clearNavOverlaysForLeave._menuNavWatch);
+          clearNavOverlaysForLeave._menuNavWatch = null;
         } else closeMobileMenu();
       });
     });
