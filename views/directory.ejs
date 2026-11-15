@@ -115,31 +115,46 @@
     </section>
 
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden" aria-label="Directory listings">
-      <div class="px-5 sm:px-6 py-4 border-b border-brand-border/40 dark:border-white/10 flex items-center justify-between gap-3">
-        <h2 class="font-display font-bold text-lg">Listings</h2>
-        <p id="dirListCount" class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><% if (_inboxPending) { %>Loading…<% } else { %><%= _listings.length %> item<%= _listings.length === 1 ? '' : 's' %><% } %></p>
+      <div class="px-5 sm:px-6 py-4 border-b border-brand-border/40 dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3 min-w-0">
+          <h2 class="font-display font-bold text-lg">Listings</h2>
+          <p id="dirListCount" class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><% if (_inboxPending) { %>Loading…<% } else { %><%= _listings.length %> item<%= _listings.length === 1 ? '' : 's' %><% } %></p>
+        </div>
+        <div id="dirBulkBar" class="hidden flex flex-wrap items-center gap-2">
+          <label class="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-brand-muted cursor-pointer">
+            <input type="checkbox" id="dirSelectAll" class="rounded border-brand-border" />
+            Select all
+          </label>
+          <span id="dirSelectedCount" class="text-[10px] font-bold text-brand-muted tabular-nums">0 selected</span>
+          <button type="button" id="dirPullReviewsBtn" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest" title="Outscraper pulls ~25 Google reviews per business (~$0.08 after free tier)">Pull reviews</button>
+        </div>
       </div>
+      <p class="px-5 sm:px-6 pt-3 text-[11px] text-brand-muted">Select listings → <strong class="text-brand-dark dark:text-white">Pull reviews</strong> to scrape Google reviews into the lead and Directory (and the public API). Max 15 per run.</p>
       <div id="dirListLoading" class="px-6 py-12 text-center text-sm text-brand-muted<%= (_inboxPending || _inboxHydrate) && !_listings.length ? '' : ' hidden' %>">Loading listings…</div>
       <div id="dirListEmpty" class="px-6 py-12 text-center text-sm text-brand-muted<%= (!_listings.length && !(_inboxPending || _inboxHydrate)) ? '' : ' hidden' %>">No listings yet. Add a Pipeline lead key above.</div>
       <ul id="dirList" class="divide-y divide-brand-border/30 dark:divide-white/10 m-0 p-0 list-none<%= _listings.length ? '' : ' hidden' %>">
         <% _listings.forEach(function (row) { if (!row) return; %>
         <li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="<%= row.id %>">
-          <div class="min-w-0">
-            <button type="button" class="js-dir-open font-display font-bold text-left text-brand-dark dark:text-white hover:text-brand-yellow underline-offset-2 hover:underline" data-id="<%= row.id %>"><%= row.name %></button>
-            <p class="text-[11px] text-brand-muted mt-0.5">
-              <span class="font-black uppercase tracking-widest <%= row.published ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted' %>"><%= row.published ? 'Published' : 'Draft' %></span>
-              · /<%= row.slug %>
-              <% if (row.city || row.state) { %> · <%= [row.city, row.state].filter(Boolean).join(', ') %><% } %>
-              <% if (row.category) { %> · <%= row.category %><% } %>
-              <% if (row.rating != null) { %> · <%= Number(row.rating).toFixed(1) %>★<% if (row.reviewCount != null) { %> (<%= row.reviewCount %>)<% } %><% } %>
-              <% if (row.reviewSentiment) { %> · <%= String(row.reviewSentiment).replace(/_/g, ' ') %><% } %>
-            </p>
-            <% if (row.description || row.blurb || row.reviewSummary) { %>
-            <p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-2 leading-relaxed line-clamp-2"><%= row.blurb || row.description || row.reviewSummary %></p>
-            <% } %>
+          <div class="flex items-start gap-3 min-w-0">
+            <input type="checkbox" class="dir-select mt-1.5 rounded border-brand-border shrink-0" value="<%= row.id %>" aria-label="Select <%= row.name %>" />
+            <div class="min-w-0">
+              <button type="button" class="js-dir-open font-display font-bold text-left text-brand-dark dark:text-white hover:text-brand-yellow underline-offset-2 hover:underline" data-id="<%= row.id %>"><%= row.name %></button>
+              <p class="text-[11px] text-brand-muted mt-0.5">
+                <span class="font-black uppercase tracking-widest <%= row.published ? 'text-emerald-700 dark:text-emerald-300' : 'text-brand-muted' %>"><%= row.published ? 'Published' : 'Draft' %></span>
+                · /<%= row.slug %>
+                <% if (row.city || row.state) { %> · <%= [row.city, row.state].filter(Boolean).join(', ') %><% } %>
+                <% if (row.category) { %> · <%= row.category %><% } %>
+                <% if (row.rating != null) { %> · <%= Number(row.rating).toFixed(1) %>★<% if (row.reviewCount != null) { %> (<%= row.reviewCount %>)<% } %><% } %>
+                <% if (row.reviewSentiment) { %> · <%= String(row.reviewSentiment).replace(/_/g, ' ') %><% } %>
+              </p>
+              <% if (row.description || row.blurb || row.reviewSummary) { %>
+              <p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-2 leading-relaxed line-clamp-2"><%= row.blurb || row.description || row.reviewSummary %></p>
+              <% } %>
+            </div>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">
             <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-open" data-id="<%= row.id %>">Edit</button>
+            <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-scrape" data-id="<%= row.id %>" title="Pull Google reviews for this business">Reviews</button>
             <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="<%= row.id %>" data-published="<%= row.published ? '0' : '1' %>"><%= row.published ? 'Unpublish' : 'Publish' %></button>
             <button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-refresh" data-id="<%= row.id %>">Refresh</button>
             <button type="button" class="btn-pill border border-rose-400/40 text-rose-700 dark:text-rose-300 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-remove" data-id="<%= row.id %>">Remove</button>
@@ -370,6 +385,8 @@
         : '';
       var blurb = row.blurb || row.description || row.reviewSummary || '';
       return '<li class="px-5 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3" data-listing-id="' + esc(row.id) + '">'
+        + '<div class="flex items-start gap-3 min-w-0">'
+        + '<input type="checkbox" class="dir-select mt-1.5 rounded border-brand-border shrink-0" value="' + esc(row.id) + '" aria-label="Select ' + esc(row.name) + '" />'
         + '<div class="min-w-0">'
         + '<button type="button" class="js-dir-open font-display font-bold text-left text-brand-dark dark:text-white hover:text-brand-yellow underline-offset-2 hover:underline" data-id="' + esc(row.id) + '">' + esc(row.name) + '</button>'
         + '<p class="text-[11px] text-brand-muted mt-0.5">'
@@ -383,13 +400,75 @@
         + (blurb
           ? ('<p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-2 leading-relaxed line-clamp-2">' + esc(blurb) + '</p>')
           : '')
-        + '</div>'
+        + '</div></div>'
         + '<div class="flex flex-wrap gap-2 shrink-0">'
         + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-open" data-id="' + esc(row.id) + '">Edit</button>'
+        + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-scrape" data-id="' + esc(row.id) + '" title="Pull Google reviews for this business">Reviews</button>'
         + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-publish" data-id="' + esc(row.id) + '" data-published="' + (row.published ? '0' : '1') + '">' + (row.published ? 'Unpublish' : 'Publish') + '</button>'
         + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-refresh" data-id="' + esc(row.id) + '">Refresh</button>'
         + '<button type="button" class="btn-pill border border-rose-400/40 text-rose-700 dark:text-rose-300 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-remove" data-id="' + esc(row.id) + '">Remove</button>'
         + '</div></li>';
+    }
+    function selectedListingIds() {
+      return Array.prototype.map.call(document.querySelectorAll('.dir-select:checked'), function (el) {
+        return String(el.value || '').trim();
+      }).filter(Boolean);
+    }
+    function syncBulkBar() {
+      var bar = document.getElementById('dirBulkBar');
+      var countEl = document.getElementById('dirSelectedCount');
+      var boxes = document.querySelectorAll('.dir-select');
+      var n = selectedListingIds().length;
+      if (bar) bar.classList.toggle('hidden', !boxes.length);
+      if (countEl) countEl.textContent = n + ' selected';
+      var all = document.getElementById('dirSelectAll');
+      if (all && boxes.length) {
+        all.checked = n > 0 && n === boxes.length;
+        all.indeterminate = n > 0 && n < boxes.length;
+      }
+    }
+    function scrapeReviews(ids) {
+      var listingIds = (ids || []).map(String).filter(Boolean);
+      if (!listingIds.length) {
+        say('Select at least one listing.', false);
+        return Promise.resolve();
+      }
+      if (listingIds.length > 15) {
+        say('Select at most 15 listings per run.', false);
+        return Promise.resolve();
+      }
+      var btn = document.getElementById('dirPullReviewsBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Pulling…';
+      }
+      say('Pulling reviews for ' + listingIds.length + ' listing' + (listingIds.length === 1 ? '' : 's') + '…');
+      return postJson('/directory/listings/scrape-reviews', { listingIds: listingIds })
+        .then(function (data) {
+          var scraped = data && data.scraped != null ? data.scraped : 0;
+          var failed = data && data.failed != null ? data.failed : 0;
+          say(
+            'Reviews done — ' + scraped + ' updated' + (failed ? ', ' + failed + ' failed' : '') + '.',
+            !failed
+          );
+          return fetch('/directory/inbox.json', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          }).then(function (r) { return r.json(); });
+        })
+        .then(function (inbox) {
+          if (inbox && inbox.success) applyInbox(inbox);
+          syncBulkBar();
+        })
+        .catch(function (err) {
+          say(err.message || 'Pull reviews failed', false);
+        })
+        .finally(function () {
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = 'Pull reviews';
+          }
+        });
     }
     function applyInbox(data) {
       var summary = (data && data.summary) || {};
@@ -438,6 +517,7 @@
         list.classList.toggle('hidden', rows.length === 0);
         list.innerHTML = rows.map(renderRow).join('');
       }
+      syncBulkBar();
     }
 
     // Do not SSR-embed listing JSON into this script (EJS escaping breaks JS and
@@ -561,11 +641,34 @@
       });
     }
 
+    document.addEventListener('change', function (e) {
+      if (e.target && (e.target.id === 'dirSelectAll' || e.target.classList.contains('dir-select'))) {
+        if (e.target.id === 'dirSelectAll') {
+          var on = !!e.target.checked;
+          document.querySelectorAll('.dir-select').forEach(function (el) { el.checked = on; });
+        }
+        syncBulkBar();
+      }
+    });
+    var pullBtn = document.getElementById('dirPullReviewsBtn');
+    if (pullBtn) {
+      pullBtn.addEventListener('click', function () {
+        void scrapeReviews(selectedListingIds());
+      });
+    }
+    syncBulkBar();
+
     document.addEventListener('click', function (e) {
       var openBtn = e.target.closest('.js-dir-open');
       if (openBtn) {
         e.preventDefault();
         openEdit(openBtn.getAttribute('data-id'));
+        return;
+      }
+      var scrapeOne = e.target.closest('.js-dir-scrape');
+      if (scrapeOne) {
+        e.preventDefault();
+        void scrapeReviews([scrapeOne.getAttribute('data-id')]);
         return;
       }
       var pub = e.target.closest('.js-dir-publish');

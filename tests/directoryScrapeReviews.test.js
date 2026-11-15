@@ -1,0 +1,27 @@
+const fs = require('fs');
+const path = require('path');
+const test = require('node:test');
+const assert = require('node:assert/strict');
+
+const root = path.join(__dirname, '..');
+
+test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings', () => {
+  const route = fs.readFileSync(path.join(root, 'routes/directory.js'), 'utf8');
+  const view = fs.readFileSync(path.join(root, 'views/directory.ejs'), 'utf8');
+  assert.match(route, /listings\/scrape-reviews/);
+  assert.match(route, /Registered before \/listings\/:id/);
+  assert.match(route, /SCRAPE_REVIEWS_MAX/);
+  assert.match(route, /runReviewHuntForLead/);
+  assert.match(route, /upsertFromLead/);
+  assert.match(route, /updateLead/);
+  assert.match(route, /outscraper\.isConfigured/);
+  // Must be declared before /listings/:id so Express does not treat scrape-reviews as an id.
+  const scrapeAt = route.indexOf("router.post('/listings/scrape-reviews'");
+  const editAt = route.indexOf("router.post('/listings/:id'");
+  assert.ok(scrapeAt > 0 && editAt > scrapeAt);
+  assert.match(view, /dirPullReviewsBtn/);
+  assert.match(view, /scrapeReviews/);
+  assert.match(view, /js-dir-scrape/);
+  assert.match(view, /dir-select/);
+  assert.match(view, /\/directory\/listings\/scrape-reviews/);
+});

@@ -10,6 +10,19 @@ const {
   originFromPageUrl,
 } = require('../services/directoryPagePrompt');
 const { wantsJsonResponse } = require('../lib/httpRequest');
+const reviewHunt = require('../services/reviewHunt');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
+const outscraper = require('../services/outscraperClient');
+
+/** Cap per request — Outscraper is ~$0.08/business after free tier. */
+const SCRAPE_REVIEWS_MAX = Math.min(
+  25,
+  Math.max(1, parseInt(process.env.DIRECTORY_SCRAPE_REVIEWS_MAX || '15', 10) || 15),
+);
+const SCRAPE_REVIEWS_GAP_MS = Math.min(
+  5000,
+  Math.max(0, parseInt(process.env.DIRECTORY_SCRAPE_REVIEWS_GAP_MS || '600', 10) || 600),
+);
 
 function baseUrlFromReq(req) {
   const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
@@ -291,6 +304,131 @@ router.post('/listings/bulk', async (req, res) => {
       success: false,
       error: e.message || 'Bulk add failed',
       errors: e.details || [],
+    });
+  }
+});
+
+/**
+ * Pull Google reviews for selected Directory listings (Outscraper + optional AI summary).
+ * Writes onto the Pipeline lead, then refreshes the listing so the public API picks it up.
+ * Registered before /listings/:id so "scrape-reviews" is not captured as an id.
+ */
+router.post('/listings/scrape-reviews', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const body = req.body || {};
+    const rawIds = Array.isArray(body.listingIds)
+      ? body.listingIds
+      : Array.isArray(body.ids)
+        ? body.ids
+        : String(body.listingIds || body.ids || body.id || '')
+            .split(/[\n,]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+    const listingIds = [...new Set(rawIds.map((id) => String(id || '').trim()).filter(Boolean))];
+    if (!listingIds.length) {
+      return res.status(400).json({ success: false, error: 'Select at least one listing.' });
+    }
+    if (listingIds.length > SCRAPE_REVIEWS_MAX) {
+      return res.status(400).json({
+        success: false,
+        error: `Select at most ${SCRAPE_REVIEWS_MAX} listings per run (Outscraper cost).`,
+        max: SCRAPE_REVIEWS_MAX,
+      });
+    }
+
+    const integrationEnv = await workspaceIntegrations
+      .getResolvedIntegrationEnv(req.workspaceId)
+      .catch(() => ({}));
+    if (!outscraper.isConfigured(integrationEnv)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Outscraper is not configured for this workspace. Add an API key under Integrations.',
+      });
+    }
+
+    const bundle = await directoryStore.load(req.workspaceId);
+    const byId = bundle && bundle.listings && typeof bundle.listings === 'object' ? bundle.listings : {};
+    const results = [];
+    let scraped = 0;
+    let refreshed = 0;
+    let failed = 0;
+
+    for (let i = 0; i < listingIds.length; i++) {
+      const id = listingIds[i];
+      const prev = byId[id];
+      if (!prev || !prev.leadKey) {
+        failed += 1;
+        results.push({ id, ok: false, error: 'Listing not found.' });
+        continue;
+      }
+      try {
+        const lead = await dbService.getLead(prev.leadKey, req.workspaceId);
+        if (!lead) {
+          failed += 1;
+          results.push({ id, leadKey: prev.leadKey, ok: false, error: 'Lead not found.' });
+          continue;
+        }
+        const pack = await reviewHunt.runReviewHuntForLead(lead, integrationEnv);
+        if (!pack || !pack.outscraperConfigured) {
+          failed += 1;
+          results.push({
+            id,
+            leadKey: prev.leadKey,
+            ok: false,
+            error: 'Outscraper is not configured.',
+          });
+          continue;
+        }
+        if (pack.patch && Object.keys(pack.patch).length) {
+          await dbService.updateLead(prev.leadKey, pack.patch, req.workspaceId);
+        }
+        const row = await directoryStore.upsertFromLead(req.workspaceId, prev.leadKey, {
+          published: prev.published,
+          blurb: prev.blurb,
+          slug: prev.slug,
+        });
+        if (pack.used || pack.reviewsFetched) scraped += 1;
+        refreshed += 1;
+        results.push({
+          id,
+          leadKey: prev.leadKey,
+          ok: true,
+          used: !!pack.used,
+          reviewsFetched: !!pack.reviewsFetched,
+          reviewError: pack.reviewError || null,
+          rating: row && row.rating != null ? row.rating : null,
+          reviewCount: row && row.reviewCount != null ? row.reviewCount : null,
+          reviewSummary: row && row.reviewSummary ? row.reviewSummary : '',
+          listing: row,
+        });
+      } catch (e) {
+        failed += 1;
+        results.push({
+          id,
+          leadKey: prev.leadKey,
+          ok: false,
+          error: (e && e.message) || 'Scrape failed',
+        });
+      }
+      if (i < listingIds.length - 1 && SCRAPE_REVIEWS_GAP_MS > 0) {
+        await new Promise((r) => setTimeout(r, SCRAPE_REVIEWS_GAP_MS));
+      }
+    }
+
+    return res.json({
+      success: true,
+      scraped,
+      refreshed,
+      failed,
+      max: SCRAPE_REVIEWS_MAX,
+      results,
+    });
+  } catch (e) {
+    const status = e.code === 'NOT_FOUND' ? 404 : 500;
+    return res.status(status).json({
+      success: false,
+      error: (e && e.message) || 'Scrape failed',
     });
   }
 });

@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Directory Pull reviews (Outscraper) (1.0.768)
+
+### What
+- `POST /directory/listings/scrape-reviews` — selected listings → `runReviewHuntForLead` → update lead → refresh listing (public API fields already exist).
+- Cap 15/run; UI checkboxes + Pull reviews + per-row Reviews.
+
+### Key files
+- `routes/directory.js`, `views/directory.ejs`
+
 ## 2026-11-14 — Menu tap freeze: backdrop-only swipe + Marketing Studio warm (1.0.767)
 
 ### Evidence
