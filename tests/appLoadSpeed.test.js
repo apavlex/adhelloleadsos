@@ -263,7 +263,17 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Shell-first always/);
   assert.match(qaRoute, /Shell-first always/);
-  assert.match(sw, /adhello-pwa-v1\.0\.766/);
+  assert.match(sw, /adhello-pwa-v1\.0\.767/);
+});
+
+test('Marketing Studio HTML never awaits getAllLeads (menu hops stay responsive)', () => {
+  const dm = fs.readFileSync(path.join(root, 'routes/directMail.js'), 'utf8');
+  assert.match(dm, /Warm leads only on HTML/);
+  assert.match(dm, /peekCachedLeads/);
+  const warmAt = dm.indexOf('Warm leads only on HTML');
+  assert.ok(warmAt > 0);
+  const htmlGet = dm.slice(warmAt, warmAt + 1800);
+  assert.doesNotMatch(htmlGet, /await dbService\.getAllLeads/);
 });
 
 test('Backlinks HTML paints without awaiting agency DFS resolve', () => {

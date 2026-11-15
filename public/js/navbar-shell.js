@@ -494,8 +494,21 @@ function readJsonReply(r) {
         var href = el.getAttribute && el.getAttribute('href');
         var leaving = el.tagName === 'A' && href && href.charAt(0) !== '#' && !el.hasAttribute('download')
           && !(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || el.target === '_blank');
-        if (leaving) clearNavOverlaysForLeave(href);
-        else closeMobileMenu();
+        if (leaving) {
+          clearNavOverlaysForLeave(href);
+          // Evidence: stuck :active on Reviews with drawer still open meant the
+          // browser never navigated. If we are still here after 1.8s, finish the hop.
+          try {
+            var abs = new URL(href, window.location.origin).href;
+            var from = window.location.href;
+            clearTimeout(clearNavOverlaysForLeave._menuNavWatch);
+            clearNavOverlaysForLeave._menuNavWatch = setTimeout(function () {
+              if (window.location.href === from) {
+                try { window.location.assign(abs); } catch (_) { window.location.href = abs; }
+              }
+            }, 1800);
+          } catch (_) {}
+        } else closeMobileMenu();
       });
     });
   }
@@ -523,6 +536,8 @@ function readJsonReply(r) {
     hideNavLoading();
     hideNavProgress();
     closeMobileMenu({ instant: true });
+    clearTimeout(clearNavOverlaysForLeave._menuNavWatch);
+    clearNavOverlaysForLeave._menuNavWatch = null;
     reportNavPageshow();
   });
   window.addEventListener('load', function () {
@@ -693,7 +708,14 @@ function readJsonReply(r) {
           return;
         }
       }
-      if (!open) {
+      if (open) {
+        // Drawer open: only swipe-close from the dimmed backdrop. Pan gestures that
+        // start on the panel (padding between links) called preventDefault and ate
+        // the next Reviews/Q&A tap — menu stayed open with the row stuck :active.
+        if (!(target === mobileMenu || (target && target.id === 'mobileMenu'))) {
+          return;
+        }
+      } else {
         // Stale overflow lock (aborted swipe) with menu closed blocked re-open.
         if (document.body.classList.contains('overflow-hidden')) {
           if (mobileMenu.classList.contains('hidden')) {

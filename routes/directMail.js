@@ -759,14 +759,34 @@ function collectRecentSends(leads, limit = 30) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const [integrationEnv, all, wsRaw, folders, tags, driveImport] = await Promise.all([
+    // Warm leads only on HTML — awaiting getAllLeads here locked SQLite so the next
+    // menu tap (Reviews/Q&A) froze with the drawer still open on iOS.
+    const warm =
+      typeof dbService.peekCachedLeads === 'function'
+        ? dbService.peekCachedLeads(req.workspaceId)
+        : null;
+    if (!warm) {
+      const inflight =
+        typeof dbService.countLeadsListInflight === 'function'
+          ? dbService.countLeadsListInflight()
+          : 0;
+      if (inflight < 1) {
+        void dbService.getAllLeads(req.workspaceId).catch(() => {});
+      }
+    }
+    const foldersPromise =
+      typeof dbService.listFoldersLite === 'function'
+        ? dbService.listFoldersLite(req.workspaceId)
+        : dbService.listFolders(req.workspaceId);
+    const [integrationEnv, folders, tags] = await Promise.all([
       workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId),
-      dbService.getAllLeads(req.workspaceId),
-      dbService.getWorkspace(req.workspaceId),
-      dbService.listFolders(req.workspaceId),
+      foldersPromise,
       dbService.listTags(req.workspaceId),
-      googleDriveAccess.buildDriveImportBundle(req, userEmail(req)),
     ]);
+    const all = Array.isArray(warm) ? warm : [];
+    const wsRaw = req.workspace || (await dbService.getWorkspace(req.workspaceId));
+    // Drive OAuth bundle is not needed for first paint — skip the Google round-trip.
+    const driveImport = null;
     const ready = lobDirectMail.directMailReady(integrationEnv);
     const ws = wsRaw || { id: req.workspaceId };
 

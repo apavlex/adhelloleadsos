@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-14 — Menu tap freeze: backdrop-only swipe + Marketing Studio warm (1.0.767)
+
+### Evidence
+- User screenshot: drawer open, Reviews stuck :active, Marketing Studio behind — tap did not navigate.
+- Cause: swipe-close drag started on panel padding and preventDefault’d the link; Marketing Studio HTML also awaited getAllLeads (SQLite lock).
+
+### Fix
+- Open drawer: swipe-close only from dimmed backdrop; 1.8s menu-nav watchdog assign if URL unchanged.
+- `/direct-mail` warm-only leads (no await getAllLeads / Drive on paint).
+
 ## 2026-11-14 — Nav timing evidence (1.0.766)
 
 ### What / why

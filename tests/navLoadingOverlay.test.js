@@ -28,13 +28,14 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /isAuthLeave/);
     assert.match(js, /Never claim touches that start on controls/i);
     assert.match(js, /hamburger lives in the left EDGE_PX/);
+    assert.match(js, /only swipe-close from the dimmed backdrop/i);
+    assert.match(js, /_menuNavWatch/);
     assert.match(js, /Stale overflow lock/);
-    assert.match(js, /Never auto location\.assign/);
     assert.match(js, /adhelloNavLoadingRetry/);
     assert.match(js, /adhelloNavProgressRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
-    // Manual Retry still assigns — automatic stall must not.
+    // Manual Retry still assigns — automatic stall frost must not.
     assert.match(js, /adhelloNavLoadingRetry[\s\S]*location\.assign\(pending\)/);
     assert.doesNotMatch(
       js,
