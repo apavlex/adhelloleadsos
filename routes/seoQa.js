@@ -8,6 +8,7 @@ const seoQaStore = require('../services/seoQaStore');
 const seoQaImport = require('../services/seoQaImport');
 const { buildSeoQaPagePrompt } = require('../services/seoQaPagePrompt');
 const { wantsJsonResponse } = require('../lib/httpRequest');
+const { isSqliteBusyError } = require('../lib/isSqliteBusyError');
 
 function baseUrlFromReq(req) {
   const proto = req.get('x-forwarded-proto') || req.protocol || 'http';
@@ -169,12 +170,6 @@ router.get('/page-prompt.txt', async (req, res, next) => {
     next(e);
   }
 });
-
-function isSqliteBusyError(err) {
-  const msg = String((err && err.message) || err || '');
-  const code = String((err && (err.code || err.name)) || '');
-  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
-}
 
 router.get('/inbox.json', async (req, res, next) => {
   try {

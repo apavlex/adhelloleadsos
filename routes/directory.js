@@ -10,6 +10,7 @@ const {
   originFromPageUrl,
 } = require('../services/directoryPagePrompt');
 const { wantsJsonResponse } = require('../lib/httpRequest');
+const { isSqliteBusyError } = require('../lib/isSqliteBusyError');
 const reviewHunt = require('../services/reviewHunt');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const outscraper = require('../services/outscraperClient');
@@ -167,12 +168,6 @@ function shellSettingsFromWorkspace(ws) {
   settings.businessName = String(settings.businessName || '').trim() || seedName;
   settings.pathPrefix = String(settings.pathPrefix || '/directory').trim() || '/directory';
   return settings;
-}
-
-function isSqliteBusyError(err) {
-  const msg = String((err && err.message) || err || '');
-  const code = String((err && (err.code || err.name)) || '');
-  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
 }
 
 /** In-memory only — never touch req.session (same SQLite as workspace writes). */

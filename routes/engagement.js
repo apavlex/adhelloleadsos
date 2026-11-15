@@ -13,12 +13,7 @@ const {
   SIGNAL_TYPES,
 } = require('../services/engagementInbox');
 const { signalLabel } = require('../services/engagementSignals');
-
-function isSqliteBusyError(err) {
-  const msg = String((err && err.message) || err || '');
-  const code = String((err && (err.code || err.name)) || '');
-  return /SQLITE_BUSY|database is locked|busy|locked/i.test(`${code} ${msg}`);
-}
+const { isSqliteBusyError } = require('../lib/isSqliteBusyError');
 
 async function visibleBusinessLeads(req) {
   /* Do not cold-scan every prospect — inbox only needs leads with signal history. */

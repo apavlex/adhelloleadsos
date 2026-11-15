@@ -38,12 +38,18 @@ test('workspace switch warms leads and skips chrome extras', () => {
   // 1.0.700: Reviews/Q&A inbox.json must share the same non-blocking chrome as HTML.
   assert.match(mw, /appJsonFastPath/);
   assert.match(mw, /const navFastPath = htmlNavFastPath \|\| appJsonFastPath;/);
-  // 1.0.775: Reviews/Q&A HTML itself fail-fasts + stubs on SQLITE_BUSY (nav spinner trap).
-  assert.match(mw, /lightHtmlFailFast/);
-  assert.match(mw, /paint shell from session id/);
+  // 1.0.776: HTML hops no longer failFast+stub (that left pages "down"); inbox.json still does.
+  assert.doesNotMatch(mw, /lightHtmlFailFast/);
+  assert.match(mw, /inboxHydrateFailFast/);
+  assert.match(mw, /isSqliteBusyError/);
   const storeBusy = fs.readFileSync(path.join(__dirname, '../lib/sqliteSessionStore.js'), 'utf8');
   assert.match(storeBusy, /_withBusyRetry/);
-  assert.match(storeBusy, /SQLITE_BUSY/);
+  assert.match(storeBusy, /_runFailFast/);
+  assert.match(storeBusy, /busy_timeout = 0/);
+  const busyHelper = fs.readFileSync(path.join(__dirname, '../lib/isSqliteBusyError.js'), 'utf8');
+  assert.match(busyHelper, /SQLITE_BUSY/);
+  assert.match(busyHelper, /database is locked/);
+  assert.doesNotMatch(busyHelper, /\|busy\|locked\|/i);
 
   const shell = fs.readFileSync(path.join(__dirname, '../public/js/sidebarShell.js'), 'utf8');
   assert.match(shell, /Switching…/);
