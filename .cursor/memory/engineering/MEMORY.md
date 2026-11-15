@@ -1,13 +1,40 @@
 # Engineering memory — AdHello Leads OS
 
-## 2026-11-14 — Reviews/Q&A still won’t open: session busy + HTML failFast (1.0.775)
+## 2026-11-15 — CANONICAL: mobile Reviews/Q&A menu open (1.0.776–778)
 
-### What / why
+### Symptom
+- Phone menu → Reviews / Q&A “doesn’t load”. Desktop often OK. Health can stay green.
+
+### Root causes (stack — do not regress)
+1. **iOS drawer hide cancels `<a>` navigation** (decisive for mobile):
+   - `clearNavOverlaysForLeave` hides the drawer mid-click → Safari drops default nav.
+   - **Required pattern:** mobile menu link click → `preventDefault` + **immediate** `window.location.assign(abs)` after close.
+   - **Never** rely on delayed `location.assign` (~5s) — iOS keeps the old URL until HTML arrives, so a delayed assign aborts the in-flight hop and loops.
+   - **Never** remove assign entirely after hide (1.0.777 regression) — hop never starts.
+2. **False SQLITE_BUSY** (1.0.775): `/busy|locked/i` matched “blocked” / `ENOTLOCKED` → false 503 / stub workspaces.
+   - Use `lib/isSqliteBusyError.js` only (`SQLITE_BUSY` / `database is locked`).
+3. **HTML failFast + stub workspace** (1.0.775): brittle shells. Keep failFast for `inbox.json` only; HTML uses real workspace + shell-first paint.
+4. **Session store**: `busy_timeout=0` + short retries (`lib/sqliteSessionStore.js`) — do not wait 5s×N on menu hops.
+
+### Locked-in code
+- `public/js/navbar-shell.js` — mobile menu leaving links: preventDefault + immediate assign; progress Retry only (no delayed assign watchdog).
+- `lib/isSqliteBusyError.js` — shared narrow busy helper.
+- `lib/sqliteSessionStore.js` — fail-fast busy retries.
+- `middleware/withWorkspace.js` — `inboxHydrateFailFast` for inbox.json only (no `lightHtmlFailFast` stub).
+
+### Do not
+- Hide `#mobileMenu` / panel and expect default `<a>` navigation on iOS.
+- Reintroduce `/busy|locked/i` or HTML workspace stubs on “busy”.
+- Auto `location.assign` on a timer while an HTML hop may still be in flight.
+
+## 2026-11-14 — Reviews/Q&A still won’t open: session busy + HTML failFast (1.0.775) — SUPERSEDED by 776–778
+
+### What / why (historical)
 - Sync SQLite writers made session `get` / workspace HTML reads fail or wait 5s — nav spinner never cleared (“doesn’t open”).
-- Session store retries SQLITE_BUSY; Reviews/Q&A/Directory HTML uses failFast + stale/stub workspace so the shell always paints.
+- 775 added session busy retry + HTML failFast/stub; stub + over-broad busy matching made pages look down — fixed in 776; mobile assign pattern locked in 778.
 
 ### Key files
-- `lib/sqliteSessionStore.js`, `middleware/withWorkspace.js`, `services/directoryStore.js`
+- `lib/sqliteSessionStore.js`, `middleware/withWorkspace.js`, `lib/isSqliteBusyError.js`
 
 ## 2026-11-14 — Unstick Reviews/Q&A after Directory (1.0.774)
 
