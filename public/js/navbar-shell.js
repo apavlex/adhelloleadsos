@@ -497,13 +497,25 @@ function readJsonReply(r) {
         var leaving = el.tagName === 'A' && href && href.charAt(0) !== '#' && !el.hasAttribute('download')
           && !(ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || el.target === '_blank');
         if (leaving) {
-          clearNavOverlaysForLeave(href);
-          // Do NOT auto location.assign here. On iOS the URL often stays on the
-          // outgoing page until HTML starts arriving — a 5s assign aborted the
-          // in-flight Reviews/Q&A hop and looped "doesn't load" on mobile.
-          // Progress stall already offers "Still opening — tap to retry".
+          // Instantly hiding the drawer (clearNavOverlaysForLeave) cancels iOS's
+          // default <a> navigation. preventDefault + immediate assign is the only
+          // reliable hop — a delayed 5s assign (pre-777) aborted slow HTML; no
+          // assign (777) left Reviews/Q&A stuck on the outgoing page.
+          ev.preventDefault();
+          var abs = href;
+          try {
+            abs = new URL(href, window.location.origin).href;
+          } catch (_) {
+            abs = href;
+          }
           clearTimeout(clearNavOverlaysForLeave._menuNavWatch);
           clearNavOverlaysForLeave._menuNavWatch = null;
+          clearNavOverlaysForLeave(abs);
+          try {
+            window.location.assign(abs);
+          } catch (_) {
+            window.location.href = abs;
+          }
         } else closeMobileMenu();
       });
     });

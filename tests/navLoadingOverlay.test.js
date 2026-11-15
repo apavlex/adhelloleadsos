@@ -35,9 +35,11 @@ describe('adhelloNavLoading stuck-spinner guard', () => {
     assert.match(js, /adhelloNavProgressRetry/);
     assert.match(js, /is-stalled/);
     assert.match(js, /showNavLoading\._leaving/);
-    // Manual Retry still assigns — automatic stall frost / menu watchdog must not.
+    // Manual Retry still assigns — automatic stall frost / delayed menu watchdog must not.
     assert.match(js, /adhelloNavLoadingRetry[\s\S]*location\.assign\(pending\)/);
-    assert.match(js, /Do NOT auto location\.assign here/);
+    // Mobile menu: hide cancels iOS default nav — immediate assign (not delayed).
+    assert.match(js, /cancels iOS/);
+    assert.match(js, /window\.location\.assign\(abs\)/);
     assert.doesNotMatch(
       js,
       /_menuNavWatch = setTimeout\(function \(\) \{\s*if \(window\.location\.href === from\)/,
