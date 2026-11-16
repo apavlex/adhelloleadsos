@@ -89,6 +89,7 @@ function isLightInboxHop(originalUrl) {
   return (
     /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|engagement)(?:\/|$|\?)/.test(u) ||
     /\/prospecting(?:\/|$|\?).*[?&]tab=folders(?:&|$)/.test(u) ||
+    /\/prospecting\/folders-inbox\.json/.test(u) ||
     /\/prospecting\/folder-counts\.json/.test(u)
   );
 }

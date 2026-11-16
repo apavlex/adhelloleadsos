@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const dbService = require('../services/database');
+const { isSqliteBusyError } = require('../lib/isSqliteBusyError');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const { buildDriveImportBundle } = require('../services/googleDriveAccess');
@@ -116,50 +117,22 @@ router.get('/', async (req, res, next) => {
       });
     }
 
-    // Folders: instant lite page. Strip searchPreset/outreach blobs, skip modals/JS
-    // monolith, and render a flat link list — previous templates were still too heavy.
-    // Do NOT await countLeadsByFolderKey here — that sync GROUP BY over every lead
-    // locks SQLite and left Folders stuck behind Directory/review writes. Counts
-    // hydrate from /prospecting/folder-counts.json after paint.
+    // Folders: true shell-first (same pattern as Reviews/Q&A). Even listFoldersLite is a
+    // sync SQLite .all() — under Directory/lead writers it parked the HTML hop behind
+    // busy_timeout=5s and Folders never opened. Paint chrome now; hydrate from
+    // /prospecting/folders-inbox.json (+ counts.json).
     if (safeTab === 'folders') {
-      const startedAt = Date.now();
-      let folders = [];
-      try {
-        folders =
-          typeof dbService.listFoldersLite === 'function'
-            ? await dbService.listFoldersLite(wid)
-            : await dbService.listFolders(wid);
-      } catch (err) {
-        console.warn('[prospecting] folders list failed:', err && err.message);
-        folders = [];
-      }
-      folders = (Array.isArray(folders) ? folders : [])
-        .map((f) => ({
-          key: f && f.key,
-          name: (f && f.name) || 'Folder',
-          parentFolderKey: (f && f.parentFolderKey) || '',
-          jobType: (f && f.jobType) || '',
-          isPipelineDefault: !!(f && f.isPipelineDefault),
-          isTradeFolder: !!(f && f.isTradeFolder),
-          tradeSlug: (f && f.tradeSlug) || '',
-        }))
-        .filter((f) => f.key);
-      let folderTree = { groups: [] };
-      try {
-        folderTree = buildFolderTree(folders);
-      } catch (err) {
-        console.warn('[prospecting] folders tree failed:', err && err.message);
-      }
-      res.set('Server-Timing', `folders;dur=${Date.now() - startedAt}`);
       res.set('Cache-Control', 'private, no-store');
+      res.set('Server-Timing', 'folders;dur=0');
       return res.render('folders_manager_lite', {
         title: 'Folders | Agency OS',
         activePage: 'prospecting',
         tab: 'folders',
         foldersManagerPage: true,
-        folders,
-        folderTree,
+        folders: [],
+        folderTree: { groups: [] },
         folderAggregateCounts: {},
+        folderShell: true,
         folderCountsPending: true,
         canManageWorkspace: req.canManageWorkspace,
       });
@@ -620,9 +593,103 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+function slimFoldersForInbox(rows) {
+  return (Array.isArray(rows) ? rows : [])
+    .map((f) => ({
+      key: f && f.key,
+      name: (f && f.name) || 'Folder',
+      parentFolderKey: (f && f.parentFolderKey) || '',
+      jobType: (f && f.jobType) || '',
+      isPipelineDefault: !!(f && f.isPipelineDefault),
+      isTradeFolder: !!(f && f.isTradeFolder),
+      tradeSlug: (f && f.tradeSlug) || '',
+    }))
+    .filter((f) => f.key);
+}
+
+function slimFolderGroupsForInbox(folderTree) {
+  return ((folderTree && folderTree.groups) || []).map((group) => ({
+    key: group.key || '',
+    name: group.name || 'Folders',
+    jobType: group.jobType || '',
+    isSystem: !!group.isSystem,
+    folder: group.folder && group.folder.key
+      ? {
+          key: group.folder.key,
+          name: group.folder.name || 'Folder',
+          jobType: group.folder.jobType || '',
+        }
+      : null,
+    childRows: (group.childRows || [])
+      .map((row) => {
+        const f = row && row.folder;
+        if (!f || !f.key) return null;
+        return {
+          depth: row.depth || 1,
+          folder: {
+            key: f.key,
+            name: f.name || 'Folder',
+            jobType: f.jobType || '',
+            tradeSlug: f.tradeSlug || '',
+          },
+        };
+      })
+      .filter(Boolean),
+  }));
+}
+
 /**
- * Lead counts for Folders lite — separate from HTML so the menu hop never waits
- * on a sync GROUP BY over every lead (that locked SQLite and froze Folders open).
+ * Folders tree hydrate — HTML is shell-only; this is the first SQLite hit.
+ * failFast so a contended Directory write returns pending instead of hanging.
+ */
+router.get('/folders-inbox.json', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'private, no-store');
+    const wid = req.workspaceId;
+    let folders = [];
+    try {
+      folders =
+        typeof dbService.listFoldersLite === 'function'
+          ? await dbService.listFoldersLite(wid, { failFast: true })
+          : await dbService.listFolders(wid);
+    } catch (err) {
+      if (isSqliteBusyError(err)) {
+        return res.status(503).json({
+          success: false,
+          pending: true,
+          error: 'Folders temporarily busy — retrying…',
+        });
+      }
+      console.warn('[prospecting] folders-inbox list failed:', err && err.message);
+      folders = [];
+    }
+    folders = slimFoldersForInbox(folders);
+    let folderTree = { groups: [] };
+    try {
+      folderTree = buildFolderTree(folders);
+    } catch (err) {
+      console.warn('[prospecting] folders-inbox tree failed:', err && err.message);
+    }
+    return res.json({
+      success: true,
+      folders,
+      groups: slimFolderGroupsForInbox(folderTree),
+    });
+  } catch (e) {
+    if (isSqliteBusyError(e)) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Folders temporarily busy — retrying…',
+      });
+    }
+    next(e);
+  }
+});
+
+/**
+ * Lead counts for Folders lite — separate from HTML/tree hydrate so the menu hop
+ * never waits on a sync GROUP BY over every lead.
  */
 router.get('/folder-counts.json', async (req, res, next) => {
   try {
@@ -632,29 +699,33 @@ router.get('/folder-counts.json', async (req, res, next) => {
     try {
       folders =
         typeof dbService.listFoldersLite === 'function'
-          ? await dbService.listFoldersLite(wid)
+          ? await dbService.listFoldersLite(wid, { failFast: true })
           : await dbService.listFolders(wid);
     } catch (err) {
+      if (isSqliteBusyError(err)) {
+        return res.status(503).json({
+          success: false,
+          pending: true,
+          error: 'Folder counts temporarily busy — retrying…',
+        });
+      }
       console.warn('[prospecting] folder-counts folders failed:', err && err.message);
       folders = [];
     }
-    folders = (Array.isArray(folders) ? folders : [])
-      .map((f) => ({
-        key: f && f.key,
-        name: (f && f.name) || 'Folder',
-        parentFolderKey: (f && f.parentFolderKey) || '',
-        jobType: (f && f.jobType) || '',
-        isPipelineDefault: !!(f && f.isPipelineDefault),
-        isTradeFolder: !!(f && f.isTradeFolder),
-        tradeSlug: (f && f.tradeSlug) || '',
-      }))
-      .filter((f) => f.key);
+    folders = slimFoldersForInbox(folders);
     let direct = {};
     try {
       if (typeof dbService.countLeadsByFolderKey === 'function') {
         direct = await dbService.countLeadsByFolderKey(wid);
       }
     } catch (err) {
+      if (isSqliteBusyError(err)) {
+        return res.status(503).json({
+          success: false,
+          pending: true,
+          error: 'Folder counts temporarily busy — retrying…',
+        });
+      }
       console.warn('[prospecting] folder-counts count failed:', err && err.message);
       direct = {};
     }
@@ -662,6 +733,13 @@ router.get('/folder-counts.json', async (req, res, next) => {
     const counts = buildFolderAggregateCounts(folderTree, direct && typeof direct === 'object' ? direct : {});
     return res.json({ success: true, counts, direct: direct && typeof direct === 'object' ? direct : {} });
   } catch (e) {
+    if (isSqliteBusyError(e)) {
+      return res.status(503).json({
+        success: false,
+        pending: true,
+        error: 'Folder counts temporarily busy — retrying…',
+      });
+    }
     next(e);
   }
 });

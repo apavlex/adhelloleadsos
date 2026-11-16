@@ -1656,24 +1656,43 @@ module.exports = {
   /**
    * Folders first paint — SQL json_extract only the fields the tree needs.
    * Avoids JSON.parse of searchPreset / outreachAutomation blobs on every hop.
+   * @param {string} workspaceId
+   * @param {{ failFast?: boolean }} [opts] failFast — busy_timeout 0 so SQLITE_BUSY
+   *   throws immediately (Folders hydrate → pending) instead of waiting 5s.
    */
-  async listFoldersLite(workspaceId) {
+  async listFoldersLite(workspaceId, opts = {}) {
     const wid = workspaceId || 'default';
     const prefix = `folder:${wid}:`;
-    const rows = sqlite
-      .prepare(
-        `SELECT key,
-            json_extract(CASE WHEN json_valid(value) THEN value END, '$.name') AS name,
-            json_extract(CASE WHEN json_valid(value) THEN value END, '$.parentFolderKey') AS parentFolderKey,
-            json_extract(CASE WHEN json_valid(value) THEN value END, '$.jobType') AS jobType,
-            json_extract(CASE WHEN json_valid(value) THEN value END, '$.isPipelineDefault') AS isPipelineDefault,
-            json_extract(CASE WHEN json_valid(value) THEN value END, '$.isTradeFolder') AS isTradeFolder,
-            json_extract(CASE WHEN json_valid(value) THEN value END, '$.tradeSlug') AS tradeSlug
-         FROM kv
-         WHERE key LIKE ?
-         ORDER BY name COLLATE NOCASE`,
-      )
-      .all(`${prefix}%`);
+    const run = () =>
+      sqlite
+        .prepare(
+          `SELECT key,
+              json_extract(CASE WHEN json_valid(value) THEN value END, '$.name') AS name,
+              json_extract(CASE WHEN json_valid(value) THEN value END, '$.parentFolderKey') AS parentFolderKey,
+              json_extract(CASE WHEN json_valid(value) THEN value END, '$.jobType') AS jobType,
+              json_extract(CASE WHEN json_valid(value) THEN value END, '$.isPipelineDefault') AS isPipelineDefault,
+              json_extract(CASE WHEN json_valid(value) THEN value END, '$.isTradeFolder') AS isTradeFolder,
+              json_extract(CASE WHEN json_valid(value) THEN value END, '$.tradeSlug') AS tradeSlug
+           FROM kv
+           WHERE key LIKE ?
+           ORDER BY name COLLATE NOCASE`,
+        )
+        .all(`${prefix}%`);
+    let rows;
+    if (opts && opts.failFast) {
+      sqlite.pragma('busy_timeout = 0');
+      try {
+        rows = run();
+      } finally {
+        try {
+          sqlite.pragma('busy_timeout = 5000');
+        } catch (_) {
+          /* restore best-effort */
+        }
+      }
+    } else {
+      rows = run();
+    }
     const truthy = (v) => v === 1 || v === true || v === '1' || v === 'true';
     return (rows || []).map((r) => ({
       key: r.key,

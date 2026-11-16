@@ -1,20 +1,22 @@
 # Engineering memory — AdHello Leads OS
 
-## 2026-11-15 — CANONICAL: Folders open + Open folder hydrate (1.0.782)
+## 2026-11-15 — CANONICAL: Folders shell-first (1.0.783)
 
 ### Symptom
-- Folders menu hop stuck / slow; Folders → Open shows empty “No leads in …” even when the folder has leads.
+- Folders still slow / never opens (even after skipping COUNT on HTML). Live stayed on 1.0.781 until this ships.
 
 ### Cause
-- Folders HTML awaited sync `countLeadsByFolderKey` (GROUP BY every lead) on the same SQLite connection — blocked under Directory/review writes.
-- Pipeline HTML is warm-cache-only; cold miss set `hasMore=false` + empty state, so `/table-rows` never ran.
+- `listFoldersLite` is still a sync SQLite `.all()` with `busy_timeout=5000`. Under Directory/lead writers the HTML hop itself hung.
+- Pipeline warm-cache miss still claimed empty without `/table-rows`.
 
 ### Locked-in fix
-- Folders lite: list folders only; counts from `/prospecting/folder-counts.json` after paint.
-- Warm-empty Pipeline: `pipelinePaintPending` + `hasMore`; client auto-fetches `/table-rows`.
+- Folders HTML is a **true empty shell** (no folder SQLite).
+- Tree hydrates from `/prospecting/folders-inbox.json` (`listFoldersLite` + `failFast`).
+- Counts from `/prospecting/folder-counts.json` (pending retries).
+- Warm-empty Pipeline: `pipelinePaintPending` + auto `/table-rows`.
 
 ### Do not
-- Await lead COUNT on Folders HTML.
+- Await `listFoldersLite` / lead COUNT on Folders HTML.
 - Treat warm-empty Pipeline as a definitive empty folder.
 
 ## 2026-11-15 — CANONICAL: Reviews/Q&A stay open during Directory scrape (1.0.781)
