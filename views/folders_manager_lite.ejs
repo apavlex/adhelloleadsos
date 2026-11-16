@@ -33,13 +33,14 @@
       <%
         const _groups = (folderTree && folderTree.groups) || [];
         const _counts = typeof folderAggregateCounts !== 'undefined' && folderAggregateCounts ? folderAggregateCounts : {};
+        const _countsPending = typeof folderCountsPending !== 'undefined' && !!folderCountsPending;
       %>
       <% if (!_groups.length && !(folders || []).length) { %>
         <div class="brand-card p-14 text-center dark:bg-slate-900 dark:border-white/10">
           <p class="text-brand-muted">No folders yet. Create one from Pipeline or after your next search.</p>
         </div>
       <% } else { %>
-        <div class="space-y-4" id="folderTreeRoot">
+        <div class="space-y-4" id="folderTreeRoot" data-folder-counts-pending="<%= _countsPending ? '1' : '0' %>">
           <% _groups.forEach(function (group) {
             var groupTotal = 0;
             if (group.folder && group.folder.key) {
@@ -49,8 +50,9 @@
                 groupTotal += _counts[child.key] || 0;
               });
             }
+            var groupCountLabel = _countsPending ? 'Counting…' : (groupTotal + ' lead' + (groupTotal === 1 ? '' : 's') + ' total');
           %>
-          <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" open data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
+          <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" open data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>"<%= group.folder && group.folder.key ? (' data-folder-key="' + group.folder.key + '"') : '' %>>
             <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-brand-cream/30 dark:bg-slate-950/40 border-b border-brand-border/30 dark:border-white/10 [&::-webkit-details-marker]:hidden">
               <div class="min-w-0">
                 <p class="font-display font-black text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
@@ -58,21 +60,22 @@
                   <% if (group.isSystem) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
                   <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= (group.childRows || []).length %> subfolder<%= (group.childRows || []).length === 1 ? '' : 's' %></span>
                 </p>
-                <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= groupTotal %> lead<%= groupTotal === 1 ? '' : 's' %> total</p>
+                <p class="js-folder-group-count text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1" data-folder-key="<%= group.folder && group.folder.key ? group.folder.key : '' %>"><%= groupCountLabel %></p>
               </div>
               <span class="text-brand-muted text-xs font-bold" aria-hidden="true">▾</span>
             </summary>
             <ul class="m-0 p-0 list-none divide-y divide-brand-border/20 dark:divide-white/5">
               <% if (group.folder && group.folder.key) {
                 var rootCount = _counts[group.folder.key] || 0;
+                var rootCountLabel = _countsPending ? '…' : (rootCount + ' lead' + (rootCount === 1 ? '' : 's'));
               %>
-              <li class="folder-lite-row list-none" data-folder-search="<%= (group.folder.name + ' ' + (group.folder.jobType || '')).toLowerCase() %>">
+              <li class="folder-lite-row list-none" data-folder-key="<%= group.folder.key %>" data-folder-search="<%= (group.folder.name + ' ' + (group.folder.jobType || '')).toLowerCase() %>">
                 <a href="/prospecting?tab=pipeline&folderKey=<%= encodeURIComponent(group.folder.key) %>" class="flex items-center justify-between gap-3 px-6 py-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">
                   <span class="min-w-0">
                     <span class="font-display font-bold text-brand-dark dark:text-white"><%= group.folder.name %></span>
-                    <span class="block text-[10px] font-black uppercase tracking-widest <%= rootCount ? 'text-brand-dark dark:text-white' : 'text-brand-muted' %> mt-0.5"><%= rootCount %> lead<%= rootCount === 1 ? '' : 's' %></span>
+                    <span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest <%= (!_countsPending && rootCount) ? 'text-brand-dark dark:text-white' : 'text-brand-muted' %> mt-0.5"><%= rootCountLabel %></span>
                   </span>
-                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0"><%= rootCount ? 'Open leads →' : 'Open →' %></span>
+                  <span class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0"><%= _countsPending ? 'Open →' : (rootCount ? 'Open leads →' : 'Open →') %></span>
                 </a>
               </li>
               <% } %>
@@ -82,14 +85,15 @@
                 var depth = row.depth || 1;
                 var pad = depth <= 1 ? 'pl-8' : (depth === 2 ? 'pl-12' : 'pl-16');
                 var fc = _counts[f.key] || 0;
+                var fcLabel = _countsPending ? '…' : (fc + ' lead' + (fc === 1 ? '' : 's'));
               %>
-              <li class="folder-lite-row list-none" data-folder-search="<%= (f.name + ' ' + (f.jobType || '') + ' ' + (f.tradeSlug || '')).toLowerCase() %>">
+              <li class="folder-lite-row list-none" data-folder-key="<%= f.key %>" data-folder-search="<%= (f.name + ' ' + (f.jobType || '') + ' ' + (f.tradeSlug || '')).toLowerCase() %>">
                 <a href="/prospecting?tab=pipeline&folderKey=<%= encodeURIComponent(f.key) %>" class="flex items-center justify-between gap-3 px-6 py-3.5 <%= pad %> hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">
                   <span class="min-w-0">
                     <span class="font-semibold text-brand-dark dark:text-white"><span class="text-brand-muted/50 mr-1" aria-hidden="true">↳</span><%= f.name %></span>
-                    <span class="block text-[10px] font-black uppercase tracking-widest <%= fc ? 'text-brand-dark dark:text-white' : 'text-brand-muted' %> mt-0.5 <%= depth <= 1 ? 'pl-4' : '' %>"><%= fc %> lead<%= fc === 1 ? '' : 's' %></span>
+                    <span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest <%= (!_countsPending && fc) ? 'text-brand-dark dark:text-white' : 'text-brand-muted' %> mt-0.5 <%= depth <= 1 ? 'pl-4' : '' %>"><%= fcLabel %></span>
                   </span>
-                  <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0"><%= fc ? 'Open →' : 'Empty' %></span>
+                  <span class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0"><%= _countsPending ? 'Open →' : (fc ? 'Open →' : 'Empty') %></span>
                 </a>
               </li>
               <% }); %>
@@ -106,25 +110,72 @@
     var input = document.getElementById('folderSearchFilter');
     var empty = document.getElementById('folderSearchEmpty');
     var root = document.getElementById('folderTreeRoot');
-    if (!input || !root) return;
-    input.addEventListener('input', function () {
-      var q = String(input.value || '').trim().toLowerCase();
-      var any = false;
-      root.querySelectorAll('details.folder-group').forEach(function (group) {
-        var gMatch = !q || (group.getAttribute('data-folder-group-search') || '').indexOf(q) !== -1;
-        var rowHit = false;
-        group.querySelectorAll('.folder-lite-row').forEach(function (row) {
-          var show = !q || gMatch || (row.getAttribute('data-folder-search') || '').indexOf(q) !== -1;
-          row.classList.toggle('hidden', !show);
-          if (show) rowHit = true;
+    if (input && root) {
+      input.addEventListener('input', function () {
+        var q = String(input.value || '').trim().toLowerCase();
+        var any = false;
+        root.querySelectorAll('details.folder-group').forEach(function (group) {
+          var gMatch = !q || (group.getAttribute('data-folder-group-search') || '').indexOf(q) !== -1;
+          var rowHit = false;
+          group.querySelectorAll('.folder-lite-row').forEach(function (row) {
+            var show = !q || gMatch || (row.getAttribute('data-folder-search') || '').indexOf(q) !== -1;
+            row.classList.toggle('hidden', !show);
+            if (show) rowHit = true;
+          });
+          var showGroup = !q || gMatch || rowHit;
+          group.classList.toggle('hidden', !showGroup);
+          if (showGroup) any = true;
+          if (q && showGroup) group.open = true;
         });
-        var showGroup = !q || gMatch || rowHit;
-        group.classList.toggle('hidden', !showGroup);
-        if (showGroup) any = true;
-        if (q && showGroup) group.open = true;
+        if (empty) empty.classList.toggle('hidden', !q || any);
       });
-      if (empty) empty.classList.toggle('hidden', !q || any);
-    });
+    }
+
+    function applyFolderCounts(counts) {
+      if (!root || !counts || typeof counts !== 'object') return;
+      root.querySelectorAll('.js-folder-group-count').forEach(function (el) {
+        var key = el.getAttribute('data-folder-key') || '';
+        var n = key && counts[key] != null ? Number(counts[key]) || 0 : 0;
+        if (!key) {
+          var group = el.closest('details.folder-group');
+          if (group) {
+            n = 0;
+            group.querySelectorAll('.folder-lite-row[data-folder-key]').forEach(function (row) {
+              var rk = row.getAttribute('data-folder-key') || '';
+              n += rk && counts[rk] != null ? Number(counts[rk]) || 0 : 0;
+            });
+          }
+        }
+        el.textContent = n + ' lead' + (n === 1 ? '' : 's') + ' total';
+      });
+      root.querySelectorAll('.folder-lite-row[data-folder-key]').forEach(function (row) {
+        var key = row.getAttribute('data-folder-key') || '';
+        var n = key && counts[key] != null ? Number(counts[key]) || 0 : 0;
+        var countEl = row.querySelector('.js-folder-row-count');
+        var cta = row.querySelector('.js-folder-row-cta');
+        if (countEl) {
+          countEl.textContent = n + ' lead' + (n === 1 ? '' : 's');
+          countEl.classList.toggle('text-brand-dark', !!n);
+          countEl.classList.toggle('dark:text-white', !!n);
+          countEl.classList.toggle('text-brand-muted', !n);
+        }
+        if (cta) cta.textContent = n ? (row.querySelector('.font-display') ? 'Open leads →' : 'Open →') : (row.querySelector('.font-display') ? 'Open →' : 'Empty');
+      });
+      root.setAttribute('data-folder-counts-pending', '0');
+    }
+
+    if (root && root.getAttribute('data-folder-counts-pending') === '1') {
+      fetch('/prospecting/folder-counts.json', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' }
+      })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (parsed) {
+          if (!parsed.ok || !parsed.data || !parsed.data.success) return;
+          applyFolderCounts(parsed.data.counts || {});
+        })
+        .catch(function () { /* keep Counting… labels */ });
+    }
   })();
   </script>
   <%- include('partials/footer') %>

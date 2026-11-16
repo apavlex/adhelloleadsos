@@ -1,5 +1,22 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-15 — CANONICAL: Folders open + Open folder hydrate (1.0.782)
+
+### Symptom
+- Folders menu hop stuck / slow; Folders → Open shows empty “No leads in …” even when the folder has leads.
+
+### Cause
+- Folders HTML awaited sync `countLeadsByFolderKey` (GROUP BY every lead) on the same SQLite connection — blocked under Directory/review writes.
+- Pipeline HTML is warm-cache-only; cold miss set `hasMore=false` + empty state, so `/table-rows` never ran.
+
+### Locked-in fix
+- Folders lite: list folders only; counts from `/prospecting/folder-counts.json` after paint.
+- Warm-empty Pipeline: `pipelinePaintPending` + `hasMore`; client auto-fetches `/table-rows`.
+
+### Do not
+- Await lead COUNT on Folders HTML.
+- Treat warm-empty Pipeline as a definitive empty folder.
+
 ## 2026-11-15 — CANONICAL: Reviews/Q&A stay open during Directory scrape (1.0.781)
 
 ### Symptom

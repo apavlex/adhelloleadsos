@@ -118,25 +118,20 @@ router.get('/', async (req, res, next) => {
 
     // Folders: instant lite page. Strip searchPreset/outreach blobs, skip modals/JS
     // monolith, and render a flat link list — previous templates were still too heavy.
-    // Lead counts come from SQL GROUP BY folderKey (no getAllLeads) so rows are not blank.
+    // Do NOT await countLeadsByFolderKey here — that sync GROUP BY over every lead
+    // locks SQLite and left Folders stuck behind Directory/review writes. Counts
+    // hydrate from /prospecting/folder-counts.json after paint.
     if (safeTab === 'folders') {
       const startedAt = Date.now();
       let folders = [];
-      let directFolderCounts = {};
       try {
-        const foldersPromise = typeof dbService.listFoldersLite === 'function'
-          ? dbService.listFoldersLite(wid)
-          : dbService.listFolders(wid);
-        const countsPromise = typeof dbService.countLeadsByFolderKey === 'function'
-          ? dbService.countLeadsByFolderKey(wid)
-          : Promise.resolve({});
-        const [folderRows, counts] = await Promise.all([foldersPromise, countsPromise]);
-        folders = folderRows;
-        directFolderCounts = counts && typeof counts === 'object' ? counts : {};
+        folders =
+          typeof dbService.listFoldersLite === 'function'
+            ? await dbService.listFoldersLite(wid)
+            : await dbService.listFolders(wid);
       } catch (err) {
         console.warn('[prospecting] folders list failed:', err && err.message);
         folders = [];
-        directFolderCounts = {};
       }
       folders = (Array.isArray(folders) ? folders : [])
         .map((f) => ({
@@ -150,11 +145,8 @@ router.get('/', async (req, res, next) => {
         }))
         .filter((f) => f.key);
       let folderTree = { groups: [] };
-      let folderAggregateCounts = {};
       try {
         folderTree = buildFolderTree(folders);
-        folderAggregateCounts = buildFolderAggregateCounts(folderTree, directFolderCounts);
-        folderTree = sortFolderTreeByLeadCount(folderTree, folderAggregateCounts);
       } catch (err) {
         console.warn('[prospecting] folders tree failed:', err && err.message);
       }
@@ -167,7 +159,8 @@ router.get('/', async (req, res, next) => {
         foldersManagerPage: true,
         folders,
         folderTree,
-        folderAggregateCounts,
+        folderAggregateCounts: {},
+        folderCountsPending: true,
         canManageWorkspace: req.canManageWorkspace,
       });
     }
@@ -193,6 +186,8 @@ router.get('/', async (req, res, next) => {
     let folders;
     let folderTree;
     let scopedFolderKey = folderKeyFromQuery;
+    /** Warm cache miss — HTML must not claim empty; client hydrates /table-rows. */
+    let pipelinePaintPending = false;
     if (openFolderScoped) {
       // Prefer lite folders + warm leads on first paint. listLeadsByFolderKeys parses
       // every lead in the Businesses tree and froze menu hops when the folder was large.
@@ -217,6 +212,8 @@ router.get('/', async (req, res, next) => {
         if (bizFolder && bizFolder.key) scopedFolderKey = String(bizFolder.key);
       }
       // Warm cache only on HTML — never start a folder-key cold scan on menu paint.
+      // If warm is empty, mark paint pending so the client hydrates via /table-rows
+      // instead of showing a false “No leads in folder” empty state.
       all = await leadsForPipelinePaint(wid);
       if (scopedFolderKey && Array.isArray(all) && all.length) {
         const scopedKeys =
@@ -224,6 +221,7 @@ router.get('/', async (req, res, next) => {
           new Set([scopedFolderKey]);
         all = all.filter((l) => l && scopedKeys.has(String(l.folderKey || '')));
       }
+      if (!Array.isArray(all) || !all.length) pipelinePaintPending = true;
     } else {
       const [warmOrCold, foldersInitialRows, tagsRows, wsDoc] = await Promise.all([
         leadsForPipelinePaint(wid),
@@ -232,6 +230,7 @@ router.get('/', async (req, res, next) => {
         dbService.getWorkspace(wid),
       ]);
       all = warmOrCold;
+      if (!Array.isArray(all) || !all.length) pipelinePaintPending = true;
       foldersInitial = foldersInitialRows;
       tags = tagsRows;
       wsRaw = wsDoc;
@@ -600,7 +599,10 @@ router.get('/', async (req, res, next) => {
       workspaceProspecting,
       pipelineLeadsTotal: safeTab === 'pipeline' ? pipelineLeadsTotal : leads.length,
       pipelineSsrOffset: 0,
-      pipelineSsrHasMore: safeTab === 'pipeline' && pipelineLeadsTotal > ssrCap,
+      // Warm-empty paint: force hasMore so Open folder hydrates instead of a false empty state.
+      pipelineSsrHasMore:
+        safeTab === 'pipeline' && (pipelinePaintPending || pipelineLeadsTotal > ssrCap),
+      pipelinePaintPending: safeTab === 'pipeline' && pipelinePaintPending,
       pipelineRowsQuery:
         safeTab === 'pipeline'
           ? [
@@ -613,6 +615,52 @@ router.get('/', async (req, res, next) => {
               .join('&')
           : '',
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Lead counts for Folders lite — separate from HTML so the menu hop never waits
+ * on a sync GROUP BY over every lead (that locked SQLite and froze Folders open).
+ */
+router.get('/folder-counts.json', async (req, res, next) => {
+  try {
+    res.set('Cache-Control', 'private, no-store');
+    const wid = req.workspaceId;
+    let folders = [];
+    try {
+      folders =
+        typeof dbService.listFoldersLite === 'function'
+          ? await dbService.listFoldersLite(wid)
+          : await dbService.listFolders(wid);
+    } catch (err) {
+      console.warn('[prospecting] folder-counts folders failed:', err && err.message);
+      folders = [];
+    }
+    folders = (Array.isArray(folders) ? folders : [])
+      .map((f) => ({
+        key: f && f.key,
+        name: (f && f.name) || 'Folder',
+        parentFolderKey: (f && f.parentFolderKey) || '',
+        jobType: (f && f.jobType) || '',
+        isPipelineDefault: !!(f && f.isPipelineDefault),
+        isTradeFolder: !!(f && f.isTradeFolder),
+        tradeSlug: (f && f.tradeSlug) || '',
+      }))
+      .filter((f) => f.key);
+    let direct = {};
+    try {
+      if (typeof dbService.countLeadsByFolderKey === 'function') {
+        direct = await dbService.countLeadsByFolderKey(wid);
+      }
+    } catch (err) {
+      console.warn('[prospecting] folder-counts count failed:', err && err.message);
+      direct = {};
+    }
+    const folderTree = buildFolderTree(folders);
+    const counts = buildFolderAggregateCounts(folderTree, direct && typeof direct === 'object' ? direct : {});
+    return res.json({ success: true, counts, direct: direct && typeof direct === 'object' ? direct : {} });
   } catch (e) {
     next(e);
   }

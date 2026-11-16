@@ -1,5 +1,25 @@
+<% const _pipelinePaintPending = typeof pipelinePaintPending !== 'undefined' && !!pipelinePaintPending; %>
 <% const _pipelineViewCount = typeof pipelineLeadsTotal === 'number' ? pipelineLeadsTotal : leads.length; %>
-<% if (_pipelineViewCount > 0) { %>
+<% if (_pipelinePaintPending && _pipelineViewCount === 0) { %>
+  <div class="brand-card p-10 md:p-14 text-center max-wide dark:bg-slate-900 dark:border-white/10" id="pipelinePaintPending" role="status" aria-live="polite">
+    <p class="text-sm font-semibold text-brand-muted dark:text-slate-300">Loading folder leads…</p>
+    <p class="text-[11px] text-brand-muted mt-2">Pulling rows for this folder — hang tight.</p>
+    <div class="mt-6 overflow-x-auto rounded-2xl border border-brand-border/40 dark:border-white/10">
+      <table class="w-full prospect-leads-table prospect-leads-table--comfortable" id="prospectLeadsTable" data-pipeline-pending="1">
+        <thead class="sr-only"><tr><th>Leads</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div id="pipelineTablePaging" class="hidden flex flex-wrap items-center justify-between gap-3 mt-4 px-1">
+      <p id="pipelineTablePageStatus" class="text-[11px] font-bold uppercase tracking-widest text-brand-muted"></p>
+      <div class="flex items-center gap-2">
+        <label class="sr-only" for="pipelineTablePageSizeSelect">Page size</label>
+        <select id="pipelineTablePageSizeSelect" class="hidden" aria-hidden="true"><option value="25">25</option></select>
+        <button type="button" id="pipelineTableLoadMore" class="hidden btn-pill border border-brand-border dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Load more</button>
+      </div>
+    </div>
+  </div>
+<% } else if (_pipelineViewCount > 0) { %>
   <style>
     .plc-th-wrap {
       position: relative;
