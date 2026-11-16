@@ -270,11 +270,13 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.match(reviewsView, /runHydrate/);
   assert.match(reviewsView, /applySettingsForm/);
   assert.match(reviewsView, /hydrateMax = 8/);
-  assert.match(reviewsView, /10000/);
+  assert.match(reviewsView, /5000/);
+  assert.match(reviewsView, /offerHydrateRetry/);
   assert.match(qaView, /runHydrate/);
   assert.match(qaView, /applySettingsForm/);
   assert.match(qaView, /hydrateMax = 8/);
-  assert.match(qaView, /10000/);
+  assert.match(qaView, /5000/);
+  assert.match(qaView, /offerHydrateRetry/);
   assert.match(reviewsRoute, /failFast:\s*true/);
   assert.match(qaRoute, /failFast:\s*true/);
   // Must NOT soft-busy Reviews/Q&A just because a lead scan is running.
@@ -282,7 +284,13 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Shell-first always/);
   assert.match(qaRoute, /Shell-first always/);
-  assert.match(sw, /adhello-pwa-v1\.0\.783/);
+  assert.match(sw, /adhello-pwa-v1\.0\.846/);
+  const mw = fs.readFileSync(path.join(root, 'middleware/withWorkspace.js'), 'utf8');
+  assert.match(mw, /primeWorkspaceDocCache/);
+  assert.match(mw, /inboxHydrateFailFast \|\| lightHtmlPreferCache/);
+  const reviewsSvc = fs.readFileSync(path.join(root, 'services/businessReviews.js'), 'utf8');
+  assert.match(reviewsSvc, /STORE_CACHE_TTL_MS/);
+  assert.match(reviewsSvc, /_storeCache/);
 });
 
 test('Marketing Studio HTML never awaits getAllLeads (menu hops stay responsive)', () => {
