@@ -38,10 +38,13 @@ test('workspace switch warms leads and skips chrome extras', () => {
   // 1.0.700: Reviews/Q&A inbox.json must share the same non-blocking chrome as HTML.
   assert.match(mw, /appJsonFastPath/);
   assert.match(mw, /const navFastPath = htmlNavFastPath \|\| appJsonFastPath;/);
-  // 1.0.776: HTML hops no longer failFast+stub (that left pages "down"); inbox.json still does.
+  // 1.0.776+: no HTML stub workspaces; 1.0.781 prefers warm cache for light HTML hops.
   assert.doesNotMatch(mw, /lightHtmlFailFast/);
   assert.match(mw, /inboxHydrateFailFast/);
+  assert.match(mw, /lightHtmlPreferCache/);
+  assert.match(mw, /preferCache/);
   assert.match(mw, /isSqliteBusyError/);
+  assert.match(mw, /invalidateWorkspaceDocCache/);
   const storeBusy = fs.readFileSync(path.join(__dirname, '../lib/sqliteSessionStore.js'), 'utf8');
   assert.match(storeBusy, /_withBusyRetry/);
   assert.match(storeBusy, /_runFailFast/);

@@ -1536,7 +1536,7 @@ module.exports = {
         ? updateData.logs
         : [...(existing.logs || []), ...(updateData.logs || [])];
 
-    const { logsMode, chatHistoryMode, ...leadPatch } = updateData;
+    const { logsMode, chatHistoryMode, _skipPhoneLineRefresh, ...leadPatch } = updateData;
     if (Object.prototype.hasOwnProperty.call(leadPatch, 'bookmarked')) {
       leadPatch.bookmarked =
         leadPatch.bookmarked === true ||
@@ -1561,15 +1561,20 @@ module.exports = {
       updated.enteredStage8At = new Date().toISOString();
     }
 
-    try {
-      const phoneLineType = require('./phoneLineType');
-      const linePatch = await phoneLineType.refreshIfNeeded(updated, existing);
-      if (linePatch) Object.assign(updated, linePatch);
-    } catch (e) {
-      console.warn('[updateLead] phone line type refresh skipped:', e && e.message);
+    if (!_skipPhoneLineRefresh) {
+      try {
+        const phoneLineType = require('./phoneLineType');
+        const linePatch = await phoneLineType.refreshIfNeeded(updated, existing);
+        if (linePatch) Object.assign(updated, linePatch);
+      } catch (e) {
+        console.warn('[updateLead] phone line type refresh skipped:', e && e.message);
+      }
     }
 
+    // Yield before the sync writer so Reviews/Q&A / session hops can run.
+    await new Promise((r) => setImmediate(r));
     kvSet(storageKey, JSON.stringify(updated), updated);
+    await new Promise((r) => setImmediate(r));
     return {
       ...updated,
       key: updated.key || storageKey,

@@ -45,6 +45,17 @@ test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings
   assert.match(route, /clearStaleScrapeBusy/);
   assert.match(route, /SCRAPE_JOB_MAX_MS/);
   assert.match(route, /currentListingId/);
+  assert.match(route, /skipAiSummary:\s*true/);
+  assert.match(route, /deferredLeadPatches/);
+  assert.match(route, /deferred lead update failed/);
+  // Lead KV writes must be deferred after job done — not inside the Outscraper for-loop.
+  const jobFn = route.slice(
+    route.indexOf('async function runDirectoryScrapeJob'),
+    route.indexOf('function baseUrlFromReq'),
+  );
+  const loopSlice = jobFn.slice(0, jobFn.indexOf('deferredLeadPatches.slice'));
+  assert.doesNotMatch(loopSlice, /await dbService\.updateLead/);
+  assert.match(jobFn, /await dbService\.updateLead/);
   assert.match(view, /202 Accepted/);
   // Dashboard rows show contact + review score/summary via hydrate renderRow.
   assert.match(view, /function renderRow/);

@@ -5,6 +5,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const directoryStore = require('../services/directoryStore');
+const withWorkspace = require('../middleware/withWorkspace');
 const {
   buildDirectoryPagePrompt,
   originFromPageUrl,
@@ -97,10 +98,11 @@ async function runDirectoryScrapeJob(job) {
       job.finishedAt = Date.now();
       return;
     }
-    // One load + one saveWorkspace at the end. Per-listing directory saves rewrote the
-    // whole workspace doc N times and locked Reviews/Q&A (and the rest of the app).
+    // One load + one directory save. Do NOT updateLead inside the Outscraper loop —
+    // N× sync lead rewrites blocked Reviews/Q&A. Lead KV persists after the job finishes.
     const bundle = await directoryStore.load(wid);
     const byId = bundle && bundle.listings && typeof bundle.listings === 'object' ? bundle.listings : {};
+    const deferredLeadPatches = [];
     for (let i = 0; i < job.listingIds.length; i++) {
       if (job.cancel) break;
       const id = job.listingIds[i];
@@ -120,10 +122,12 @@ async function runDirectoryScrapeJob(job) {
           job.results.push({ id, leadKey: prev.leadKey, ok: false, error: 'Lead not found.' });
           continue;
         }
-        // Yield so menu/session hops can use SQLite between Outscraper calls.
-        await new Promise((r) => setImmediate(r));
+        // Yield so menu/session / Reviews/Q&A hops can run between Outscraper calls.
+        await new Promise((r) => setTimeout(r, 0));
         if (job.cancel) break;
-        const pack = await reviewHunt.runReviewHuntForLead(lead, integrationEnv);
+        const pack = await reviewHunt.runReviewHuntForLead(lead, integrationEnv, {
+          skipAiSummary: true,
+        });
         if (!pack || !pack.outscraperConfigured) {
           job.failed += 1;
           job.done += 1;
@@ -135,12 +139,14 @@ async function runDirectoryScrapeJob(job) {
           });
           continue;
         }
-        await new Promise((r) => setImmediate(r));
+        await new Promise((r) => setTimeout(r, 0));
         if (pack.patch && Object.keys(pack.patch).length) {
-          await dbService.updateLead(prev.leadKey, pack.patch, wid);
           Object.assign(lead, pack.patch);
+          deferredLeadPatches.push({
+            leadKey: prev.leadKey,
+            patch: { ...pack.patch, _skipPhoneLineRefresh: true },
+          });
         }
-        await new Promise((r) => setImmediate(r));
         const { row } = directoryStore.applyLeadToBundle(bundle, lead, prev.leadKey, {
           published: prev.published,
           blurb: prev.blurb,
@@ -176,12 +182,19 @@ async function runDirectoryScrapeJob(job) {
       }
     }
     if (listingsDirty) {
-      await new Promise((r) => setImmediate(r));
+      await new Promise((r) => setTimeout(r, 0));
       await directoryStore.save(wid, {
         listings: bundle.listings,
         settings: bundle.settings || {},
       });
-      await new Promise((r) => setImmediate(r));
+      try {
+        if (typeof withWorkspace.invalidateWorkspaceDocCache === 'function') {
+          withWorkspace.invalidateWorkspaceDocCache(wid);
+        }
+      } catch (_) {
+        /* ignore */
+      }
+      await new Promise((r) => setTimeout(r, 0));
     }
     if (job.cancel && job.error) {
       job.status = 'error';
@@ -190,6 +203,25 @@ async function runDirectoryScrapeJob(job) {
     }
     job.currentListingId = null;
     job.finishedAt = Date.now();
+    // Persist lead patches AFTER the job is done so Reviews/Q&A are not locked behind N writes.
+    if (deferredLeadPatches.length) {
+      const patches = deferredLeadPatches.slice();
+      setImmediate(() => {
+        void (async () => {
+          for (const item of patches) {
+            try {
+              await new Promise((r) => setTimeout(r, 0));
+              await dbService.updateLead(item.leadKey, item.patch, wid);
+            } catch (e) {
+              console.warn(
+                '[directory scrape] deferred lead update failed:',
+                e && e.message ? e.message : e,
+              );
+            }
+          }
+        })();
+      });
+    }
   } catch (e) {
     job.status = 'error';
     job.error = (e && e.message) || 'Scrape failed';
