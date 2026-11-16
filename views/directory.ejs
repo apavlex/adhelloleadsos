@@ -271,7 +271,13 @@
         body: JSON.stringify(body || {}),
       });
       var data = await res.json().catch(function () { return {}; });
-      if (!res.ok || data.success === false) throw new Error((data && data.error) || 'Request failed');
+      // 202 Accepted (async scrape) is success — do not treat as failure.
+      if (data.success === false || (res.status >= 400 && !data.jobId)) {
+        throw new Error((data && data.error) || 'Request failed');
+      }
+      if (!res.ok && !(res.status === 202 && data.success)) {
+        throw new Error((data && data.error) || 'Request failed');
+      }
       return data;
     }
     function setEditOpen(open) {
@@ -468,61 +474,62 @@
       }
     }
     function listingRowEl(id) {
-      var raw = String(id || '');
-      var safe = raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       try {
-        if (typeof CSS !== 'undefined' && CSS.escape) {
-          return document.querySelector('#dirList li[data-listing-id="' + CSS.escape(raw) + '"]');
+        var raw = String(id || '');
+        var list = document.getElementById('dirList');
+        if (!list) return null;
+        var rows = list.querySelectorAll('li[data-listing-id]');
+        for (var i = 0; i < rows.length; i++) {
+          if (String(rows[i].getAttribute('data-listing-id') || '') === raw) return rows[i];
         }
-      } catch (_) { /* fall through */ }
-      return document.querySelector('#dirList li[data-listing-id="' + safe + '"]');
+      } catch (_) { /* ignore */ }
+      return null;
     }
     function setRowScrapeUi(id, state, message) {
-      var row = listingRowEl(id);
-      if (!row) return;
-      var btn = row.querySelector('.js-dir-scrape');
-      var status = row.querySelector('.js-dir-scrape-status');
-      if (!status) {
-        status = document.createElement('p');
-        status.className = 'js-dir-scrape-status mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-300';
-        status.setAttribute('role', 'status');
-        status.setAttribute('aria-live', 'polite');
-        status.setAttribute('data-id', String(id || ''));
-        var body = row.querySelector('.min-w-0');
-        if (body) body.appendChild(status);
-        else row.appendChild(status);
-      }
-      row.setAttribute('data-scraping', state === 'working' || state === 'starting' ? '1' : '0');
-      if (btn) {
-        if (state === 'working' || state === 'starting') {
-          btn.disabled = true;
-          btn.classList.add('opacity-60', 'cursor-wait');
-          btn.textContent = state === 'starting' ? 'Launching…' : 'Scraping…';
-          btn.title = message || 'Scraping Google reviews for this business…';
-        } else {
-          btn.disabled = false;
-          btn.classList.remove('opacity-60', 'cursor-wait');
-          btn.textContent = 'Reviews';
-          btn.title = 'Pull Google reviews for this business';
+      try {
+        var row = listingRowEl(id);
+        if (!row) return;
+        var btn = row.querySelector('.js-dir-scrape');
+        var status = row.querySelector('.js-dir-scrape-status');
+        if (!status) {
+          status = document.createElement('p');
+          status.className = 'js-dir-scrape-status hidden mt-2 text-[11px] font-semibold';
+          status.setAttribute('role', 'status');
+          status.setAttribute('aria-live', 'polite');
+          status.setAttribute('data-id', String(id || ''));
+          var body = row.querySelector('.min-w-0');
+          if (body) body.appendChild(status);
+          else row.appendChild(status);
         }
+        var busy = state === 'working' || state === 'starting';
+        row.setAttribute('data-scraping', busy ? '1' : '0');
+        status.setAttribute('data-state', state || 'idle');
+        if (btn) {
+          btn.disabled = !!busy;
+          if (busy) {
+            btn.classList.add('opacity-60', 'cursor-wait');
+            btn.textContent = state === 'starting' ? 'Launching…' : 'Scraping…';
+            btn.title = message || 'Scraping Google reviews for this business…';
+          } else {
+            btn.classList.remove('opacity-60', 'cursor-wait');
+            btn.textContent = 'Reviews';
+            btn.title = 'Pull Google reviews for this business';
+          }
+        }
+        if (state === 'idle' || !message) {
+          status.textContent = '';
+          status.classList.add('hidden');
+          status.style.color = '';
+          return;
+        }
+        status.classList.remove('hidden');
+        if (state === 'done') status.style.color = '#047857';
+        else if (state === 'error') status.style.color = '#be123c';
+        else status.style.color = '#b45309';
+        status.textContent = String(message);
+      } catch (err) {
+        try { console.warn('[directory] setRowScrapeUi failed', err); } catch (_) {}
       }
-      if (state === 'idle' || !message) {
-        status.textContent = '';
-        status.classList.add('hidden');
-        status.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-rose-700', 'dark:text-rose-300');
-        status.classList.add('text-amber-700', 'dark:text-amber-300');
-        return;
-      }
-      status.classList.remove('hidden');
-      status.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-rose-700', 'dark:text-rose-300', 'text-amber-700', 'dark:text-amber-300');
-      if (state === 'done') {
-        status.classList.add('text-emerald-700', 'dark:text-emerald-300');
-      } else if (state === 'error') {
-        status.classList.add('text-rose-700', 'dark:text-rose-300');
-      } else {
-        status.classList.add('text-amber-700', 'dark:text-amber-300');
-      }
-      status.textContent = message;
     }
     function markRowsScraping(ids, state, message) {
       (ids || []).forEach(function (id) {
@@ -530,33 +537,43 @@
       });
     }
     function applyJobRowProgress(job, listingIds) {
-      var ids = (job && Array.isArray(job.listingIds) && job.listingIds.length)
-        ? job.listingIds.map(String)
-        : (listingIds || []).map(String);
-      var doneMap = {};
-      (job && Array.isArray(job.results) ? job.results : []).forEach(function (r) {
-        if (!r || !r.id) return;
-        doneMap[String(r.id)] = r;
-      });
-      ids.forEach(function (id) {
-        var r = doneMap[id];
-        if (!r) {
-          setRowScrapeUi(id, 'working', 'Scraping Google reviews…');
-          return;
-        }
-        if (r.ok) {
-          var bits = [];
-          if (r.rating != null && r.rating !== '') bits.push(Number(r.rating).toFixed(1) + '★');
-          if (r.reviewCount != null && r.reviewCount !== '') bits.push(String(r.reviewCount) + ' reviews');
-          setRowScrapeUi(
-            id,
-            'done',
-            bits.length ? ('Reviews pulled — ' + bits.join(' · ')) : 'Reviews pulled for this business.'
-          );
-        } else {
-          setRowScrapeUi(id, 'error', r.error || r.reviewError || 'Review scrape failed for this business.');
-        }
-      });
+      try {
+        var ids = (job && Array.isArray(job.listingIds) && job.listingIds.length)
+          ? job.listingIds.map(String)
+          : (listingIds || []).map(String);
+        var doneMap = {};
+        (job && Array.isArray(job.results) ? job.results : []).forEach(function (r) {
+          if (!r || r.id == null) return;
+          doneMap[String(r.id)] = r;
+        });
+        var currentId = job && job.currentListingId != null ? String(job.currentListingId) : '';
+        ids.forEach(function (id) {
+          var r = doneMap[id];
+          if (!r) {
+            var msg = currentId && currentId === id
+              ? 'Scraping Google reviews for this business…'
+              : (currentId ? 'Queued — scraping another listing…' : 'Scraping Google reviews…');
+            setRowScrapeUi(id, 'working', msg);
+            return;
+          }
+          if (r.ok) {
+            var bits = [];
+            var ratingN = r.rating != null && r.rating !== '' ? Number(r.rating) : NaN;
+            var countN = r.reviewCount != null && r.reviewCount !== '' ? Number(r.reviewCount) : NaN;
+            if (Number.isFinite(ratingN)) bits.push(ratingN.toFixed(1) + '\u2605');
+            if (Number.isFinite(countN)) bits.push(String(Math.max(0, Math.floor(countN))) + ' reviews');
+            setRowScrapeUi(
+              id,
+              'done',
+              bits.length ? ('Reviews pulled — ' + bits.join(' \u00b7 ')) : 'Reviews pulled for this business.'
+            );
+          } else {
+            setRowScrapeUi(id, 'error', r.error || r.reviewError || 'Review scrape failed for this business.');
+          }
+        });
+      } catch (err) {
+        try { console.warn('[directory] applyJobRowProgress failed', err); } catch (_) {}
+      }
     }
     function scrapeReviews(ids) {
       var listingIds = (ids || []).map(String).filter(Boolean);
@@ -599,7 +616,11 @@
                 credentials: 'same-origin',
                 headers: { Accept: 'application/json' },
               })
-                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+                .then(function (r) {
+                  return r.json()
+                    .then(function (d) { return { ok: r.ok, status: r.status, data: d }; })
+                    .catch(function () { return { ok: false, status: r.status, data: {} }; });
+                })
                 .then(function (parsed) {
                   var job = parsed.data && parsed.data.job;
                   if (!parsed.ok || !job) throw new Error((parsed.data && parsed.data.error) || 'Job missing');

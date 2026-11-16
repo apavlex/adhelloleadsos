@@ -28,6 +28,11 @@ const SCRAPE_REVIEWS_GAP_MS = Math.min(
 /** In-memory scrape jobs — never block the HTTP request (768 froze the app). */
 const _scrapeJobs = new Map();
 const _scrapeBusyByWs = new Set();
+/** Wall-clock cap so a hung Outscraper/AI call cannot pin the workspace forever. */
+const SCRAPE_JOB_MAX_MS = Math.min(
+  20 * 60 * 1000,
+  Math.max(60 * 1000, parseInt(process.env.DIRECTORY_SCRAPE_JOB_MAX_MS || String(12 * 60 * 1000), 10) || 12 * 60 * 1000),
+);
 
 function scrapeJobPublic(job) {
   if (!job) return null;
@@ -41,15 +46,47 @@ function scrapeJobPublic(job) {
     failed: job.failed,
     error: job.error || null,
     listingIds: Array.isArray(job.listingIds) ? job.listingIds.slice() : [],
+    currentListingId: job.currentListingId || null,
     results: job.results || [],
     startedAt: job.startedAt,
     finishedAt: job.finishedAt || null,
   };
 }
 
+/** Clear stale busy flags when a job vanished or ran too long (process kill / hang). */
+function clearStaleScrapeBusy(workspaceId) {
+  const wid = String(workspaceId || '');
+  if (!wid || !_scrapeBusyByWs.has(wid)) return false;
+  let running = null;
+  for (const job of _scrapeJobs.values()) {
+    if (String(job.workspaceId) === wid && job.status === 'running') {
+      running = job;
+      break;
+    }
+  }
+  const started = running && running.startedAt ? Number(running.startedAt) : 0;
+  const stale = !running || !started || Date.now() - started > SCRAPE_JOB_MAX_MS;
+  if (!stale) return false;
+  if (running) {
+    running.status = 'error';
+    running.error = running.error || 'Review scrape timed out. Try again.';
+    running.finishedAt = Date.now();
+    running.cancel = true;
+  }
+  _scrapeBusyByWs.delete(wid);
+  return true;
+}
+
 async function runDirectoryScrapeJob(job) {
   const wid = job.workspaceId;
   let listingsDirty = false;
+  const watchdog = setTimeout(() => {
+    if (job.status === 'running') {
+      job.cancel = true;
+      job.error = job.error || 'Review scrape timed out. Try again.';
+    }
+  }, SCRAPE_JOB_MAX_MS);
+  if (watchdog.unref) watchdog.unref();
   try {
     const integrationEnv = await workspaceIntegrations
       .getResolvedIntegrationEnv(wid)
@@ -67,6 +104,7 @@ async function runDirectoryScrapeJob(job) {
     for (let i = 0; i < job.listingIds.length; i++) {
       if (job.cancel) break;
       const id = job.listingIds[i];
+      job.currentListingId = id;
       const prev = byId[id];
       if (!prev || !prev.leadKey) {
         job.failed += 1;
@@ -84,6 +122,7 @@ async function runDirectoryScrapeJob(job) {
         }
         // Yield so menu/session hops can use SQLite between Outscraper calls.
         await new Promise((r) => setImmediate(r));
+        if (job.cancel) break;
         const pack = await reviewHunt.runReviewHuntForLead(lead, integrationEnv);
         if (!pack || !pack.outscraperConfigured) {
           job.failed += 1;
@@ -142,14 +181,22 @@ async function runDirectoryScrapeJob(job) {
         listings: bundle.listings,
         settings: bundle.settings || {},
       });
+      await new Promise((r) => setImmediate(r));
     }
-    job.status = job.cancel ? 'cancelled' : 'done';
+    if (job.cancel && job.error) {
+      job.status = 'error';
+    } else {
+      job.status = job.cancel ? 'cancelled' : 'done';
+    }
+    job.currentListingId = null;
     job.finishedAt = Date.now();
   } catch (e) {
     job.status = 'error';
     job.error = (e && e.message) || 'Scrape failed';
+    job.currentListingId = null;
     job.finishedAt = Date.now();
   } finally {
+    clearTimeout(watchdog);
     _scrapeBusyByWs.delete(String(wid));
     setTimeout(() => _scrapeJobs.delete(job.id), 30 * 60 * 1000);
   }
@@ -477,6 +524,9 @@ router.post('/listings/scrape-reviews', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const wid = String(req.workspaceId || '');
     if (_scrapeBusyByWs.has(wid)) {
+      clearStaleScrapeBusy(wid);
+    }
+    if (_scrapeBusyByWs.has(wid)) {
       return res.status(409).json({
         success: false,
         pending: true,
@@ -527,6 +577,7 @@ router.post('/listings/scrape-reviews', async (req, res) => {
       failed: 0,
       results: [],
       error: null,
+      currentListingId: null,
       startedAt: Date.now(),
       finishedAt: null,
       cancel: false,
