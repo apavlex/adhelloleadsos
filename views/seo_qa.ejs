@@ -562,14 +562,37 @@
         }
         setStatus(msg || 'Could not load inbox', true);
       }
+      function offerHydrateRetry(msg) {
+        if (hydrateAttempts < 3) return;
+        var loading = document.getElementById('sqaInboxLoading');
+        if (!loading || loading.querySelector('button')) return;
+        loading.textContent = '';
+        var text = document.createElement('span');
+        text.textContent = msg || 'Still loading Q&A…';
+        loading.appendChild(text);
+        loading.appendChild(document.createElement('br'));
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'mt-3 btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest';
+        btn.textContent = 'Retry';
+        btn.addEventListener('click', function () {
+          hydrateAttempts = 0;
+          loading.textContent = 'Loading questions…';
+          runHydrate();
+        });
+        loading.appendChild(btn);
+      }
       function runHydrate() {
         hydrateAttempts += 1;
         var hydrateCtrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
         var hydrateTimer = setTimeout(function () {
           if (hydrateCtrl) hydrateCtrl.abort();
-        }, 10000);
+        }, 5000);
         var loadingEl = document.getElementById('sqaInboxLoading');
-        if (loadingEl && hydrateAttempts > 1) loadingEl.textContent = 'Still loading Q&A…';
+        if (loadingEl && hydrateAttempts > 1 && !loadingEl.querySelector('button')) {
+          loadingEl.textContent = 'Still loading Q&A…';
+        }
+        offerHydrateRetry('Still loading Q&A…');
         fetch(hydrateUrl, {
           credentials: 'same-origin',
           headers: { Accept: 'application/json' },
@@ -579,13 +602,15 @@
           .then(function (parsed) {
             clearTimeout(hydrateTimer);
             if (parsed.data && parsed.data.pending && hydrateAttempts < hydrateMax) {
-              setTimeout(runHydrate, Math.min(1500, 500 * hydrateAttempts));
+              offerHydrateRetry('Inbox busy — retrying…');
+              setTimeout(runHydrate, Math.min(900, 250 * hydrateAttempts));
               return;
             }
             if (!parsed.ok || !parsed.data || !parsed.data.success) {
               var busy = !!(parsed.data && parsed.data.pending) || parsed.status === 503;
               if (busy && hydrateAttempts < hydrateMax) {
-                setTimeout(runHydrate, Math.min(1500, 500 * hydrateAttempts));
+                offerHydrateRetry('Inbox busy — retrying…');
+                setTimeout(runHydrate, Math.min(900, 250 * hydrateAttempts));
                 return;
               }
               throw new Error((parsed.data && parsed.data.error) || 'Could not load inbox');
@@ -596,11 +621,13 @@
           .catch(function (e) {
             clearTimeout(hydrateTimer);
             if (hydrateAttempts < hydrateMax && e && e.name === 'AbortError') {
-              setTimeout(runHydrate, Math.min(1500, 500 * hydrateAttempts));
+              offerHydrateRetry('Inbox is taking too long…');
+              setTimeout(runHydrate, Math.min(900, 250 * hydrateAttempts));
               return;
             }
             if (hydrateAttempts < hydrateMax && !(e && e.name === 'AbortError')) {
-              setTimeout(runHydrate, Math.min(1500, 600 * hydrateAttempts));
+              offerHydrateRetry('Still loading Q&A…');
+              setTimeout(runHydrate, Math.min(900, 300 * hydrateAttempts));
               return;
             }
             var msg = (e && e.name === 'AbortError')

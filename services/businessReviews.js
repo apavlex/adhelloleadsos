@@ -152,6 +152,19 @@ function readJson(key, fallback, { failFast = false } = {}) {
   return raw && typeof raw === 'object' ? raw : fallback;
 }
 
+/** Short TTL so inbox hydrate retries do not re-parse a large reviews blob. */
+const STORE_CACHE_TTL_MS = 12_000;
+const SETTINGS_CACHE_TTL_MS = 12_000;
+const _storeCache = new Map();
+const _settingsCache = new Map();
+
+function invalidateReviewsCaches(workspaceId) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return;
+  _storeCache.delete(wid);
+  _settingsCache.delete(wid);
+}
+
 function clean(v, max) {
   return String(v == null ? '' : v)
     .replace(/\s+/g, ' ')
@@ -182,10 +195,15 @@ function defaultSettings() {
 function getSettings(workspaceId, { failFast = false } = {}) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return defaultSettings();
+  const hit = _settingsCache.get(wid);
+  if (hit && Date.now() - hit.at < SETTINGS_CACHE_TTL_MS) return hit.settings;
   const raw = readJson(settingsKey(wid), null, { failFast });
   const base = defaultSettings();
-  if (!raw) return base;
-  return {
+  if (!raw) {
+    _settingsCache.set(wid, { at: Date.now(), settings: base });
+    return base;
+  }
+  const settings = {
     query: clean(raw.query, 500),
     yelpQuery: clean(raw.yelpQuery, 500),
     businessName: clean(raw.businessName, 160),
@@ -193,6 +211,8 @@ function getSettings(workspaceId, { failFast = false } = {}) {
     reviewsLimit: Math.min(100, Math.max(5, parseInt(raw.reviewsLimit, 10) || DEFAULT_LIMIT)),
     updatedAt: raw.updatedAt ? String(raw.updatedAt) : null,
   };
+  _settingsCache.set(wid, { at: Date.now(), settings });
+  return settings;
 }
 
 function saveSettings(workspaceId, patch) {
@@ -210,6 +230,7 @@ function saveSettings(workspaceId, patch) {
     updatedAt: new Date().toISOString(),
   };
   dbService.setKvSync(settingsKey(wid), next);
+  _settingsCache.set(wid, { at: Date.now(), settings: next });
   return next;
 }
 
@@ -260,8 +281,16 @@ function emptyStore() {
 function getStore(workspaceId, { resanitize = false, failFast = false } = {}) {
   const wid = String(workspaceId || '').trim();
   if (!wid) return emptyStore();
+  if (!resanitize) {
+    const hit = _storeCache.get(wid);
+    if (hit && Date.now() - hit.at < STORE_CACHE_TTL_MS) return hit.store;
+  }
   const raw = readJson(storeKey(wid), null, { failFast });
-  if (!raw) return emptyStore();
+  if (!raw) {
+    const empty = emptyStore();
+    if (!resanitize) _storeCache.set(wid, { at: Date.now(), store: empty });
+    return empty;
+  }
   const rawReviews = Array.isArray(raw.reviews) ? raw.reviews : [];
   // Fast GET path: reuse stored array (no per-row clone). Sanitization happens at write/merge.
   let reviews = rawReviews;
@@ -277,7 +306,7 @@ function getStore(workspaceId, { resanitize = false, failFast = false } = {}) {
       };
     });
   }
-  return {
+  const store = {
     reviews,
     placeRating: raw.placeRating != null && Number.isFinite(Number(raw.placeRating)) ? Number(raw.placeRating) : null,
     placeReviewsCount:
@@ -290,6 +319,8 @@ function getStore(workspaceId, { resanitize = false, failFast = false } = {}) {
     knownIds: Array.isArray(raw.knownIds) ? raw.knownIds.map(String) : [],
     syncState: normalizeSyncState(raw.syncState),
   };
+  if (!resanitize) _storeCache.set(wid, { at: Date.now(), store });
+  return store;
 }
 
 function saveStore(workspaceId, store) {
@@ -311,7 +342,7 @@ function saveStore(workspaceId, store) {
       replyDraft: typeof r.replyDraft === 'string' ? r.replyDraft.slice(0, 3500) : '',
     };
   });
-  dbService.setKvSync(storeKey(wid), {
+  const payload = {
     reviews,
     placeRating: store.placeRating,
     placeReviewsCount: store.placeReviewsCount,
@@ -320,6 +351,26 @@ function saveStore(workspaceId, store) {
     lastError: store.lastError || null,
     knownIds: (store.knownIds || []).slice(0, MAX_STORED * 2),
     syncState,
+  };
+  dbService.setKvSync(storeKey(wid), payload);
+  // Keep hydrate cache aligned with the write we just did (avoid re-parse).
+  _storeCache.set(wid, {
+    at: Date.now(),
+    store: {
+      reviews,
+      placeRating: payload.placeRating != null && Number.isFinite(Number(payload.placeRating))
+        ? Number(payload.placeRating)
+        : null,
+      placeReviewsCount:
+        payload.placeReviewsCount != null && Number.isFinite(Number(payload.placeReviewsCount))
+          ? Number(payload.placeReviewsCount)
+          : null,
+      placeName: payload.placeName || '',
+      lastSyncedAt: payload.lastSyncedAt || null,
+      lastError: payload.lastError || null,
+      knownIds: payload.knownIds || [],
+      syncState,
+    },
   });
 }
 
@@ -1290,6 +1341,7 @@ module.exports = {
   getSettings,
   saveSettings,
   getStore,
+  invalidateReviewsCaches,
   getReview,
   syncWorkspace,
   syncMember,

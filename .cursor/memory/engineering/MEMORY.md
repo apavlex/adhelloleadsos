@@ -1,5 +1,25 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-15 — CANONICAL: Reviews/Q&A hydrate after Directory scrape (1.0.782)
+
+### Symptom
+- Reviews + Q&A open to shell then stay on “Loading…” / feel stuck (health green). Worse right after Directory Pull reviews.
+
+### Cause (on top of 781)
+- `inbox.json` used **failFast only** (no `preferCache`), while scrape **invalidated** the workspace doc cache then started deferred `updateLead`s → cold SQLite reads 503-looped.
+- Client abort was 10s × 8 with no early Retry — looked permanently stuck.
+
+### Locked-in fix
+- Inbox hydrate shares **`preferCache + failFast`** with light HTML.
+- After directory save: **`primeWorkspaceDocCache`** (do not invalidate into a write storm).
+- Deferred lead writes: small gap between updates.
+- Business Reviews: short TTL in-memory store/settings cache for hydrate retries.
+- Client: 5s abort, faster backoff, early Retry after 3 attempts.
+
+### Do not
+- Invalidate workspace cache immediately before a burst of lead KV writes.
+- Make inbox.json cold-only while HTML is cache-warm.
+
 ## 2026-11-15 — CANONICAL: Reviews/Q&A stay open during Directory scrape (1.0.781)
 
 ### Symptom

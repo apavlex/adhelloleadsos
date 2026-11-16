@@ -183,12 +183,17 @@ async function runDirectoryScrapeJob(job) {
     }
     if (listingsDirty) {
       await new Promise((r) => setTimeout(r, 0));
-      await directoryStore.save(wid, {
+      const saved = await directoryStore.save(wid, {
         listings: bundle.listings,
         settings: bundle.settings || {},
       });
+      // Prime (do not invalidate): Reviews/Q&A inbox.json preferCache can serve
+      // this doc while deferred lead KV writes run — invalidate forced cold reads
+      // into SQLITE_BUSY → "Loading…" forever.
       try {
-        if (typeof withWorkspace.invalidateWorkspaceDocCache === 'function') {
+        if (typeof withWorkspace.primeWorkspaceDocCache === 'function' && saved && saved.workspace) {
+          withWorkspace.primeWorkspaceDocCache(wid, saved.workspace);
+        } else if (typeof withWorkspace.invalidateWorkspaceDocCache === 'function') {
           withWorkspace.invalidateWorkspaceDocCache(wid);
         }
       } catch (_) {
@@ -208,9 +213,11 @@ async function runDirectoryScrapeJob(job) {
       const patches = deferredLeadPatches.slice();
       setImmediate(() => {
         void (async () => {
-          for (const item of patches) {
+          for (let pi = 0; pi < patches.length; pi++) {
+            const item = patches[pi];
             try {
-              await new Promise((r) => setTimeout(r, 0));
+              // Gap so Reviews/Q&A / session can run between sync lead rewrites.
+              await new Promise((r) => setTimeout(r, pi === 0 ? 0 : 40));
               await dbService.updateLead(item.leadKey, item.patch, wid);
             } catch (e) {
               console.warn(
