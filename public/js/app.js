@@ -1678,6 +1678,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let serverHasMore = !!meta.hasMore;
       const rowsQuery = String(meta.query || '');
       let fetchInFlight = false;
+      const paintPending = !!meta.pending;
 
       let pageSize = readPipelinePageSize();
       let visibleLimit = pageSize;
@@ -1701,6 +1702,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       function pipelineListTotal() {
         return Math.max(serverTotal, pipelineRows().length);
+      }
+
+      function clearPipelinePaintPending() {
+        const pending = document.getElementById('pipelinePaintPending');
+        if (!pending) return;
+        // Promote the hydrated table out of the pending card into the main flow.
+        pending.removeAttribute('id');
+        pending.classList.remove('p-10', 'md:p-14', 'text-center');
+        const status = pending.querySelector('p');
+        if (status) status.remove();
+        const hint = pending.querySelector('p');
+        if (hint) hint.remove();
       }
 
       function applyPipelinePaging() {
@@ -1812,10 +1825,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const scrollHost = document.getElementById('prospectPipelineTableScroll');
         if (scrollHost) scrollHost.scrollLeft = 0;
       };
-      if (!rowsAlreadyPaged) {
-        applyPipelinePaging();
-      } else {
-        applyPipelinePaging();
+      applyPipelinePaging();
+      // Warm-cache miss (Folders → Open): auto-hydrate rows so the folder is not a false empty.
+      if ((paintPending || serverHasMore) && pipelineRows().length === 0 && rowsQuery) {
+        void (async function hydratePendingFolderRows() {
+          let guard = 0;
+          while (serverHasMore && pipelineRows().length === 0 && guard < 6) {
+            guard += 1;
+            const ok = await fetchMorePipelineRows();
+            if (!ok) break;
+          }
+          clearPipelinePaintPending();
+          if (pipelineRows().length) {
+            visibleLimit = Math.max(visibleLimit, Math.min(pageSize, pipelineRows().length));
+          }
+          applyPipelinePaging();
+          if (!pipelineRows().length) {
+            const pending = document.getElementById('pipelinePaintPending');
+            if (pending) {
+              pending.innerHTML =
+                '<p class="text-sm font-semibold text-brand-muted">No leads in this folder yet.</p>' +
+                '<p class="text-[11px] text-brand-muted mt-2"><a class="underline" href="/prospecting?tab=folders">Back to folders</a></p>';
+            }
+          }
+        })();
       }
     })();
 

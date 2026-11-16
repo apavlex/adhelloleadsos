@@ -132,6 +132,8 @@ function readJsonReply(r) {
         try {
           light = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement)(\/|$)/.test(
             pending ? new URL(pending, window.location.origin).pathname : '',
+          ) || /\/prospecting\/?(?:\?.*(?:tab=folders)|$)/.test(
+            pending || '',
           );
         } catch (_) { light = false; }
         var lockMs = light
@@ -206,7 +208,8 @@ function readJsonReply(r) {
     var lightDest = false;
     try {
       var pathOnly = pendingHref ? new URL(pendingHref, window.location.origin).pathname : '';
-      lightDest = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement)(\/|$)/.test(pathOnly);
+      lightDest = /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|reports|analytics|engagement)(\/|$)/.test(pathOnly)
+        || /tab=folders/.test(pendingHref || '');
     } catch (_) {
       lightDest = false;
     }

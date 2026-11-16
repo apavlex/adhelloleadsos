@@ -58,34 +58,33 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /light:\s*true/);
   assert.match(route, /safeTab === 'folders'/);
   assert.match(route, /folders_manager_lite/);
+  assert.match(route, /folders-inbox\.json/);
+  assert.match(route, /folder-counts\.json/);
   assert.match(route, /listFoldersLite/);
   assert.match(route, /countLeadsByFolderKey/);
-  assert.match(route, /sortFolderTreeByLeadCount/);
   assert.match(route, /listLeadsByFolderKeys/);
   assert.match(route, /openFolderScoped/);
+  assert.match(route, /pipelinePaintPending/);
   {
     const start = route.indexOf("safeTab === 'folders'");
-    const end = route.indexOf("const [all, foldersInitial, tags, wsRaw]", start);
-    const foldersBlock = route.slice(start, end > start ? end : start + 2000);
+    const end = route.indexOf("return res.render('folders_manager_lite'", start);
+    assert.ok(end > start);
+    const foldersBlock = route.slice(start, end + 450);
     assert.doesNotMatch(foldersBlock, /await maybeMigrateLegacyFolders|await ensurePipelineFolders/);
-    assert.doesNotMatch(foldersBlock, /getAllLeads/);
-    assert.match(foldersBlock, /listFoldersLite/);
-    assert.match(foldersBlock, /countLeadsByFolderKey/);
-    assert.match(foldersBlock, /folderAggregateCounts/);
+    assert.doesNotMatch(foldersBlock, /getAllLeads|countLeadsByFolderKey|listFoldersLite/);
+    assert.match(foldersBlock, /folderShell:\s*true/);
+    assert.match(foldersBlock, /folderCountsPending:\s*true/);
   }
   assert.ok(fs.existsSync(path.join(root, 'views/folders_manager_lite.ejs')));
   const lite = fs.readFileSync(path.join(root, 'views/folders_manager_lite.ejs'), 'utf8');
-  assert.match(lite, /folderAggregateCounts/);
-  assert.match(lite, /_counts\[/);
-  assert.match(lite, /lead<%= /);
-  assert.match(
-    fs.readFileSync(path.join(root, 'services/database.js'), 'utf8'),
-    /async listFoldersLite/,
-  );
-  assert.match(
-    fs.readFileSync(path.join(root, 'services/database.js'), 'utf8'),
-    /async countLeadsByFolderKey/,
-  );
+  assert.match(lite, /folders-inbox\.json/);
+  assert.match(lite, /folder-counts\.json/);
+  assert.match(lite, /Loading folders/);
+  assert.match(lite, /js-folder-row-count/);
+  const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
+  assert.match(db, /async listFoldersLite/);
+  assert.match(db, /failFast/);
+  assert.match(db, /async countLeadsByFolderKey/);
   assert.match(
     fs.readFileSync(path.join(root, 'views/partials/head.ejs'), 'utf8'),
     /_foldersLite/,
@@ -94,6 +93,12 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(route, /folderListLeads = \[\]/);
   assert.match(route, /queueListLeads = \[\]/);
   assert.match(route, /needPipelineDecorate \? buildDriveImportBundle/);
+  const appJs = fs.readFileSync(path.join(root, 'public/js/app.js'), 'utf8');
+  assert.match(appJs, /hydratePendingFolderRows|paintPending/);
+  assert.match(appJs, /fetchMorePipelineRows/);
+  const core = fs.readFileSync(path.join(root, 'views/partials/leads_pipeline_core.ejs'), 'utf8');
+  assert.match(core, /pipelinePaintPending/);
+  assert.match(core, /Loading folder leads/);
 });
 
 test('light pages skip softphone helper scripts in head (lazy on dialer open)', () => {
@@ -264,7 +269,7 @@ test('Today / unscoped lead scans do not frost Reviews/Q&A hydrate', () => {
   assert.doesNotMatch(qaRoute, /countLeadsListInflight/);
   assert.match(reviewsRoute, /Shell-first always/);
   assert.match(qaRoute, /Shell-first always/);
-  assert.match(sw, /adhello-pwa-v1\.0\.781/);
+  assert.match(sw, /adhello-pwa-v1\.0\.783/);
 });
 
 test('Marketing Studio HTML never awaits getAllLeads (menu hops stay responsive)', () => {

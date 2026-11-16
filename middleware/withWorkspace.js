@@ -85,8 +85,12 @@ function countSwitcherInflight() {
 
 /** Reviews / Q&A / Directory HTML — hydrate needs SQLite; skip background switcher warm. */
 function isLightInboxHop(originalUrl) {
-  return /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|engagement)(?:\/|$|\?)/.test(
-    String(originalUrl || ''),
+  const u = String(originalUrl || '');
+  return (
+    /\/(business-reviews|seo-qa|directory|local-seo|backlinks|seo-gap|engagement)(?:\/|$|\?)/.test(u) ||
+    /\/prospecting(?:\/|$|\?).*[?&]tab=folders(?:&|$)/.test(u) ||
+    /\/prospecting\/folders-inbox\.json/.test(u) ||
+    /\/prospecting\/folder-counts\.json/.test(u)
   );
 }
 

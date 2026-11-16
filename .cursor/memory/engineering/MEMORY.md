@@ -1,5 +1,24 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-15 — CANONICAL: Folders shell-first (1.0.783)
+
+### Symptom
+- Folders still slow / never opens (even after skipping COUNT on HTML). Live stayed on 1.0.781 until this ships.
+
+### Cause
+- `listFoldersLite` is still a sync SQLite `.all()` with `busy_timeout=5000`. Under Directory/lead writers the HTML hop itself hung.
+- Pipeline warm-cache miss still claimed empty without `/table-rows`.
+
+### Locked-in fix
+- Folders HTML is a **true empty shell** (no folder SQLite).
+- Tree hydrates from `/prospecting/folders-inbox.json` (`listFoldersLite` + `failFast`).
+- Counts from `/prospecting/folder-counts.json` (pending retries).
+- Warm-empty Pipeline: `pipelinePaintPending` + auto `/table-rows`.
+
+### Do not
+- Await `listFoldersLite` / lead COUNT on Folders HTML.
+- Treat warm-empty Pipeline as a definitive empty folder.
+
 ## 2026-11-15 — CANONICAL: Reviews/Q&A stay open during Directory scrape (1.0.781)
 
 ### Symptom
