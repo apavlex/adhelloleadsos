@@ -42,6 +42,10 @@ test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings
   assert.match(view, /setRowScrapeUi/);
   assert.match(view, /applyJobRowProgress/);
   assert.match(route, /listingIds:/);
+  assert.match(route, /clearStaleScrapeBusy/);
+  assert.match(route, /SCRAPE_JOB_MAX_MS/);
+  assert.match(route, /currentListingId/);
+  assert.match(view, /202 Accepted/);
   // Dashboard rows show contact + review score/summary via hydrate renderRow.
   assert.match(view, /function renderRow/);
   assert.match(view, /webParts/);
