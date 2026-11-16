@@ -45,7 +45,7 @@ describe('SEO Q&A page-builder prompt', () => {
     assert.match(view, /\/seo-qa\/inbox\.json/);
     assert.match(view, /AbortController/);
     assert.match(view, /runHydrate/);
-    assert.match(view, /hydrateMax = 5/);
+    assert.match(view, /hydrateMax = 8/);
     assert.match(view, /showHydrateRetry/);
     assert.match(view, /applySettingsForm/);
     assert.match(view, /adhello:inbox-hydrated/);

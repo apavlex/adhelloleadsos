@@ -17,12 +17,14 @@ describe('businessReviews', () => {
     dbService.deleteKvSync(SETTINGS_KEY);
     dbService.deleteKvSync(STORE_KEY);
     dbService.deleteKvSync(NOTIF_KEY);
+    businessReviews.invalidateReviewsCaches(WID);
   });
 
   afterEach(() => {
     dbService.deleteKvSync(SETTINGS_KEY);
     dbService.deleteKvSync(STORE_KEY);
     dbService.deleteKvSync(NOTIF_KEY);
+    businessReviews.invalidateReviewsCaches(WID);
   });
 
   it('isPaidWorkspace treats activated and non-trial workspaces as paid', () => {
@@ -163,7 +165,7 @@ describe('businessReviews', () => {
     assert.match(view, /\/business-reviews\/inbox\.json/);
     assert.match(view, /AbortController/);
     assert.match(view, /runHydrate/);
-    assert.match(view, /hydrateMax = 5/);
+    assert.match(view, /hydrateMax = 8/);
     assert.match(view, /showHydrateRetry/);
     assert.match(view, /applySettingsForm/);
     assert.match(view, /adhello:inbox-hydrated/);
@@ -265,6 +267,7 @@ describe('businessReviews', () => {
     assert.equal(businessReviews.getSettings(sid).query, 'ChIJmember');
     assert.equal(businessReviews.getSettings(WID).query, '');
     dbService.deleteKvSync(businessReviews.SETTINGS_PREFIX + sid);
+    businessReviews.invalidateReviewsCaches(sid);
   });
 
   it('resolveReviewsOutscraperEnv prefers agency provider helper (not workspace env)', async () => {
