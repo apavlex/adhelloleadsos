@@ -1,5 +1,22 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-15 — CANONICAL: Reviews/Q&A stay open during Directory scrape (1.0.781)
+
+### Symptom
+- After Pull reviews / row Reviews, Reviews + Q&A menu pages freeze or never open (health still green).
+
+### Cause
+- Single better-sqlite3 connection: sync `updateLead` + `saveWorkspace` during scrape block the event loop. Session/failFast cannot interleave mid-write.
+
+### Locked-in fix
+- Directory scrape: **no AI summary** in the loop (`skipAiSummary`); **no `updateLead` in the loop** — patch listings in memory, one `directoryStore.save`, defer lead KV writes after job done.
+- Light HTML hops (`business-reviews`, `seo-qa`, …): **prefer warm/stale workspace cache** (`lightHtmlPreferCache`) — never invent stub workspaces.
+- `updateLead`: yield around `kvSet`; optional `_skipPhoneLineRefresh`.
+
+### Do not
+- Call `updateLead` / AI summary inside the Outscraper listing loop.
+- Reintroduce HTML workspace stubs.
+
 ## 2026-11-15 — CANONICAL: mobile Reviews/Q&A menu open (1.0.776–778)
 
 ### Symptom

@@ -101,13 +101,18 @@ async function getWorkspaceCached(wid, opts = {}) {
   if (!id) return null;
   const hit = _workspaceDocCache.get(id);
   if (hit && Date.now() - hit.at < WORKSPACE_DOC_TTL_MS) return hit.ws;
+  // Reviews/Q&A/Directory HTML: prefer any in-memory workspace over waiting on a
+  // sync Directory scrape writer (single-connection better-sqlite3 blocks the loop).
+  if (opts && opts.preferCache && hit && hit.ws) return hit.ws;
   try {
     const ws = await dbService.getWorkspace(id, opts);
     if (ws) _workspaceDocCache.set(id, { at: Date.now(), ws });
     return ws;
   } catch (e) {
     // Prefer a slightly stale workspace over failing the Reviews/Q&A HTML shell.
-    if (opts && opts.failFast && isSqliteBusyError(e) && hit && hit.ws) return hit.ws;
+    if (opts && (opts.failFast || opts.preferCache) && isSqliteBusyError(e) && hit && hit.ws) {
+      return hit.ws;
+    }
     throw e;
   }
 }
@@ -169,12 +174,13 @@ async function withWorkspace(req, res, next) {
       !/^\/mcp(?:\/|$)/.test(original);
     // Reviews/Q&A inbox hydrate: never wait on busy_timeout while Directory scrape
     // holds the SQLite writer — throw SQLITE_BUSY → 503 pending (client retries).
-    // Do NOT failFast the HTML shell (1.0.775): stub workspaces + over-broad busy
-    // matching left Engagement/Reviews/Q&A looking "down" under any contention.
     const inboxHydrateFailFast =
       appJsonFastPath &&
       (/\/(?:seo-qa|business-reviews)\/inbox\.json/.test(original) ||
         /\/(?:seo-qa|business-reviews)\/inbox\.json/.test(path));
+    // Light HTML shells: use warm/stale workspace cache so Directory scrape writes
+    // cannot strand the nav spinner (no fake stub workspace — real cached doc only).
+    const lightHtmlPreferCache = htmlNavFastPath && isLightInboxHop(original);
     const navFastPath = htmlNavFastPath || appJsonFastPath;
     // Only dial/switch skip script seed + member-profile writes.
     const skipChromeExtras = telephonyFastPath || workspaceSwitchFastPath;
@@ -262,13 +268,17 @@ async function withWorkspace(req, res, next) {
       wid = ids[0] || null;
     }
 
-    const wsReadOpts = inboxHydrateFailFast ? { failFast: true } : {};
+    const wsReadOpts = inboxHydrateFailFast
+      ? { failFast: true }
+      : lightHtmlPreferCache
+        ? { preferCache: true, failFast: true }
+        : {};
     let ws = null;
     let wsBusy = false;
     try {
       ws = wid ? await getWorkspaceCached(wid, wsReadOpts) : null;
     } catch (e) {
-      if (inboxHydrateFailFast && isSqliteBusyError(e)) {
+      if ((inboxHydrateFailFast || lightHtmlPreferCache) && isSqliteBusyError(e)) {
         wsBusy = true;
         ws = null;
       } else {
@@ -284,7 +294,7 @@ async function withWorkspace(req, res, next) {
         try {
           cand = await getWorkspaceCached(id, wsReadOpts);
         } catch (e) {
-          if (inboxHydrateFailFast && isSqliteBusyError(e)) {
+          if ((inboxHydrateFailFast || lightHtmlPreferCache) && isSqliteBusyError(e)) {
             wsBusy = true;
             break;
           }
@@ -295,6 +305,15 @@ async function withWorkspace(req, res, next) {
           ws = cand;
           break;
         }
+      }
+    }
+    // Light HTML + busy + no cache: one normal read (may wait briefly) beats a blank nav.
+    if (lightHtmlPreferCache && wsBusy && !ws && wid) {
+      try {
+        ws = await getWorkspaceCached(wid, {});
+        wsBusy = false;
+      } catch (_) {
+        /* keep busy — fall through */
       }
     }
 
@@ -496,5 +515,6 @@ withWorkspace.cacheSwitcherSummaries = (email, built) => {
     canManageDemo: !!built.canManageDemo,
   });
 };
+withWorkspace.invalidateWorkspaceDocCache = invalidateWorkspaceDocCache;
 
 module.exports = withWorkspace;

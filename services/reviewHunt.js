@@ -129,12 +129,15 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
   }
 
   const intelLead = { ...lead, ...patch, reviewSnippets: snippets };
+  // Directory bulk scrape passes skipAiSummary — AI per listing froze Reviews/Q&A
+  // behind long awaits + giant follow-up SQLite writes.
   if (
-    snippets.length ||
-    patch.totalScore != null ||
-    patch.reviewsCount != null ||
-    intelLead.totalScore != null ||
-    intelLead.reviewsCount != null
+    !opts.skipAiSummary &&
+    (snippets.length ||
+      patch.totalScore != null ||
+      patch.reviewsCount != null ||
+      intelLead.totalScore != null ||
+      intelLead.reviewsCount != null)
   ) {
     try {
       const aiPack = await generateReviewSummaryForLead(intelLead);
