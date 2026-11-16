@@ -864,7 +864,11 @@
       var scrapeOne = e.target.closest('.js-dir-scrape');
       if (scrapeOne) {
         e.preventDefault();
-        void scrapeReviews([scrapeOne.getAttribute('data-id')]);
+        if (scrapeOne.disabled) return;
+        var scrapeId = scrapeOne.getAttribute('data-id');
+        // Paint this row immediately (don't wait on POST) so Reviews → Scraping… is obvious.
+        setRowScrapeUi(scrapeId, 'starting', 'Launching review scrape for this business…');
+        void scrapeReviews([scrapeId]);
         return;
       }
       var pub = e.target.closest('.js-dir-publish');
