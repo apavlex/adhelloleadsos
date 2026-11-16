@@ -435,6 +435,7 @@
           + (summary
             ? ('<p class="text-xs text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed line-clamp-3">' + esc(summary) + '</p>')
             : '<p class="text-[11px] text-brand-muted mt-1.5 italic">No review summary yet - use Pull reviews</p>')
+          + '<p class="js-dir-scrape-status hidden mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-300" data-id="' + esc(row.id) + '" role="status" aria-live="polite"></p>'
           + '</div></div>'
           + '<div class="flex flex-wrap gap-2 shrink-0">'
           + '<button type="button" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest js-dir-open" data-id="' + esc(row.id) + '">Edit</button>'
@@ -466,6 +467,97 @@
         all.indeterminate = n > 0 && n < boxes.length;
       }
     }
+    function listingRowEl(id) {
+      var raw = String(id || '');
+      var safe = raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      try {
+        if (typeof CSS !== 'undefined' && CSS.escape) {
+          return document.querySelector('#dirList li[data-listing-id="' + CSS.escape(raw) + '"]');
+        }
+      } catch (_) { /* fall through */ }
+      return document.querySelector('#dirList li[data-listing-id="' + safe + '"]');
+    }
+    function setRowScrapeUi(id, state, message) {
+      var row = listingRowEl(id);
+      if (!row) return;
+      var btn = row.querySelector('.js-dir-scrape');
+      var status = row.querySelector('.js-dir-scrape-status');
+      if (!status) {
+        status = document.createElement('p');
+        status.className = 'js-dir-scrape-status mt-2 text-[11px] font-semibold text-amber-700 dark:text-amber-300';
+        status.setAttribute('role', 'status');
+        status.setAttribute('aria-live', 'polite');
+        status.setAttribute('data-id', String(id || ''));
+        var body = row.querySelector('.min-w-0');
+        if (body) body.appendChild(status);
+        else row.appendChild(status);
+      }
+      row.setAttribute('data-scraping', state === 'working' || state === 'starting' ? '1' : '0');
+      if (btn) {
+        if (state === 'working' || state === 'starting') {
+          btn.disabled = true;
+          btn.classList.add('opacity-60', 'cursor-wait');
+          btn.textContent = state === 'starting' ? 'Launching…' : 'Scraping…';
+          btn.title = message || 'Scraping Google reviews for this business…';
+        } else {
+          btn.disabled = false;
+          btn.classList.remove('opacity-60', 'cursor-wait');
+          btn.textContent = 'Reviews';
+          btn.title = 'Pull Google reviews for this business';
+        }
+      }
+      if (state === 'idle' || !message) {
+        status.textContent = '';
+        status.classList.add('hidden');
+        status.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-rose-700', 'dark:text-rose-300');
+        status.classList.add('text-amber-700', 'dark:text-amber-300');
+        return;
+      }
+      status.classList.remove('hidden');
+      status.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-rose-700', 'dark:text-rose-300', 'text-amber-700', 'dark:text-amber-300');
+      if (state === 'done') {
+        status.classList.add('text-emerald-700', 'dark:text-emerald-300');
+      } else if (state === 'error') {
+        status.classList.add('text-rose-700', 'dark:text-rose-300');
+      } else {
+        status.classList.add('text-amber-700', 'dark:text-amber-300');
+      }
+      status.textContent = message;
+    }
+    function markRowsScraping(ids, state, message) {
+      (ids || []).forEach(function (id) {
+        setRowScrapeUi(id, state || 'working', message || 'Scraping Google reviews…');
+      });
+    }
+    function applyJobRowProgress(job, listingIds) {
+      var ids = (job && Array.isArray(job.listingIds) && job.listingIds.length)
+        ? job.listingIds.map(String)
+        : (listingIds || []).map(String);
+      var doneMap = {};
+      (job && Array.isArray(job.results) ? job.results : []).forEach(function (r) {
+        if (!r || !r.id) return;
+        doneMap[String(r.id)] = r;
+      });
+      ids.forEach(function (id) {
+        var r = doneMap[id];
+        if (!r) {
+          setRowScrapeUi(id, 'working', 'Scraping Google reviews…');
+          return;
+        }
+        if (r.ok) {
+          var bits = [];
+          if (r.rating != null && r.rating !== '') bits.push(Number(r.rating).toFixed(1) + '★');
+          if (r.reviewCount != null && r.reviewCount !== '') bits.push(String(r.reviewCount) + ' reviews');
+          setRowScrapeUi(
+            id,
+            'done',
+            bits.length ? ('Reviews pulled — ' + bits.join(' · ')) : 'Reviews pulled for this business.'
+          );
+        } else {
+          setRowScrapeUi(id, 'error', r.error || r.reviewError || 'Review scrape failed for this business.');
+        }
+      });
+    }
     function scrapeReviews(ids) {
       var listingIds = (ids || []).map(String).filter(Boolean);
       if (!listingIds.length) {
@@ -481,12 +573,23 @@
         btn.disabled = true;
         btn.textContent = 'Starting…';
       }
-      say('Starting review pull for ' + listingIds.length + ' listing' + (listingIds.length === 1 ? '' : 's') + '…');
+      markRowsScraping(listingIds, 'starting', 'Launching review scrape…');
+      say(
+        listingIds.length === 1
+          ? 'Launching review scrape for this business…'
+          : ('Launching review scrape for ' + listingIds.length + ' businesses…')
+      );
       return postJson('/directory/listings/scrape-reviews', { listingIds: listingIds })
         .then(function (data) {
           var jobId = data && data.jobId;
           if (!jobId) throw new Error((data && data.error) || 'Could not start scrape');
-          say('Pulling reviews in the background…');
+          markRowsScraping(listingIds, 'working', 'Scraping Google reviews…');
+          if (data.job) applyJobRowProgress(data.job, listingIds);
+          say(
+            listingIds.length === 1
+              ? 'Scraping Google reviews for this business…'
+              : ('Scraping Google reviews for ' + listingIds.length + ' businesses…')
+          );
           if (btn) btn.textContent = 'Pulling…';
           return new Promise(function (resolve, reject) {
             var tries = 0;
@@ -500,6 +603,7 @@
                 .then(function (parsed) {
                   var job = parsed.data && parsed.data.job;
                   if (!parsed.ok || !job) throw new Error((parsed.data && parsed.data.error) || 'Job missing');
+                  applyJobRowProgress(job, listingIds);
                   say('Pulling reviews… ' + (job.done || 0) + '/' + (job.total || listingIds.length));
                   if (job.status === 'running') {
                     if (tries > 180) throw new Error('Review pull is taking too long — refresh Directory later.');
@@ -515,6 +619,7 @@
           });
         })
         .then(function (job) {
+          applyJobRowProgress(job, listingIds);
           var scraped = job && job.scraped != null ? job.scraped : 0;
           var failed = job && job.failed != null ? job.failed : 0;
           say(
@@ -524,13 +629,16 @@
           return fetch('/directory/inbox.json', {
             credentials: 'same-origin',
             headers: { Accept: 'application/json' },
-          }).then(function (r) { return r.json(); });
+          }).then(function (r) { return r.json().then(function (d) { return { inbox: d, job: job }; }); });
         })
-        .then(function (inbox) {
-          if (inbox && inbox.success) applyInbox(inbox);
+        .then(function (pack) {
+          if (pack.inbox && pack.inbox.success) applyInbox(pack.inbox);
+          // List HTML was rebuilt — restore per-business done/error notes on the new rows.
+          applyJobRowProgress(pack.job, listingIds);
           syncBulkBar();
         })
         .catch(function (err) {
+          markRowsScraping(listingIds, 'error', err.message || 'Review scrape failed');
           say(err.message || 'Pull reviews failed', false);
         })
         .finally(function () {
@@ -538,6 +646,18 @@
             btn.disabled = false;
             btn.textContent = 'Pull reviews';
           }
+          listingIds.forEach(function (id) {
+            var row = listingRowEl(id);
+            if (!row) return;
+            var btnOne = row.querySelector('.js-dir-scrape');
+            if (btnOne) {
+              btnOne.disabled = false;
+              btnOne.classList.remove('opacity-60', 'cursor-wait');
+              btnOne.textContent = 'Reviews';
+              btnOne.title = 'Pull Google reviews for this business';
+            }
+            row.setAttribute('data-scraping', '0');
+          });
         });
     }
     function applyInbox(data) {
@@ -744,7 +864,11 @@
       var scrapeOne = e.target.closest('.js-dir-scrape');
       if (scrapeOne) {
         e.preventDefault();
-        void scrapeReviews([scrapeOne.getAttribute('data-id')]);
+        if (scrapeOne.disabled) return;
+        var scrapeId = scrapeOne.getAttribute('data-id');
+        // Paint this row immediately (don't wait on POST) so Reviews → Scraping… is obvious.
+        setRowScrapeUi(scrapeId, 'starting', 'Launching review scrape for this business…');
+        void scrapeReviews([scrapeId]);
         return;
       }
       var pub = e.target.closest('.js-dir-publish');
