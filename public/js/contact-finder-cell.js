@@ -177,7 +177,9 @@
         'disabled aria-busy="true"',
         `<span class="${AVATAR} bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow">${SPINNER}</span>`,
         'Searching…',
-        'MoltSets → Outscraper · up to a minute',
+        m.isListingSite || m.hasPersonName
+          ? 'BetterContact · up to a minute'
+          : 'Outscraper · up to a minute',
       );
     }
 
@@ -218,16 +220,16 @@
     }
 
     const searchTitle = m.hasWebsite
-      ? 'Find decision makers, emails & socials (MoltSets → Outscraper)'
+      ? 'Find decision makers, emails & socials (Outscraper)'
       : m.isListingSite && m.hasPersonName
-        ? `Find email for ${m.personName} by name (BetterContact / MoltSets) — listing URL is not a company site`
+        ? `Find email for ${m.personName} via BetterContact — listing URL is not a company site`
         : m.hasPersonName
-          ? `Find email for ${m.personName} by name`
+          ? `Find email for ${m.personName} via BetterContact`
           : 'Add a company website — or an agent name for Zillow/listing leads';
     const searchSub = m.hasWebsite
       ? 'Emails, people &amp; socials'
       : m.canSearch
-        ? 'By agent name'
+        ? 'By agent name · BetterContact'
         : 'Needs a website';
     return box(
       `${BOX_IDLE} js-find-contact-search`,

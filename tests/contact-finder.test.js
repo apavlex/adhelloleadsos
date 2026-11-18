@@ -127,7 +127,7 @@ test('Apify website crawl is the last resort when Outscraper returns empty', asy
   const site = { website: 'acme.example' };
   await assert.rejects(
     contactFinder.findContactsForLead(site, { APIFY_API_TOKEN: 't' }, { deps: { runApify: async () => items } }),
-    (e) => e.code === 'not_configured' && /MoltSets \(primary\).*Outscraper|BetterContact/.test(e.message),
+    (e) => e.code === 'not_configured' && /Outscraper or BetterContact/.test(e.message),
   );
 
   const both = await contactFinder.findContactsForLead(site, { ...OUTSCRAPER_ENV, APIFY_API_TOKEN: 't' }, {
@@ -210,7 +210,7 @@ test('find-contact cell renders search, found, no-result and no-website states',
         contactName: 'Brenda Rojas',
       }),
     ),
-    'Find a contact By agent name',
+    'Find a contact By agent name · BetterContact',
   );
   const found = cell.renderCell({
     website: 'a.com',

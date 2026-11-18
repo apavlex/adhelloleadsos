@@ -219,62 +219,30 @@ async function enrichByPersonName(lead, integrationEnv, result, deps = {}) {
   const person = resolvePersonCompany(lead);
   if (!person.canEnrichByName) return false;
 
-  let found = false;
   const cfg = finderConfigured(integrationEnv);
+  // Listing / agent-name path uses BetterContact only (no MoltSets / no portal domain crawl).
+  if (!cfg.betterContact) return false;
 
-  // MoltSets: name + brokerage (company name, not portal domain)
-  if (cfg.moltsets && person.personName && person.companyName) {
-    try {
-      const search =
-        deps.searchBusinessEmailByName || moltsetsClient.searchBusinessEmailByName.bind(moltsetsClient);
-      const foundRow = await search(
-        {
-          name: person.personName,
-          first_name: person.firstName,
-          last_name: person.lastName,
-          company: person.companyName,
-        },
-        integrationEnv,
-      );
-      if (foundRow && foundRow.status === 'ok') {
-        const extract = moltsetsLeadEnrich.profileToExtract(foundRow.results);
-        if (moltsetsLeadEnrich.extractHasSignal(extract)) {
-          collectFromMoltsetsExtract(result, extract);
-          if (!result.sources.includes('MoltSets')) result.sources.push('MoltSets');
-          found = true;
-        }
-      }
-    } catch (e) {
-      result.errors.push(`MoltSets name: ${e.message}`);
-    }
+  try {
+    const submit = deps.submitBetterContact || betterContact.submitEnrichment.bind(betterContact);
+    const poll = deps.pollBetterContact || betterContact.pollEnrichmentResult.bind(betterContact);
+    const leadInput = betterContact.buildLeadInput(lead);
+    if (!leadInput) return false;
+    const requestId = await submit(leadInput, integrationEnv);
+    const pollResult = await poll(requestId, integrationEnv, {
+      maxWaitMs: Number(deps.betterContactMaxWaitMs) > 0 ? Number(deps.betterContactMaxWaitMs) : 60_000,
+      pollIntervalMs: 3_000,
+    });
+    const rows = Array.isArray(pollResult && pollResult.data) ? pollResult.data : [];
+    const extract = betterContact.betterContactRowToExtract(rows[0] || null);
+    if (!betterContact.extractHasSignal(extract)) return false;
+    collectFromMoltsetsExtract(result, extract);
+    if (!result.sources.includes('BetterContact')) result.sources.push('BetterContact');
+    return true;
+  } catch (e) {
+    result.errors.push(`BetterContact: ${e.message}`);
+    return false;
   }
-
-  // BetterContact waterfall: first/last + company (domain omitted for listing portals)
-  if (!found && cfg.betterContact) {
-    try {
-      const submit = deps.submitBetterContact || betterContact.submitEnrichment.bind(betterContact);
-      const poll = deps.pollBetterContact || betterContact.pollEnrichmentResult.bind(betterContact);
-      const leadInput = betterContact.buildLeadInput(lead);
-      if (leadInput) {
-        const requestId = await submit(leadInput, integrationEnv);
-        const pollResult = await poll(requestId, integrationEnv, {
-          maxWaitMs: Number(deps.betterContactMaxWaitMs) > 0 ? Number(deps.betterContactMaxWaitMs) : 60_000,
-          pollIntervalMs: 3_000,
-        });
-        const rows = Array.isArray(pollResult && pollResult.data) ? pollResult.data : [];
-        const extract = betterContact.betterContactRowToExtract(rows[0] || null);
-        if (betterContact.extractHasSignal(extract)) {
-          collectFromMoltsetsExtract(result, extract);
-          if (!result.sources.includes('BetterContact')) result.sources.push('BetterContact');
-          found = true;
-        }
-      }
-    } catch (e) {
-      result.errors.push(`BetterContact: ${e.message}`);
-    }
-  }
-
-  return found;
 }
 
 async function findContactsForLead(lead, integrationEnv, opts = {}) {
@@ -296,9 +264,9 @@ async function findContactsForLead(lead, integrationEnv, opts = {}) {
       err.code = 'no_website';
       throw err;
     }
-    if (!cfg.moltsets && !cfg.betterContact) {
+    if (!cfg.betterContact) {
       const err = new Error(
-        'Connect BetterContact or MoltSets under Workspace → Integrations to find emails by agent name (listing URLs cannot be searched by domain).',
+        'Connect BetterContact under Workspace → Integrations to find emails by agent name (Zillow/listing URLs cannot be searched by domain).',
       );
       err.code = 'not_configured';
       throw err;
@@ -307,11 +275,11 @@ async function findContactsForLead(lead, integrationEnv, opts = {}) {
     return result;
   }
 
-  // Opportunities / Get More Contacts expect MoltSets (primary) or Outscraper (fallback).
-  // Apify remains a last-resort crawl when both are empty, but cannot be the only connection.
+  // Opportunities / Get More Contacts: Outscraper/MoltSets for company domains; BetterContact for name.
+  // Apify remains a last-resort crawl when domain search is empty, but cannot be the only connection.
   if (!cfg.moltsets && !cfg.outscraper && !cfg.betterContact) {
     const err = new Error(
-      'Connect MoltSets (primary), Outscraper, or BetterContact under Workspace → Integrations → Data enhance to find contacts.',
+      'Connect Outscraper or BetterContact under Workspace → Integrations → Data enhance to find contacts.',
     );
     err.code = 'not_configured';
     throw err;
@@ -345,7 +313,7 @@ async function findContactsForLead(lead, integrationEnv, opts = {}) {
 
   let stillEmpty = !result.people.length && !result.emails.length;
   // Name fallback when domain search is empty but we know the agent (e.g. thin company sites).
-  if (stillEmpty && person.canEnrichByName && (cfg.betterContact || cfg.moltsets)) {
+  if (stillEmpty && person.canEnrichByName && cfg.betterContact) {
     await enrichByPersonName(lead, integrationEnv, result, deps);
     stillEmpty = !result.people.length && !result.emails.length;
   }

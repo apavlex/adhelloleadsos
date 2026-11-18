@@ -14058,9 +14058,9 @@ document.addEventListener('DOMContentLoaded', () => {
       rapidapiEnrichBtn.disabled = false;
       rapidapiEnrichBtn.classList.toggle('opacity-55', blocked);
       rapidapiEnrichBtn.title = isListingSite && hasPersonName
-        ? 'Find email by agent name (BetterContact / MoltSets) — listing URL is not a company site'
+        ? 'Find email by agent name via BetterContact — listing URL is not a company site'
         : canSearchContacts
-          ? 'Find people, emails & socials via MoltSets (Outscraper fallback)'
+          ? 'Find people, emails & socials via Outscraper / BetterContact'
           : 'Add the company website to find contacts';
       if (typeof window.setRapidapiWebsiteEnrichUi === 'function') {
         window.setRapidapiWebsiteEnrichUi(rapidapiEnrichBtn, 'idle');
