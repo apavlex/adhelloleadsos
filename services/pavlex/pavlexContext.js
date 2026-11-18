@@ -3,9 +3,14 @@
  * CRM data comes from MCP tools only (not injected snippets that enable guessing).
  */
 const fs = require('fs');
+const dbService = require('../database');
 const { loadWorkspaceMcpConfig } = require('./pavlexMcpConfig');
 const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
 const { CRM_MCP_TOOL_NAMES } = require('../mcp/connection');
+const {
+  describePageForSession,
+  formatFolderCatalog,
+} = require('./pavlexPageContext');
 
 const CHAT_PAGE_FORMAT = `
 CHAT PAGE FORMATTING (markdown is rendered):
@@ -70,12 +75,35 @@ function describeBusinessProfile(workspace) {
   return bits.join(' · ');
 }
 
+async function loadFolderCatalog(workspaceId) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid || typeof dbService.listFoldersLite !== 'function') return [];
+  try {
+    return await dbService.listFoldersLite(wid, { failFast: true });
+  } catch {
+    try {
+      return await dbService.listFoldersLite(wid);
+    } catch {
+      try {
+        const full = await dbService.listFolders(wid);
+        return Array.isArray(full) ? full : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+}
+
 /**
  * @param {import('express').Request} req
  * @param {object} auth — from resolvePavlexAuth
  * @param {object} opts
  */
-async function buildPavlexContext(req, auth, { platform = 'global', message = '', page = '' } = {}) {
+async function buildPavlexContext(
+  req,
+  auth,
+  { platform = 'global', message = '', page = '', pageTitle = '', ui = null } = {},
+) {
   const mcpConfig = await loadWorkspaceMcpConfig(req);
   const memoryCtx = readMemoryFile(MEMORY_FILE);
   const userCtx = readMemoryFile(USER_FILE);
@@ -87,7 +115,9 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
     chat: 'Agency OS Alex chat page',
   };
   const platformLabel = platformLabels[platform] || platformLabels.global;
-  const pagePath = String(page || '').trim();
+  const pageInfo = describePageForSession(page, pageTitle, ui);
+  const folders = await loadFolderCatalog(auth.workspaceId);
+  const folderCatalog = formatFolderCatalog(folders);
 
   const toolsList = (mcpConfig.availableTools || []).join(', ');
   const workspaceName = String((req.workspace && req.workspace.name) || '').trim();
@@ -107,19 +137,24 @@ ${memoryCtx}
 
 SESSION:
 - Platform: ${platformLabel}
-- Current page: ${pagePath || 'unknown'}
+${pageInfo.text}
 - User: ${auth.email}
 - Now: ${nowInTimezone(req.workspace && req.workspace.timezone)}
 - Workspace: ${workspaceName ? `${workspaceName} (${auth.workspaceId})` : auth.workspaceId}
 - Business profile: ${businessProfile || 'not set up — ask what they sell and where if it matters'}
 - CRM tools: built into this app (call them directly)
 - Permissions: read=${auth.permissions.canReadCrm} write=${auth.permissions.canWriteCrm}
+- All folders in this workspace (use these names/keys; call list_folders only if you need live counts):
+${folderCatalog}
 
 ${CRM_COMMAND_HINTS}
 
 RULES:
 - Every tool call reads and writes only the workspace above${workspaceName ? ` ("${workspaceName}")` : ''}. Memory or earlier messages about other workspaces or niches do not change that.
 - Be extremely concise. Use CRM tools — never invent lead counts or folder data.
+- You already know every folder name above. Prefer folder_name / folder_id from that catalog (or the open folder on the page) instead of asking which folder.
+- If the user is vague ("these leads", "here", "this folder", "clean this up"), use the Looking at / Open folder / Selected leads lines in SESSION.
+- "Leads in Vancouver / zip 98682 / Camas" already in the CRM → search_leads with that query (not find_leads). find_leads is only for scraping new businesses.
 - Do exactly what was asked with the matching tool. If nothing matches, say so plainly instead of doing something similar.
 - Run lead searches (find_leads) without asking for confirmation; mention they finish in the background.
 - Immediate action over analysis.
@@ -132,6 +167,8 @@ ${platform === 'assistant' || platform === 'global' ? '- Plain text only. No mar
     instructions,
     mcpConfig,
     platform,
+    pageInfo,
+    folderCount: folders.length,
   };
 }
 

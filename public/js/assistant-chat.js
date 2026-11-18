@@ -371,6 +371,13 @@
             platform: 'assistant',
             page: (window.location.pathname || '') + (window.location.search || ''),
             pageTitle: document.title || '',
+            ui:
+              typeof window.collectPavlexUiContext === 'function'
+                ? window.collectPavlexUiContext()
+                : {
+                    path: (window.location.pathname || '') + (window.location.search || ''),
+                    title: document.title || '',
+                  },
           }),
         });
         let data = {};

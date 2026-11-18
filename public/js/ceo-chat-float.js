@@ -74,6 +74,18 @@
     return (window.location.pathname || '') + (window.location.search || '');
   }
 
+  function currentUiContext() {
+    if (typeof window.collectPavlexUiContext === 'function') {
+      try {
+        return window.collectPavlexUiContext();
+      } catch (_) {}
+    }
+    return {
+      path: currentPageContext(),
+      title: document.title || '',
+    };
+  }
+
   function pageWorkspaceId() {
     var root = document.getElementById('ceoChatFloat');
     var fromDom = root && root.getAttribute('data-workspace-id');
@@ -253,6 +265,7 @@
           platform: detectPavlexPlatform(),
           page: currentPageContext(),
           pageTitle: document.title || '',
+          ui: currentUiContext(),
         }),
       })
         .then(function (r) {

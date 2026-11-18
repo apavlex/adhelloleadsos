@@ -20,6 +20,8 @@ const { chatUnavailableMessage } = require('./pavlexCrmIntent');
  * @param {string} [opts.conversationId]
  * @param {'automate'|'assistant'|'global'|'chat'} [opts.platform]
  * @param {string} [opts.page]
+ * @param {string} [opts.pageTitle]
+ * @param {object} [opts.ui]
  * @param {boolean} [opts.persistHistory]
  */
 async function runPavlexChat(req, opts) {
@@ -38,6 +40,8 @@ async function runPavlexChat(req, opts) {
           ? 'chat'
           : 'global';
   const page = String(opts.page || '').trim().slice(0, 500);
+  const pageTitle = String(opts.pageTitle || '').trim().slice(0, 200);
+  const ui = opts.ui && typeof opts.ui === 'object' && !Array.isArray(opts.ui) ? opts.ui : null;
   const persistHistory =
     opts.persistHistory !== false &&
     (platform === 'automate' || platform === 'global' || platform === 'chat');
@@ -52,6 +56,8 @@ async function runPavlexChat(req, opts) {
     platform,
     message,
     page,
+    pageTitle,
+    ui,
   });
 
   // Chat runs CRM tools in-process; no HTTP round-trip to our own /ceo/mcp endpoint.

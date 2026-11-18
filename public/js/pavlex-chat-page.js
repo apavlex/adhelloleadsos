@@ -777,6 +777,11 @@
         workspaceId: workspaceId() || undefined,
         platform: 'chat',
         page: '/chat',
+        pageTitle: document.title || '',
+        ui:
+          typeof window.collectPavlexUiContext === 'function'
+            ? window.collectPavlexUiContext()
+            : { path: '/chat', title: document.title || '' },
       }),
     })
       .then(readJson)

@@ -1,10 +1,10 @@
 /** Shared Pavlex CRM command → tool mapping for system prompts. */
 const CRM_COMMAND_HINTS = `
 CRM MCP TOOLS — use these automatically when the user asks about leads, folders, searches, scripts, pipelines, tasks, or follow-ups:
-- "Find [company]" / "search my leads" (already in the CRM) → search_leads
-- "List my folders" / "how many leads" → list_folders / count_leads
+- "Find [company]" / "search my leads" / "leads in Vancouver WA" / "leads near 98682" (already in the CRM) → search_leads with that place/query (not find_leads)
+- "List my folders" / "how many leads" → list_folders / count_leads (SESSION already lists every folder name — use those names)
 - "How many leads in Landscaping?" → count_leads with folder_name
-- "Show leads in [folder]" / "first N leads" → list_leads with folder_name and limit (sort: rating, reviews, score, newest)
+- "Show leads in [folder]" / "first N leads" / "show these" (while a folder is open on the page) → list_leads with that folder_name / folder_id and limit (sort: rating, reviews, score, newest)
 - "What's the status / stage of [lead]?" → get_lead and/or get_opportunity_board
 - "Show my pipeline / prospecting stages" → list_opportunity_pipelines then get_opportunity_board
 - "Create a pipeline" / "new opportunity board" → list_opportunity_pipelines (for templates) then create_opportunity_pipeline

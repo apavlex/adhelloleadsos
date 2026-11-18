@@ -126,6 +126,18 @@ function matchDirectCrmQuery(message) {
     }
   }
 
+  // CRM lookup by place ("leads in Vancouver WA 98682") — not a Maps scrape.
+  const leadsInPlace =
+    raw.match(/^(?:show|list|get)\s+leads?\s+(?:in|near|around|from)\s+(.+?)\??$/i) ||
+    raw.match(/^leads?\s+(?:in|near|around|from)\s+(.+?)\??$/i);
+  if (leadsInPlace && leadsInPlace[1] && !mentionsCrmAction(leadsInPlace[1])) {
+    return {
+      tool: 'search_leads',
+      args: { query: leadsInPlace[1].trim(), limit: 15 },
+      formatter: formatSearchLeads,
+    };
+  }
+
   const search =
     raw.match(/^find\s+(.+?)(?:\s+lead)?\??$/i) ||
     raw.match(/^search(?:\s+for)?\s+(.+?)(?:\s+lead)?\??$/i);
