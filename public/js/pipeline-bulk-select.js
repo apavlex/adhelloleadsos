@@ -123,7 +123,7 @@
           el.disabled = false;
         }
       });
-      ['bulkMoveFolderBtn', 'bulkAddToBoardBtn', 'bulkSaveBtn'].forEach(function (id) {
+      ['bulkMoveFolderBtn', 'bulkShareWorkspaceBtn', 'bulkAddToBoardBtn', 'bulkSaveBtn'].forEach(function (id) {
         const el = document.getElementById(id);
         if (el) el.disabled = false;
       });
