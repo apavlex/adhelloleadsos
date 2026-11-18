@@ -65,6 +65,30 @@ test('buildFolderTree groups orphans without parent', () => {
   assert.equal(other.children.length, 1);
 });
 
+test('buildFolderTree nests children under Other-folder roots', () => {
+  const tree = buildFolderTree([
+    { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'orphan:chrome', name: 'Chrome Extension', isPipelineDefault: false },
+    {
+      key: 'orphan:van',
+      name: 'Vancouver, WA 98682',
+      parentFolderKey: 'orphan:chrome',
+      isPipelineDefault: false,
+    },
+  ]);
+  const other = tree.groups.find((g) => g.key === OTHER_GROUP_KEY);
+  assert.ok(other);
+  assert.equal(other.children.length, 1);
+  assert.equal(other.children[0].key, 'orphan:chrome');
+  assert.equal(other.children[0].children.length, 1);
+  assert.equal(other.children[0].children[0].key, 'orphan:van');
+  assert.equal(other.childRows.length, 2);
+  assert.equal(other.childRows[0].folder.key, 'orphan:chrome');
+  assert.equal(other.childRows[0].depth, 1);
+  assert.equal(other.childRows[1].folder.key, 'orphan:van');
+  assert.equal(other.childRows[1].depth, 2);
+});
+
 test('buildFolderTree does not hang on parent cycles', () => {
   const tree = buildFolderTree([
     { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },

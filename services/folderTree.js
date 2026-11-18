@@ -413,14 +413,20 @@ function buildFolderTree(folders) {
   orphans.sort(sortFoldersByName);
 
   if (orphans.length) {
+    // Nest children whose parentFolderKey points at an Other-folders root
+    // (previously flattened with children: [] so nested folders vanished).
+    const otherChildren = orphans.map((f) => ({
+      ...f,
+      children: attachNestedChildren(f.key, childrenByParent),
+    }));
     groups.push({
       key: OTHER_GROUP_KEY,
       name: 'Other folders',
       folder: null,
       isSystem: false,
       jobType: '',
-      children: orphans.map((f) => ({ ...f, children: [] })),
-      childRows: orphans.map((f) => ({ folder: f, depth: 1 })),
+      children: otherChildren,
+      childRows: flattenFolderRows(otherChildren),
     });
   }
 

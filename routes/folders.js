@@ -489,7 +489,15 @@ router.post('/rename', async (req, res, next) => {
     if (!folderKey) return res.status(400).json({ success: false, error: 'folderKey is required.' });
     if (!name) return res.status(400).json({ success: false, error: 'Folder name is required.' });
     const oldName = await folderLabel(wid, folderKey);
-    const folder = await dbService.renameFolder(wid, folderKey, name);
+    let folder;
+    try {
+      folder = await dbService.renameFolder(wid, folderKey, name);
+    } catch (err) {
+      if (err && (err.code === 'SYSTEM_FOLDER_RENAME' || err.code === 'FOLDER_NAME_REQUIRED')) {
+        return res.status(400).json({ success: false, error: err.message || 'Could not rename folder.' });
+      }
+      throw err;
+    }
     if (!folder) return res.status(404).json({ success: false, error: 'Folder not found.' });
     teamActivity.record(req, { category: 'leads', action: 'folder_rename', summary: `Renamed folder "${oldName}" → "${name}"` });
     res.json({ success: true, folder });

@@ -15,7 +15,7 @@
             <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Outreach folders</span>
           </div>
           <h1 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h1>
-          <p class="text-sm text-brand-muted mt-2 max-w-xl">Folders with leads are listed first. Open one to work them in Pipeline.</p>
+          <p class="text-sm text-brand-muted mt-2 max-w-xl">Folders with leads are listed first. Rename or move any custom folder under another folder or category, then open it in Pipeline.</p>
         </div>
         <a href="/prospecting?tab=pipeline" class="btn-pill btn-primary px-6 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0">Open pipeline</a>
       </div>
@@ -45,6 +45,38 @@
     </section>
   </main>
 
+  <div id="folderLiteRenameModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderLiteRenameTitle">
+    <div id="folderLiteRenameBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderLiteRenameTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">Rename folder</h2>
+      <p class="text-sm text-brand-muted mb-5">Update the folder name. Leads stay in place.</p>
+      <input type="hidden" id="folderLiteRenameKey" value="" />
+      <label for="folderLiteRenameName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Folder name</label>
+      <input id="folderLiteRenameName" type="text" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Folder name" />
+      <p id="folderLiteRenameError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderLiteRenameSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Save name</button>
+        <button id="folderLiteRenameCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="folderLiteMoveModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderLiteMoveTitle">
+    <div id="folderLiteMoveBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderLiteMoveTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">Move folder</h2>
+      <p class="text-sm text-brand-muted mb-5">Nest this folder under a system category or another folder.</p>
+      <input type="hidden" id="folderLiteMoveKey" value="" />
+      <label for="folderLiteMoveParent" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Move to</label>
+      <select id="folderLiteMoveParent" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-3"></select>
+      <p id="folderLiteMoveError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderLiteMoveSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Move folder</button>
+        <button id="folderLiteMoveCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script>
   (function () {
     var host = document.getElementById('folderTreeHost');
@@ -56,6 +88,9 @@
     var searchEmpty = document.getElementById('folderSearchEmpty');
     var hydrateAttempts = 0;
     var hydrateMax = 8;
+    var inboxFolders = [];
+    var inboxGroups = [];
+    var jsonHeaders = { Accept: 'application/json', 'Content-Type': 'application/json' };
 
     function esc(s) {
       return String(s == null ? '' : s)
@@ -95,6 +130,25 @@
       });
     }
 
+    function rowMetaAttrs(f) {
+      return ' data-folder-key="' + esc(f.key) + '"' +
+        ' data-folder-name="' + esc(f.name || 'Folder') + '"' +
+        ' data-folder-parent="' + esc(f.parentFolderKey || '') + '"' +
+        ' data-folder-is-default="' + (f.isPipelineDefault ? '1' : '0') + '"' +
+        ' data-folder-is-trade="' + (f.isTradeFolder ? '1' : '0') + '"';
+    }
+
+    function actionButtonsHtml(f, isSystemRoot) {
+      if (isSystemRoot || f.isPipelineDefault) return '';
+      var html = '<div class="folder-lite-actions flex items-center gap-1 shrink-0">';
+      html += '<button type="button" class="folder-lite-rename px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="' + esc(f.key) + '">Rename</button>';
+      if (!f.isTradeFolder) {
+        html += '<button type="button" class="folder-lite-move px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="' + esc(f.key) + '">Move</button>';
+      }
+      html += '</div>';
+      return html;
+    }
+
     function renderGroups(groups) {
       if (!root) return;
       var html = '';
@@ -113,22 +167,28 @@
         html += '<span class="text-brand-muted text-xs font-bold" aria-hidden="true">▾</span></summary>';
         html += '<ul class="m-0 p-0 list-none divide-y divide-brand-border/20 dark:divide-white/5">';
         if (rootFolder && rootFolder.key) {
-          html += '<li class="folder-lite-row list-none" data-folder-key="' + esc(rootFolder.key) + '" data-folder-search="' + esc((rootFolder.name + ' ' + (rootFolder.jobType || '')).toLowerCase()) + '">';
-          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(rootFolder.key) + '" class="flex items-center justify-between gap-3 px-6 py-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">';
-          html += '<span class="min-w-0"><span class="font-display font-bold text-brand-dark dark:text-white">' + esc(rootFolder.name || 'Folder') + '</span>';
-          html += '<span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest text-brand-muted mt-0.5">…</span></span>';
-          html += '<span class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0">Open →</span></a></li>';
+          html += '<li class="folder-lite-row list-none"' + rowMetaAttrs(Object.assign({}, rootFolder, { isPipelineDefault: true })) + ' data-folder-search="' + esc((rootFolder.name + ' ' + (rootFolder.jobType || '')).toLowerCase()) + '">';
+          html += '<div class="flex items-center justify-between gap-3 px-6 py-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">';
+          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(rootFolder.key) + '" class="min-w-0 flex-1">';
+          html += '<span class="font-display font-bold text-brand-dark dark:text-white">' + esc(rootFolder.name || 'Folder') + '</span>';
+          html += '<span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest text-brand-muted mt-0.5">…</span></a>';
+          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(rootFolder.key) + '" class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0">Open →</a>';
+          html += '</div></li>';
         }
         childRows.forEach(function (row) {
           var f = row.folder || {};
           if (!f.key) return;
           var depth = row.depth || 1;
           var pad = depth <= 1 ? 'pl-8' : (depth === 2 ? 'pl-12' : 'pl-16');
-          html += '<li class="folder-lite-row list-none" data-folder-key="' + esc(f.key) + '" data-folder-search="' + esc((f.name + ' ' + (f.jobType || '') + ' ' + (f.tradeSlug || '')).toLowerCase()) + '">';
-          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(f.key) + '" class="flex items-center justify-between gap-3 px-6 py-3.5 ' + pad + ' hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">';
-          html += '<span class="min-w-0"><span class="font-semibold text-brand-dark dark:text-white"><span class="text-brand-muted/50 mr-1" aria-hidden="true">↳</span>' + esc(f.name || 'Folder') + '</span>';
-          html += '<span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest text-brand-muted mt-0.5' + (depth <= 1 ? ' pl-4' : '') + '">…</span></span>';
-          html += '<span class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0">Open →</span></a></li>';
+          html += '<li class="folder-lite-row list-none"' + rowMetaAttrs(f) + ' data-folder-search="' + esc((f.name + ' ' + (f.jobType || '') + ' ' + (f.tradeSlug || '')).toLowerCase()) + '">';
+          html += '<div class="flex items-center justify-between gap-3 px-6 py-3.5 ' + pad + ' hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">';
+          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(f.key) + '" class="min-w-0 flex-1">';
+          html += '<span class="font-semibold text-brand-dark dark:text-white"><span class="text-brand-muted/50 mr-1" aria-hidden="true">↳</span>' + esc(f.name || 'Folder') + '</span>';
+          html += '<span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest text-brand-muted mt-0.5' + (depth <= 1 ? ' pl-4' : '') + '">…</span></a>';
+          html += '<div class="flex items-center gap-2 shrink-0">';
+          html += actionButtonsHtml(f, false);
+          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(f.key) + '" class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted">Open →</a>';
+          html += '</div></div></li>';
         });
         html += '</ul></details>';
       });
@@ -136,6 +196,7 @@
       root.classList.remove('hidden');
       if (loading) loading.classList.add('hidden');
       if (empty) empty.classList.add('hidden');
+      bindRowActions();
     }
 
     function applyFolderCounts(counts) {
@@ -198,6 +259,241 @@
         .catch(function () { /* keep Counting… */ });
     }
 
+    function collectDescendantKeys(folderKey) {
+      var blocked = {};
+      var rootKey = String(folderKey || '').trim();
+      if (!rootKey) return blocked;
+      var byParent = {};
+      (inboxFolders || []).forEach(function (f) {
+        if (!f || !f.key) return;
+        var parent = String(f.parentFolderKey || '').trim();
+        if (!parent) return;
+        if (!byParent[parent]) byParent[parent] = [];
+        byParent[parent].push(String(f.key));
+      });
+      var queue = [rootKey];
+      while (queue.length) {
+        var k = queue.shift();
+        (byParent[k] || []).forEach(function (child) {
+          if (blocked[child]) return;
+          blocked[child] = true;
+          queue.push(child);
+        });
+      }
+      return blocked;
+    }
+
+    function populateMoveSelect(movingKey, currentParentKey) {
+      var select = document.getElementById('folderLiteMoveParent');
+      if (!select) return;
+      var blocked = collectDescendantKeys(movingKey);
+      blocked[String(movingKey || '').trim()] = true;
+      select.innerHTML = '';
+
+      var topOpt = document.createElement('option');
+      topOpt.value = '';
+      topOpt.textContent = 'Other folders (top-level)';
+      select.appendChild(topOpt);
+
+      (inboxGroups || []).forEach(function (group) {
+        var og = document.createElement('optgroup');
+        og.label = String(group.name || 'Folders');
+        if (group.isSystem && group.folder && group.folder.key && !blocked[group.folder.key]) {
+          var rootOpt = document.createElement('option');
+          rootOpt.value = group.folder.key;
+          rootOpt.textContent = group.folder.name || group.name;
+          og.appendChild(rootOpt);
+        }
+        (group.childRows || []).forEach(function (row) {
+          var f = row.folder || {};
+          if (!f.key || blocked[f.key]) return;
+          var opt = document.createElement('option');
+          opt.value = f.key;
+          var depth = row.depth || 1;
+          var prefix = depth > 1 ? '\u21b3 '.repeat(depth) : '\u21b3 ';
+          opt.textContent = prefix + (f.name || 'Folder');
+          og.appendChild(opt);
+        });
+        if (og.children.length) select.appendChild(og);
+      });
+
+      var desired = String(currentParentKey || '').trim();
+      select.value = desired;
+      if (select.value !== desired && desired) {
+        var fallback = document.createElement('option');
+        fallback.value = desired;
+        fallback.textContent = 'Current parent';
+        select.insertBefore(fallback, select.firstChild.nextSibling);
+        select.value = desired;
+      }
+    }
+
+    function openRenameModal(folderKey, folderName) {
+      var modal = document.getElementById('folderLiteRenameModal');
+      if (!modal) return;
+      document.getElementById('folderLiteRenameKey').value = folderKey || '';
+      document.getElementById('folderLiteRenameName').value = folderName || '';
+      document.getElementById('folderLiteRenameTitle').textContent = 'Rename “' + (folderName || 'Folder') + '”';
+      var err = document.getElementById('folderLiteRenameError');
+      if (err) { err.classList.add('hidden'); err.textContent = ''; }
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+      var inputEl = document.getElementById('folderLiteRenameName');
+      if (inputEl) { inputEl.focus(); inputEl.select(); }
+    }
+
+    function closeRenameModal() {
+      var modal = document.getElementById('folderLiteRenameModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function openMoveModal(folderKey, folderName, parentKey) {
+      var modal = document.getElementById('folderLiteMoveModal');
+      if (!modal) return;
+      document.getElementById('folderLiteMoveKey').value = folderKey || '';
+      document.getElementById('folderLiteMoveTitle').textContent = 'Move “' + (folderName || 'Folder') + '”';
+      populateMoveSelect(folderKey, parentKey);
+      var err = document.getElementById('folderLiteMoveError');
+      if (err) { err.classList.add('hidden'); err.textContent = ''; }
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+      var select = document.getElementById('folderLiteMoveParent');
+      if (select) select.focus();
+    }
+
+    function closeMoveModal() {
+      var modal = document.getElementById('folderLiteMoveModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function reloadInbox() {
+      hydrateAttempts = 0;
+      if (loading) {
+        loading.classList.remove('hidden');
+        var p = loading.querySelector('p');
+        if (p) p.textContent = 'Updating folders…';
+      }
+      if (root) root.classList.add('hidden');
+      runHydrate();
+    }
+
+    function bindRowActions() {
+      if (!root) return;
+      root.querySelectorAll('.folder-lite-rename').forEach(function (btn) {
+        btn.onclick = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var row = btn.closest('.folder-lite-row');
+          openRenameModal(
+            btn.getAttribute('data-folder-key') || (row && row.getAttribute('data-folder-key')) || '',
+            row && row.getAttribute('data-folder-name')
+          );
+        };
+      });
+      root.querySelectorAll('.folder-lite-move').forEach(function (btn) {
+        btn.onclick = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var row = btn.closest('.folder-lite-row');
+          openMoveModal(
+            btn.getAttribute('data-folder-key') || (row && row.getAttribute('data-folder-key')) || '',
+            row && row.getAttribute('data-folder-name'),
+            row && row.getAttribute('data-folder-parent')
+          );
+        };
+      });
+    }
+
+    function bindModals() {
+      var renameBd = document.getElementById('folderLiteRenameBackdrop');
+      var renameCancel = document.getElementById('folderLiteRenameCancel');
+      var renameSave = document.getElementById('folderLiteRenameSave');
+      var renameInput = document.getElementById('folderLiteRenameName');
+      if (renameBd) renameBd.addEventListener('click', closeRenameModal);
+      if (renameCancel) renameCancel.addEventListener('click', closeRenameModal);
+      if (renameInput) {
+        renameInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (renameSave) renameSave.click();
+          }
+          if (e.key === 'Escape') closeRenameModal();
+        });
+      }
+      if (renameSave) {
+        renameSave.addEventListener('click', function () {
+          var key = document.getElementById('folderLiteRenameKey').value;
+          var name = String(document.getElementById('folderLiteRenameName').value || '').trim();
+          var err = document.getElementById('folderLiteRenameError');
+          if (!name) {
+            if (err) { err.textContent = 'Folder name is required.'; err.classList.remove('hidden'); }
+            return;
+          }
+          renameSave.disabled = true;
+          fetch('/folders/rename', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ folderKey: key, name: name })
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Could not rename folder.');
+              }
+              closeRenameModal();
+              reloadInbox();
+            })
+            .catch(function (e) {
+              if (err) { err.textContent = e.message || 'Could not rename folder.'; err.classList.remove('hidden'); }
+            })
+            .finally(function () { renameSave.disabled = false; });
+        });
+      }
+
+      var moveBd = document.getElementById('folderLiteMoveBackdrop');
+      var moveCancel = document.getElementById('folderLiteMoveCancel');
+      var moveSave = document.getElementById('folderLiteMoveSave');
+      if (moveBd) moveBd.addEventListener('click', closeMoveModal);
+      if (moveCancel) moveCancel.addEventListener('click', closeMoveModal);
+      if (moveSave) {
+        moveSave.addEventListener('click', function () {
+          var key = document.getElementById('folderLiteMoveKey').value;
+          var parent = document.getElementById('folderLiteMoveParent').value;
+          var err = document.getElementById('folderLiteMoveError');
+          moveSave.disabled = true;
+          fetch('/folders/move', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ folderKey: key, parentFolderKey: parent })
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Could not move folder.');
+              }
+              closeMoveModal();
+              reloadInbox();
+            })
+            .catch(function (e) {
+              if (err) { err.textContent = e.message || 'Could not move folder.'; err.classList.remove('hidden'); }
+            })
+            .finally(function () { moveSave.disabled = false; });
+        });
+      }
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        closeRenameModal();
+        closeMoveModal();
+      });
+    }
+
     function runHydrate() {
       hydrateAttempts += 1;
       if (loading && hydrateAttempts > 1) {
@@ -227,7 +523,9 @@
             throw new Error((parsed.data && parsed.data.error) || 'Could not load folders');
           }
           var groups = parsed.data.groups || [];
-          if (!groups.length && !(parsed.data.folders || []).length) {
+          inboxFolders = parsed.data.folders || [];
+          inboxGroups = groups;
+          if (!groups.length && !inboxFolders.length) {
             if (loading) loading.classList.add('hidden');
             if (empty) empty.classList.remove('hidden');
             if (root) root.classList.add('hidden');
@@ -260,6 +558,7 @@
     }
 
     bindSearch();
+    bindModals();
     runHydrate();
   })();
   </script>
