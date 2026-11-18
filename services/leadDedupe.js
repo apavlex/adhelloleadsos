@@ -47,6 +47,36 @@ function normalizeName(name) {
     .trim();
 }
 
+/**
+ * Name key for merging multi-location variants of the same business
+ * ("Precision Garage Door Service" in Vancouver + Hillsboro, or
+ * "Ponderosa Garage Doors Vancouver" + "… Portland").
+ */
+function nameMatchKey(lead) {
+  let nm = normalizeName(lead && lead.title);
+  if (!nm || nm.length < 3) return '';
+
+  const cityRaw = String((lead && lead.city) || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (cityRaw && cityRaw.length >= 3) {
+    const cityRe = cityRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    nm = nm
+      .replace(new RegExp(`\\s+of\\s+${cityRe}$`, 'i'), '')
+      .replace(new RegExp(`\\s+${cityRe}$`, 'i'), '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Drop leftover trailing state words after city strip.
+  nm = nm.replace(/\s+(wa|or|oregon|washington)$/i, '').trim();
+  return nm.length >= 3 ? `name:${nm}` : '';
+}
+
 function normalizeGeo(city, state) {
   const c = city ? String(city).trim().toLowerCase() : '';
   const st = state ? String(state).trim().toLowerCase() : '';
@@ -289,6 +319,7 @@ module.exports = {
   normalizeListingPageUrl,
   leadMapsPlaceKey,
   computeDedupeKey,
+  nameMatchKey,
   findExistingLead,
   shouldResyncIngestSource,
   shouldApplyIncomingFolderKey,

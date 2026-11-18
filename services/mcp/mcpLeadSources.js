@@ -23,7 +23,7 @@ const { FORMATION_STATES, ENTITY_TYPES } = require('../businessFormationConstant
 const leadSourceRuns = require('../leadSourceRuns');
 const { importLeadsFromCsv } = require('../leadImportRun');
 const { mergeLeadsByKeys } = require('../leadMerge');
-const { computeDedupeKey } = require('../leadDedupe');
+const { computeDedupeKey, nameMatchKey } = require('../leadDedupe');
 const leadDeepEnrich = require('../leadDeepEnrich');
 const leadGen = require('./mcpLeadGen');
 const { buildReqLike, resolveFolderRef, resolveLeadKey } = require('./mcpCrmService');
@@ -557,15 +557,20 @@ const LEAD_SOURCE_TOOLS = [
   {
     name: 'find_duplicate_leads',
     description:
-      'Find likely duplicate leads (same Google listing, website, email, phone, or name + city). Returns groups; pass a group to ' +
-      'merge_leads to combine them. Omit folder_id/folder_name to scan the whole workspace. Do NOT pass a city, ZIP, or place ' +
-      'name as folder_id — only a real folder key or folder display name from list_folders / SESSION.',
+      'Find duplicate leads to merge. match_by "name" (default for cleanup) groups the same business name across cities/' +
+      'locations (e.g. Precision Garage Door Service in Vancouver + Hillsboro, or Ponderosa … Vancouver / Portland). ' +
+      'match_by "strict" uses Google place / website / email / phone / name+city. Pass a group to merge_leads. ' +
+      'Omit folder_id unless it is a real folder key — never a city/ZIP.',
     schema: z.object({
       folder_id: z
         .string()
         .optional()
         .describe('Optional real folder key only (folder:…). Never a city/ZIP/place name.'),
       folder_name: z.string().optional().describe('Optional folder display name from the folder catalog'),
+      match_by: z
+        .enum(['name', 'strict'])
+        .default('name')
+        .describe('name = same business name any location; strict = phone/website/place/name+city'),
       limit: z.number().int().min(1).max(MAX_DUPLICATE_GROUPS).default(20),
     }),
     async run(ctx, input) {
@@ -593,9 +598,10 @@ const LEAD_SOURCE_TOOLS = [
           }
         }
       }
+      const matchBy = input.match_by === 'strict' ? 'strict' : 'name';
       const groups = new Map();
       for (const lead of leads) {
-        const key = computeDedupeKey(lead);
+        const key = matchBy === 'name' ? nameMatchKey(lead) : computeDedupeKey(lead);
         if (!key) continue;
         if (!groups.has(key)) groups.set(key, []);
         groups.get(key).push(lead);
@@ -605,10 +611,19 @@ const LEAD_SOURCE_TOOLS = [
         .sort((a, b) => b[1].length - a[1].length);
       return {
         groups_found: dupes.length,
+        match_by: matchBy,
         folder: folderScope,
         note: folderNote || undefined,
         groups: dupes.slice(0, input.limit).map(([matchKey, list]) => ({
           matched_on: matchKey.split(':')[0],
+          match_key: matchKey,
+          locations: [
+            ...new Set(
+              list
+                .map((l) => [l.city, l.state].filter(Boolean).join(', '))
+                .filter(Boolean),
+            ),
+          ],
           leads: list.map(duplicateLeadOut),
         })),
       };

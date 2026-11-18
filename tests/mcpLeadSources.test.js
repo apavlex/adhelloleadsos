@@ -193,7 +193,7 @@ test('find_duplicate_leads groups matches and merge_leads folds them into the pr
   await dbService.updateLead(b, { website: 'http://www.camasplumbing.com/contact' }, wid);
   await lead({ title: 'Other Co', website: 'https://other.example' });
 
-  const found = await executeCrmTool(ctx, 'find_duplicate_leads', {});
+  const found = await executeCrmTool(ctx, 'find_duplicate_leads', { match_by: 'strict' });
   assert.equal(found.success, true, found.error);
   assert.equal(found.groups_found, 1);
   assert.equal(found.groups[0].matched_on, 'domain');
@@ -216,12 +216,64 @@ test('find_duplicate_leads ignores a place-name folder_id and still scans the wo
 
   const found = await executeCrmTool(ctx, 'find_duplicate_leads', {
     folder_id: 'Vancouver WA 98682',
+    match_by: 'strict',
   });
   assert.equal(found.success, true, found.error);
   assert.equal(found.groups_found, 1);
   assert.match(String(found.note || ''), /No folder matched/i);
   assert.deepEqual(found.groups[0].leads.map((l) => l.id).sort(), [a, b].sort());
   assert.equal((await dbService.getAllLeads(wid)).length, 2);
+});
+
+test('find_duplicate_leads match_by name groups same business across cities', async () => {
+  const { wid, ctx, lead } = await setup();
+  // Unique phones/websites so ingest dedupe does not fold rows before the scan.
+  const a = await lead({
+    title: 'Precision Garage Door Service',
+    phone: '3602185071',
+    city: 'Vancouver, WA',
+    state: '',
+    website: 'https://example-vancouver-doors.test/',
+  });
+  const b = await lead({
+    title: 'Precision Garage Door Service',
+    phone: '9712773129',
+    city: 'Hillsboro, OR',
+    state: '',
+    website: 'https://example-hillsboro-doors.test/',
+  });
+  const c = await lead({
+    title: 'Ponderosa Garage Doors Vancouver',
+    phone: '3602160106',
+    city: 'Vancouver, WA',
+    website: 'https://example-ponderosa-van.test/',
+  });
+  const d = await lead({
+    title: 'Ponderosa Garage Doors Portland',
+    phone: '5034761499',
+    city: 'Portland',
+    state: 'Oregon',
+    website: 'https://example-ponderosa-pdx.test/',
+  });
+  assert.equal((await dbService.getAllLeads(wid)).length, 4);
+
+  const found = await executeCrmTool(ctx, 'find_duplicate_leads', { match_by: 'name' });
+  assert.equal(found.success, true, found.error);
+  assert.ok(found.groups_found >= 2, `expected >=2 groups, got ${found.groups_found}`);
+  assert.equal(found.match_by, 'name');
+
+  const precision = found.groups.find((g) =>
+    (g.leads || []).some((l) => /precision garage door service/i.test(l.business || '')),
+  );
+  assert.ok(precision);
+  assert.deepEqual(precision.leads.map((l) => l.id).sort(), [a, b].sort());
+  assert.ok((precision.locations || []).length >= 2);
+
+  const ponderosa = found.groups.find((g) =>
+    (g.leads || []).some((l) => /ponderosa/i.test(l.business || '')),
+  );
+  assert.ok(ponderosa);
+  assert.deepEqual(ponderosa.leads.map((l) => l.id).sort(), [c, d].sort());
 });
 
 test('deep_enrich_lead requires steps and reports per-step failures', async () => {
