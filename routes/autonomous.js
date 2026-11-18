@@ -354,6 +354,13 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       savedAt: new Date().toISOString(),
       workspaceId: wid,
     };
+    const contactName = String(req.body.contactName || req.body.decisionMakerName || '').trim();
+    if (contactName) {
+      leadData.contactName = contactName.slice(0, 120);
+      leadData.decisionMakerName = String(req.body.decisionMakerName || contactName)
+        .trim()
+        .slice(0, 120);
+    }
     Object.assign(leadData, sanitizeLeadSocialPatch(leadData));
     if (!leadData.facebook) leadData.facebook = 'N/A';
     if (!leadData.instagram) leadData.instagram = 'N/A';

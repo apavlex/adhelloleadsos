@@ -190,10 +190,11 @@
         <h2 id="bulkPlatformGuideTitle" class="platform-guide__title">Where bulk scrape works</h2>
         <ul class="platform-guide__bulk-list">
           <li><span class="platform-pill platform-pill--bulk">Google Maps</span> search results (left list)</li>
+          <li><span class="platform-pill platform-pill--bulk">Zillow</span> home search results (opens each listing tab for agent card)</li>
         </ul>
         <p class="platform-guide__note">Not bulk scrape — use <strong>Save lead</strong> or <strong>Import CSV</strong> instead:</p>
         <details class="platform-guide__details">
-          <summary>Yelp, directories, social &amp; listings</summary>
+          <summary>Yelp, directories, social &amp; other listings</summary>
           <p class="platform-guide__tags">
             <span class="platform-pill">Yelp</span>
             <span class="platform-pill">Yellow Pages</span>
@@ -207,7 +208,8 @@
             <span class="platform-pill">LinkedIn</span>
             <span class="platform-pill">Facebook</span>
             <span class="platform-pill">Instagram</span>
-            <span class="platform-pill">Zillow</span>
+            <span class="platform-pill">Realtor.com</span>
+            <span class="platform-pill">Redfin</span>
             <span class="platform-pill">+ more</span>
           </p>
         </details>
@@ -222,9 +224,9 @@
           <input type="checkbox" name="bulkScrollAll" id="bulkScrollAll" checked />
           <span>Scroll to load all results before scraping</span>
         </label>
-        <label class="bulk-check-row">
+        <label class="bulk-check-row" id="bulkEnrichDetailsRow">
           <input type="checkbox" name="bulkEnrichDetails" id="bulkEnrichDetails" checked />
-          <span>After import, fetch websites in parallel (<strong>5 Maps tabs</strong> at once)</span>
+          <span id="bulkEnrichDetailsLabel">After import, fetch websites in parallel (<strong>5 Maps tabs</strong> at once)</span>
         </label>
         <p class="bulk-folder-note">Leads are saved to the folder above first. The floating <strong>Save lead</strong> button saves one at a time to your default folder in Settings — not the bulk folder.</p>
         <div class="popup-form-actions popup-form-actions--top">

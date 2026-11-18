@@ -21,7 +21,7 @@ const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 const showSaveLeadFabEl = document.getElementById('showSaveLeadFab');
 const findLoyaltyBtn = document.getElementById('findLoyaltyBtn');
 const loyaltyStatusEl = document.getElementById('loyaltyStatus');
-const EXT_VERSION = '1.9.13';
+const EXT_VERSION = '1.9.14';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -73,12 +73,18 @@ chrome.runtime.onMessage.addListener((message) => {
     return;
   }
   if (message?.phase === 'import-done' && bulkProgressEl) {
-    bulkProgressEl.textContent = `Saved ${message.businessCount || 0} leads to “${message.folderName || 'folder'}”. Fetching websites…`;
+    bulkProgressEl.textContent =
+      message.source === 'zillow'
+        ? `Saved ${message.businessCount || 0} Zillow listings to “${message.folderName || 'folder'}”.`
+        : `Saved ${message.businessCount || 0} leads to “${message.folderName || 'folder'}”. Fetching websites…`;
     bulkProgressEl.classList.add('bulk-progress--active');
     return;
   }
   if (message?.phase === 'extract' && bulkProgressEl) {
-    bulkProgressEl.textContent = 'Extracting business data from results list…';
+    bulkProgressEl.textContent =
+      message.source === 'zillow'
+        ? 'Collecting Zillow listing links from the results list…'
+        : 'Extracting business data from results list…';
     bulkProgressEl.classList.add('bulk-progress--active');
     return;
   }
@@ -89,7 +95,10 @@ chrome.runtime.onMessage.addListener((message) => {
   }
   if (!bulkProgressEl) return;
   if (message?.phase === 'enrich-parallel') {
-    bulkProgressEl.textContent = `Fetching websites (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
+    bulkProgressEl.textContent =
+      message.source === 'zillow'
+        ? `Opening listing tabs for agent cards… ${message.current || 0}/${message.total || 0}`
+        : `Fetching websites (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
   } else if (message?.phase === 're-enrich-parallel') {
     bulkProgressEl.textContent = `Re-enriching (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
   } else if (message?.phase === 'website-enrich-parallel') {
@@ -97,7 +106,8 @@ chrome.runtime.onMessage.addListener((message) => {
   } else if (message.phase === 'enrich') {
     bulkProgressEl.textContent = `Fetching websites… ${message.current || 0}/${message.total || 0}`;
   } else {
-    bulkProgressEl.textContent = `Scrolling… ${message.businessCount || 0} businesses loaded (${message.scrollAttempts || 0} scrolls)`;
+    const noun = message.source === 'zillow' ? 'listings' : 'businesses';
+    bulkProgressEl.textContent = `Scrolling… ${message.businessCount || 0} ${noun} loaded (${message.scrollAttempts || 0} scrolls)`;
   }
   bulkProgressEl.classList.add('bulk-progress--active');
 });
@@ -147,6 +157,33 @@ function isGoogleMapsUrl(url) {
 function isGoogleMapsSearchUrl(url) {
   const u = String(url || '').toLowerCase();
   return u.includes('/maps/search') || (u.includes('google.com/maps') && u.includes('search?'));
+}
+
+function isZillowUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return u.includes('zillow.com');
+}
+
+function isZillowSearchUrl(url) {
+  if (!isZillowUrl(url)) return false;
+  const u = String(url || '').toLowerCase();
+  if (u.includes('/homedetails/')) return false;
+  if (u.includes('/profile/') || u.includes('/agent/')) return false;
+  return (
+    u.includes('/homes') ||
+    u.includes('/for_sale') ||
+    u.includes('/for_rent') ||
+    u.includes('/sold') ||
+    /zillow\.com\/[a-z0-9-]+-[a-z]{2}/i.test(u)
+  );
+}
+
+function detectBulkSource(url) {
+  if (isGoogleMapsUrl(url)) return 'maps';
+  if (isZillowSearchUrl(url) || (isZillowUrl(url) && !String(url || '').toLowerCase().includes('/homedetails/'))) {
+    return 'zillow';
+  }
+  return '';
 }
 
 function parsePriceInput(raw) {
@@ -247,20 +284,43 @@ function detectActiveSiteLabel(url) {
   return '';
 }
 
+function syncBulkEnrichUi(source) {
+  const row = document.getElementById('bulkEnrichDetailsRow');
+  const label = document.getElementById('bulkEnrichDetailsLabel');
+  const checkbox = document.getElementById('bulkEnrichDetails');
+  if (!row || !label || !checkbox) return;
+  if (source === 'zillow') {
+    row.style.display = 'none';
+    checkbox.checked = false;
+    label.innerHTML =
+      'Zillow always opens each listing in a background tab to grab the agent card (name / phone / email when shown).';
+  } else {
+    row.style.display = '';
+    label.innerHTML =
+      'After import, fetch websites in parallel (<strong>5 Maps tabs</strong> at once)';
+  }
+}
+
 async function refreshBulkMapsHint() {
   if (!bulkMapsHintEl) return;
   try {
     const tab = await getActiveTab();
     const site = detectActiveSiteLabel(tab.url);
-    if (isGoogleMapsUrl(tab.url)) {
+    const bulkSource = detectBulkSource(tab.url);
+    syncBulkEnrichUi(bulkSource);
+    if (bulkSource === 'maps') {
       bulkMapsHintEl.textContent = 'Connected to Google Maps — ready to bulk scrape this results list.';
       bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--ready';
+    } else if (bulkSource === 'zillow') {
+      bulkMapsHintEl.textContent =
+        'Connected to Zillow — ready to bulk scrape listings (opens each home in a tab for the agent card).';
+      bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--ready';
     } else if (site) {
-      bulkMapsHintEl.textContent = `${site} — bulk scrape is Google Maps only. Use Save lead here, or Import CSV for a ${site} export.`;
+      bulkMapsHintEl.textContent = `${site} — bulk scrape works on Google Maps or Zillow search results. Use Save lead here, or Import CSV.`;
       bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--warn';
     } else {
       bulkMapsHintEl.textContent =
-        'Open Google Maps search results first (e.g. “flooring near Vancouver WA”). Other sites: Save lead or Import CSV.';
+        'Open Google Maps or a Zillow homes search first. Other sites: Save lead or Import CSV.';
       bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--warn';
     }
   } catch (_) {
@@ -650,9 +710,15 @@ async function init() {
         !lead?.title ||
         /^(results?|search)$/i.test(String(lead.title || '').trim()) ||
         /find local businesses/i.test(String(lead?.address || '')));
+    const onZillowSearch = isZillowSearchUrl(tab.url);
 
     if (onMapsSearch) {
       platformLabel.textContent = 'Maps search results — use Bulk scrape to import the full list.';
+      document.querySelector('.popup-tab[data-tab="bulk"]')?.click();
+      return;
+    }
+    if (onZillowSearch) {
+      platformLabel.textContent = 'Zillow search results — use Bulk scrape to open each listing for agent contacts.';
       document.querySelector('.popup-tab[data-tab="bulk"]')?.click();
       return;
     }
@@ -823,8 +889,9 @@ async function runBulkScrapeSubmit(e) {
 
   try {
     const tab = await getActiveTab();
-    if (!isGoogleMapsUrl(tab.url)) {
-      throw new Error('Open a Google Maps search results page first.');
+    const bulkSource = detectBulkSource(tab.url);
+    if (!bulkSource) {
+      throw new Error('Open a Google Maps or Zillow search results page first.');
     }
 
     const res = await chrome.runtime.sendMessage({
@@ -832,7 +899,8 @@ async function runBulkScrapeSubmit(e) {
       tabId: tab.id,
       folderName,
       scrollAll,
-      enrichDetails,
+      enrichDetails: bulkSource === 'zillow' ? false : enrichDetails,
+      source: bulkSource === 'zillow' ? 'zillow' : 'maps',
       workspaceId: getSelectedWorkspaceId(),
     });
     if (!res?.ok) throw new Error(res?.error || 'Bulk scrape failed');
@@ -841,15 +909,19 @@ async function runBulkScrapeSubmit(e) {
     const parts = [`${data.created || 0} new`];
     if (data.updated) parts.push(`${data.updated} updated`);
     if (data.failed) parts.push(`${data.failed} failed`);
+    if (data.scrapeFailed) parts.push(`${data.scrapeFailed} listing tabs failed`);
     const enrichNote =
-      enrichDetails && data.enrichData?.updated
+      bulkSource === 'maps' && enrichDetails && data.enrichData?.updated
         ? ` · ${data.enrichData.updated} websites backfilled`
-        : enrichDetails && data.enrichData?.empty
+        : bulkSource === 'maps' && enrichDetails && data.enrichData?.empty
           ? ' · websites already complete'
-          : '';
+          : bulkSource === 'zillow'
+            ? ' · agent cards scraped from listing pages when shown'
+            : '';
     const folderLabel = data.folderName || folderName;
+    const noun = bulkSource === 'zillow' ? 'listings' : 'businesses';
     setBulkStatus(
-      `Imported ${data.companiesCount || 0} businesses (${parts.join(', ')}) into “${folderLabel}”.${enrichNote} Check Pipeline → Folders.`,
+      `Imported ${data.companiesCount || 0} ${noun} (${parts.join(', ')}) into “${folderLabel}”.${enrichNote} Check Pipeline → Folders.`,
       'success',
     );
     if (bulkProgressEl) bulkProgressEl.textContent = '';

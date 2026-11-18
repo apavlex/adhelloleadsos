@@ -21,7 +21,7 @@ Save **leads**, **real estate listings**, and **product listings** from **busine
 - Groupon, Nextdoor, Houzz
 
 ### Real estate listings
-- **Zillow** — homes & property detail pages
+- **Zillow** — homes & property detail pages (grabs listing **agent card** name / phone / email when shown)
 - **MHVillage** — mobile / manufactured homes
 - **Realtor.com** — property detail pages
 - **Redfin** — home listings
@@ -71,8 +71,8 @@ Set **Default folder name** in Settings to pre-fill the popup and single-save fo
 
 | Mode | Where it works | Best for |
 |------|----------------|----------|
-| **Bulk scrape** | **Google Maps** search results only (left results list) | Scraping a full local search without a separate tool |
-| **Save lead** | One business at a time on Google Maps, **Yelp**, Yellow Pages, BBB, TripAdvisor, Angi, HomeAdvisor, Thumbtack, Apple/Bing Maps, Foursquare, Manta, Groupon, Nextdoor, Houzz, LinkedIn, Facebook, Instagram, Zillow, MHVillage, Realtor.com, Redfin, OfferUp, eBay, Craigslist, Facebook Marketplace | Saving while you browse |
+| **Bulk scrape** | **Google Maps** search results (left list) · **Zillow** homes search results | Scraping a full search without a separate tool |
+| **Save lead** | One business/listing at a time on Google Maps, **Yelp**, Yellow Pages, BBB, TripAdvisor, Angi, HomeAdvisor, Thumbtack, Apple/Bing Maps, Foursquare, Manta, Groupon, Nextdoor, Houzz, LinkedIn, Facebook, Instagram, Zillow, MHVillage, Realtor.com, Redfin, OfferUp, eBay, Craigslist, Facebook Marketplace | Saving while you browse |
 | **Import CSV** | **Any source** — paste/upload a spreadsheet or export from Google Maps, Yelp, Outscraper, SmartScraper, Apollo, etc. | Lists you already exported elsewhere |
 
 Yelp and other directories do **not** support in-browser bulk scrape yet — use **Save lead** per page or **Import CSV** from an export.
@@ -86,6 +86,16 @@ Yelp and other directories do **not** support in-browser bulk scrape yet — use
 5. Click **Scrape & import to AdHello** — while scrolling, the button becomes **Stop scrolling**.
 6. Optional: leave **Fetch websites in parallel** checked — scrapes the full list first, then opens **5 hidden Maps tabs at once** for websites/domains (about 4–5× faster than one-by-one).
 7. Uncheck that box for the fastest import (name, phone, address, reviews only) — use **Re-enrich folder** later for websites.
+
+### Bulk scrape Zillow search results (agent cards)
+
+1. In Chrome, open a **Zillow homes search** (city / for-sale / for-rent results with property cards).
+2. Open the extension → **Bulk** tab (auto-selected on Zillow search pages).
+3. Enter a **folder name**.
+4. Leave **Scroll to load all results** checked if you want the full list.
+5. Click **Scrape & import to AdHello** — the extension collects every `/homedetails/` link, then opens **3 listing tabs at a time** (same idea as Maps place enrichment).
+6. Each listing page is scraped for address, price, beds/baths/sqft, plus the **listing agent card** (name, brokerage, phone, email when Zillow shows them).
+7. Single Zillow home pages also fill the agent card on **Save lead**.
 
 ### Re-enrich an existing folder (no re-scroll)
 
