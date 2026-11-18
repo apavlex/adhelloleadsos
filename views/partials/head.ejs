@@ -46,6 +46,11 @@
 <% if (typeof workspaceId !== 'undefined' && workspaceId) { %>
 <script>window.__ADHELLO_WORKSPACE_ID__ = <%- safeJsonForScript(String(workspaceId)) %>;</script>
 <% } %>
+<% if (typeof activePage !== 'undefined' && activePage) { %>
+<script>window.__ADHELLO_ACTIVE_PAGE__ = <%- safeJsonForScript(String(activePage)) %>;</script>
+<% } else if (typeof navPrimary !== 'undefined' && navPrimary) { %>
+<script>window.__ADHELLO_ACTIVE_PAGE__ = <%- safeJsonForScript(String(navPrimary)) %>;</script>
+<% } %>
 <script>window.__ADHELLO_SCRIPT_PROFILE__ = <%- safeJsonForScript(typeof scriptSignOffProfile !== 'undefined' && scriptSignOffProfile ? scriptSignOffProfile : { name: '', company: '', phone: '', email: '' }) %>;</script>
 <style>
   /* First-paint canvas before stylesheets — prevent mobile white blank while CSS/JS load. */

@@ -327,6 +327,7 @@
   </script>
   <%# Voice dictation for the composer (also loaded from the navbar when signed in). %>
   <script src="/js/alex-voice-input.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
+  <script src="/js/pavlex-ui-context.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
   <script src="/js/pavlex-chat-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
   <% locals.ceoChatFloatIncluded = true; %>
   <%- include('partials/app_shell_close') %>

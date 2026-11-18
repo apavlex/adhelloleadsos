@@ -34,6 +34,11 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) =>
             ? 'chat'
             : 'global';
     const page = String(req.body.page || '').trim().slice(0, 500) || undefined;
+    const pageTitle = String(req.body.pageTitle || '').trim().slice(0, 200) || undefined;
+    const ui =
+      req.body.ui && typeof req.body.ui === 'object' && !Array.isArray(req.body.ui)
+        ? req.body.ui
+        : null;
 
     const auth = assertPavlexAuth(req);
     let createdConversation = null;
@@ -60,6 +65,8 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) =>
         conversationId,
         platform,
         page,
+        pageTitle,
+        ui,
         persistHistory: platform === 'automate' || platform === 'global' || platform === 'chat',
       });
     } catch (err) {

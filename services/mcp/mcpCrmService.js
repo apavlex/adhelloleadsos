@@ -194,8 +194,7 @@ function countByFolderKey(leads) {
 }
 
 async function folderCounts(workspaceId, folder, reqLike, folders) {
-  const all = await dbService.getAllLeads(workspaceId);
-  const counts = countByFolderKey(reqLike ? filterLeadsForRequest(reqLike, all) : all);
+  const counts = await loadFolderLeadCounts(workspaceId, reqLike);
   const keys = folderKeySet(folders, folder.key);
   let total = 0;
   for (const k of keys) total += counts.get(k) || 0;
@@ -291,12 +290,35 @@ function mapLeadDetail(lead) {
   return copy;
 }
 
+async function loadFolderLeadCounts(workspaceId, reqLike) {
+  // Prefer SQL GROUP BY — avoids cold getAllLeads that used to block Alex / MCP.
+  if (typeof dbService.countLeadsByFolderKey === 'function') {
+    try {
+      const raw = await dbService.countLeadsByFolderKey(workspaceId);
+      return new Map(Object.entries(raw || {}).map(([k, v]) => [String(k), Number(v) || 0]));
+    } catch (_) {
+      /* fall through */
+    }
+  }
+  const all = await dbService.getAllLeads(workspaceId);
+  return countByFolderKey(filterLeadsForRequest(reqLike, all));
+}
+
 async function listFolders(ctx) {
   const { workspaceId, userEmail } = ctx;
   const reqLike = buildReqLike(workspaceId, userEmail);
-  const folders = (await dbService.listFolders(workspaceId)).filter((f) => f && f.key);
-  const all = await dbService.getAllLeads(workspaceId);
-  const counts = countByFolderKey(filterLeadsForRequest(reqLike, all));
+  let folders = [];
+  if (typeof dbService.listFoldersLite === 'function') {
+    try {
+      folders = (await dbService.listFoldersLite(workspaceId)).filter((f) => f && f.key);
+    } catch (_) {
+      folders = [];
+    }
+  }
+  if (!folders.length) {
+    folders = (await dbService.listFolders(workspaceId)).filter((f) => f && f.key);
+  }
+  const counts = await loadFolderLeadCounts(workspaceId, reqLike);
   const { parentOf, descendants } = folderHierarchy(folders);
   const byKey = new Map(folders.map((f) => [String(f.key), f]));
   const summaries = folders.map((folder) => {

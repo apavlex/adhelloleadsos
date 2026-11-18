@@ -1,5 +1,16 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-18 — CANONICAL: Alex page + folder awareness (1.0.784)
+
+### Symptom
+- Alex could not act on “these / this folder / leads in Vancouver…” because SESSION only had a bare URL path and `list_folders` cold-scanned all leads.
+
+### Locked-in fix
+- Chat clients send `ui` (open folder, tab, selected leads) via `pavlex-ui-context.js`.
+- `buildPavlexContext` injects Looking-at page lines + full folder catalog (`listFoldersLite`).
+- `list_folders` / folder counts use `countLeadsByFolderKey` (no `getAllLeads`).
+- Direct CRM: `leads in <place>` → `search_leads`.
+
 ## 2026-11-15 — CANONICAL: Folders shell-first (1.0.783)
 
 ### Symptom

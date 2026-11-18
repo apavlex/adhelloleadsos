@@ -37,6 +37,12 @@ describe('pavlexCrmDirect', () => {
     assert.equal(m.args.query, 'Acme Roofing');
   });
 
+  it('matches leads in a place as CRM search', () => {
+    const m = matchDirectCrmQuery('leads in Vancouver WA 98682');
+    assert.equal(m.tool, 'search_leads');
+    assert.equal(m.args.query, 'Vancouver WA 98682');
+  });
+
   it('returns null for non-direct questions', () => {
     assert.equal(matchDirectCrmQuery('What should I focus on today?'), null);
   });
