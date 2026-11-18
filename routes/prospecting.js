@@ -618,6 +618,7 @@ function slimFolderGroupsForInbox(folderTree) {
           key: group.folder.key,
           name: group.folder.name || 'Folder',
           jobType: group.folder.jobType || '',
+          isPipelineDefault: !!group.folder.isPipelineDefault,
         }
       : null,
     childRows: (group.childRows || [])
@@ -631,6 +632,9 @@ function slimFolderGroupsForInbox(folderTree) {
             name: f.name || 'Folder',
             jobType: f.jobType || '',
             tradeSlug: f.tradeSlug || '',
+            parentFolderKey: f.parentFolderKey || '',
+            isPipelineDefault: !!f.isPipelineDefault,
+            isTradeFolder: !!f.isTradeFolder,
           },
         };
       })

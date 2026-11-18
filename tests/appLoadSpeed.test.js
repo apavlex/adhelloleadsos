@@ -81,6 +81,12 @@ test('prospecting folders tab skips unused lead JSON and Drive OAuth', () => {
   assert.match(lite, /folder-counts\.json/);
   assert.match(lite, /Loading folders/);
   assert.match(lite, /js-folder-row-count/);
+  assert.match(lite, /folder-lite-rename/);
+  assert.match(lite, /folder-lite-move/);
+  assert.match(lite, /\/folders\/rename/);
+  assert.match(lite, /\/folders\/move/);
+  assert.match(lite, /folderLiteRenameModal/);
+  assert.match(lite, /folderLiteMoveModal/);
   const db = fs.readFileSync(path.join(root, 'services/database.js'), 'utf8');
   assert.match(db, /async listFoldersLite/);
   assert.match(db, /failFast/);

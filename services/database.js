@@ -1853,7 +1853,18 @@ module.exports = {
     if (!raw) return null;
     const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if ((existing.workspaceId || 'default') !== wid) return null;
-    const updated = { ...existing, name: String(name || '').trim(), updatedAt: new Date().toISOString() };
+    if (existing.isPipelineDefault) {
+      const err = new Error('System folders cannot be renamed.');
+      err.code = 'SYSTEM_FOLDER_RENAME';
+      throw err;
+    }
+    const nextName = String(name || '').trim();
+    if (!nextName) {
+      const err = new Error('Folder name is required.');
+      err.code = 'FOLDER_NAME_REQUIRED';
+      throw err;
+    }
+    const updated = { ...existing, name: nextName, updatedAt: new Date().toISOString() };
     kvSet(fullKey, JSON.stringify(updated));
     return { key: fullKey, ...updated };
   },
