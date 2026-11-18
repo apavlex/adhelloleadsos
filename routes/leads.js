@@ -77,6 +77,7 @@ const { buildPipelineAdvancePatch } = require('../services/pipelineAdvance');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const leadWorkspaceShare = require('../services/leadWorkspaceShare');
 const { upsertOpenTaskForLead } = require('../services/userTasks');
 const { applyLeadDisposition, applyAutoNoAnswerAfterDial } = require('../services/leadDispositionApply');
 const {
@@ -597,6 +598,52 @@ router.get('/search.json', async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+});
+
+/** GET JSON: other workspaces this user can share leads into (owner/admin/manager). */
+router.get('/share-targets.json', async (req, res, next) => {
+  try {
+    if (!req.canAssignWork) {
+      return res.status(403).json({
+        success: false,
+        error: 'Owner, admin, or manager permission required.',
+      });
+    }
+    const email = userEmail(req);
+    const targets = await leadWorkspaceShare.listShareTargets(email, req.workspaceId);
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    res.json({
+      success: true,
+      targets,
+      recent: (Array.isArray(ws && ws.leadShareLog) ? ws.leadShareLog : []).slice(0, 5),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: copy selected leads into other workspaces (AdHello → HomeElk, etc.). */
+router.post('/share-to-workspace', express.json({ limit: '256kb' }), async (req, res, next) => {
+  try {
+    if (!req.canAssignWork) {
+      return res.status(403).json({
+        success: false,
+        error: 'Owner, admin, or manager permission required.',
+      });
+    }
+    const body = req.body || {};
+    const result = await leadWorkspaceShare.shareLeadsToWorkspaces({
+      email: userEmail(req),
+      sourceWid: req.workspaceId,
+      leadKeys: body.leadKeys || body.keys,
+      targetIds: body.targetIds || body.workspaceIds,
+      folderKey: body.folderKey,
+    });
+    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    res.json({ success: true, leadCount: result.leadCount, results: result.results });
+  } catch (e) {
+    next(e);
   }
 });
 
