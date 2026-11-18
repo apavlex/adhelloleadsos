@@ -94,6 +94,14 @@ async function resolveFolderRef(workspaceId, ref = {}) {
       folders.find((f) => f && String(f.key || '').trim() === folderId) ||
       folders.find((f) => f && String(f.key || '').toLowerCase() === folderId.toLowerCase());
     if (exact) return exact;
+    // Models often put a folder display name (or a place like "Vancouver WA") in folder_id.
+    if (!folderName) {
+      try {
+        return await resolveFolder(workspaceId, folderId);
+      } catch (_) {
+        /* fall through to NOT_FOUND */
+      }
+    }
   }
 
   if (folderName) {

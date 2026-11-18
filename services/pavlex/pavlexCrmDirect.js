@@ -49,6 +49,28 @@ function formatSearchLeads(result) {
   return `Found ${leads.length} match${leads.length === 1 ? '' : 'es'}:\n${lines.join('\n')}`;
 }
 
+function formatDuplicateLeads(result) {
+  const groups = (result && result.groups) || [];
+  const found = typeof result.groups_found === 'number' ? result.groups_found : groups.length;
+  const note = result && result.note ? `\n(${result.note})` : '';
+  if (!found) {
+    return `No duplicate lead groups found — nothing to merge.${note}`;
+  }
+  const lines = groups.slice(0, 10).map((g, i) => {
+    const names = (g.leads || [])
+      .map((l) => l.title || l.business || l.id)
+      .filter(Boolean)
+      .join(' + ');
+    const ids = (g.leads || []).map((l) => l.id).filter(Boolean).join(', ');
+    return `${i + 1}. ${g.matched_on || 'match'}: ${names}${ids ? ` [${ids}]` : ''}`;
+  });
+  return (
+    `Found ${found} duplicate group${found === 1 ? '' : 's'}.${note}\n` +
+    `${lines.join('\n')}\n` +
+    `Say which group to merge (e.g. "merge group 1") — nothing is merged until you confirm.`
+  );
+}
+
 /** "find 20 interior designers in Camas WA…" is a new lead search (find_leads), not a CRM lookup. */
 function looksLikeLeadGenRequest(text) {
   const s = String(text || '').trim();
@@ -93,6 +115,16 @@ function matchDirectCrmQuery(message) {
     /^how many leads? are there\??$/i.test(raw)
   ) {
     return { tool: 'count_leads', args: {}, formatter: formatCountLeads };
+  }
+
+  // Always whole-workspace — never invent a folder_id from prior place-name chat.
+  if (
+    /^(find|scan|show|list|check)\s+(my\s+)?duplicates?\??$/i.test(raw) ||
+    /^(clean\s*up|merge)\s+(my\s+)?duplicates?\??$/i.test(raw) ||
+    /^duplicates?\??$/i.test(raw) ||
+    /^find duplicate leads?\??$/i.test(raw)
+  ) {
+    return { tool: 'find_duplicate_leads', args: {}, formatter: formatDuplicateLeads };
   }
 
   const folderCount =
