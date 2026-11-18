@@ -55,7 +55,7 @@
         <% }); %>
       </select>
       <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled title="<%= _bulkMode === 'search' ? 'Save unsaved selected rows if needed, then move them into the selected folder' : 'Move saved leads into the selected folder only (does not add to Opportunities)' %>">To folder</button>
-      <button type="button" id="bulkShareWorkspaceBtn" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-share-workspace text-sky-300" disabled title="Copy selected leads into another workspace you manage (e.g. AdHello → HomeElk)">Share workspace</button>
+      <button type="button" id="bulkShareWorkspaceBtn" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-share-workspace text-sky-300" disabled title="Copy selected leads into another workspace where you are owner, admin, or manager (e.g. AdHello → HomeElk)">Share workspace</button>
       <% if (_bulkMode === 'pipeline') { %>
       <% const _oppBoards = typeof opportunityBoards !== 'undefined' && opportunityBoards && Array.isArray(opportunityBoards.pipelines) ? opportunityBoards : null; %>
       <% const _oppActive = _oppBoards ? (_oppBoards.pipelines.find(function (pipeline) { return pipeline.id === _oppBoards.activePipelineId; }) || _oppBoards.pipelines[0]) : null; %>

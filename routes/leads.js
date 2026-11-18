@@ -601,11 +601,14 @@ router.get('/search.json', async (req, res, next) => {
   }
 });
 
-/** GET JSON: other workspaces this user can share leads into. */
+/** GET JSON: other workspaces this user can share leads into (owner/admin/manager). */
 router.get('/share-targets.json', async (req, res, next) => {
   try {
-    if (!req.canManageWorkspace) {
-      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    if (!req.canAssignWork) {
+      return res.status(403).json({
+        success: false,
+        error: 'Owner, admin, or manager permission required.',
+      });
     }
     const email = userEmail(req);
     const targets = await leadWorkspaceShare.listShareTargets(email, req.workspaceId);
@@ -620,11 +623,14 @@ router.get('/share-targets.json', async (req, res, next) => {
   }
 });
 
-/** POST JSON: copy selected leads into other workspaces this user manages (AdHello → HomeElk, etc.). */
+/** POST JSON: copy selected leads into other workspaces (AdHello → HomeElk, etc.). */
 router.post('/share-to-workspace', express.json({ limit: '256kb' }), async (req, res, next) => {
   try {
-    if (!req.canManageWorkspace) {
-      return res.status(403).json({ success: false, error: 'Manage permission required.' });
+    if (!req.canAssignWork) {
+      return res.status(403).json({
+        success: false,
+        error: 'Owner, admin, or manager permission required.',
+      });
     }
     const body = req.body || {};
     const result = await leadWorkspaceShare.shareLeadsToWorkspaces({

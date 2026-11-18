@@ -227,7 +227,7 @@
     open(
       '<div class="flex items-start justify-between gap-3 mb-4"><div>' +
         '<h2 class="font-display font-bold text-lg">Share to workspace</h2>' +
-        '<p class="text-xs text-brand-muted mt-1">Copy leads into HomeElk, AdHello, or another workspace you manage.</p>' +
+        '<p class="text-xs text-brand-muted mt-1">Copy leads into HomeElk, AdHello, or another workspace where you are owner, admin, or manager.</p>' +
         '</div><button type="button" data-lws-close class="text-brand-muted hover:text-brand-dark dark:hover:text-white text-xl leading-none" aria-label="Close">×</button></div>' +
         '<div data-lws-body><p class="text-sm text-brand-muted">Loading workspaces…</p></div>',
     );

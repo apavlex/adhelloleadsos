@@ -61,12 +61,13 @@ const STRIP_KEYS = new Set([
   'forceFolderKey',
 ]);
 
-function canManage(ws, email) {
+/** Owner, admin, or manager on the workspace (same bar as lead assignment). */
+function canShareLeads(ws, email) {
   return (
     !!ws &&
     !ws.archivedAt &&
     workspaceBootstrap.userCanAccessWorkspace(ws, email) &&
-    workspaceService.canManageTeam(workspaceService.roleForEmail(ws, email))
+    workspaceService.canAssignWork(workspaceService.roleForEmail(ws, email))
   );
 }
 
@@ -122,7 +123,7 @@ async function listShareTargets(email, sourceWid) {
   for (const id of ids) {
     if (id === sourceWid) continue;
     const ws = await dbService.getWorkspace(id);
-    if (!canManage(ws, email)) continue;
+    if (!canShareLeads(ws, email)) continue;
     out.push({
       id: ws.id,
       name: ws.name || 'Workspace',
@@ -147,8 +148,8 @@ async function shareLeadsToWorkspaces(opts) {
   const email = str(opts.email).toLowerCase();
   const sourceWid = str(opts.sourceWid);
   const source = await dbService.getWorkspace(sourceWid);
-  if (!canManage(source, email)) {
-    return { ok: false, error: 'Manage permission required in this workspace.' };
+  if (!canShareLeads(source, email)) {
+    return { ok: false, error: 'Owner, admin, or manager permission required in this workspace.' };
   }
 
   const keys = [...new Set((Array.isArray(opts.leadKeys) ? opts.leadKeys : []).map(normalizeLeadKey).filter(Boolean))].slice(
@@ -178,8 +179,13 @@ async function shareLeadsToWorkspaces(opts) {
   const results = [];
   for (const tid of targets) {
     const target = await dbService.getWorkspace(tid);
-    if (!canManage(target, email)) {
-      results.push({ id: tid, name: (target && target.name) || tid, ok: false, error: 'No manage access' });
+    if (!canShareLeads(target, email)) {
+      results.push({
+        id: tid,
+        name: (target && target.name) || tid,
+        ok: false,
+        error: 'Need owner, admin, or manager on that workspace',
+      });
       continue;
     }
     let created = 0;
@@ -278,7 +284,7 @@ module.exports = {
   listShareTargets,
   shareLeadsToWorkspaces,
   buildSharedLeadPayload,
-  canManage,
+  canShareLeads,
   STRIP_KEYS,
   MAX_LEADS,
   MAX_TARGETS,

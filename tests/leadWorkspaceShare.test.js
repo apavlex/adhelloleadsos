@@ -4,6 +4,7 @@ const {
   buildSharedLeadPayload,
   STRIP_KEYS,
   shareLeadsToWorkspaces,
+  canShareLeads,
 } = require('../services/leadWorkspaceShare');
 
 describe('leadWorkspaceShare', () => {
@@ -70,6 +71,28 @@ describe('leadWorkspaceShare', () => {
       targetIds: ['other'],
     });
     assert.equal(deny.ok, false);
-    assert.match(deny.error, /Manage permission|required/i);
+    assert.match(deny.error, /Owner, admin, or manager|required/i);
+  });
+
+  it('canShareLeads allows owner, admin, and manager', () => {
+    const email = 'ops@adhello.io';
+    const base = { id: 'ws1', members: {} };
+    assert.equal(canShareLeads({ ...base, ownerUserId: email, members: { [email]: { role: 'owner' } } }, email), true);
+    assert.equal(
+      canShareLeads({ ...base, ownerUserId: 'other@x.com', members: { [email]: { role: 'admin' } } }, email),
+      true,
+    );
+    assert.equal(
+      canShareLeads({ ...base, ownerUserId: 'other@x.com', members: { [email]: { role: 'manager' } } }, email),
+      true,
+    );
+    assert.equal(
+      canShareLeads({ ...base, ownerUserId: 'other@x.com', members: { [email]: { role: 'sdr' } } }, email),
+      false,
+    );
+    assert.equal(
+      canShareLeads({ ...base, ownerUserId: 'other@x.com', members: { [email]: { role: 'viewer' } } }, email),
+      false,
+    );
   });
 });
