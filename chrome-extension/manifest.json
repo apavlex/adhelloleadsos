@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AdHello Leads",
-  "version": "1.9.13",
-  "description": "Save leads from business websites, social profiles, and directories into AdHello. Library tab: scripts, bookmarks, used copies, and Facebook groups.",
+  "version": "1.9.14",
+  "description": "Save leads from business websites, social profiles, and directories into AdHello. Bulk scrape Google Maps and Zillow search results (opens listing tabs for agent cards).",
   "permissions": ["storage", "activeTab", "scripting", "tabs", "clipboardWrite"],
   "host_permissions": [
     "https://*/*",
@@ -46,6 +46,7 @@
         "src/extractors.js",
         "src/theme.js",
         "src/maps-bulk-scrape.js",
+        "src/zillow-bulk-scrape.js",
         "src/loyalty-detect.js",
         "src/content.js"
       ],

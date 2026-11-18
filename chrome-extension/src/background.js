@@ -210,7 +210,14 @@ async function findLoyaltyProgramOnTab(tabId) {
 }
 
 const PARALLEL_ENRICH_CONCURRENCY = 5;
+const ZILLOW_BULK_CONCURRENCY = 3;
 const ENRICH_SCRIPTS = ['src/address-utils.js', 'src/maps-bulk-scrape.js'];
+const ZILLOW_LISTING_SCRIPTS = [
+  'src/address-utils.js',
+  'src/listing-helpers.js',
+  'src/listing-extractors.js',
+  'src/zillow-bulk-scrape.js',
+];
 const WEBSITE_SCRAPE_SCRIPTS = ['src/address-utils.js', 'src/website-utils.js', 'src/website-scrape.js'];
 
 function sleep(ms) {
@@ -598,14 +605,199 @@ function emitBulkJobProgress(payload) {
   });
 }
 
-async function ensureBulkScript(tabId) {
-  const files = ['src/address-utils.js', 'src/maps-bulk-scrape.js'];
+async function ensureScripts(tabId, files) {
   for (const file of files) {
     try {
       await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
     } catch (_) {
       /* content script may already be present */
     }
+  }
+}
+
+async function ensureBulkScript(tabId) {
+  await ensureScripts(tabId, ['src/address-utils.js', 'src/maps-bulk-scrape.js']);
+}
+
+async function ensureZillowBulkScript(tabId) {
+  await ensureScripts(tabId, ZILLOW_LISTING_SCRIPTS);
+}
+
+async function scrapeZillowListingUrl(listingUrl) {
+  const url = String(listingUrl || '').trim();
+  if (!url) throw new Error('Missing Zillow listing URL');
+  const tab = await chrome.tabs.create({ url, active: false });
+  try {
+    await waitForTabComplete(tab.id, 28000);
+    await sleep(1100);
+    await ensureZillowBulkScript(tab.id);
+    await sleep(350);
+    const response = await sendTabMessage(tab.id, { action: 'zillowBulkScrapeListing' });
+    if (!response?.success || !response.lead) {
+      throw new Error(response?.error || 'Zillow listing scrape failed');
+    }
+    return response.lead;
+  } finally {
+    try {
+      await chrome.tabs.remove(tab.id);
+    } catch (_) {
+      /* tab may already be closed */
+    }
+  }
+}
+
+async function importZillowLeads(leads, folderName, workspaceId, onProgress) {
+  let created = 0;
+  let updated = 0;
+  let failed = 0;
+  let folderLabel = folderName;
+  let folderKey = '';
+  let folderUrl = '';
+  const total = leads.length;
+
+  for (let i = 0; i < total; i += 1) {
+    const lead = leads[i];
+    if (onProgress) {
+      onProgress(`Saving listing ${i + 1}/${total}…`);
+    }
+    try {
+      const data = await saveLeadToAdHello(
+        {
+          ...lead,
+          folderName,
+          source: 'chrome_extension',
+          sourceChannel: lead.sourceChannel || 'zillow',
+          forceFolderKey: true,
+        },
+        { workspaceId },
+      );
+      if (data?.merged) updated += 1;
+      else created += 1;
+      if (data?.folderName) folderLabel = data.folderName;
+      if (data?.folderKey) folderKey = data.folderKey;
+      if (data?.folderUrl) folderUrl = data.folderUrl;
+    } catch (_) {
+      failed += 1;
+    }
+  }
+
+  return { created, updated, failed, folderName: folderLabel, folderKey, folderUrl };
+}
+
+async function runZillowBulkScrapeJob({ tabId, folderName, scrollAll, workspaceId }) {
+  if (bulkScrapeJobRunning) {
+    throw new Error('A bulk scrape is already running. Wait for it to finish or reload the extension.');
+  }
+
+  bulkScrapeJobRunning = true;
+  bulkScrapeStopRequested = false;
+
+  try {
+    emitBulkJobProgress({ phase: 'start', folderName, source: 'zillow' });
+    await chrome.tabs.update(tabId, { active: true });
+    await ensureZillowBulkScript(tabId);
+
+    if (scrollAll) {
+      emitBulkJobProgress({ phase: 'scroll', businessCount: 0, scrollAttempts: 0, source: 'zillow' });
+      const preload = await sendTabMessage(tabId, { action: 'zillowBulkPreload' });
+      if (!preload?.success) {
+        throw new Error(
+          preload?.reason === 'no_container'
+            ? 'Could not find the Zillow results list. Scroll the left list once, then try again.'
+            : 'Could not scroll the Zillow results list.',
+        );
+      }
+      if (bulkScrapeStopRequested || preload.stoppedByUser) {
+        emitBulkJobProgress({
+          phase: 'scroll-stopped',
+          businessCount: preload.businessCount || 0,
+          source: 'zillow',
+        });
+      }
+    }
+
+    emitBulkJobProgress({ phase: 'extract', source: 'zillow' });
+    const listingRes = await sendTabMessage(tabId, { action: 'zillowBulkGetListingUrls' });
+    const urls = Array.from(new Set((listingRes?.urls || []).filter(Boolean)));
+    if (!urls.length) {
+      throw new Error('No Zillow listings found. Open a search results page with property cards visible.');
+    }
+
+    emitBulkJobProgress({
+      phase: 'enrich-parallel',
+      current: 0,
+      total: urls.length,
+      businessCount: urls.length,
+      source: 'zillow',
+      message: `Opening ${Math.min(ZILLOW_BULK_CONCURRENCY, urls.length)} listing tabs…`,
+    });
+
+    const leads = [];
+    let completed = 0;
+    let scrapeFailed = 0;
+
+    await runParallelPool(
+      urls,
+      async (url) => {
+        if (bulkScrapeStopRequested) return;
+        try {
+          const lead = await scrapeZillowListingUrl(url);
+          if (lead) leads.push(lead);
+        } catch (_) {
+          scrapeFailed += 1;
+        }
+        completed += 1;
+        emitBulkJobProgress({
+          phase: 'enrich-parallel',
+          current: completed,
+          total: urls.length,
+          businessCount: urls.length,
+          source: 'zillow',
+        });
+      },
+      ZILLOW_BULK_CONCURRENCY,
+    );
+
+    if (!leads.length) {
+      throw new Error(
+        scrapeFailed
+          ? `Opened ${urls.length} listings but none scraped successfully (Zillow may have blocked the tabs).`
+          : 'No listings scraped.',
+      );
+    }
+
+    emitBulkJobProgress({ phase: 'import', message: `Saving ${leads.length} listings…`, source: 'zillow' });
+    const importData = await importZillowLeads(leads, folderName, workspaceId, (msg) => {
+      emitBulkJobProgress({ phase: 'import', message: msg, source: 'zillow' });
+    });
+
+    const result = {
+      companiesCount: leads.length,
+      listingUrls: urls.length,
+      scrapeFailed,
+      ...importData,
+      enrichData: null,
+      source: 'zillow',
+    };
+    emitBulkJobProgress({
+      phase: 'import-done',
+      businessCount: leads.length,
+      created: importData.created,
+      updated: importData.updated,
+      failed: importData.failed,
+      folderName: importData.folderName || folderName,
+      folderKey: importData.folderKey || '',
+      folderUrl: importData.folderUrl || '',
+      source: 'zillow',
+    });
+    emitBulkJobProgress({ phase: 'done', ...result });
+    return result;
+  } catch (err) {
+    emitBulkJobProgress({ phase: 'error', error: err.message || String(err), source: 'zillow' });
+    throw err;
+  } finally {
+    bulkScrapeJobRunning = false;
+    bulkScrapeStopRequested = false;
   }
 }
 
@@ -874,7 +1066,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   if (message?.type === 'RUN_BULK_SCRAPE') {
-    runBulkScrapeJob(message)
+    const runner = message.source === 'zillow' ? runZillowBulkScrapeJob : runBulkScrapeJob;
+    runner(message)
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
     return true;
@@ -884,6 +1077,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     bulkScrapeStopRequested = true;
     if (message?.tabId) {
       sendTabMessage(message.tabId, { action: 'bulkStopPreload' }).catch(() => {});
+      sendTabMessage(message.tabId, { action: 'zillowBulkStopPreload' }).catch(() => {});
     }
     sendResponse({ ok: true });
     return true;

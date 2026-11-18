@@ -145,6 +145,8 @@
     phone = '',
     email = '',
     sellerName = '',
+    brokerName = '',
+    agentProfileUrl = '',
     beds = null,
     baths = null,
     sqft = null,
@@ -160,6 +162,8 @@
     const priceLabel = parsedPrice ? `$${parsedPrice.toLocaleString()}` : '';
     const baseTitle = String(title || 'Listing').trim();
     const displayTitle = priceLabel ? `${baseTitle} · ${priceLabel}` : baseTitle;
+    const agentName = String(sellerName || '').trim();
+    const brokerage = String(brokerName || '').trim();
 
     const listing = {
       source,
@@ -170,7 +174,9 @@
       sqft: sqft != null ? parseNumber(sqft) : null,
       propertyType: normalizeSchemaPropertyType(propertyType, jt === 'real_estate' ? 'listing' : 'product'),
       description: String(description || '').slice(0, 4000),
-      sellerName: sellerName || '',
+      sellerName: agentName,
+      brokerName: brokerage,
+      agentProfileUrl: String(agentProfileUrl || '').trim(),
       postedAt: '',
       imageUrl: imageUrl || meta('og:image') || '',
     };
@@ -181,12 +187,21 @@
     const resolvedZip = postalCode || geo.postalCode || '';
     const resolvedAddress = address && address !== 'N/A' ? address : geo.street || address || '';
 
+    const agentNote = agentName
+      ? brokerage
+        ? `Agent: ${agentName} · ${brokerage}`
+        : `Agent: ${agentName}`
+      : brokerage
+        ? `Broker: ${brokerage}`
+        : '';
+
     const note = [
       metaRow.label,
       priceLabel,
       beds != null ? `${beds} bed` : '',
       baths != null ? `${baths} bath` : '',
       sqft != null ? `${sqft} sqft` : '',
+      agentNote,
       description ? description.slice(0, 280) : '',
       ...noteParts,
     ]
@@ -206,6 +221,8 @@
       zip: resolvedZip,
       url: url || '',
       note,
+      contactName: agentName || '',
+      decisionMakerName: agentName || '',
       source: 'chrome_extension',
       sourceChannel: source,
       jobType: jt,

@@ -32,7 +32,7 @@ test('options and popup expose Show Save lead button on pages toggle', () => {
 
   const popupJs = readExt('src/popup.js');
   assert.match(popupJs, /chrome\.storage\.sync\.set\(\{\s*showSaveLeadFab:/);
-  assert.match(popupJs, /EXT_VERSION = '1\.8\.5'/);
+  assert.match(popupJs, /EXT_VERSION = '1\.9\.14'/);
 });
 
 test('content script skips FAB when showSaveLeadFab is off and reacts to storage', () => {
@@ -45,13 +45,34 @@ test('content script skips FAB when showSaveLeadFab is off and reacts to storage
   assert.doesNotMatch(content, /buildPanel\(extractLeadFromPage\(\)\);\s*\}\)\(\);/);
 });
 
-test('manifest is 1.8.5 and still injects extractors for popup save', () => {
+test('manifest is 1.9.14 and still injects extractors for popup save', () => {
   const manifest = JSON.parse(readExt('manifest.json'));
-  assert.equal(manifest.version, '1.8.5');
+  assert.equal(manifest.version, '1.9.14');
   const scripts = manifest.content_scripts[0].js;
   assert.ok(scripts.includes('src/extractors.js'));
+  assert.ok(scripts.includes('src/zillow-bulk-scrape.js'));
   assert.ok(scripts.includes('src/loyalty-detect.js'));
   assert.ok(scripts.includes('src/content.js'));
+});
+
+test('zillow bulk scrape opens listing tabs and extracts agent cards', () => {
+  const zillowBulk = readExt('src/zillow-bulk-scrape.js');
+  assert.match(zillowBulk, /zillowBulkGetListingUrls/);
+  assert.match(zillowBulk, /zillowBulkScrapeListing/);
+  assert.match(zillowBulk, /homedetails/);
+
+  const listingExtractors = readExt('src/listing-extractors.js');
+  assert.match(listingExtractors, /extractZillowAgentCard/);
+  assert.match(listingExtractors, /attribution-LISTING_AGENT/);
+
+  const background = readExt('src/background.js');
+  assert.match(background, /runZillowBulkScrapeJob/);
+  assert.match(background, /scrapeZillowListingUrl/);
+  assert.match(background, /ZILLOW_BULK_CONCURRENCY/);
+
+  const popupJs = readExt('src/popup.js');
+  assert.match(popupJs, /isZillowSearchUrl/);
+  assert.match(popupJs, /source:\s*bulkSource === 'zillow' \? 'zillow' : 'maps'/);
 });
 
 test('popup and FAB expose Find loyalty rewards', () => {
