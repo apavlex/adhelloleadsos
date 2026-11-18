@@ -53,21 +53,28 @@ function formatDuplicateLeads(result) {
   const groups = (result && result.groups) || [];
   const found = typeof result.groups_found === 'number' ? result.groups_found : groups.length;
   const note = result && result.note ? `\n(${result.note})` : '';
+  const mode = result && result.match_by === 'strict' ? 'strict match' : 'same name across locations';
   if (!found) {
-    return `No duplicate lead groups found — nothing to merge.${note}`;
+    return `No duplicate lead groups found (${mode}) — nothing to merge.${note}`;
   }
   const lines = groups.slice(0, 10).map((g, i) => {
-    const names = (g.leads || [])
-      .map((l) => l.title || l.business || l.id)
-      .filter(Boolean)
-      .join(' + ');
+    const locs =
+      Array.isArray(g.locations) && g.locations.length
+        ? g.locations.join(' · ')
+        : (g.leads || [])
+            .map((l) => [l.city, l.state].filter(Boolean).join(', '))
+            .filter(Boolean)
+            .join(' · ');
+    const names = [
+      ...new Set((g.leads || []).map((l) => l.title || l.business || '').filter(Boolean)),
+    ].join(' / ');
     const ids = (g.leads || []).map((l) => l.id).filter(Boolean).join(', ');
-    return `${i + 1}. ${g.matched_on || 'match'}: ${names}${ids ? ` [${ids}]` : ''}`;
+    return `${i + 1}. ${names}${locs ? ` — ${locs}` : ''}${ids ? ` [${ids}]` : ''}`;
   });
   return (
-    `Found ${found} duplicate group${found === 1 ? '' : 's'}.${note}\n` +
+    `Found ${found} same-name group${found === 1 ? '' : 's'} across locations (${mode}).${note}\n` +
     `${lines.join('\n')}\n` +
-    `Say which group to merge (e.g. "merge group 1") — nothing is merged until you confirm.`
+    `Say which group to merge (e.g. "merge group 1") — locations fold into one lead; nothing merges until you confirm.`
   );
 }
 
@@ -117,14 +124,21 @@ function matchDirectCrmQuery(message) {
     return { tool: 'count_leads', args: {}, formatter: formatCountLeads };
   }
 
-  // Always whole-workspace — never invent a folder_id from prior place-name chat.
+  // Same business name across cities/locations — never invent a folder_id from place-name chat.
   if (
     /^(find|scan|show|list|check)\s+(my\s+)?duplicates?\??$/i.test(raw) ||
     /^(clean\s*up|merge)\s+(my\s+)?duplicates?\??$/i.test(raw) ||
     /^duplicates?\??$/i.test(raw) ||
-    /^find duplicate leads?\??$/i.test(raw)
+    /^find duplicate leads?\??$/i.test(raw) ||
+    /^(merge|combine)\s+(same\s+)?(names?|locations?)\??$/i.test(raw) ||
+    /^merge\s+locations?\s+to\s+(a\s+)?single\s+name\??$/i.test(raw) ||
+    /^same\s+names?\s+(different\s+)?locations?\??$/i.test(raw)
   ) {
-    return { tool: 'find_duplicate_leads', args: {}, formatter: formatDuplicateLeads };
+    return {
+      tool: 'find_duplicate_leads',
+      args: { match_by: 'name' },
+      formatter: formatDuplicateLeads,
+    };
   }
 
   const folderCount =

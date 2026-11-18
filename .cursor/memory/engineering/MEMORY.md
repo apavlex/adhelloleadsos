@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-18 — CANONICAL: Alex merges same names across locations (1.0.786)
+
+### Symptom
+- "merge duplicates" returned nothing because strict dedupe requires phone/website/name+city — multi-location businesses (Precision Garage Door Service in Vancouver + Hillsboro) were missed.
+
+### Locked-in fix
+- `find_duplicate_leads` `match_by: "name"` (default) groups by normalized name, stripping city suffixes.
+- Alex "merge duplicates" / "merge locations" uses `match_by: "name"`.
+- `merge_leads` already folds location snapshots into the primary.
+
 ## 2026-11-18 — CANONICAL: Alex duplicate scan ignores bogus folder_id (1.0.785)
 
 ### Symptom
