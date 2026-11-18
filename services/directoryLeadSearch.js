@@ -91,16 +91,29 @@ function listingToLead(row, ctx) {
   const profileUrl = resolveProfileUrl(row, row.source || ctx.sourceId || '');
   const title = row.title || 'N/A';
   const categoryHint = row.categoryName || ctx.keyword || 'N/A';
+  const emailRaw = String(row.email || '').trim();
+  const email = emailRaw && emailRaw.toLowerCase() !== 'n/a' ? emailRaw : 'N/A';
+  const contactName = String(row.contactName || row.decisionMakerName || '').trim();
+  const contacts = Array.isArray(row.contacts)
+    ? row.contacts.filter((c) => c && (c.email || c.phone || c.name))
+    : [];
+  const city = String(row.city || ctx.city || '').trim();
+  const state = String(row.state || ctx.state || '').trim();
+  const zip = String(row.zip || row.postalCode || '').trim();
   return {
     title,
     phone: row.phone && row.phone !== 'N/A' ? row.phone : 'N/A',
     website: row.website && row.website !== 'N/A' ? row.website : 'N/A',
-    email: 'N/A',
+    email,
     categoryName: sanitizeLeadCategoryName(categoryHint, title, ctx.keyword || 'N/A'),
     address: row.address && row.address !== 'N/A' ? row.address : 'N/A',
-    city: ctx.city || '',
-    state: ctx.state || '',
-    postalCode: '',
+    city,
+    state,
+    postalCode: zip,
+    zip,
+    contactName: contactName || undefined,
+    decisionMakerName: contactName || undefined,
+    contacts: contacts.length ? contacts : undefined,
     totalScore: Number(row.totalScore) || 0,
     reviewsCount: parseInt(row.reviewsCount, 10) || 0,
     url: profileUrl || '',

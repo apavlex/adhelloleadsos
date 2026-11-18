@@ -218,11 +218,40 @@
       lead.contactName = agent.agentName;
       lead.decisionMakerName = agent.agentName;
       if (lead.listing) lead.listing.sellerName = agent.agentName;
+      const brokerage = String(agent.brokerName || '').trim();
+      const agentTitle = brokerage ? `${agent.agentName} - ${brokerage}` : agent.agentName;
+      const prevTitle = String(lead.title || '').trim();
+      // Keep listing address in the note when we promote the agent to Company.
+      if (prevTitle && !prevTitle.includes(agent.agentName)) {
+        const listingBit = `Listing: ${prevTitle}`;
+        if (lead.note && !String(lead.note).includes(listingBit)) {
+          lead.note = `${lead.note} · ${listingBit}`;
+        } else if (!lead.note) {
+          lead.note = listingBit;
+        }
+      }
+      lead.title = agentTitle;
     }
     if (agent.brokerName && lead.listing) lead.listing.brokerName = agent.brokerName;
     if (agent.agentProfileUrl && lead.listing) lead.listing.agentProfileUrl = agent.agentProfileUrl;
     if (agent.phone && (!lead.phone || lead.phone === 'N/A')) lead.phone = agent.phone;
     if (agent.email && (!lead.email || lead.email === 'N/A')) lead.email = agent.email;
+    if (agent.agentName) {
+      const phone = String(lead.phone || '').trim();
+      const email = String(lead.email || '').trim();
+      const contact = {
+        role: 'Listing agent',
+        name: agent.agentName,
+        phone: phone && phone !== 'N/A' ? phone : '',
+        email: email && email.toLowerCase() !== 'n/a' ? email : '',
+        primary: true,
+      };
+      const existing = Array.isArray(lead.contacts) ? lead.contacts.slice() : [];
+      const withoutDup = existing.filter(
+        (c) => !(c && String(c.name || '').toLowerCase() === agent.agentName.toLowerCase()),
+      );
+      lead.contacts = [contact, ...withoutDup];
+    }
     const agentNote = agent.agentName
       ? agent.brokerName
         ? `Agent: ${agent.agentName} · ${agent.brokerName}`

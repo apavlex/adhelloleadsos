@@ -81,12 +81,16 @@ describe('outscraper directory search helpers', () => {
       name: 'Jane Agent',
       brokerage: 'Premier Realty',
       phone: '503-555-9999',
+      email: 'jane@premier.test',
       profile_url: 'https://www.zillow.com/profile/janeagent/',
       rating: 5,
       reviews: 88,
     });
     assert.match(row.title, /Jane Agent/);
     assert.match(row.title, /Premier Realty/);
+    assert.equal(row.email, 'jane@premier.test');
+    assert.equal(row.contactName, 'Jane Agent');
+    assert.equal(row.contacts[0].email, 'jane@premier.test');
     assert.equal(row.categoryName, 'Real estate agent');
   });
 
@@ -96,12 +100,15 @@ describe('outscraper directory search helpers', () => {
       agent_name: 'Sam Listing',
       brokerage: 'Cascade Homes',
       phone: '503-555-7777',
+      agent_email: 'sam@cascade.test',
       detailUrl: 'https://www.zillow.com/homedetails/12-nw-couch/123_zpid/',
       homeType: 'SINGLE_FAMILY',
     });
     assert.match(row.title, /Sam Listing/);
     assert.match(row.title, /Cascade Homes/);
     assert.equal(row.phone, '503-555-7777');
+    assert.equal(row.email, 'sam@cascade.test');
+    assert.equal(row.contactName, 'Sam Listing');
     assert.match(row.url, /homedetails/);
     assert.equal(row.categoryName, 'SINGLE_FAMILY');
   });
@@ -182,6 +189,30 @@ describe('directoryLeadSearch sources', () => {
     assert.equal(lead.totalScore, 4.2);
     assert.equal(lead.cmsPlatform, 'WordPress');
     assert.deepEqual(lead.techStackTags, ['Google Analytics']);
+  });
+
+  it('listingToLead keeps email and contact fields from Zillow rows', () => {
+    const lead = listingToLead(
+      {
+        title: 'Sam Listing - Cascade Homes',
+        phone: '503-555-7777',
+        email: 'sam@cascade.test',
+        contactName: 'Sam Listing',
+        contacts: [{ role: 'Listing agent', name: 'Sam Listing', email: 'sam@cascade.test', phone: '503-555-7777', primary: true }],
+        website: 'https://www.zillow.com/homedetails/12-nw-couch/123_zpid/',
+        address: '12 NW Couch St',
+        city: 'Portland',
+        state: 'OR',
+        zip: '97209',
+        url: 'https://www.zillow.com/homedetails/12-nw-couch/123_zpid/',
+        source: 'zillow',
+      },
+      { keyword: 'real estate', city: 'Portland', state: 'OR', sourceId: 'zillow' },
+    );
+    assert.equal(lead.email, 'sam@cascade.test');
+    assert.equal(lead.contactName, 'Sam Listing');
+    assert.equal(lead.contacts[0].email, 'sam@cascade.test');
+    assert.equal(lead.zip, '97209');
   });
 
   it('dedupes by title and phone', () => {

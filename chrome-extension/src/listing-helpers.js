@@ -202,17 +202,39 @@
       baths != null ? `${baths} bath` : '',
       sqft != null ? `${sqft} sqft` : '',
       agentNote,
+      baseTitle && agentName ? `Listing: ${baseTitle}` : '',
       description ? description.slice(0, 280) : '',
       ...noteParts,
     ]
       .filter(Boolean)
       .join(' · ');
 
+    // Prefer agent as the company/contact row so CSV export has outreach-ready names.
+    const companyTitle =
+      jt === 'real_estate' && agentName
+        ? brokerage
+          ? `${agentName} - ${brokerage}`
+          : agentName
+        : displayTitle;
+
+    const emailClean = String(email || '').trim();
+    const phoneClean = String(phone || '').trim();
+    const contacts = [];
+    if (agentName && (emailClean || phoneClean)) {
+      contacts.push({
+        role: 'Listing agent',
+        name: agentName,
+        phone: phoneClean && phoneClean !== 'N/A' ? phoneClean : '',
+        email: emailClean && emailClean.toLowerCase() !== 'n/a' ? emailClean : '',
+        primary: true,
+      });
+    }
+
     return enrichLeadGeo({
-      title: displayTitle,
-      phone: phone || 'N/A',
+      title: companyTitle,
+      phone: phoneClean || 'N/A',
       website: url || 'N/A',
-      email: email || 'N/A',
+      email: emailClean || 'N/A',
       categoryName: metaRow.label,
       address: resolvedAddress || 'N/A',
       city: resolvedCity,
@@ -223,6 +245,7 @@
       note,
       contactName: agentName || '',
       decisionMakerName: agentName || '',
+      contacts,
       source: 'chrome_extension',
       sourceChannel: source,
       jobType: jt,
