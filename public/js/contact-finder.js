@@ -301,7 +301,7 @@
       if (row.classList.contains('pipeline-row-page-hidden') || row.offsetParent === null) return false;
       if (!api) return false;
       const m = api.buildModel(row.dataset);
-      return m.hasWebsite && !m.finder && !m.people.length;
+      return m.canSearch && !m.finder && !m.people.length;
     });
     return { rows: visible, selected: false };
   }

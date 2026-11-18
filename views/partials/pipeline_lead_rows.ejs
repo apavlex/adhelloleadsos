@@ -355,6 +355,7 @@
               });
               var _contactNameAttr = String(lead.contactName || lead.decisionMakerName || _permOwner || '').trim();
               var _contactsJson = plcEscJson(_contactsArr);
+              var _contactFinderJson = plcEscJson(_finder || {});
             %>
             <tr class="result-row group/row scroll-mt-28 transition-colors duration-150 border-b border-brand-border/15 dark:border-white/[0.07]"
                 onclick="if(window.__pipelineRowActivate){window.__pipelineRowActivate(event,this);}"
@@ -457,7 +458,7 @@
                 data-contact-name="<%= plcEscAttr(_contactNameAttr) %>"
                 data-contacts="<%= plcEscAttr(_contactsJson) %>"
                 data-last-contact-hunt-at="<%= plcEscAttr(lead.lastContactHuntAt || '') %>"
-                data-contact-finder="{}"
+                data-contact-finder="<%= plcEscAttr(_contactFinderJson) %>"
                 data-decision-maker-name="<%= plcEscAttr(String(lead.decisionMakerName || '')) %>"
                 data-decision-maker-title="<%= plcEscAttr(String(lead.decisionMakerTitle || '')) %>"
                 data-last-enriched-ms="<%= _lastEnrichedMs %>"

@@ -14022,18 +14022,46 @@ document.addEventListener('DOMContentLoaded', () => {
       const panelLeadKey = String(row.dataset.leadKey || '').trim();
       rapidapiEnrichBtn.dataset.leadKey = panelLeadKey;
       const hasWebsite = !!(website && website !== 'N/A' && website !== '—');
-      const blocked = !panelLeadKey || !hasWebsite;
+      let listingHost = '';
+      try {
+        if (hasWebsite) {
+          listingHost = new URL(/^https?:\/\//i.test(website) ? website : `https://${website}`).hostname
+            .replace(/^www\./i, '')
+            .toLowerCase();
+        }
+      } catch (_) {
+        listingHost = '';
+      }
+      const listingPortals = [
+        'zillow.com',
+        'realtor.com',
+        'trulia.com',
+        'redfin.com',
+        'homes.com',
+        'procore.com',
+        'yelp.com',
+      ];
+      const isListingSite = listingPortals.some((h) => listingHost === h || listingHost.endsWith(`.${h}`));
+      const agentName = String(
+        row.dataset.contactName || row.dataset.decisionMakerName || row.dataset.permitOwner || '',
+      ).trim();
+      const titlePerson = String(row.dataset.title || '').match(/^(.+?)\s+[-–—]\s+(.+)$/);
+      const hasPersonName = !!(agentName || (titlePerson && titlePerson[1]));
+      const canSearchContacts = (hasWebsite && !isListingSite) || (isListingSite && hasPersonName) || hasPersonName;
+      const blocked = !panelLeadKey || !canSearchContacts;
       rapidapiEnrichBtn.dataset.enrichBlocked = blocked ? '1' : '0';
       rapidapiEnrichBtn.dataset.enrichBlockedReason = !panelLeadKey
         ? 'Save this lead before searching for contacts.'
-        : !hasWebsite
-          ? 'Add the company website to this lead first — contacts are looked up by domain.'
+        : !canSearchContacts
+          ? 'Add a company website — or an agent name for Zillow/listing leads.'
           : '';
       rapidapiEnrichBtn.disabled = false;
       rapidapiEnrichBtn.classList.toggle('opacity-55', blocked);
-      rapidapiEnrichBtn.title = hasWebsite
-        ? 'Find people, emails & socials via MoltSets (Outscraper fallback)'
-        : 'Add the company website to find contacts';
+      rapidapiEnrichBtn.title = isListingSite && hasPersonName
+        ? 'Find email by agent name (BetterContact / MoltSets) — listing URL is not a company site'
+        : canSearchContacts
+          ? 'Find people, emails & socials via MoltSets (Outscraper fallback)'
+          : 'Add the company website to find contacts';
       if (typeof window.setRapidapiWebsiteEnrichUi === 'function') {
         window.setRapidapiWebsiteEnrichUi(rapidapiEnrichBtn, 'idle');
       }

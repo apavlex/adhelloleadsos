@@ -5,6 +5,7 @@
 
 const moltsets = require('./moltsetsClient');
 const { extractDomain } = require('./betterContactClient');
+const { directoryHost, resolvePersonCompany } = require('./leadPersonCompany');
 const { normalizeSocialUrl } = require('./socialUrlNormalize');
 
 const OWNER_TITLES = ['Owner', 'CEO', 'Founder', 'President', 'Principal', 'Managing Member'];
@@ -134,10 +135,13 @@ async function enrichLeadForBusiness(lead, integrationEnv, opts = {}) {
     return { used: false, skipped: true, reason: 'no_lead', extract: {} };
   }
 
-  const domain = extractDomain(lead.website || lead.companyDomain || lead.url);
+  const rawDomain = extractDomain(lead.website || lead.companyDomain || lead.url);
+  // Listing portals (zillow.com) are not the agent's company domain.
+  const domain = rawDomain && !directoryHost(rawDomain) ? rawDomain : '';
   const existingEmail = hasValue(lead.email) ? String(lead.email).trim() : '';
   const existingLinkedin = hasValue(lead.linkedin) ? String(lead.linkedin).trim() : '';
-  const person = splitPersonName(lead.decisionMakerName);
+  const resolved = resolvePersonCompany(lead);
+  const person = splitPersonName(resolved.personName || lead.decisionMakerName || lead.contactName);
   const includeMobile = opts.includeMobile !== false;
   const steps = [];
   let extract = {};
@@ -167,6 +171,7 @@ async function enrichLeadForBusiness(lead, integrationEnv, opts = {}) {
           first_name: person.first,
           last_name: person.last,
           company: domain,
+          company_domain: domain,
         },
         integrationEnv,
       );
@@ -178,6 +183,29 @@ async function enrichLeadForBusiness(lead, integrationEnv, opts = {}) {
     } catch (e) {
       if (e && e.code === 'insufficient_tokens') throw e;
       console.warn('[moltsetsLeadEnrich] search_business_email_by_name failed:', e && e.message);
+    }
+  }
+
+  // 2b) Name + brokerage/company name (no usable domain — Zillow listing leads)
+  if (!hasValue(extract.email) && !domain && person.full && resolved.companyName) {
+    try {
+      const found = await moltsets.searchBusinessEmailByName(
+        {
+          name: person.full,
+          first_name: person.first,
+          last_name: person.last,
+          company: resolved.companyName,
+        },
+        integrationEnv,
+      );
+      steps.push('search_business_email_by_name_company');
+      if (found.status === 'ok') {
+        extract = mergeExtract(extract, profileToExtract(found.results));
+        if (!extract.decision_maker_name) extract.decision_maker_name = person.full;
+      }
+    } catch (e) {
+      if (e && e.code === 'insufficient_tokens') throw e;
+      console.warn('[moltsetsLeadEnrich] search_business_email_by_name (company) failed:', e && e.message);
     }
   }
 
