@@ -43,6 +43,13 @@ describe('pavlexCrmDirect', () => {
     assert.equal(m.args.query, 'Vancouver WA 98682');
   });
 
+  it('matches merge/find duplicates as whole-workspace scan', () => {
+    const m = matchDirectCrmQuery('merge duplicates');
+    assert.equal(m.tool, 'find_duplicate_leads');
+    assert.deepEqual(m.args, {});
+    assert.equal(matchDirectCrmQuery('find duplicates').tool, 'find_duplicate_leads');
+  });
+
   it('returns null for non-direct questions', () => {
     assert.equal(matchDirectCrmQuery('What should I focus on today?'), null);
   });

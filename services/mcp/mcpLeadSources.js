@@ -558,9 +558,14 @@ const LEAD_SOURCE_TOOLS = [
     name: 'find_duplicate_leads',
     description:
       'Find likely duplicate leads (same Google listing, website, email, phone, or name + city). Returns groups; pass a group to ' +
-      'merge_leads to combine them.',
+      'merge_leads to combine them. Omit folder_id/folder_name to scan the whole workspace. Do NOT pass a city, ZIP, or place ' +
+      'name as folder_id — only a real folder key or folder display name from list_folders / SESSION.',
     schema: z.object({
-      folder_id: z.string().optional().describe('Only look inside this folder'),
+      folder_id: z
+        .string()
+        .optional()
+        .describe('Optional real folder key only (folder:…). Never a city/ZIP/place name.'),
+      folder_name: z.string().optional().describe('Optional folder display name from the folder catalog'),
       limit: z.number().int().min(1).max(MAX_DUPLICATE_GROUPS).default(20),
     }),
     async run(ctx, input) {
@@ -568,9 +573,25 @@ const LEAD_SOURCE_TOOLS = [
         buildReqLike(ctx.workspaceId, ctx.userEmail),
         await dbService.getAllLeads(ctx.workspaceId)
       );
-      if (input.folder_id) {
-        const folder = await resolveFolderRef(ctx.workspaceId, { folder_id: input.folder_id });
-        leads = leads.filter((l) => String(l.folderKey || '') === String(folder.key));
+      let folderScope = null;
+      let folderNote = '';
+      const folderRef = String(input.folder_id || input.folder_name || '').trim();
+      if (folderRef) {
+        try {
+          const folder = await resolveFolderRef(ctx.workspaceId, {
+            folder_id: input.folder_id,
+            folder_name: input.folder_name || undefined,
+          });
+          folderScope = { key: folder.key, name: folder.name };
+          leads = leads.filter((l) => String(l.folderKey || '') === String(folder.key));
+        } catch (err) {
+          // Place names / stale page context often land in folder_id — scan whole CRM instead of failing.
+          if (err && err.code === 'NOT_FOUND') {
+            folderNote = `No folder matched "${folderRef}"; scanned the whole workspace.`;
+          } else {
+            throw err;
+          }
+        }
       }
       const groups = new Map();
       for (const lead of leads) {
@@ -584,6 +605,8 @@ const LEAD_SOURCE_TOOLS = [
         .sort((a, b) => b[1].length - a[1].length);
       return {
         groups_found: dupes.length,
+        folder: folderScope,
+        note: folderNote || undefined,
         groups: dupes.slice(0, input.limit).map(([matchKey, list]) => ({
           matched_on: matchKey.split(':')[0],
           leads: list.map(duplicateLeadOut),

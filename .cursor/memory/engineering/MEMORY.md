@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-18 — CANONICAL: Alex duplicate scan ignores bogus folder_id (1.0.785)
+
+### Symptom
+- "merge duplicates" failed: CRM couldn't find folder ID for "Vancouver WA 98682" (place name from prior chat treated as folder_id).
+
+### Locked-in fix
+- `find_duplicate_leads`: unknown folder_id/folder_name → whole-workspace scan + note (no hard fail).
+- `resolveFolderRef`: try folder_id as a display name when key miss.
+- Direct CRM: "merge/find duplicates" → `find_duplicate_leads` with empty args.
+
 ## 2026-11-18 — CANONICAL: Alex page + folder awareness (1.0.784)
 
 ### Symptom

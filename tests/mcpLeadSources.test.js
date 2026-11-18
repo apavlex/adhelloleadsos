@@ -207,6 +207,23 @@ test('find_duplicate_leads groups matches and merge_leads folds them into the pr
   assert.equal((await dbService.getAllLeads(wid)).length, 2);
 });
 
+test('find_duplicate_leads ignores a place-name folder_id and still scans the workspace', async () => {
+  const { wid, ctx, lead } = await setup();
+  const a = await lead({ title: 'Camas Plumbing', website: 'https://camasplumbing.com', phone: '3605550222' });
+  const b = await lead({ title: 'Riverside Pipes', phone: '3605550333' });
+  // Set matching domain after create so saveLeadWithMeta does not fold them on insert.
+  await dbService.updateLead(b, { website: 'http://www.camasplumbing.com/about' }, wid);
+
+  const found = await executeCrmTool(ctx, 'find_duplicate_leads', {
+    folder_id: 'Vancouver WA 98682',
+  });
+  assert.equal(found.success, true, found.error);
+  assert.equal(found.groups_found, 1);
+  assert.match(String(found.note || ''), /No folder matched/i);
+  assert.deepEqual(found.groups[0].leads.map((l) => l.id).sort(), [a, b].sort());
+  assert.equal((await dbService.getAllLeads(wid)).length, 2);
+});
+
 test('deep_enrich_lead requires steps and reports per-step failures', async () => {
   const { ctx, lead } = await setup();
   const key = await lead({ title: 'No Phone Co' });
