@@ -4,6 +4,7 @@
  */
 
 const { normalizeSocialUrl } = require('./socialUrlNormalize');
+const { resolvePersonCompany, directoryHost } = require('./leadPersonCompany');
 
 const BASE_URL = 'https://app.bettercontact.rocks/api/v2';
 
@@ -79,28 +80,34 @@ function extractDomain(website) {
 
 /**
  * Map a pipeline lead to BetterContact's required lead shape.
+ * Prefers agent/contact name + brokerage when the website is a listing portal (Zillow, etc.).
  * @param {object} lead
  */
 function buildLeadInput(lead) {
-  const company = String(lead.title || lead.company || '').trim();
+  const resolved = resolvePersonCompany(lead);
+  const company = resolved.companyName || String(lead.title || lead.company || '').trim();
   if (!company) return null;
 
-  let firstName = 'Owner';
-  let lastName = company.slice(0, 60);
+  let firstName = resolved.firstName || 'Owner';
+  let lastName = resolved.lastName || company.slice(0, 60);
 
-  const dm = String(lead.decisionMakerName || '').trim();
-  if (dm) {
-    const parts = dm.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      firstName = parts[0];
-      lastName = parts.slice(1).join(' ');
-    } else if (parts.length === 1) {
-      firstName = parts[0];
-      lastName = company || 'Contact';
+  if (!resolved.personName) {
+    const dm = String(lead.decisionMakerName || lead.contactName || '').trim();
+    if (dm) {
+      const parts = dm.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        firstName = parts[0];
+        lastName = parts.slice(1).join(' ');
+      } else if (parts.length === 1) {
+        firstName = parts[0];
+        lastName = company || 'Contact';
+      }
     }
   }
 
-  const domain = extractDomain(lead.website || lead.companyDomain);
+  const rawDomain = extractDomain(lead.website || lead.companyDomain);
+  // Never send portal domains (zillow.com) — BetterContact would enrich Zillow staff.
+  const domain = rawDomain && !directoryHost(rawDomain) ? rawDomain : '';
   const row = {
     first_name: firstName.slice(0, 80),
     last_name: lastName.slice(0, 80),

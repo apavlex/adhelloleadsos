@@ -61,6 +61,24 @@ describe('directoryLeadSearch helpers', () => {
     assert.equal(lead.title, 'Test Biz');
     assert.equal(lead.leadSource, 'directory_yelp');
     assert.equal(lead.city, 'Austin');
+    assert.equal(lead.email, 'N/A');
+  });
+
+  it('listingToLead preserves email and contactName', () => {
+    const lead = listingToLead(
+      {
+        title: 'Jane Agent - Premier',
+        phone: '503-555-0100',
+        email: 'jane@premier.test',
+        contactName: 'Jane Agent',
+        website: 'https://zillow.com/profile/jane',
+        address: '1 Main',
+        source: 'zillow',
+      },
+      { keyword: 'real estate', city: 'Portland', state: 'OR' }
+    );
+    assert.equal(lead.email, 'jane@premier.test');
+    assert.equal(lead.contactName, 'Jane Agent');
   });
 });
 

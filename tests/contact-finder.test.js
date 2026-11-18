@@ -127,7 +127,7 @@ test('Apify website crawl is the last resort when Outscraper returns empty', asy
   const site = { website: 'acme.example' };
   await assert.rejects(
     contactFinder.findContactsForLead(site, { APIFY_API_TOKEN: 't' }, { deps: { runApify: async () => items } }),
-    (e) => e.code === 'not_configured' && /MoltSets \(primary\) or Outscraper/.test(e.message),
+    (e) => e.code === 'not_configured' && /Outscraper or BetterContact/.test(e.message),
   );
 
   const both = await contactFinder.findContactsForLead(site, { ...OUTSCRAPER_ENV, APIFY_API_TOKEN: 't' }, {
@@ -202,6 +202,16 @@ test('find-contact cell renders search, found, no-result and no-website states',
   assert.equal(text(cell.renderCell({ website: 'https://a.com' })), 'Find a contact Emails, people &amp; socials');
   assert.match(cell.renderCell({ website: 'https://a.com' }), /js-find-contact-search/);
   assert.equal(text(cell.renderCell({ website: 'N/A' })), 'Find a contact Needs a website');
+  assert.equal(
+    text(
+      cell.renderCell({
+        website: 'https://www.zillow.com/homedetails/x/1_zpid/',
+        title: 'Brenda Rojas - Manor Realty Group',
+        contactName: 'Brenda Rojas',
+      }),
+    ),
+    'Find a contact By agent name · BetterContact',
+  );
   const found = cell.renderCell({
     website: 'a.com',
     email: 'info@a.com',
@@ -366,6 +376,50 @@ test('directory listing websites (Procore, Yelp…) are not searched as the comp
     (e) => e.code === 'no_website' && /procore\.com listing/.test(e.message),
   );
   assert.equal(called, false);
+});
+
+test('Zillow listing leads enrich by agent name when BetterContact is connected', async () => {
+  let submitted = null;
+  const env = { BETTERCONTACT_API_KEY: 'bc-test' };
+  const deps = {
+    submitBetterContact: async (leadInput) => {
+      submitted = leadInput;
+      return 'req-1';
+    },
+    pollBetterContact: async () => ({
+      data: [
+        {
+          contact_email_address: 'brenda@manorrealty.test',
+          contact_phone_number: '360-771-8161',
+          contact_first_name: 'Brenda',
+          contact_last_name: 'Rojas',
+          contact_job_title: 'Realtor',
+        },
+      ],
+    }),
+    fetchContactsAndLeads: async () => {
+      throw new Error('should not domain-search zillow.com');
+    },
+  };
+  const result = await contactFinder.findContactsForLead(
+    {
+      title: 'Brenda Rojas - Manor Realty Group',
+      contactName: 'Brenda Rojas',
+      website: 'https://www.zillow.com/homedetails/11609-NE-105th-St/4665_zpid/',
+      email: 'N/A',
+      phone: 'N/A',
+    },
+    env,
+    { deps },
+  );
+  assert.ok(submitted);
+  assert.equal(submitted.first_name, 'Brenda');
+  assert.equal(submitted.last_name, 'Rojas');
+  assert.equal(submitted.company, 'Manor Realty Group');
+  assert.equal(submitted.company_domain, undefined);
+  assert.deepEqual(result.sources, ['BetterContact']);
+  assert.equal(result.emails[0], 'brenda@manorrealty.test');
+  assert.equal(result.people[0].name, 'Brenda Rojas');
 });
 
 test('Get more contacts button (Money mode + panel) runs the contact finder', async () => {

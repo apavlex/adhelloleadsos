@@ -880,12 +880,39 @@ function normalizeZillowAgentRow(row) {
   const title = pickFirstString(row.name, row.agent_name, row.full_name, row.title);
   if (!title) return null;
   const agency = pickFirstString(row.brokerage, row.company, row.team_name);
+  const email = pickFirstString(
+    row.email,
+    row.agent_email,
+    row.agentEmail,
+    row.contact_email,
+    row.contactEmail,
+    row.business_email,
+  );
+  const phone = pickFirstString(row.phone, row.phone_number, row.mobile_phone, row.cell_phone) || 'N/A';
+  const profileUrl = pickFirstString(row.profile_url, row.url, row.link, row.website);
+  const contacts = [];
+  if (email || (phone && phone !== 'N/A')) {
+    contacts.push({
+      role: 'Agent',
+      name: title,
+      phone: phone !== 'N/A' ? phone : '',
+      email: email || '',
+      primary: true,
+    });
+  }
   return {
-    title: agency ? `${title} (${agency})` : title,
-    phone: pickFirstString(row.phone, row.phone_number) || 'N/A',
-    website: pickFirstString(row.website, row.profile_url, row.url) || 'N/A',
+    title: agency ? `${title} - ${agency}` : title,
+    phone,
+    email: email || 'N/A',
+    website: profileUrl || 'N/A',
     address: pickFirstString(row.address, row.city_state) || 'N/A',
-    url: pickFirstString(row.profile_url, row.url, row.link) || '',
+    city: pickFirstString(row.city, row.addressCity) || '',
+    state: pickFirstString(row.state, row.addressState) || '',
+    zip: pickFirstString(row.zip, row.postal_code, row.postalCode) || '',
+    url: profileUrl || '',
+    contactName: title,
+    decisionMakerName: title,
+    contacts,
     totalScore: Number(row.rating || row.average_rating) || 0,
     reviewsCount: parseInt(row.reviews || row.review_count, 10) || 0,
     categoryName: 'Real estate agent',
@@ -920,28 +947,58 @@ function normalizeZillowSearchRow(row) {
   let title = agent || address || pickFirstString(row.name, row.title);
   if (!title) return null;
   if (agent && brokerage && !title.includes(brokerage)) {
-    title = `${agent} (${brokerage})`;
+    title = `${agent} - ${brokerage}`;
   } else if (!agent && address) {
     title = address;
   }
   const homeType = pickFirstString(row.homeType, row.home_type, row.propertyType, row.status, row.listing_type);
+  const email = pickFirstString(
+    row.email,
+    row.agent_email,
+    row.agentEmail,
+    row.broker_email,
+    row.brokerEmail,
+    row.contact_email,
+  );
+  const phone =
+    pickFirstString(row.phone, row.phone_number, row.agent_phone, row.agentPhone, row.broker_phone, row.brokerPhone) ||
+    'N/A';
+  const listingUrl = pickFirstString(
+    row.detailUrl,
+    row.detail_url,
+    row.hdpUrl,
+    row.hdp_url,
+    row.property_url,
+    row.url,
+    row.link,
+  );
+  const agentSite = pickFirstString(row.website, row.broker_website, row.agent_website, row.profile_url);
+  const contacts = [];
+  if (agent && (email || (phone && phone !== 'N/A'))) {
+    contacts.push({
+      role: 'Listing agent',
+      name: agent,
+      phone: phone !== 'N/A' ? phone : '',
+      email: email || '',
+      primary: true,
+    });
+  }
   return {
     title,
-    phone: pickFirstString(row.phone, row.phone_number, row.agent_phone, row.broker_phone) || 'N/A',
-    website: pickFirstString(row.website, row.broker_website, row.agent_website) || 'N/A',
+    phone,
+    email: email || 'N/A',
+    website: agentSite || listingUrl || 'N/A',
     address: address || 'N/A',
-    url: pickFirstString(
-      row.detailUrl,
-      row.detail_url,
-      row.hdpUrl,
-      row.hdp_url,
-      row.property_url,
-      row.url,
-      row.link,
-    ) || '',
+    city: pickFirstString(row.addressCity, row.city) || '',
+    state: pickFirstString(row.addressState, row.state) || '',
+    zip: pickFirstString(row.addressZipcode, row.zipcode, row.zip) || '',
+    url: listingUrl || '',
+    contactName: agent || '',
+    decisionMakerName: agent || '',
+    contacts,
     totalScore: Number(row.rating || row.average_rating) || 0,
     reviewsCount: parseInt(row.reviews || row.review_count, 10) || 0,
-    categoryName: homeType || 'Zillow listing',
+    categoryName: homeType || 'Real estate',
   };
 }
 

@@ -8,10 +8,12 @@ const outscraper = require('./outscraperClient');
 const { resolveLeadDomain } = require('./outscraperLeadEnrich');
 const moltsetsClient = require('./moltsetsClient');
 const moltsetsLeadEnrich = require('./moltsetsLeadEnrich');
+const betterContact = require('./betterContactClient');
 const contactEnrichPreference = require('./contactEnrichPreference');
 const { normalizeSocialUrl } = require('./socialUrlNormalize');
 const { mergeContactLists } = require('./leadEmailContacts');
 const { normalizeEmail } = require('./leadDedupe');
+const { directoryHost, resolvePersonCompany } = require('./leadPersonCompany');
 
 const APIFY_CONTACT_ACTOR_ID = process.env.APIFY_CONTACT_ACTOR_ID || 'vdrmota/contact-info-scraper';
 const APIFY_WAIT_SECS = Math.max(30, parseInt(process.env.APIFY_CONTACT_WAIT_SECS || '120', 10) || 120);
@@ -59,6 +61,7 @@ function finderConfigured(integrationEnv) {
   return {
     moltsets: moltsetsClient.isConfigured(integrationEnv),
     outscraper: outscraper.isConfigured(integrationEnv),
+    betterContact: betterContact.isConfigured(integrationEnv),
     apify: !!apifyToken(integrationEnv),
   };
 }
@@ -212,43 +215,71 @@ async function runApifyContactScraper(website, integrationEnv) {
  * @param {Record<string, string>|null} integrationEnv
  * @param {{ deps?: { fetchContactsAndLeads?: Function, runApify?: Function } }} [opts]
  */
-/** Listing / directory / social hosts — searching these by domain returns the platform's staff, not the business. */
-const DIRECTORY_HOSTS = [
-  'procore.com', 'yelp.com', 'yellowpages.com', 'bbb.org', 'houzz.com', 'angi.com', 'angieslist.com',
-  'homeadvisor.com', 'thumbtack.com', 'porch.com', 'buildzoom.com', 'manta.com', 'superpages.com',
-  'nextdoor.com', 'mapquest.com', 'facebook.com', 'instagram.com', 'linkedin.com', 'twitter.com', 'x.com',
-  'tiktok.com', 'youtube.com', 'google.com', 'g.page', 'goo.gl', 'business.site', 'linktr.ee',
-  'zillow.com', 'realtor.com', 'trulia.com', 'redfin.com', 'loopnet.com', 'craigslist.org',
-];
+async function enrichByPersonName(lead, integrationEnv, result, deps = {}) {
+  const person = resolvePersonCompany(lead);
+  if (!person.canEnrichByName) return false;
 
-function directoryHost(domain) {
-  const d = String(domain || '').toLowerCase();
-  return DIRECTORY_HOSTS.find((h) => d === h || d.endsWith(`.${h}`)) || '';
+  const cfg = finderConfigured(integrationEnv);
+  // Listing / agent-name path uses BetterContact only (no MoltSets / no portal domain crawl).
+  if (!cfg.betterContact) return false;
+
+  try {
+    const submit = deps.submitBetterContact || betterContact.submitEnrichment.bind(betterContact);
+    const poll = deps.pollBetterContact || betterContact.pollEnrichmentResult.bind(betterContact);
+    const leadInput = betterContact.buildLeadInput(lead);
+    if (!leadInput) return false;
+    const requestId = await submit(leadInput, integrationEnv);
+    const pollResult = await poll(requestId, integrationEnv, {
+      maxWaitMs: Number(deps.betterContactMaxWaitMs) > 0 ? Number(deps.betterContactMaxWaitMs) : 60_000,
+      pollIntervalMs: 3_000,
+    });
+    const rows = Array.isArray(pollResult && pollResult.data) ? pollResult.data : [];
+    const extract = betterContact.betterContactRowToExtract(rows[0] || null);
+    if (!betterContact.extractHasSignal(extract)) return false;
+    collectFromMoltsetsExtract(result, extract);
+    if (!result.sources.includes('BetterContact')) result.sources.push('BetterContact');
+    return true;
+  } catch (e) {
+    result.errors.push(`BetterContact: ${e.message}`);
+    return false;
+  }
 }
 
 async function findContactsForLead(lead, integrationEnv, opts = {}) {
   const deps = opts.deps || {};
   const domain = resolveLeadDomain(lead);
-  const result = emptyResult(domain);
-  if (!domain) {
-    const err = new Error('Add a website to this lead first — contacts are looked up by domain.');
-    err.code = 'no_website';
-    throw err;
-  }
-  const listing = directoryHost(domain);
-  if (listing) {
-    const err = new Error(
-      `This lead's website is a ${listing} listing, not the company's own site — add the company website to find contacts.`,
-    );
-    err.code = 'no_website';
-    throw err;
-  }
+  const listing = domain ? directoryHost(domain) : '';
+  const person = resolvePersonCompany(lead);
+  const result = emptyResult(listing ? '' : domain);
   const cfg = finderConfigured(integrationEnv);
-  // Opportunities / Get More Contacts expect MoltSets (primary) or Outscraper (fallback).
-  // Apify remains a last-resort crawl when both are empty, but cannot be the only connection.
-  if (!cfg.moltsets && !cfg.outscraper) {
+
+  // Listing portal / missing website → enrich by agent name + brokerage (not the portal domain).
+  if (!domain || listing) {
+    if (!person.canEnrichByName) {
+      const err = new Error(
+        listing
+          ? `This lead's website is a ${listing} listing, not the agent's own site — add a company website, or make sure the agent name is on the lead.`
+          : 'Add a website to this lead first — contacts are looked up by domain (or by agent name for Zillow/listing leads).',
+      );
+      err.code = 'no_website';
+      throw err;
+    }
+    if (!cfg.betterContact) {
+      const err = new Error(
+        'Connect BetterContact under Workspace → Integrations to find emails by agent name (Zillow/listing URLs cannot be searched by domain).',
+      );
+      err.code = 'not_configured';
+      throw err;
+    }
+    await enrichByPersonName(lead, integrationEnv, result, deps);
+    return result;
+  }
+
+  // Opportunities / Get More Contacts: Outscraper/MoltSets for company domains; BetterContact for name.
+  // Apify remains a last-resort crawl when domain search is empty, but cannot be the only connection.
+  if (!cfg.moltsets && !cfg.outscraper && !cfg.betterContact) {
     const err = new Error(
-      'Connect MoltSets (primary) or Outscraper (fallback) under Workspace → Integrations → Data enhance to find contacts.',
+      'Connect Outscraper or BetterContact under Workspace → Integrations → Data enhance to find contacts.',
     );
     err.code = 'not_configured';
     throw err;
@@ -280,7 +311,13 @@ async function findContactsForLead(lead, integrationEnv, opts = {}) {
     }
   }
 
-  const stillEmpty = !result.people.length && !result.emails.length;
+  let stillEmpty = !result.people.length && !result.emails.length;
+  // Name fallback when domain search is empty but we know the agent (e.g. thin company sites).
+  if (stillEmpty && person.canEnrichByName && cfg.betterContact) {
+    await enrichByPersonName(lead, integrationEnv, result, deps);
+    stillEmpty = !result.people.length && !result.emails.length;
+  }
+
   if (cfg.apify && stillEmpty) {
     try {
       const runApify = deps.runApify || runApifyContactScraper;
@@ -409,4 +446,6 @@ module.exports = {
   finderConfigured,
   leadPeople,
   emptyResult,
+  directoryHost,
+  enrichByPersonName,
 };

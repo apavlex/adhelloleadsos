@@ -114,16 +114,17 @@ function searchBusinessEmailByName(input, integrationEnv) {
   const name = String((input && input.name) || '').trim();
   const first = String((input && input.first_name) || '').trim();
   const last = String((input && input.last_name) || '').trim();
-  const company = String((input && (input.company || input.company_domain)) || '').trim();
+  const company = String((input && input.company) || '').trim();
+  const companyDomain = String((input && input.company_domain) || '').trim();
   if (name) body.name = name;
   else {
     if (first) body.first_name = first;
     if (last) body.last_name = last;
   }
-  if (company) {
-    body.company = company;
-    body.company_domain = company;
-  }
+  if (company) body.company = company;
+  // Only treat as domain when it looks like one (avoids brokerage names as company_domain).
+  const domainCandidate = companyDomain || (/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(company) ? company : '');
+  if (domainCandidate) body.company_domain = domainCandidate.replace(/^www\./i, '');
   return callTool('search_business_email_by_name', body, integrationEnv);
 }
 

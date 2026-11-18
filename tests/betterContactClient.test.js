@@ -21,6 +21,19 @@ describe('betterContactClient', () => {
     assert.equal(row.company_domain, 'acme-plumbing.com');
   });
 
+  it('buildLeadInput uses agent name + brokerage and skips Zillow domain', () => {
+    const row = buildLeadInput({
+      key: 'lead:zillow',
+      title: 'Brenda Rojas - Manor Realty Group',
+      contactName: 'Brenda Rojas',
+      website: 'https://www.zillow.com/homedetails/example/123_zpid/',
+    });
+    assert.equal(row.first_name, 'Brenda');
+    assert.equal(row.last_name, 'Rojas');
+    assert.equal(row.company, 'Manor Realty Group');
+    assert.equal(row.company_domain, undefined);
+  });
+
   it('betterContactRowToExtract maps email and phone', () => {
     const ex = betterContactRowToExtract({
       contact_email_address: 'jane@acme.com',

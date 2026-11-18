@@ -2564,26 +2564,109 @@ document.addEventListener('DOMContentLoaded', () => {
   function collectLeadDatasetsForBulkExport() {
     const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
     const leadsToExport = [];
+    const pushRow = (row) => {
+      if (!row) return;
+      try {
+        if (typeof coalesceRowDatasetFromContacts === 'function') coalesceRowDatasetFromContacts(row);
+        if (typeof hydrateRowDatasetFromTableDom === 'function') hydrateRowDatasetFromTableDom(row);
+      } catch (_) {
+        /* best-effort hydrate before export */
+      }
+      leadsToExport.push(row.dataset);
+    };
     if (selectedCheckboxes.length > 0) {
-      selectedCheckboxes.forEach((cb) => {
-        const row = cb.closest('.result-row');
-        if (row) leadsToExport.push(row.dataset);
-      });
+      selectedCheckboxes.forEach((cb) => pushRow(cb.closest('.result-row')));
     } else {
-      document.querySelectorAll('.result-row').forEach((row) => {
-        leadsToExport.push(row.dataset);
-      });
+      document.querySelectorAll('.result-row').forEach((row) => pushRow(row));
     }
     return leadsToExport;
+  }
+
+  function parseContactsFromDataset(l) {
+    if (!l) return [];
+    if (Array.isArray(l.contacts)) return l.contacts.filter(Boolean);
+    const raw = l.contacts;
+    if (typeof raw === 'string' && raw.trim()) {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      } catch (_) {
+        return [];
+      }
+    }
+    return [];
+  }
+
+  function isBlankExportField(v) {
+    const s = String(v == null ? '' : v).trim();
+    return !s || /^n\/?a$/i.test(s) || s === '—' || s === '-';
+  }
+
+  function hydrateLeadContactsForCsv(l) {
+    const contacts = parseContactsFromDataset(l);
+    let email = String(l.email || '').trim();
+    let phone = String(l.phone || '').trim();
+    let contactName = String(
+      l.contactName || l.contactname || l.decisionMakerName || l.decisionmakername || l.ownerName || l.ownername || '',
+    ).trim();
+
+    if (isBlankExportField(email)) {
+      const withEmail = contacts.find((c) => c && !isBlankExportField(c.email));
+      if (withEmail) email = String(withEmail.email).trim();
+    }
+    if (isBlankExportField(phone)) {
+      const withPhone =
+        contacts.find((c) => c && c.primary && !isBlankExportField(c.phone)) ||
+        contacts.find((c) => c && !isBlankExportField(c.phone));
+      if (withPhone) phone = String(withPhone.phone).trim();
+    }
+    if (!contactName) {
+      const named =
+        contacts.find((c) => c && c.primary && String(c.name || '').trim()) ||
+        contacts.find((c) => c && String(c.name || '').trim());
+      if (named) contactName = String(named.name).trim();
+    }
+
+    const primaryEmailNorm = email.toLowerCase();
+    const primaryPhoneNorm = phone.replace(/\D/g, '');
+    const extraEmails = [];
+    const extraPhones = [];
+    const seenE = new Set(primaryEmailNorm && !isBlankExportField(email) ? [primaryEmailNorm] : []);
+    const seenP = new Set(primaryPhoneNorm.length >= 7 ? [primaryPhoneNorm] : []);
+    for (const c of contacts) {
+      const e = String((c && c.email) || '').trim();
+      const p = String((c && c.phone) || '').trim();
+      const eNorm = e.toLowerCase();
+      const pNorm = p.replace(/\D/g, '');
+      if (e && !isBlankExportField(e) && !seenE.has(eNorm)) {
+        seenE.add(eNorm);
+        extraEmails.push(e);
+      }
+      if (p && !isBlankExportField(p) && pNorm.length >= 7 && !seenP.has(pNorm)) {
+        seenP.add(pNorm);
+        extraPhones.push(p);
+      }
+    }
+
+    return {
+      email: isBlankExportField(email) ? '' : email,
+      phone: isBlankExportField(phone) ? '' : phone,
+      contactName,
+      extraEmails: extraEmails.join('; '),
+      extraPhones: extraPhones.join('; '),
+    };
   }
 
   function buildLeadsCsvFromDatasets(leadsToExport) {
     const headers = [
       'Company',
+      'Contact name',
       'Category',
       'Phone',
-      'Website',
       'Email',
+      'Extra phones',
+      'Extra emails',
+      'Website',
       'Address',
       'City',
       'State',
@@ -2610,12 +2693,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const priceNum = parseFloat(String(priceRaw).replace(/[^\d.]/g, ''));
       const price =
         Number.isFinite(priceNum) && priceNum > 0 ? `$${Math.round(priceNum).toLocaleString('en-US')}` : priceRaw;
+      const hydrated = hydrateLeadContactsForCsv(l);
       return [
         esc(l.title),
+        esc(hydrated.contactName),
         esc(l.category),
-        esc(l.phone),
+        esc(hydrated.phone || l.phone),
+        esc(hydrated.email),
+        esc(hydrated.extraPhones),
+        esc(hydrated.extraEmails),
         esc(l.website),
-        esc(l.email),
         esc(l.address),
         esc(l.city),
         esc(l.state),
@@ -8283,7 +8370,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (L.company != null && String(L.company || '').trim()) {
       ds.permitContractor = String(L.company).trim();
     }
-    if (L.contactName != null) ds.permitOwner = String(L.contactName || '').trim();
+    if (L.contactName != null) {
+      const cn = String(L.contactName || '').trim();
+      ds.permitOwner = cn;
+      ds.contactName = cn;
+    }
     if (L.doNotCall !== undefined) ds.doNotCall = L.doNotCall ? '1' : '';
     if (L.primaryServiceKey !== undefined) {
       ds.primaryServiceKey = L.primaryServiceKey ? String(L.primaryServiceKey).trim() : '';
@@ -13931,18 +14022,46 @@ document.addEventListener('DOMContentLoaded', () => {
       const panelLeadKey = String(row.dataset.leadKey || '').trim();
       rapidapiEnrichBtn.dataset.leadKey = panelLeadKey;
       const hasWebsite = !!(website && website !== 'N/A' && website !== '—');
-      const blocked = !panelLeadKey || !hasWebsite;
+      let listingHost = '';
+      try {
+        if (hasWebsite) {
+          listingHost = new URL(/^https?:\/\//i.test(website) ? website : `https://${website}`).hostname
+            .replace(/^www\./i, '')
+            .toLowerCase();
+        }
+      } catch (_) {
+        listingHost = '';
+      }
+      const listingPortals = [
+        'zillow.com',
+        'realtor.com',
+        'trulia.com',
+        'redfin.com',
+        'homes.com',
+        'procore.com',
+        'yelp.com',
+      ];
+      const isListingSite = listingPortals.some((h) => listingHost === h || listingHost.endsWith(`.${h}`));
+      const agentName = String(
+        row.dataset.contactName || row.dataset.decisionMakerName || row.dataset.permitOwner || '',
+      ).trim();
+      const titlePerson = String(row.dataset.title || '').match(/^(.+?)\s+[-–—]\s+(.+)$/);
+      const hasPersonName = !!(agentName || (titlePerson && titlePerson[1]));
+      const canSearchContacts = (hasWebsite && !isListingSite) || (isListingSite && hasPersonName) || hasPersonName;
+      const blocked = !panelLeadKey || !canSearchContacts;
       rapidapiEnrichBtn.dataset.enrichBlocked = blocked ? '1' : '0';
       rapidapiEnrichBtn.dataset.enrichBlockedReason = !panelLeadKey
         ? 'Save this lead before searching for contacts.'
-        : !hasWebsite
-          ? 'Add the company website to this lead first — contacts are looked up by domain.'
+        : !canSearchContacts
+          ? 'Add a company website — or an agent name for Zillow/listing leads.'
           : '';
       rapidapiEnrichBtn.disabled = false;
       rapidapiEnrichBtn.classList.toggle('opacity-55', blocked);
-      rapidapiEnrichBtn.title = hasWebsite
-        ? 'Find people, emails & socials via MoltSets (Outscraper fallback)'
-        : 'Add the company website to find contacts';
+      rapidapiEnrichBtn.title = isListingSite && hasPersonName
+        ? 'Find email by agent name via BetterContact — listing URL is not a company site'
+        : canSearchContacts
+          ? 'Find people, emails & socials via Outscraper / BetterContact'
+          : 'Add the company website to find contacts';
       if (typeof window.setRapidapiWebsiteEnrichUi === 'function') {
         window.setRapidapiWebsiteEnrichUi(rapidapiEnrichBtn, 'idle');
       }

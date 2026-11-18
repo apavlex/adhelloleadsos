@@ -73,12 +73,48 @@
     list.forEach((c) => addOther(c && str(c.email).toLowerCase()));
     [L.emails, L.otherEmails, L.additionalEmails, analysis && typeof analysis === 'object' ? analysis.emails : null]
       .forEach((field) => emailValues(field).forEach(addOther));
+    const website = str(L.website);
+    const listingHosts = [
+      'zillow.com', 'realtor.com', 'trulia.com', 'redfin.com', 'homes.com', 'compass.com',
+      'procore.com', 'yelp.com', 'yellowpages.com', 'bbb.org', 'houzz.com', 'angi.com',
+      'homeadvisor.com', 'thumbtack.com', 'facebook.com', 'instagram.com', 'linkedin.com',
+      'loopnet.com', 'craigslist.org',
+    ];
+    let host = '';
+    try {
+      if (website) {
+        host = new URL(/^https?:\/\//i.test(website) ? website : `https://${website}`).hostname
+          .replace(/^www\./i, '')
+          .toLowerCase();
+      }
+    } catch (_) {
+      host = '';
+    }
+    const isListingSite = !!(host && listingHosts.some((h) => host === h || host.endsWith(`.${h}`)));
+    const title = str(L.title);
+    const titlePerson = (() => {
+      const m = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+      return m && m[1] ? m[1].trim() : '';
+    })();
+    const personName =
+      str(L.contactName || L.contactname) ||
+      str(L.decisionMakerName || L.decisionmakername) ||
+      str(L.permitOwner || L.permitowner) ||
+      titlePerson ||
+      (people[0] && people[0].name) ||
+      '';
+    const hasPersonName = !!personName;
+    const hasCompanyWebsite = !!(website && !isListingSite);
     return {
       people,
       otherEmails,
       mainEmail,
       finder: parseJson(L.contactFinder, null),
-      hasWebsite: !!str(L.website),
+      hasWebsite: hasCompanyWebsite,
+      isListingSite,
+      hasPersonName,
+      personName,
+      canSearch: hasCompanyWebsite || (isListingSite && hasPersonName) || (!website && hasPersonName),
     };
   }
 
@@ -141,7 +177,9 @@
         'disabled aria-busy="true"',
         `<span class="${AVATAR} bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow">${SPINNER}</span>`,
         'Searching…',
-        'MoltSets → Outscraper · up to a minute',
+        m.isListingSite || m.hasPersonName
+          ? 'BetterContact · up to a minute'
+          : 'Outscraper · up to a minute',
       );
     }
 
@@ -181,12 +219,24 @@
       );
     }
 
+    const searchTitle = m.hasWebsite
+      ? 'Find decision makers, emails & socials (Outscraper)'
+      : m.isListingSite && m.hasPersonName
+        ? `Find email for ${m.personName} via BetterContact — listing URL is not a company site`
+        : m.hasPersonName
+          ? `Find email for ${m.personName} via BetterContact`
+          : 'Add a company website — or an agent name for Zillow/listing leads';
+    const searchSub = m.hasWebsite
+      ? 'Emails, people &amp; socials'
+      : m.canSearch
+        ? 'By agent name · BetterContact'
+        : 'Needs a website';
     return box(
       `${BOX_IDLE} js-find-contact-search`,
-      `title="${m.hasWebsite ? 'Find decision makers, emails & socials (MoltSets → Outscraper)' : 'Add a website first — contacts are looked up by domain'}"`,
+      `title="${esc(searchTitle)}"`,
       `<span class="${AVATAR} bg-slate-100 dark:bg-slate-800 text-brand-muted dark:text-slate-400">${PERSON_ICON}</span>`,
       'Find a contact',
-      m.hasWebsite ? 'Emails, people &amp; socials' : 'Needs a website',
+      searchSub,
       searchTrail(),
     );
   }

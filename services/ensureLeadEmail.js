@@ -1,26 +1,26 @@
 /**
  * Find a real business email before auto-outreach enrolls to GHL.
- * Order: website scrape → RapidAPI website → MoltSets → Outscraper → BetterContact.
- * Never invents addresses. (Monid domain-unlock retired — use RapidAPI / Outscraper.)
+ * Order: website scrape → RapidAPI website → Outscraper → BetterContact
+ * (listing portals like Zillow skip domain steps and go straight to BetterContact by name).
+ * Never invents addresses.
  */
 const dbService = require('./database');
 const { isValidEmailForGhl } = require('./ghlClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const betterContact = require('./betterContactClient');
-const moltsetsLeadEnrich = require('./moltsetsLeadEnrich');
 const rapidapiWebsiteEnrich = require('./rapidapiWebsiteEnrich');
 const outscraperLeadEnrich = require('./outscraperLeadEnrich');
 const localPageExtract = require('./localPageExtract');
 const { firecrawlExtractToLeadUpdates } = require('./enrichmentNormalize');
+const { directoryHost, resolvePersonCompany } = require('./leadPersonCompany');
 
 /** Soft budgets so a hung provider never blocks the whole drip run. */
 const STEP_TIMEOUT_MS = {
   local_website: 12_000,
   rapidapi_website: 18_000,
   outscraper_contacts: 25_000,
-  moltsets: 35_000,
   bettercontact: 45_000,
-}
+};
 const DEFAULT_TOTAL_BUDGET_MS = 90_000;
 
 function hasUsableEmail(lead) {
@@ -152,31 +152,6 @@ async function tryOutscraperEmail(lead, integrationEnv) {
   return null;
 }
 
-async function tryMoltsetsEmail(lead, integrationEnv) {
-  const moltsetsClient = require('./moltsetsClient');
-  if (!moltsetsClient.isConfigured(integrationEnv)) return null;
-  try {
-    const pack = await moltsetsLeadEnrich.enrichLeadForBusiness(lead, integrationEnv, {
-      includeMobile: false,
-    });
-    const extract = (pack && pack.extract) || {};
-    if (!isValidEmailForGhl(extract.email)) return null;
-    const { lead: merged, patch } = mergeEnrichmentOntoLead(lead, extract);
-    return {
-      email: String(extract.email).trim(),
-      source: 'moltsets',
-      emailValidationStatus: extract.email_validation_status || '',
-      decisionMakerName: extract.decision_maker_name || '',
-      linkedin: extract.linkedin || '',
-      patch,
-      lead: { ...merged, email: String(extract.email).trim() },
-    };
-  } catch (e) {
-    console.warn('[ensureLeadEmail] MoltSets failed:', e && e.message);
-  }
-  return null;
-}
-
 async function tryBetterContactEmail(lead, integrationEnv, opts = {}) {
   if (!betterContact.isConfigured(integrationEnv)) return null;
   try {
@@ -295,57 +270,49 @@ async function ensureLeadEmail(opts) {
     }
   }
 
-  const contactEnrichPreference = require('./contactEnrichPreference');
-  const useMoltsetsFirst = contactEnrichPreference.preferMoltsets(integrationEnv);
-  const attempts = [
-    {
-      label: 'local_website',
-      ms: STEP_TIMEOUT_MS.local_website,
-      run: () => tryLocalWebsiteEmail(lead, integrationEnv),
-    },
-    {
-      label: 'rapidapi_website',
-      ms: STEP_TIMEOUT_MS.rapidapi_website,
-      run: () => tryRapidApiWebsiteEmail(lead, integrationEnv),
-    },
-    ...(useMoltsetsFirst
-      ? [
-          {
-            label: 'moltsets',
-            ms: STEP_TIMEOUT_MS.moltsets,
-            run: () => tryMoltsetsEmail(lead, integrationEnv),
-          },
-          {
-            label: 'outscraper_contacts',
-            ms: STEP_TIMEOUT_MS.outscraper_contacts,
-            run: () => tryOutscraperEmail(lead, integrationEnv),
-          },
-        ]
-      : [
-          {
-            label: 'outscraper_contacts',
-            ms: STEP_TIMEOUT_MS.outscraper_contacts,
-            run: () => tryOutscraperEmail(lead, integrationEnv),
-          },
-        ]),
-    {
-      label: 'bettercontact',
-      ms: Math.min(
-        STEP_TIMEOUT_MS.bettercontact,
-        Number(opts.betterContactMaxWaitMs) > 0
-          ? Number(opts.betterContactMaxWaitMs)
-          : STEP_TIMEOUT_MS.bettercontact,
-      ),
-      run: () =>
-        tryBetterContactEmail(lead, integrationEnv, {
-          maxWaitMs: stepBudget(
-            Number(opts.betterContactMaxWaitMs) > 0
-              ? Number(opts.betterContactMaxWaitMs)
-              : STEP_TIMEOUT_MS.bettercontact,
-          ),
-        }),
-    },
-  ];
+  const listingHost = directoryHost(lead.website || lead.url || '');
+  const person = resolvePersonCompany(lead);
+  const listingByName = !!(listingHost && person.canEnrichByName);
+
+  const betterContactStep = {
+    label: 'bettercontact',
+    ms: Math.min(
+      STEP_TIMEOUT_MS.bettercontact,
+      Number(opts.betterContactMaxWaitMs) > 0
+        ? Number(opts.betterContactMaxWaitMs)
+        : STEP_TIMEOUT_MS.bettercontact,
+    ),
+    run: () =>
+      tryBetterContactEmail(lead, integrationEnv, {
+        maxWaitMs: stepBudget(
+          Number(opts.betterContactMaxWaitMs) > 0
+            ? Number(opts.betterContactMaxWaitMs)
+            : STEP_TIMEOUT_MS.bettercontact,
+        ),
+      }),
+  };
+
+  // Zillow / listing leads: skip domain scrapes — only BetterContact by agent name.
+  const attempts = listingByName
+    ? [betterContactStep]
+    : [
+        {
+          label: 'local_website',
+          ms: STEP_TIMEOUT_MS.local_website,
+          run: () => tryLocalWebsiteEmail(lead, integrationEnv),
+        },
+        {
+          label: 'rapidapi_website',
+          ms: STEP_TIMEOUT_MS.rapidapi_website,
+          run: () => tryRapidApiWebsiteEmail(lead, integrationEnv),
+        },
+        {
+          label: 'outscraper_contacts',
+          ms: STEP_TIMEOUT_MS.outscraper_contacts,
+          run: () => tryOutscraperEmail(lead, integrationEnv),
+        },
+        betterContactStep,
+      ];
 
   let hit = null;
   for (const step of attempts) {
