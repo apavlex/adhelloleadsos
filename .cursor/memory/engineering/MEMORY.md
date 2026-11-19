@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Alex delete empty folders (1.0.797)
+
+### What
+- "remove all folders" / "delete empty folders" is a direct CRM shortcut: lists empty non-system folders, then deletes after "confirm delete empty folders".
+- "delete the Electrical folder" deletes that one folder without the LLM.
+- Anthropic/OpenRouter "message too long" refusals are treated as errors, not as Alex’s reply.
+
+### Key files
+- `services/pavlex/pavlexCrmDirect.js`, `services/llmClient.js`, `services/pavlex/pavlexCrmIntent.js`
+
 ## 2026-11-19 — FMCSA carrier CSV import (1.0.795)
 
 ### What

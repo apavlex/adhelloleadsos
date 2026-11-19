@@ -14,7 +14,7 @@ const {
   sanitizeHistory,
   parseToolArgumentList,
 } = require('../pavlex/pavlexReplyParse');
-const { extractOpenRouterApiError } = require('../llmClient');
+const { extractOpenRouterApiError, looksLikeContextLengthError } = require('../llmClient');
 const mcpLogger = require('./mcpLogger');
 
 const MAX_TOOL_ROUNDS = 8;
@@ -108,6 +108,9 @@ async function runToolLoop({ llm, messages, tools, toolNames, ctx, requireTools,
 
     const msg = res.data.choices && res.data.choices[0] && res.data.choices[0].message;
     if (!msg) return { detail: 'Empty response from the AI model.' };
+    if (typeof msg.refusal === 'string' && looksLikeContextLengthError(msg.refusal)) {
+      return { detail: msg.refusal.trim() };
+    }
 
     let content = stripThinking(contentText(msg.content));
     let toolCalls = (Array.isArray(msg.tool_calls) ? msg.tool_calls : [])
@@ -160,6 +163,9 @@ async function runToolLoop({ llm, messages, tools, toolNames, ctx, requireTools,
     }
 
     const text = sanitizeAssistantText(content, toolNames);
+    if (text && looksLikeContextLengthError(text)) {
+      return { detail: text };
+    }
     if (!text || looksLikeLeakedReasoning(text)) {
       if (state.nudges < MAX_NUDGES) {
         state.nudges += 1;
