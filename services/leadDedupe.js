@@ -170,6 +170,14 @@ function computeDedupeKey(lead) {
   const permitId = String(lead?.permitStackId || lead?.permitNumber || '').trim();
   if (permitId) return `permit:${permitId.toLowerCase()}`;
 
+  const license = String(lead?.contractorLicenseNumber || '').trim();
+  if (license) {
+    const raw = String(lead?.contractorRegistry || '').trim().toLowerCase();
+    const state = String(lead?.state || '').trim().toLowerCase();
+    const registry = raw.startsWith('wa') || state === 'wa' ? 'wa' : raw.startsWith('or') || state === 'or' ? 'or' : raw.replace(/[^a-z0-9]+/g, '') || 'license';
+    return `contractor:${registry}:${license.toLowerCase()}`;
+  }
+
   const maps = leadMapsPlaceKey(lead);
   if (maps) return maps;
 

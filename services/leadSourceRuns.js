@@ -1,5 +1,5 @@
 /**
- * Background runs for non-Maps lead sources (building permits, new business formations).
+ * Background runs for non-Maps lead sources (building permits, new business formations, contractor licenses).
  * Shared by the Find Leads form routes and the AI connector tools.
  * Resolvers validate input and return { ok:false, status, error } or the resolved run.
  */
@@ -10,6 +10,14 @@ const { normalizePermitStackCity } = require('./permitStackCities');
 const { permitsToLeads } = require('./permitLeadEnrich');
 const businessFormationSearch = require('./businessFormationSearch');
 const { persistFormationSearchResults } = require('./businessFormationPersist');
+const { persistContractorRecords } = require('./contractorLeadPersist');
+const {
+  parseContractorSearchInput,
+  collectContractorRecords,
+  keywordLabel,
+  recordToLead,
+  placesKeyFromEnv,
+} = require('./contractorRegistry');
 const { resolveTargetFolder, leadMetadataForJobType } = require('./pipelineFolders');
 const { JOB_TYPES } = require('./scrapeJobTypes');
 const activationService = require('./activationService');
@@ -272,10 +280,145 @@ async function runFormationSearchInBackground({ workspaceId: wid, integrationEnv
   });
 }
 
+function contractorJobPayload(job) {
+  return {
+    workspaceId: job.workspaceId,
+    type: 'contractors_search',
+    jobType: JOB_TYPES.CONTRACTORS,
+    keyword: job.keyword,
+    city: job.city,
+    state: job.state,
+    maxResults: job.maxResults,
+    targetFolderKey: job.targetFolderKey,
+    targetFolderName: job.targetFolderName,
+    registries: job.registries,
+    trades: job.trades,
+    enrichPlaces: job.enrichPlaces,
+    splitByTrade: job.splitByTrade,
+  };
+}
+
+/**
+ * @param {object} input body or tool args: contractorRegistries, contractorTrades, contractorMaxResults, contractorFull, contractorPlaces, folderKey, newFolderName
+ */
+async function resolveContractorSearch(workspaceId, input) {
+  const parsed = parseContractorSearchInput(input || {});
+  if (!parsed.ok) return { ok: false, status: 400, error: parsed.error };
+
+  const folder = await resolveTargetFolder(workspaceId, {
+    folderKey: input.folderKey || input.folder_id,
+    newFolderName: input.newFolderName || input.folder_name,
+    jobType: JOB_TYPES.CONTRACTORS,
+  });
+  if (folder.error) return { ok: false, status: 400, error: folder.error };
+
+  const params = parsed.params;
+  const jobParams = {
+    jobType: JOB_TYPES.CONTRACTORS,
+    keyword: keywordLabel(params),
+    city: 'Clark County / Portland metro',
+    state: params.registries.map((r) => r.toUpperCase()).join(', '),
+    registries: params.registries,
+    trades: params.trades,
+    maxResults: params.maxResults,
+    enrichPlaces: params.enrichPlaces,
+    splitByTrade: params.splitByTrade,
+    targetFolderKey: folder.targetFolderKey,
+    targetFolderName: folder.targetFolderName,
+    workspaceId,
+  };
+
+  return { ok: true, configured: true, params, jobParams, folder };
+}
+
+async function executeContractorSearch({ workspaceId, integrationEnv, resolved, onProgress }) {
+  const collected = await collectContractorRecords(resolved.params, {
+    placesKey: placesKeyFromEnv(integrationEnv),
+    onProgress,
+  });
+  const persisted = await persistContractorRecords(workspaceId, collected.records, {
+    splitByTrade: resolved.params.splitByTrade,
+    folderKey: resolved.folder.targetFolderKey,
+  });
+  return { collected, persisted };
+}
+
+async function runContractorSearchInBackground({ workspaceId: wid, integrationEnv, resolved, actorEmail }) {
+  const { params, jobParams, folder } = resolved;
+  const beat = () =>
+    contractorJobPayload({
+      ...jobParams,
+      workspaceId: wid,
+      targetFolderKey: folder.targetFolderKey,
+      targetFolderName: folder.targetFolderName,
+    });
+
+  await dbService.setActiveJob(beat());
+  let lastBeat = Date.now();
+
+  setImmediate(async () => {
+    try {
+      const { collected, persisted } = await executeContractorSearch({
+        workspaceId: wid,
+        integrationEnv,
+        resolved,
+        onProgress: async (info) => {
+          const now = Date.now();
+          if (now - lastBeat < 60000) return;
+          lastBeat = now;
+          await dbService.setActiveJob({ ...beat(), keyword: info && info.label ? info.label : jobParams.keyword });
+        },
+      });
+      const noteParts = [];
+      if (persisted.folders.length) {
+        noteParts.push(
+          `Filed into ${persisted.folders.length} folder${persisted.folders.length === 1 ? '' : 's'}`
+        );
+      }
+      if (collected.placesError) noteParts.push(collected.placesError);
+      if (collected.errors && collected.errors.length) noteParts.push(collected.errors.join(' '));
+      const searchKey = await dbService.saveSearch({
+        jobType: JOB_TYPES.CONTRACTORS,
+        keyword: jobParams.keyword,
+        city: jobParams.city,
+        state: jobParams.state,
+        registries: params.registries,
+        trades: params.trades,
+        enrichPlaces: params.enrichPlaces,
+        splitByTrade: params.splitByTrade,
+        maxResults: params.maxResults,
+        targetFolderKey: folder.targetFolderKey,
+        targetFolderName: folder.targetFolderName,
+        resultCount: collected.records.length,
+        savedCount: persisted.savedCount,
+        mergedCount: persisted.mergedCount,
+        summary: collected.summary,
+        results: collected.records.slice(0, 200).map((row) => recordToLead(row)),
+        timestamp: new Date().toISOString(),
+        workspaceId: wid,
+      });
+      await recordSearchSaved(actorEmail);
+      await dbService.clearActiveJob({
+        resultCount: collected.records.length,
+        savedCount: persisted.savedCount,
+        searchKey,
+        note: noteParts.join(' · ') || undefined,
+      });
+    } catch (err) {
+      console.error('[CONTRACTORS-BG] Contractor license search failed:', err);
+      const msg = err && err.message ? String(err.message) : 'Contractor license search failed';
+      await dbService.clearActiveJob({ failed: true, error: msg });
+    }
+  });
+}
+
 module.exports = {
   FORMATIONS_NOT_CONFIGURED,
   resolvePermitSearch,
   runPermitSearchInBackground,
   resolveFormationSearch,
   runFormationSearchInBackground,
+  resolveContractorSearch,
+  executeContractorSearch,
+  runContractorSearchInBackground,
 };

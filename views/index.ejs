@@ -412,8 +412,13 @@
                 <p class="text-xs text-brand-muted leading-relaxed">Pulls newly registered LLCs and corporations from Secretary of State open-data via <a href="https://apify.com/scrapesage/us-business-formation-scraper" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Apify</a>. Requires <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">APIFY_API_TOKEN</code> under Workspace → Integrations. Enhance leads afterward for phone and website.</p>
               </div>
 
+              <%- include('partials/find_panel_contractors', {
+                findType: _findType,
+                contractorTrades: typeof contractorTrades !== 'undefined' ? contractorTrades : []
+              }) %>
+
               <!-- Shared: max results + folder -->
-              <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div id="findSharedMaxWrap" class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-4">
                   <label for="findMaxResults" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max results</label>
                   <input type="number" name="maxResults" id="findMaxResults" value="<%= _sp.qty != null ? _sp.qty : 25 %>" min="1" max="100"
@@ -423,7 +428,7 @@
 
               <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/30 open:pb-2">
                 <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white">
-                  <span class="inline-flex items-center gap-2">Pipeline folder<%- include('/partials/app_info_tip', { tipId: 'find-folder-help', tipKey: 'find-folder', label: 'Pipeline folder override', size: 'sm', content: 'Each search type saves to its own pipeline folder by default. Override here if needed.' }) %></span>
+                  <span class="inline-flex items-center gap-2">Pipeline folder<%- include('/partials/app_info_tip', { tipId: 'find-folder-help', tipKey: 'find-folder', label: 'Pipeline folder override', size: 'sm', content: 'Each search type saves to its own pipeline folder by default. Licensed contractors on Auto are filed into matching trade folders. Pick a folder to keep that run in one place.' }) %></span>
                   <span class="text-brand-muted group-open:rotate-180 transition-transform">▾</span>
                 </summary>
                 <div class="px-4 pb-4 space-y-4 border-t border-brand-border/30 dark:border-white/10 pt-4">
@@ -711,6 +716,16 @@
         submitRun: 'Import formations',
         submitSched: 'Save daily monitor',
         previewLabel: 'formations',
+        defaultQuery: '',
+        requiresLocation: false,
+      },
+      contractors: {
+        action: '/contractors/search',
+        title: 'Licensed contractors',
+        desc: 'WA L&I and Oregon CCB licenses for Clark County and the Portland metro, tagged into your trade folders.',
+        submitRun: 'Import licenses',
+        submitSched: 'Save scheduled import',
+        previewLabel: 'contractors',
         defaultQuery: '',
         requiresLocation: false,
       },
@@ -1045,6 +1060,8 @@
       if (kw) kw.required = type === 'maps';
       var nightly = document.getElementById('findNightlyPrepForm');
       if (nightly) nightly.closest('.find-maps-only') && nightly.closest('.find-maps-only').classList.toggle('hidden', type !== 'maps');
+      var sharedMax = document.getElementById('findSharedMaxWrap');
+      if (sharedMax) sharedMax.classList.toggle('hidden', type === 'contractors');
       document.querySelectorAll('.find-maps-only').forEach(function (el) {
         el.classList.toggle('hidden', type !== 'maps');
       });
@@ -1108,6 +1125,13 @@
         k = stateLabels.length ? ('New formations · ' + stateLabels.join(', ')) : 'New business formations';
         var fkw = document.getElementById('findFormationKeyword');
         if (fkw && fkw.value.trim()) k += ' · ' + fkw.value.trim();
+      } else if (currentType === 'contractors') {
+        var regCbs = document.querySelectorAll('.contractor-registry-cb:checked');
+        var regLabels = Array.prototype.map.call(regCbs, function (cb) { return cb.value === 'wa' ? 'WA L&I' : 'OR CCB'; });
+        k = regLabels.length ? ('Licensed contractors · ' + regLabels.join(' + ')) : 'Licensed contractors';
+        var tradeCbs = document.querySelectorAll('.contractor-trade-cb:checked');
+        var tradeAll = document.querySelectorAll('.contractor-trade-cb');
+        if (tradeCbs.length && tradeAll.length && tradeCbs.length < tradeAll.length) k += ' · ' + tradeCbs.length + ' trades';
       } else {
         var panel = document.querySelector('[data-find-panel="' + currentType + '"]');
         var qEl = panel && panel.querySelector('input[name="query"]');
@@ -1137,6 +1161,10 @@
         }
         nationwide = false;
       }
+      if (currentType === 'contractors') {
+        locLabel = 'Clark County WA + Portland metro';
+        nationwide = false;
+      }
       if (line) {
         if (nationwide) {
           line.innerHTML = '<span class="text-brand-dark dark:text-white">' + k + '</span> <span class="text-brand-muted font-semibold">· nationwide</span>';
@@ -1160,6 +1188,11 @@
       }
       if (meta && max) {
         var n = parseInt(max.value, 10) || 20;
+        if (currentType === 'contractors') {
+          var cmax = document.getElementById('findContractorMax');
+          var fullBox = document.getElementById('findContractorFull');
+          n = fullBox && fullBox.checked ? 5000 : (cmax ? parseInt(cmax.value, 10) || 400 : 400);
+        }
         var extra = '';
         if (currentType === 'maps') {
           if (dir && dir.checked) extra += ' · directory supplement on';
@@ -1196,6 +1229,12 @@
             if (mon && mon.checked) extra += ' · monitor new only';
             if (regAfter && regAfter.value) extra += ' · since ' + regAfter.value;
           }
+          if (currentType === 'contractors') {
+            var placesOn = document.getElementById('findContractorPlaces');
+            var fullOn = document.getElementById('findContractorFull');
+            if (fullOn && fullOn.checked) extra += ' · full registry';
+            if (placesOn && placesOn.checked) extra += ' · Google Places';
+          }
         }
         meta.textContent = 'Up to ' + n + ' ' + (cfg.previewLabel || 'results') + extra;
       }
@@ -1215,6 +1254,30 @@
     document.querySelectorAll('.formation-state-cb').forEach(function (cb) {
       cb.addEventListener('change', syncFindPreview);
     });
+    document.querySelectorAll('.contractor-registry-cb, .contractor-trade-cb').forEach(function (cb) {
+      cb.addEventListener('change', syncFindPreview);
+    });
+    ['findContractorMax', 'findContractorFull', 'findContractorPlaces'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', syncFindPreview);
+      el.addEventListener('change', syncFindPreview);
+    });
+    var contractorFull = document.getElementById('findContractorFull');
+    var contractorMax = document.getElementById('findContractorMax');
+    if (contractorFull && contractorMax) {
+      contractorFull.addEventListener('change', function () {
+        if (contractorFull.checked) {
+          contractorMax.dataset.prev = contractorMax.value;
+          contractorMax.value = '5000';
+          contractorMax.readOnly = true;
+        } else {
+          contractorMax.readOnly = false;
+          if (contractorMax.dataset.prev) contractorMax.value = contractorMax.dataset.prev;
+        }
+        syncFindPreview();
+      });
+    }
     var formationEntitySel = document.getElementById('findFormationEntityTypes');
     if (formationEntitySel) formationEntitySel.addEventListener('change', syncFindPreview);
     var findLocQuery = document.getElementById('findLocationQuery');
@@ -1279,6 +1342,20 @@
           if (!checkedStates.length) {
             e.preventDefault();
             alert('Select at least one state (NY, CO, PA, CT, or OR). Formation search does not run nationwide without a state registry.');
+            return;
+          }
+        }
+        if (currentType === 'contractors') {
+          var checkedRegs = document.querySelectorAll('.contractor-registry-cb:checked');
+          var checkedTrades = document.querySelectorAll('.contractor-trade-cb:checked');
+          if (!checkedRegs.length) {
+            e.preventDefault();
+            alert('Select Washington, Oregon, or both.');
+            return;
+          }
+          if (!checkedTrades.length) {
+            e.preventDefault();
+            alert('Select at least one trade.');
             return;
           }
         }

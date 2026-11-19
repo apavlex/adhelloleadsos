@@ -1,5 +1,17 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Licensed contractors lead source (1.0.793)
+
+### What
+- Find Leads → Licenses imports WA L&I (active, ZIP 986/985) and Oregon CCB (Multnomah, Washington, Clackamas).
+- Tags the 11 HomeElk trades, dedupes by phone, and files each trade into the matching trade folder (Auto). An explicit folder keeps the run together.
+- Optional Google Places on the first 25 (`GOOGLE_PLACES_API_KEY`). Registries themselves need no key.
+- Same path from `search_lead_source` / `schedule_search` with source `contractors`.
+
+### Key files
+- `services/contractorRegistry.js`, `services/contractorLeadPersist.js`, `routes/contractors.js`
+- `views/partials/find_panel_contractors.ejs`
+
 ## 2026-11-18 — CANONICAL: Alex merges same names across locations (1.0.786)
 
 ### Symptom

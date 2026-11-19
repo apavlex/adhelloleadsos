@@ -5,6 +5,7 @@ const workspaceIntegrations = require('./workspaceIntegrations');
 const scrapeJobRunner = require('./scrapeJobRunner');
 const { scheduleDisplayTitle, normalizeJobType, JOB_TYPES } = require('./scrapeJobTypes');
 const { persistFormationSearchResults } = require('./businessFormationPersist');
+const { persistContractorRecords } = require('./contractorLeadPersist');
 const { persistResultsIntoFolder } = require('./folderSearchRun');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
@@ -50,6 +51,13 @@ async function persistScheduledResults(wid, schedule, results) {
   if (normalizeJobType(schedule.jobType) === JOB_TYPES.BUSINESS_FORMATIONS) {
     const persisted = await persistFormationSearchResults(wid, schedule, results);
     return { savedCount: persisted.savedCount || 0, mergedCount: 0 };
+  }
+  if (normalizeJobType(schedule.jobType) === JOB_TYPES.CONTRACTORS) {
+    const persisted = await persistContractorRecords(wid, results, {
+      splitByTrade: schedule.splitByTrade !== false,
+      folderKey: schedule.targetFolderKey,
+    });
+    return { savedCount: persisted.savedCount || 0, mergedCount: persisted.mergedCount || 0 };
   }
   const folderKey = String(schedule.targetFolderKey || '').trim();
   const folder = folderKey ? await db.getFolder(wid, folderKey) : null;

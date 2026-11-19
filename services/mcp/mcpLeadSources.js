@@ -28,8 +28,8 @@ const leadDeepEnrich = require('../leadDeepEnrich');
 const leadGen = require('./mcpLeadGen');
 const { buildReqLike, resolveFolderRef, resolveLeadKey } = require('./mcpCrmService');
 
-const SOURCES = ['permits', 'business_formations', 'real_estate', 'home_owners', 'products', 'wholesale'];
-const SCHEDULE_SOURCES = ['maps', 'business_formations', 'real_estate', 'home_owners', 'products', 'wholesale'];
+const SOURCES = ['permits', 'business_formations', 'contractors', 'real_estate', 'home_owners', 'products', 'wholesale'];
+const SCHEDULE_SOURCES = ['maps', 'business_formations', 'contractors', 'real_estate', 'home_owners', 'products', 'wholesale'];
 const PRESET_SOURCES = ['maps', 'real_estate', 'home_owners', 'products', 'wholesale'];
 /** home_owners is a legacy alias — normalizeJobType maps it to real_estate */
 const ENRICH_STEPS = ['reviews', 'socials', 'phone_line_type'];
@@ -50,6 +50,7 @@ function jobTypeFor(source) {
 function sourceLabel(jobType) {
   if (jobType === JOB_TYPES.PERMITS) return 'Building permits';
   if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) return 'New business registrations';
+  if (jobType === JOB_TYPES.CONTRACTORS) return 'Licensed contractors';
   return JOB_TYPE_LABELS[jobType] || jobType;
 }
 
@@ -221,6 +222,33 @@ async function searchFormations(ctx, input, env) {
   return searchOut(job, 'New business', { states: resolved.params.stateCodes });
 }
 
+async function searchContractors(ctx, input) {
+  const resolved = await leadSourceRuns.resolveContractorSearch(ctx.workspaceId, input);
+  if (!resolved.ok) throw toolError(resolved.error, 'INVALID_ARGUMENTS');
+  const folder = folderFromResolved(resolved.folder);
+  const job = await leadGen.enqueueSearch(ctx, {
+    folder,
+    keyword: resolved.jobParams.keyword,
+    city: resolved.jobParams.city,
+    state: resolved.jobParams.state,
+    maxResults: resolved.params.maxResults,
+    source: 'contractors',
+    sourceLabel: 'contractor license',
+    start: async () =>
+      leadSourceRuns.runContractorSearchInBackground({
+        workspaceId: ctx.workspaceId,
+        integrationEnv: await integrationEnvFor(ctx),
+        resolved,
+        actorEmail: ctx.userEmail,
+      }),
+  });
+  return searchOut(job, 'Contractor license', {
+    registries: resolved.params.registries,
+    trades: resolved.params.trades.length ? resolved.params.trades : 'all',
+    split_by_trade: resolved.params.splitByTrade,
+  });
+}
+
 async function searchListings(ctx, input, env, jobType) {
   const location = leadGen.parseLocation(input);
   if (jobTypeRequiresLocation(jobType) && (!location.city || !location.state)) {
@@ -274,6 +302,18 @@ async function workspaceSchedules(ctx) {
 }
 
 async function scheduleJobPayload(ctx, input, jobType, env) {
+  if (jobType === JOB_TYPES.CONTRACTORS) {
+    const resolved = await leadSourceRuns.resolveContractorSearch(ctx.workspaceId, {
+      ...input,
+      registries: input.registries,
+      trades: input.trades,
+      contractor_limit: input.contractor_limit || input.max_results,
+      enrich_places: input.enrich_places,
+    });
+    if (!resolved.ok) throw toolError(resolved.error, 'INVALID_ARGUMENTS');
+    return { ...resolved.jobParams };
+  }
+
   if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
     const resolved = await leadSourceRuns.resolveFormationSearch(
       ctx.workspaceId,
@@ -347,7 +387,8 @@ const LEAD_SOURCE_TOOLS = [
       'Find leads from sources other than Google Maps and save them into a folder (runs in the background, one search at a time; ' +
       'track with get_search_status). Sources: "permits" = recent building permits (homeowners/contractors doing solar, roofing, ' +
       'HVAC, etc. — needs a supported Permit Stack city or a ZIP), "business_formations" = newly registered businesses (states NY, CO, ' +
-      'PA, CT, OR), "real_estate" = property listings (incl. mobile homes/land and owner signals; "home_owners" is a legacy alias), "products" and ' +
+      'PA, CT, OR), "contractors" = licensed contractors from WA L&I (ZIP 986/985) and Oregon CCB (Multnomah, Washington, Clackamas), ' +
+      'tagged into trade folders (Electricians, Plumbers, HVAC, Roofers, and the rest). "real_estate" = property listings (incl. mobile homes/land and owner signals; "home_owners" is a legacy alias), "products" and ' +
       '"wholesale" = product/wholesale listings. For local businesses by trade use find_leads instead.',
     schema: z.object({
       source: z.enum(SOURCES),
@@ -372,6 +413,27 @@ const LEAD_SOURCE_TOOLS = [
         .optional()
         .describe(`Formations: ${ENTITY_TYPES.map((e) => e.value).join(', ')}`),
       registered_after: z.string().optional().describe('Formations: registered on/after YYYY-MM-DD (default last 30 days)'),
+      registries: z
+        .array(z.enum(['wa', 'or']))
+        .optional()
+        .describe('Contractors: "wa" (L&I, ZIP 986/985) and/or "or" (CCB Portland metro). Default both.'),
+      trades: z
+        .array(z.string())
+        .optional()
+        .describe(
+          'Contractors: electricians, plumbers, hvac, roofers, painters, flooring, handymen, remodelers, tile_masonry, cabinetry, siding. Default all.'
+        ),
+      enrich_places: z
+        .boolean()
+        .optional()
+        .describe('Contractors: enrich the first 25 with Google Places when GOOGLE_PLACES_API_KEY is set'),
+      contractor_limit: z
+        .number()
+        .int()
+        .min(1)
+        .max(5000)
+        .optional()
+        .describe('Contractors: max phone-deduped licenses to import (default 400, full pass 5000)'),
       min_price: z.number().optional().describe('Listings: minimum price'),
       max_price: z.number().optional().describe('Listings: maximum price'),
       listing_sources: z.array(z.string()).optional().describe('Listings: specific scrapers (default: recommended for the type)'),
@@ -383,6 +445,7 @@ const LEAD_SOURCE_TOOLS = [
       const jobType = jobTypeFor(input.source);
       if (jobType === JOB_TYPES.PERMITS) return searchPermits(ctx, input, env);
       if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) return searchFormations(ctx, input, env);
+      if (jobType === JOB_TYPES.CONTRACTORS) return searchContractors(ctx, input);
       return searchListings(ctx, input, env, jobType);
     },
   },
@@ -475,7 +538,7 @@ const LEAD_SOURCE_TOOLS = [
     name: 'schedule_search',
     description:
       'Schedule a lead search to run once later or repeat daily / weekly / monthly. Sources: "maps" (local businesses by trade + city), ' +
-      '"business_formations" (new registrations, monitor mode), or listing types. Each run merges new leads into the folder ' +
+      '"business_formations" (new registrations, monitor mode), "contractors" (WA L&I / Oregon CCB licenses), or listing types. Each run merges new leads into the folder ' +
       '(duplicates merge). To search right now use find_leads / search_lead_source instead.',
     schema: z.object({
       source: z.enum(SCHEDULE_SOURCES),
@@ -483,6 +546,10 @@ const LEAD_SOURCE_TOOLS = [
       ...locationFields,
       states: z.array(z.string()).optional().describe(`Formations: ${FORMATION_STATES.map((s) => s.code).join(', ')}`),
       entity_types: z.array(z.string()).optional().describe(`Formations: ${ENTITY_TYPES.map((e) => e.value).join(', ')}`),
+      registries: z.array(z.enum(['wa', 'or'])).optional().describe('Contractors: wa and/or or'),
+      trades: z.array(z.string()).optional().describe('Contractors: trade ids, default all'),
+      enrich_places: z.boolean().optional().describe('Contractors: Google Places on the first 25'),
+      contractor_limit: z.number().int().min(1).max(5000).optional().describe('Contractors: max licenses'),
       min_price: z.number().optional(),
       max_price: z.number().optional(),
       max_results: z.number().int().min(1).max(100).optional(),

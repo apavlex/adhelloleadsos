@@ -20,6 +20,7 @@ const {
   ENTITY_TYPES,
   defaultRegisteredAfter,
 } = require('../services/businessFormationConstants');
+const { CONTRACTOR_TRADES } = require('../services/contractorRegistry');
 const { isChromeExtensionAvailable } = require('../services/chromeExtensionPack');
 
 function chromeExtensionFindLocals() {
@@ -143,6 +144,7 @@ async function renderFindLeads(req, res, next) {
       formationStates: FORMATION_STATES,
       formationEntityTypes: ENTITY_TYPES,
       formationDefaultRegisteredAfter: defaultRegisteredAfter(30),
+      contractorTrades: CONTRACTOR_TRADES,
       ...chromeExtensionFindLocals(),
     });
   } catch (e) {
@@ -182,6 +184,12 @@ router.get('/leads/find/products', (req, res) => {
 router.get('/leads/find/wholesale', (req, res) => {
   const params = new URLSearchParams(req.query);
   params.set('type', 'wholesale');
+  res.redirect(302, `/leads/find?${params.toString()}`);
+});
+
+router.get('/leads/find/contractors', (req, res) => {
+  const params = new URLSearchParams(req.query);
+  params.set('type', 'contractors');
   res.redirect(302, `/leads/find?${params.toString()}`);
 });
 
