@@ -1,5 +1,16 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Instantly export (1.0.794)
+
+### What
+- Workspace → Integrations stores `instantlyApiKey` (`INSTANTLY_API_KEY`).
+- Pipeline and search bulk bars send the selection to an Instantly campaign or lead list (`POST /api/v2/leads/add`).
+- Campaigns skip leads with no email. Lists accept a business name. Re-exports skip addresses already in a campaign or list. Verification on import stays off.
+
+### Key files
+- `services/instantlyClient.js`, `services/instantlyExport.js`, `routes/instantly.js`
+- `public/js/instantly-export.js`
+
 ## 2026-11-19 — Licensed contractors lead source (1.0.793)
 
 ### What

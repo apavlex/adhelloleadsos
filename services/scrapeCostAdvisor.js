@@ -10,6 +10,7 @@ const serpapiGoogleLocal = require('./serpapiGoogleLocal');
 const rapidapiLocalBusiness = require('./rapidapiLocalBusiness');
 const betterContact = require('./betterContactClient');
 const ghlClient = require('./ghlClient');
+const instantlyClient = require('./instantlyClient');
 const lobClient = require('./lobClient');
 const {
   isOpenRouterConfigured,
@@ -42,6 +43,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
   const rapidapi = rapidapiLocalBusiness.isConfigured(resolvedEnv);
   const bc = betterContact.isConfigured(resolvedEnv);
   const ghl = ghlClient.isConfigured(resolvedEnv);
+  const instantly = instantlyClient.isConfigured(resolvedEnv);
   const lob = lobClient.isConfigured(resolvedEnv);
   const openrouter = isOpenRouterConfigured(resolvedEnv);
   const orStack = describeOpenRouterModelStack(resolvedEnv);
@@ -166,6 +168,18 @@ function buildSourceCards(live = {}, resolvedEnv) {
       tip: ghl
         ? 'Sync/pull from Workspace → Integrations, bulk actions on the pipeline, Money mode, and sub-agents. Outbound email needs a verified sender; SMS can use your location default number.'
         : 'Set GHL private integration token + location ID under CRM. Enable contacts (read/write) and conversations/message.write scopes. See the setup guide for webhook URL.',
+    },
+    {
+      id: 'instantly',
+      name: 'Instantly',
+      connectAnchor: 'instantly-integration',
+      role: 'Cold email — send selected leads into a campaign or list.',
+      cost: 'Included with your Instantly plan. This export does not turn on their paid email verification.',
+      configured: instantly,
+      live: null,
+      tip: instantly
+        ? 'Select leads on the pipeline and choose Instantly in the bulk bar. Campaigns need an email; lists can take a business name.'
+        : 'Set INSTANTLY_API_KEY under CRM. Use a v2 key that can read campaigns and create leads.',
     },
     {
       id: 'lob',

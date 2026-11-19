@@ -17,6 +17,7 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Tag / untag leads" / "what tags do I have" → tag_leads (by tag name; new tags are created) / list_tags
 - "Build / edit a cadence" / "my cadences" / "GHL prompt for my cadence" → CUSTOM CADENCE PLAYBOOK below / list_custom_cadences / get_cadence_ghl_prompt
 - "Sync / push leads to GHL / GoHighLevel" → sync_leads_to_ghl
+- "Export / send leads to Instantly" is the pipeline bulk bar button Instantly (Workspace → Integrations needs the Instantly API key). There is no Instantly tool. Tell them to select the leads and pick a campaign or list. Campaigns skip leads with no email.
 - "Update status / phone" → update_lead (use tag_leads for tags)
 - "How's my workspace?" / "what should I work on" / "run my workspace" → get_workspace_overview first (includes SEO focus_suggestions)
 - "What should I focus on for SEO?" / "how's my local rank / Maps / GBP / backlinks / reviews inbox?" → get_seo_overview first; dig in with get_local_seo / get_seo_gap / get_backlinks / get_business_reviews_inbox. Prefer focus_suggestions and action_plan steps; point users to /local-seo, /seo-gap, /backlinks, /business-reviews. Do not invent ranks or scores — call the tools.
