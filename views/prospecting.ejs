@@ -126,18 +126,27 @@
                   btn.disabled = true;
                   btn.setAttribute('aria-busy', 'true');
                 }
+                var fileName = (doc && (doc[google.picker.Document.NAME] || doc.name)) || 'Google Drive';
+                if (window.__pipelineTransferProgress && typeof window.__pipelineTransferProgress.show === 'function') {
+                  window.__pipelineTransferProgress.show({
+                    action: 'Importing',
+                    fileName: fileName,
+                    percent: 2,
+                    detail: 'Downloading from Drive…',
+                  });
+                }
                 var importReq = fetchJsonFn
                   ? fetchJsonFn('/leads/drive-import/google', {
                       method: 'POST',
                       credentials: 'same-origin',
                       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                      body: JSON.stringify({ fileId: fileId }),
+                      body: JSON.stringify({ fileId: fileId, async: true }),
                     })
                   : fetch('/leads/drive-import/google', {
                       method: 'POST',
                       credentials: 'same-origin',
                       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                      body: JSON.stringify({ fileId: fileId }),
+                      body: JSON.stringify({ fileId: fileId, async: true }),
                     }).then(function (r) {
                       return r.json().then(function (j) { return { ok: r.ok, j: j }; });
                     });
@@ -147,6 +156,11 @@
                       throw new Error((imp.j && imp.j.error) || 'Import failed');
                     }
                     var j = imp.j;
+                    if (j.async && j.jobId && window.__pipelineTransferProgress && typeof window.__pipelineTransferProgress.watchImportJob === 'function') {
+                      window.__pipelineTransferProgress.watchImportJob(j.jobId, fileName);
+                      if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+                      return;
+                    }
                     var q = 'tab=pipeline&origin=csv&includeFoldered=1&source=all&rows=' + encodeURIComponent(j.totalRows || 0)
                       + '&rawRows=' + encodeURIComponent(j.rawRows != null ? j.rawRows : j.totalRows || 0)
                       + '&rejected=' + encodeURIComponent(j.rejected || 0)
@@ -159,6 +173,9 @@
                     window.location.href = '/prospecting?' + q;
                   })
                   .catch(function (e) {
+                    if (window.__pipelineTransferProgress && typeof window.__pipelineTransferProgress.hide === 'function') {
+                      window.__pipelineTransferProgress.hide();
+                    }
                     alert(e && e.message ? e.message : 'Import failed');
                     if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
                   });

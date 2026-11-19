@@ -83,11 +83,18 @@
       </div>
     </div>
   </div>
-  <p id="csvFileAttachHint" class="hidden w-full items-center gap-2 text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-widest" role="status" aria-live="polite">
-    <svg class="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
-    <span>Importing</span>
-    <span id="csvFileNameDisplay" class="font-mono normal-case tracking-normal text-brand-dark dark:text-white truncate"></span>
-  </p>
+  <div id="csvFileAttachHint" class="hidden min-w-[12rem] max-w-[18rem] flex-col gap-1 rounded-2xl border border-emerald-500/25 bg-emerald-50/80 dark:bg-emerald-950/30 px-3 py-2 text-[10px] font-bold text-emerald-900 dark:text-emerald-200 uppercase tracking-widest shadow-sm" role="status" aria-live="polite">
+    <div class="flex items-center gap-2 min-w-0">
+      <svg class="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+      <span id="csvTransferActionLabel" class="shrink-0">Importing</span>
+      <span id="csvTransferPercent" class="shrink-0 tabular-nums text-emerald-700 dark:text-emerald-300">0%</span>
+      <span id="csvFileNameDisplay" class="font-mono normal-case tracking-normal text-brand-dark dark:text-white truncate min-w-0 flex-1"></span>
+    </div>
+    <div class="h-1.5 w-full rounded-full bg-emerald-900/10 dark:bg-white/10 overflow-hidden" aria-hidden="true">
+      <div id="csvTransferBar" class="h-full rounded-full bg-emerald-500 dark:bg-emerald-400 transition-[width] duration-300 ease-out" style="width:0%"></div>
+    </div>
+    <p id="csvTransferDetail" class="normal-case tracking-normal font-semibold text-[9px] text-emerald-800/80 dark:text-emerald-200/80 truncate"></p>
+  </div>
 </div>
 <script>
 (function () {

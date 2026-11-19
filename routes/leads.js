@@ -69,6 +69,7 @@ const {
 const { buildAiToolsReportViewModel } = require('../services/aiToolsReportModel');
 const { parseImportFile } = require('../services/csvLeadImport');
 const { findExistingLead, upsertLeadInMemoryList } = require('../services/leadDedupe');
+const csvImportJobs = require('../services/csvImportJobs');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary, scriptForChannel } = require('../services/outreachChannelScripts');
 const { resolveScriptSignOffProfile, applySenderPlaceholdersDeep, fillScriptPlaceholders } = require('../services/scriptPlaceholders');
@@ -264,32 +265,49 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
   const workspaceLeads = await dbService.getAllLeads(wid);
   const createdKeys = [];
   const updatedKeys = [];
+  const onProgress = typeof importOptions.onProgress === 'function' ? importOptions.onProgress : null;
+  const progressEvery = Math.max(1, Math.min(25, Math.ceil(Math.max(records.length, 1) / 40)));
 
-  for (const rec of records) {
+  for (let i = 0; i < records.length; i += 1) {
+    const rec = records[i];
     if (!rec.title) {
       skipped += 1;
-      continue;
-    }
-    const payload = { ...rec, workspaceId: wid };
-    const existing = findExistingLead(workspaceLeads, payload, wid);
-    try {
-      const result = await dbService.saveLeadWithMeta(payload);
+    } else {
+      const payload = { ...rec, workspaceId: wid };
+      const existing = findExistingLead(workspaceLeads, payload, wid);
       try {
-        await autoAttachCadenceIfNeeded({ leadKey: result.key, workspaceId: wid });
-      } catch (_) {
-        /* non-fatal */
+        // eslint-disable-next-line no-await-in-loop
+        const result = await dbService.saveLeadWithMeta(payload);
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          await autoAttachCadenceIfNeeded({ leadKey: result.key, workspaceId: wid });
+        } catch (_) {
+          /* non-fatal */
+        }
+        if (result.lead) upsertLeadInMemoryList(workspaceLeads, result.lead);
+        if (existing || result.merged) {
+          updated += 1;
+          updatedKeys.push(result.key);
+        } else {
+          created += 1;
+          createdKeys.push(result.key);
+        }
+      } catch (e) {
+        console.error('[CSV import] row error:', rec.title, e.message);
+        failed += 1;
       }
-      if (result.lead) upsertLeadInMemoryList(workspaceLeads, result.lead);
-      if (existing || result.merged) {
-        updated += 1;
-        updatedKeys.push(result.key);
-      } else {
-        created += 1;
-        createdKeys.push(result.key);
-      }
-    } catch (e) {
-      console.error('[CSV import] row error:', rec.title, e.message);
-      failed += 1;
+    }
+    const processed = i + 1;
+    if (onProgress && (processed === records.length || processed % progressEvery === 0)) {
+      // eslint-disable-next-line no-await-in-loop
+      await onProgress({
+        processed,
+        total: records.length,
+        created,
+        updated,
+        skipped,
+        failed,
+      });
     }
   }
 
@@ -299,10 +317,15 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
       typeof importOptions.activationEvent === 'string' && importOptions.activationEvent.trim()
         ? importOptions.activationEvent.trim()
         : 'csv_import';
-    await activationService.recordEvent(userEmail(req), ev);
+    const email =
+      typeof importOptions.actorEmail === 'string' && importOptions.actorEmail.trim()
+        ? importOptions.actorEmail.trim()
+        : userEmail(req);
+    await activationService.recordEvent(email, ev);
     const sourceLabel = importOptions.leadSource === 'google_drive' ? 'Google Drive' : 'CSV';
+    const activityReq = importOptions.activityReq || req;
     if (createdKeys.length) {
-      teamActivity.record(req, {
+      teamActivity.record(activityReq, {
         category: 'leads',
         action: 'lead_import',
         summary: `Imported ${created} new lead${created === 1 ? '' : 's'} from ${sourceLabel}${originalFilename ? ` (${originalFilename})` : ''}${updated ? ` · ${updated} updated` : ''}`,
@@ -311,7 +334,7 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
       });
     }
     if (updatedKeys.length && !createdKeys.length) {
-      teamActivity.record(req, {
+      teamActivity.record(activityReq, {
         category: 'leads',
         action: 'lead_import',
         summary: `Re-imported ${updated} existing lead${updated === 1 ? '' : 's'} from ${sourceLabel}${originalFilename ? ` (${originalFilename})` : ''}`,
@@ -348,6 +371,74 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
     rows: records.length,
     realEstateImport,
   };
+}
+
+function wantsAsyncImport(req) {
+  const accept = String((req && req.headers && req.headers.accept) || '');
+  if (!accept.includes('application/json')) return false;
+  if (req.query && String(req.query.async || '') === '0') return false;
+  if (req.body && (req.body.async === false || req.body.async === '0')) return false;
+  return true;
+}
+
+function startAsyncLeadImport({ buffer, fileName, req, importOptions = {} }) {
+  const job = csvImportJobs.createJob({
+    workspaceId: req.workspaceId,
+    fileName: fileName || 'import.csv',
+    source: importOptions.leadSource === 'google_drive' ? 'google_drive' : 'csv',
+  });
+  const actorEmail = userEmail(req);
+  const activityReq = {
+    workspaceId: req.workspaceId,
+    user: req.user,
+    session: req.session,
+  };
+  csvImportJobs.touch(job, { status: 'importing', percent: 1 });
+
+  setImmediate(() => {
+    importLeadRecordsFromBuffer(buffer, fileName || 'import.csv', { workspaceId: req.workspaceId }, {
+      ...importOptions,
+      actorEmail,
+      activityReq,
+      onProgress: async (p) => {
+        csvImportJobs.touch(job, {
+          status: 'importing',
+          processed: p.processed,
+          total: p.total,
+          created: p.created,
+          updated: p.updated,
+          skipped: p.skipped,
+          failed: p.failed,
+        });
+      },
+    })
+      .then((pack) => {
+        csvImportJobs.touch(job, {
+          status: 'done',
+          processed: pack.rows,
+          total: pack.rows,
+          percent: 100,
+          created: pack.created,
+          updated: pack.updated,
+          skipped: pack.skipped,
+          failed: pack.failed,
+          rejected: pack.rejected,
+          rawRowCount: pack.rawRowCount,
+          realEstateImport: !!pack.realEstateImport,
+          finishedAt: Date.now(),
+        });
+      })
+      .catch((err) => {
+        console.error('[CSV import] async job failed:', err);
+        csvImportJobs.touch(job, {
+          status: 'error',
+          error: (err && err.message) || 'Import failed',
+          finishedAt: Date.now(),
+        });
+      });
+  });
+
+  return job;
 }
 
 function appendLeadUpdate(lead, entry) {
@@ -892,6 +983,18 @@ router.post('/google-drive/upload-csv', async (req, res) => {
   }
 });
 
+// GET /leads/import/status/:jobId — poll async CSV / Drive import progress
+router.get('/import/status/:jobId', (req, res) => {
+  const job = csvImportJobs.getJob(req.params.jobId);
+  if (!job) {
+    return res.status(404).json({ success: false, error: 'Import job not found.' });
+  }
+  if (job.workspaceId && req.workspaceId && String(job.workspaceId) !== String(req.workspaceId)) {
+    return res.status(404).json({ success: false, error: 'Import job not found.' });
+  }
+  return res.json({ success: true, job: csvImportJobs.publicJob(job) });
+});
+
 // POST /leads/drive-import/google — import CSV or Google Sheet by Drive file id (after Picker)
 router.post('/drive-import/google', async (req, res, next) => {
   try {
@@ -904,6 +1007,18 @@ router.post('/drive-import/google', async (req, res, next) => {
       return res.status(401).json({ success: false, error: 'Google Drive is not connected for this account.' });
     }
     const { buffer, name } = await downloadDriveFileAsCsvBuffer(access, fileId);
+    if (wantsAsyncImport(req)) {
+      const job = startAsyncLeadImport({
+        buffer,
+        fileName: name,
+        req,
+        importOptions: {
+          leadSource: 'google_drive',
+          activationEvent: 'drive_csv_import',
+        },
+      });
+      return res.json({ success: true, async: true, jobId: job.id, job: csvImportJobs.publicJob(job) });
+    }
     const pack = await importLeadRecordsFromBuffer(buffer, name, req, {
       leadSource: 'google_drive',
       activationEvent: 'drive_csv_import',
@@ -950,7 +1065,18 @@ router.post('/import', (req, res, next) => {
       );
     }
 
-    const pack = await importLeadRecordsFromBuffer(req.file.buffer, req.file.originalname || 'import.csv', req);
+    const fileName = req.file.originalname || 'import.csv';
+    if (wantsAsyncImport(req)) {
+      const job = startAsyncLeadImport({
+        buffer: req.file.buffer,
+        fileName,
+        req,
+        importOptions: {},
+      });
+      return res.json({ success: true, async: true, jobId: job.id, job: csvImportJobs.publicJob(job) });
+    }
+
+    const pack = await importLeadRecordsFromBuffer(req.file.buffer, fileName, req);
     const { created, updated, skipped, failed, rows, rawRowCount, rejected, realEstateImport } = pack;
     const applied = pack.applied;
     let q = `rows=${rows}&rawRows=${rawRowCount}&rejected=${rejected}&created=${created}&updated=${updated}&imported=${applied}&skipped=${skipped}&failed=${failed}`;
