@@ -1,11 +1,15 @@
 /**
  * Pipeline Import / Export dropdown menus — portaled so toolbar overflow does not clip them.
+ * Also owns the transfer progress chip (percent + ETA) for CSV / Drive import and export.
  */
 (function () {
   /** @type {{ trigger: HTMLElement, panel: HTMLElement }[]} */
   var menuPairs = [];
   var initDone = false;
   var docClickBound = false;
+  var pollTimer = null;
+  var transferStartedAt = 0;
+  var transferProcessedAtStart = 0;
 
   function resolveMenuPanel(menu, trigger) {
     if (!menu && !trigger) return null;
@@ -116,13 +120,253 @@
     });
   }
 
+  function els() {
+    return {
+      hint: document.getElementById('csvFileAttachHint'),
+      nameEl: document.getElementById('csvFileNameDisplay'),
+      actionEl: document.getElementById('csvTransferActionLabel'),
+      percentEl: document.getElementById('csvTransferPercent'),
+      detailEl: document.getElementById('csvTransferDetail'),
+      barEl: document.getElementById('csvTransferBar'),
+      uploadButton: document.getElementById('leadsCsvUploadButton'),
+      uploadSpinner: document.getElementById('leadsCsvUploadSpinner'),
+    };
+  }
+
+  function formatEta(ms) {
+    if (!Number.isFinite(ms) || ms < 1500) return '';
+    var sec = Math.ceil(ms / 1000);
+    if (sec < 60) return '~' + sec + 's left';
+    var min = Math.ceil(sec / 60);
+    if (min < 60) return '~' + min + 'm left';
+    return '~' + Math.ceil(min / 60) + 'h left';
+  }
+
+  function formatCounts(processed, total) {
+    var p = Number(processed) || 0;
+    var t = Number(total) || 0;
+    if (!t) return '';
+    return p.toLocaleString() + ' / ' + t.toLocaleString();
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function showTransferProgress(opts) {
+    var e = els();
+    var action = (opts && opts.action) || 'Importing';
+    var fileName = (opts && opts.fileName) || '';
+    var percent = Math.max(0, Math.min(100, Math.round(Number(opts && opts.percent) || 0)));
+    transferStartedAt = Date.now();
+    transferProcessedAtStart = Number(opts && opts.processed) || 0;
+    if (e.actionEl) e.actionEl.textContent = action;
+    if (e.nameEl) e.nameEl.textContent = fileName;
+    if (e.percentEl) e.percentEl.textContent = percent + '%';
+    if (e.barEl) e.barEl.style.width = percent + '%';
+    if (e.detailEl) e.detailEl.textContent = (opts && opts.detail) || 'Starting…';
+    if (e.hint) {
+      e.hint.classList.remove('hidden');
+      e.hint.classList.add('flex');
+      e.hint.setAttribute('aria-busy', 'true');
+    }
+    if (e.uploadButton) e.uploadButton.disabled = true;
+    if (e.uploadSpinner) e.uploadSpinner.classList.remove('hidden');
+  }
+
+  function updateTransferProgress(opts) {
+    var e = els();
+    var percent = Math.max(0, Math.min(100, Math.round(Number(opts && opts.percent) || 0)));
+    var processed = Number(opts && opts.processed) || 0;
+    var total = Number(opts && opts.total) || 0;
+    if (e.percentEl) e.percentEl.textContent = percent + '%';
+    if (e.barEl) e.barEl.style.width = percent + '%';
+    if (opts && opts.action && e.actionEl) e.actionEl.textContent = opts.action;
+    if (opts && opts.fileName && e.nameEl) e.nameEl.textContent = opts.fileName;
+
+    var parts = [];
+    var counts = formatCounts(processed, total);
+    if (counts) parts.push(counts);
+    if (opts && opts.detail) parts.push(String(opts.detail));
+
+    var etaMs = Number(opts && opts.etaMs);
+    if (!Number.isFinite(etaMs) && total > 0 && processed > transferProcessedAtStart) {
+      var elapsed = Date.now() - transferStartedAt;
+      var doneDelta = processed - transferProcessedAtStart;
+      if (elapsed > 800 && doneDelta > 0) {
+        var rate = doneDelta / elapsed;
+        etaMs = (total - processed) / rate;
+      }
+    }
+    var eta = formatEta(etaMs);
+    if (eta) parts.push(eta);
+    if (e.detailEl) e.detailEl.textContent = parts.join(' · ') || 'Working…';
+  }
+
+  function hideTransferProgress() {
+    stopPolling();
+    var e = els();
+    if (e.hint) {
+      e.hint.classList.add('hidden');
+      e.hint.classList.remove('flex');
+      e.hint.removeAttribute('aria-busy');
+    }
+    if (e.percentEl) e.percentEl.textContent = '0%';
+    if (e.barEl) e.barEl.style.width = '0%';
+    if (e.detailEl) e.detailEl.textContent = '';
+    if (e.uploadButton) e.uploadButton.disabled = false;
+    if (e.uploadSpinner) e.uploadSpinner.classList.add('hidden');
+  }
+
+  function redirectAfterImport(job) {
+    var q =
+      'tab=pipeline&origin=csv&includeFoldered=1&source=all&rows=' +
+      encodeURIComponent(job.total || 0) +
+      '&rawRows=' +
+      encodeURIComponent(job.rawRowCount != null ? job.rawRowCount : job.total || 0) +
+      '&rejected=' +
+      encodeURIComponent(job.rejected || 0) +
+      '&created=' +
+      encodeURIComponent(job.created || 0) +
+      '&updated=' +
+      encodeURIComponent(job.updated || 0) +
+      '&imported=' +
+      encodeURIComponent(job.imported || (job.created || 0) + (job.updated || 0)) +
+      '&skipped=' +
+      encodeURIComponent(job.skipped || 0) +
+      '&failed=' +
+      encodeURIComponent(job.failed || 0);
+    if (job.realEstateImport) q += '&realEstate=1';
+    window.location.href = '/prospecting?' + q;
+  }
+
+  function pollImportJob(jobId) {
+    stopPolling();
+    var tick = function () {
+      fetch('/leads/import/status/' + encodeURIComponent(jobId), {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (pack) {
+          if (!pack.ok || !pack.j || !pack.j.success || !pack.j.job) {
+            throw new Error((pack.j && pack.j.error) || 'Could not read import progress.');
+          }
+          var job = pack.j.job;
+          updateTransferProgress({
+            action: 'Importing',
+            fileName: job.fileName,
+            percent: job.percent,
+            processed: job.processed,
+            total: job.total,
+            detail:
+              job.status === 'queued'
+                ? 'Queued…'
+                : job.created || job.updated
+                  ? job.created + ' new · ' + job.updated + ' updated'
+                  : '',
+          });
+          if (job.status === 'done') {
+            stopPolling();
+            updateTransferProgress({
+              percent: 100,
+              processed: job.total,
+              total: job.total,
+              detail: 'Finishing…',
+              etaMs: 0,
+            });
+            redirectAfterImport(job);
+            return;
+          }
+          if (job.status === 'error') {
+            stopPolling();
+            hideTransferProgress();
+            alert(job.error || 'Import failed');
+          }
+        })
+        .catch(function (err) {
+          stopPolling();
+          hideTransferProgress();
+          alert((err && err.message) || 'Import failed');
+        });
+    };
+    tick();
+    pollTimer = setInterval(tick, 700);
+  }
+
+  function startAsyncCsvImport(file) {
+    showTransferProgress({
+      action: 'Importing',
+      fileName: file.name,
+      percent: 1,
+      detail: 'Uploading file…',
+    });
+    var body = new FormData();
+    body.append('csvfile', file);
+    fetch('/leads/import?async=1', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+      body: body,
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (pack) {
+        if (!pack.ok || !pack.j || !pack.j.success) {
+          throw new Error((pack.j && pack.j.error) || 'Import failed');
+        }
+        if (pack.j.async && pack.j.jobId) {
+          updateTransferProgress({
+            percent: (pack.j.job && pack.j.job.percent) || 2,
+            detail: 'Processing rows…',
+          });
+          pollImportJob(pack.j.jobId);
+          return;
+        }
+        // Sync JSON fallback
+        redirectAfterImport({
+          total: pack.j.totalRows || 0,
+          rawRowCount: pack.j.totalRows || 0,
+          created: pack.j.created || 0,
+          updated: pack.j.updated || 0,
+          imported: pack.j.imported || 0,
+          skipped: pack.j.skipped || 0,
+          failed: pack.j.failed || 0,
+          rejected: 0,
+          realEstateImport: !!pack.j.realEstateImport,
+        });
+      })
+      .catch(function (err) {
+        hideTransferProgress();
+        alert((err && err.message) || 'Import failed');
+      });
+  }
+
+  function watchDriveImportJob(jobId, fileName) {
+    showTransferProgress({
+      action: 'Importing',
+      fileName: fileName || 'Google Drive',
+      percent: 2,
+      detail: 'Processing rows…',
+    });
+    pollImportJob(jobId);
+  }
+
   function initPipelineImportExportMenus() {
     if (initDone) return;
     initDone = true;
 
     var input = document.getElementById('leadsCsvFile');
-    var hint = document.getElementById('csvFileAttachHint');
-    var nameEl = document.getElementById('csvFileNameDisplay');
     var form = document.getElementById('leadsCsvImportForm');
     var uploadButton = document.getElementById('leadsCsvUploadButton');
     var uploadSpinner = document.getElementById('leadsCsvUploadSpinner');
@@ -175,29 +419,23 @@
         });
       });
 
-      function beginImportUi(filename) {
-        if (nameEl && filename) nameEl.textContent = filename;
-        if (hint) {
-          hint.classList.remove('hidden');
-          hint.classList.add('flex');
-        }
-        if (uploadButton) uploadButton.disabled = true;
-        if (uploadSpinner) uploadSpinner.classList.remove('hidden');
-      }
-
       input.addEventListener('change', function () {
         var f = input.files && input.files[0];
-        if (!f || !form) return;
-        beginImportUi(f.name);
-        if (typeof form.requestSubmit === 'function') form.requestSubmit();
-        else form.submit();
+        if (!f) return;
+        startAsyncCsvImport(f);
+        try {
+          input.value = '';
+        } catch (_) {
+          /* ignore */
+        }
       });
 
       if (form && uploadButton) {
-        form.addEventListener('submit', function () {
-          uploadButton.disabled = true;
-          uploadButton.setAttribute('aria-busy', 'true');
-          if (uploadSpinner) uploadSpinner.classList.remove('hidden');
+        form.addEventListener('submit', function (ev) {
+          // Prefer async XHR path; block classic full-page submit when JS is alive.
+          if (ev && typeof ev.preventDefault === 'function') ev.preventDefault();
+          var f = input.files && input.files[0];
+          if (f) startAsyncCsvImport(f);
         });
       }
 
@@ -214,10 +452,22 @@
         window.history.replaceState({}, '', clean);
       }
     }
+
+    // Silence unused lint for uploadSpinner when form path unused
+    if (uploadSpinner && uploadButton) {
+      /* reserved for begin-import busy state */
+    }
   }
 
   window.__primePipelineImportExportMenus = primeMenuPanelsEarly;
   window.__initPipelineImportExportMenus = initPipelineImportExportMenus;
+  window.__pipelineTransferProgress = {
+    show: showTransferProgress,
+    update: updateTransferProgress,
+    hide: hideTransferProgress,
+    watchImportJob: watchDriveImportJob,
+    formatEta: formatEta,
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initPipelineImportExportMenus);

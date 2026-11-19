@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Import/export % progress (1.0.798)
+
+### What
+- Pipeline Import/Export chip shows percent, row counts, ETA, and a progress bar.
+- CSV / Drive imports run async with `GET /leads/import/status/:jobId` polling.
+- Computer CSV export and Drive save use the same chip while building/uploading.
+
+### Key files
+- `services/csvImportJobs.js`, `routes/leads.js`, `public/js/pipeline-import-export-menus.js`, `public/js/app.js`, `views/partials/pipeline_import_export_menus.ejs`
+
 ## 2026-11-19 — Alex delete empty folders (1.0.797)
 
 ### What

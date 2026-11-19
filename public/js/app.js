@@ -2657,78 +2657,141 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  function buildLeadsCsvFromDatasets(leadsToExport) {
-    const headers = [
-      'Company',
-      'Contact name',
-      'Category',
-      'Phone',
-      'Email',
-      'Extra phones',
-      'Extra emails',
-      'Website',
-      'Address',
-      'City',
-      'State',
-      'Zip',
-      'Price',
-      'Beds',
-      'Baths',
-      'Sqft',
-      'Source',
-      'Listing URL',
-      'Rating',
-      'Reviews',
-      'Claim status',
-      'GBP optimization score',
-      'Signal',
-      'Facebook',
-      'Instagram',
-      'Twitter',
-      'Opportunity (unified /10)',
+  const LEAD_CSV_HEADERS = [
+    'Company',
+    'Contact name',
+    'Category',
+    'Phone',
+    'Email',
+    'Extra phones',
+    'Extra emails',
+    'Website',
+    'Address',
+    'City',
+    'State',
+    'Zip',
+    'Price',
+    'Beds',
+    'Baths',
+    'Sqft',
+    'Source',
+    'Listing URL',
+    'Rating',
+    'Reviews',
+    'Claim status',
+    'GBP optimization score',
+    'Signal',
+    'Facebook',
+    'Instagram',
+    'Twitter',
+    'Opportunity (unified /10)',
+  ];
+
+  function escapeCsvCell(v) {
+    return `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  }
+
+  function buildLeadCsvRowFromDataset(l, esc) {
+    const priceRaw = l.listingPrice || l.listingprice || '';
+    const priceNum = parseFloat(String(priceRaw).replace(/[^\d.]/g, ''));
+    const price =
+      Number.isFinite(priceNum) && priceNum > 0 ? `$${Math.round(priceNum).toLocaleString('en-US')}` : priceRaw;
+    const hydrated = hydrateLeadContactsForCsv(l);
+    return [
+      esc(l.title),
+      esc(hydrated.contactName),
+      esc(l.category),
+      esc(hydrated.phone || l.phone),
+      esc(hydrated.email),
+      esc(hydrated.extraPhones),
+      esc(hydrated.extraEmails),
+      esc(l.website),
+      esc(l.address),
+      esc(l.city),
+      esc(l.state),
+      esc(l.zip),
+      esc(price),
+      esc(l.listingBeds || l.listingbeds || ''),
+      esc(l.listingBaths || l.listingbaths || ''),
+      esc(l.listingSqft || l.listingsqft || ''),
+      esc(l.listingSource || l.listingsource || l.source || ''),
+      esc(l.url),
+      l.rating,
+      l.reviews,
+      esc(String(l.gbpClaimStatus || '').replace(/"/g, '""')),
+      esc(String(l.gbpOptimizationScore || '').replace(/"/g, '""')),
+      esc(String(l.ownerSignal || '').replace(/"/g, '""')),
+      esc(l.facebook),
+      esc(l.instagram),
+      esc(l.twitter),
+      getUnifiedClientScore(l),
     ];
-    const esc = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
-    const rows = leadsToExport.map((l) => {
-      const priceRaw = l.listingPrice || l.listingprice || '';
-      const priceNum = parseFloat(String(priceRaw).replace(/[^\d.]/g, ''));
-      const price =
-        Number.isFinite(priceNum) && priceNum > 0 ? `$${Math.round(priceNum).toLocaleString('en-US')}` : priceRaw;
-      const hydrated = hydrateLeadContactsForCsv(l);
-      return [
-        esc(l.title),
-        esc(hydrated.contactName),
-        esc(l.category),
-        esc(hydrated.phone || l.phone),
-        esc(hydrated.email),
-        esc(hydrated.extraPhones),
-        esc(hydrated.extraEmails),
-        esc(l.website),
-        esc(l.address),
-        esc(l.city),
-        esc(l.state),
-        esc(l.zip),
-        esc(price),
-        esc(l.listingBeds || l.listingbeds || ''),
-        esc(l.listingBaths || l.listingbaths || ''),
-        esc(l.listingSqft || l.listingsqft || ''),
-        esc(l.listingSource || l.listingsource || l.source || ''),
-        esc(l.url),
-        l.rating,
-        l.reviews,
-        esc(String(l.gbpClaimStatus || '').replace(/"/g, '""')),
-        esc(String(l.gbpOptimizationScore || '').replace(/"/g, '""')),
-        esc(String(l.ownerSignal || '').replace(/"/g, '""')),
-        esc(l.facebook),
-        esc(l.instagram),
-        esc(l.twitter),
-        getUnifiedClientScore(l),
-      ];
+  }
+
+  function buildLeadsCsvFromDatasets(leadsToExport) {
+    const esc = escapeCsvCell;
+    const rows = (leadsToExport || []).map((l) => buildLeadCsvRowFromDataset(l, esc));
+    return [LEAD_CSV_HEADERS.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  }
+
+  function buildLeadsCsvFromDatasetsAsync(leadsToExport, onProgress) {
+    const esc = escapeCsvCell;
+    const list = leadsToExport || [];
+    const total = list.length;
+    const lines = [LEAD_CSV_HEADERS.join(',')];
+    const chunk = Math.max(25, Math.min(150, Math.ceil(total / 20) || 25));
+    let i = 0;
+    const started = Date.now();
+
+    return new Promise((resolve) => {
+      function tick() {
+        const end = Math.min(total, i + chunk);
+        for (; i < end; i += 1) {
+          lines.push(buildLeadCsvRowFromDataset(list[i], esc).join(','));
+        }
+        if (typeof onProgress === 'function') {
+          const elapsed = Date.now() - started;
+          const rate = i > 0 ? i / Math.max(1, elapsed) : 0;
+          const etaMs = rate > 0 ? (total - i) / rate : NaN;
+          onProgress({
+            processed: i,
+            total,
+            percent: total ? Math.round((i / total) * 100) : 100,
+            etaMs,
+          });
+        }
+        if (i >= total) {
+          resolve(lines.join('\n'));
+          return;
+        }
+        requestAnimationFrame(tick);
+      }
+      tick();
     });
-    return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
   }
 
   function defaultLeadsExportFilename() {
     return `AdHello_Leads_${new Date().toISOString().split('T')[0]}.csv`;
+  }
+
+  function withExportProgress(fileName, run) {
+    const progress = window.__pipelineTransferProgress;
+    if (progress && typeof progress.show === 'function') {
+      progress.show({ action: 'Exporting', fileName, percent: 1, detail: 'Preparing…' });
+    }
+    return Promise.resolve()
+      .then(run)
+      .then((result) => {
+        if (progress && typeof progress.update === 'function') {
+          progress.update({ percent: 100, processed: 1, total: 1, detail: 'Done', etaMs: 0 });
+        }
+        return result;
+      })
+      .finally(() => {
+        setTimeout(() => {
+          if (progress && typeof progress.hide === 'function') progress.hide();
+        }, 450);
+      });
   }
 
   // Export CSV — all `.js-bulk-export-csv` buttons (avoids duplicate id on /leads floating bar vs header bar)
@@ -2737,12 +2800,36 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       const leadsToExport = collectLeadDatasetsForBulkExport();
       if (leadsToExport.length === 0) return alert('No leads found to export.');
-      const csvContent = buildLeadsCsvFromDatasets(leadsToExport);
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.setAttribute('download', defaultLeadsExportFilename());
-      link.click();
+      const filename = defaultLeadsExportFilename();
+      exportBtn.disabled = true;
+      exportBtn.setAttribute('aria-busy', 'true');
+      withExportProgress(filename, () =>
+        buildLeadsCsvFromDatasetsAsync(leadsToExport, (p) => {
+          if (window.__pipelineTransferProgress && typeof window.__pipelineTransferProgress.update === 'function') {
+            window.__pipelineTransferProgress.update({
+              action: 'Exporting',
+              fileName: filename,
+              percent: Math.max(1, Math.min(99, p.percent)),
+              processed: p.processed,
+              total: p.total,
+              etaMs: p.etaMs,
+            });
+          }
+        }).then((csvContent) => {
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          link.setAttribute('download', filename);
+          link.click();
+        })
+      )
+        .catch((err) => {
+          alert((err && err.message) || 'Export failed');
+        })
+        .finally(() => {
+          exportBtn.disabled = false;
+          exportBtn.removeAttribute('aria-busy');
+        });
     });
   });
 
@@ -2752,50 +2839,76 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       const leadsToExport = collectLeadDatasetsForBulkExport();
       if (leadsToExport.length === 0) return alert('No leads found to save.');
-      const csvContent = buildLeadsCsvFromDatasets(leadsToExport);
       const filename = defaultLeadsExportFilename();
       saveBtn.disabled = true;
       saveBtn.setAttribute('aria-busy', 'true');
-      const fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
-      const uploadReq = fetchJsonFn
-        ? fetchJsonFn('/leads/google-drive/upload-csv', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ csv: csvContent, filename }),
-          })
-        : fetch('/leads/google-drive/upload-csv', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ csv: csvContent, filename }),
-          }).then((r) => r.json().then((j) => ({ ok: r.ok, j })));
-      uploadReq
-        .then((pack) => {
-          if (!pack.ok || !pack.j || !pack.j.success) {
-            const msg = (pack.j && pack.j.error) || 'Could not save to Google Drive.';
-            if (pack.j && pack.j.needsReconnect) {
-              if (
-                window.confirm(
-                  msg + '\n\nOpen Google Drive connection now? (You may need to approve save access.)'
-                )
-              ) {
-                window.location.href = '/auth/google/drive-link';
-              }
-              return;
-            }
-            throw new Error(msg);
+      withExportProgress(filename, () =>
+        buildLeadsCsvFromDatasetsAsync(leadsToExport, (p) => {
+          if (window.__pipelineTransferProgress && typeof window.__pipelineTransferProgress.update === 'function') {
+            window.__pipelineTransferProgress.update({
+              action: 'Exporting',
+              fileName: filename,
+              percent: Math.max(1, Math.min(70, Math.round(p.percent * 0.7))),
+              processed: p.processed,
+              total: p.total,
+              etaMs: p.etaMs,
+              detail: 'Building CSV…',
+            });
           }
-          const link = pack.j.webViewLink;
-          const name = pack.j.name || filename;
+        }).then((csvContent) => {
+          if (window.__pipelineTransferProgress && typeof window.__pipelineTransferProgress.update === 'function') {
+            window.__pipelineTransferProgress.update({
+              action: 'Exporting',
+              fileName: filename,
+              percent: 75,
+              detail: 'Uploading to Google Drive…',
+            });
+          }
+          const fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
+          const uploadReq = fetchJsonFn
+            ? fetchJsonFn('/leads/google-drive/upload-csv', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ csv: csvContent, filename }),
+              })
+            : fetch('/leads/google-drive/upload-csv', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ csv: csvContent, filename }),
+              }).then((r) => r.json().then((j) => ({ ok: r.ok, j })));
+          return uploadReq.then((pack) => {
+            if (!pack.ok || !pack.j || !pack.j.success) {
+              const msg = (pack.j && pack.j.error) || 'Could not save to Google Drive.';
+              if (pack.j && pack.j.needsReconnect) {
+                if (
+                  window.confirm(
+                    msg + '\n\nOpen Google Drive connection now? (You may need to approve save access.)'
+                  )
+                ) {
+                  window.location.href = '/auth/google/drive-link';
+                }
+                return null;
+              }
+              throw new Error(msg);
+            }
+            return pack.j;
+          });
+        })
+      )
+        .then((j) => {
+          if (!j) return;
+          const link = j.webViewLink;
+          const name = j.name || filename;
           if (link && window.confirm(`Saved "${name}" to Google Drive (AdHello Leads folder).\n\nOpen in Drive?`)) {
             window.open(link, '_blank', 'noopener,noreferrer');
           } else {
             alert(`Saved "${name}" to your Google Drive (AdHello Leads folder).`);
           }
         })
-        .catch((e) => {
-          alert(e && e.message ? e.message : 'Could not save to Google Drive.');
+        .catch((err) => {
+          alert(err && err.message ? err.message : 'Could not save to Google Drive.');
         })
         .finally(() => {
           saveBtn.disabled = false;
