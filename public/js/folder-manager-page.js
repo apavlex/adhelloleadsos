@@ -53,7 +53,7 @@
           if (isDefault) msg += ' This is a system folder — it will not be recreated automatically.';
           if (btn.disabled || !window.confirm(msg)) return;
           btn.disabled = true;
-          btn.textContent = 'Removing…';
+          btn.textContent = 'Deleting…';
           fetch('/folders/delete', {
             method: 'POST',
             credentials: 'same-origin',
@@ -71,7 +71,7 @@
             })
             .catch(function (err) {
               btn.disabled = false;
-              btn.textContent = 'Remove';
+              btn.textContent = 'Delete';
               window.alert(err && err.message ? err.message : 'Could not delete folder.');
             });
         });

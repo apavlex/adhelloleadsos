@@ -15,7 +15,7 @@
             <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Outreach folders</span>
           </div>
           <h1 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h1>
-          <p class="text-sm text-brand-muted mt-2 max-w-xl">Folders with leads are listed first. Rename or move any custom folder under another folder or category, then open it in Pipeline.</p>
+          <p class="text-sm text-brand-muted mt-2 max-w-xl">Folders with leads are listed first. Share a folder’s leads to another workspace, rename or move custom folders, or delete ones you no longer need — then open Pipeline.</p>
         </div>
         <a href="/prospecting?tab=pipeline" class="btn-pill btn-primary px-6 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0">Open pipeline</a>
       </div>
@@ -139,11 +139,14 @@
     }
 
     function actionButtonsHtml(f, isSystemRoot) {
-      if (isSystemRoot || f.isPipelineDefault) return '';
       var html = '<div class="folder-lite-actions flex items-center gap-1 shrink-0">';
-      html += '<button type="button" class="folder-lite-rename px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="' + esc(f.key) + '">Rename</button>';
-      if (!f.isTradeFolder) {
-        html += '<button type="button" class="folder-lite-move px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="' + esc(f.key) + '">Move</button>';
+      html += '<button type="button" class="folder-lite-share js-folder-share px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors" data-folder-key="' + esc(f.key) + '" data-folder-name="' + esc(f.name || 'Folder') + '" title="Copy all leads in this folder into another workspace">Share</button>';
+      if (!isSystemRoot && !f.isPipelineDefault) {
+        html += '<button type="button" class="folder-lite-rename px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="' + esc(f.key) + '">Rename</button>';
+        if (!f.isTradeFolder) {
+          html += '<button type="button" class="folder-lite-move px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="' + esc(f.key) + '">Move</button>';
+        }
+        html += '<button type="button" class="folder-lite-delete px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-red-600/90 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" data-folder-key="' + esc(f.key) + '" title="Delete this folder (leads stay, unassigned)">Delete</button>';
       }
       html += '</div>';
       return html;
@@ -172,8 +175,10 @@
           html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(rootFolder.key) + '" class="min-w-0 flex-1">';
           html += '<span class="font-display font-bold text-brand-dark dark:text-white">' + esc(rootFolder.name || 'Folder') + '</span>';
           html += '<span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest text-brand-muted mt-0.5">…</span></a>';
-          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(rootFolder.key) + '" class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted shrink-0">Open →</a>';
-          html += '</div></li>';
+          html += '<div class="flex items-center gap-2 shrink-0">';
+          html += actionButtonsHtml(Object.assign({}, rootFolder, { isPipelineDefault: true }), true);
+          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(rootFolder.key) + '" class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted">Open →</a>';
+          html += '</div></div></li>';
         }
         childRows.forEach(function (row) {
           var f = row.folder || {};
@@ -406,6 +411,38 @@
           );
         };
       });
+      root.querySelectorAll('.folder-lite-delete').forEach(function (btn) {
+        btn.onclick = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var row = btn.closest('.folder-lite-row');
+          var key = btn.getAttribute('data-folder-key') || (row && row.getAttribute('data-folder-key')) || '';
+          var name = (row && row.getAttribute('data-folder-name')) || 'this folder';
+          if (!key || btn.disabled) return;
+          if (!window.confirm('Delete “' + name + '”? Leads stay in the workspace but leave this folder.')) return;
+          btn.disabled = true;
+          var prev = btn.textContent;
+          btn.textContent = 'Deleting…';
+          fetch('/folders/delete', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ folderKey: key })
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Could not delete folder.');
+              }
+              reloadInbox();
+            })
+            .catch(function (err) {
+              btn.disabled = false;
+              btn.textContent = prev || 'Delete';
+              window.alert((err && err.message) || 'Could not delete folder.');
+            });
+        };
+      });
     }
 
     function bindModals() {
@@ -562,6 +599,7 @@
     runHydrate();
   })();
   </script>
+  <script src="/js/lead-workspace-share.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
   <%- include('partials/footer') %>
 </body>
 </html>

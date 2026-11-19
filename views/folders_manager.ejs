@@ -44,6 +44,7 @@
     };
   })).replace(/</g, '\\u003c') %>;
   </script>
+  <script src="/js/lead-workspace-share.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
   <script src="/js/folder-manager-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script>
   <%- include('partials/footer') %>
 </body>
