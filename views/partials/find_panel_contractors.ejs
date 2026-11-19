@@ -1,0 +1,46 @@
+<div data-find-panel="contractors" class="find-type-panel space-y-6 <%= findType !== 'contractors' ? 'hidden' : '' %>">
+  <input type="hidden" name="contractorTradesSubmitted" value="1" />
+  <div>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Registries</p>
+    <div class="flex flex-wrap gap-2">
+      <label class="inline-flex items-center gap-2 rounded-full border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white cursor-pointer hover:border-brand-yellow/40">
+        <input type="checkbox" name="contractorRegistries" value="wa" class="rounded border-brand-border contractor-registry-cb" checked />
+        WA L&amp;I · 986 / 985
+      </label>
+      <label class="inline-flex items-center gap-2 rounded-full border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white cursor-pointer hover:border-brand-yellow/40">
+        <input type="checkbox" name="contractorRegistries" value="or" class="rounded border-brand-border contractor-registry-cb" checked />
+        Oregon CCB · Portland metro
+      </label>
+    </div>
+    <p class="text-xs text-brand-muted mt-2 leading-relaxed">Active Washington licenses in Clark County and southwest Washington, plus Oregon CCB licenses in Multnomah, Washington, and Clackamas counties. Public registries — no API key.</p>
+  </div>
+  <div>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Trades</p>
+    <div class="flex flex-wrap gap-2">
+      <% (contractorTrades || []).forEach(function (trade) { %>
+        <label class="inline-flex items-center gap-2 rounded-full border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white cursor-pointer hover:border-brand-yellow/40">
+          <input type="checkbox" name="contractorTrades" value="<%= trade.id %>" class="rounded border-brand-border contractor-trade-cb" checked />
+          <%= trade.folderName %>
+        </label>
+      <% }); %>
+    </div>
+    <p class="text-xs text-brand-muted mt-2 leading-relaxed">Leave folder on Auto and each trade lands in the matching trade folder (Electrical, Plumbing, Roofing, and the rest). Flooring, Cabinetry, and Tile and Masonry are created under Businesses when those licenses come in. Pick a folder below to keep the whole run in one place. The same phone number is saved once.</p>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label for="findContractorMax" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max contractors</label>
+      <input type="number" name="contractorMaxResults" id="findContractorMax" value="400" min="1" max="5000"
+        class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-sm font-bold text-brand-dark dark:text-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
+    </div>
+    <div class="flex items-end">
+      <label class="inline-flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+        <input type="checkbox" name="contractorFull" id="findContractorFull" value="on" class="mt-1 rounded border-brand-border" />
+        <span><strong class="font-bold">Full registry pass</strong> — import up to 5,000 phone-deduped contractors, spread across the selected trades.</span>
+      </label>
+    </div>
+  </div>
+  <label class="inline-flex items-start gap-2 text-sm text-brand-dark dark:text-white">
+    <input type="checkbox" name="contractorPlaces" id="findContractorPlaces" value="on" class="mt-1 rounded border-brand-border" />
+    <span><strong class="font-bold">Google Places</strong> — look up the first 25 by business name. A phone match fills website and rating. Needs <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GOOGLE_PLACES_API_KEY</code>. The license import still runs when the key is missing.</span>
+  </label>
+</div>

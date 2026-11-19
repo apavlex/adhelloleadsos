@@ -367,6 +367,99 @@ function resolveImportTitle(r) {
   );
 }
 
+const US_STATE_CODES = new Set([
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS',
+  'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY',
+  'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV',
+  'WI', 'WY', 'DC', 'PR',
+]);
+
+const DOCKET_TYPE_LABEL = {
+  MC: 'Motor carrier',
+  FF: 'Freight forwarder',
+  MX: 'Mexico carrier',
+};
+
+function isUsStateCode(value) {
+  const s = String(value || '').trim().toUpperCase();
+  return s.length === 2 && US_STATE_CODES.has(s);
+}
+
+function looksLikeZip(value) {
+  return /^\d{5}(?:-\d{4})?$/.test(String(value || '').trim());
+}
+
+function isSlashPlaceholder(value) {
+  const s = String(value || '').trim();
+  return !s || /^[/.\-\s]+$/.test(s);
+}
+
+function isFmcsaCarrierRow(r) {
+  const hasId = !!firstNonEmpty(r, ['mc_no', 'mc_number', 'dot_no', 'dot_number', 'usdot']);
+  if (!hasId) return false;
+  const type = String(r.type || '').trim().toUpperCase();
+  return !!DOCKET_TYPE_LABEL[type] || isUsStateCode(r.st);
+}
+
+function fmcsaCategory(r) {
+  const type = String(r.type || '').trim().toUpperCase();
+  return DOCKET_TYPE_LABEL[type] || 'Motor carrier';
+}
+
+function fmcsaIdentity(r) {
+  return {
+    mc: firstNonEmpty(r, ['mc_no', 'mc_number']),
+    dot: firstNonEmpty(r, ['dot_no', 'dot_number', 'usdot']),
+  };
+}
+
+function fmcsaCoverageLine(r) {
+  return [r.cover, r.ins_co, r.policy_no, r.effdate]
+    .map((value) => String(value || '').trim())
+    .filter((value) => value && !isSlashPlaceholder(value))
+    .join(' · ');
+}
+
+function fmcsaNote(r) {
+  const bits = [];
+  const add = (label, value) => {
+    const s = String(value || '').trim();
+    if (!s || isSlashPlaceholder(s)) return;
+    bits.push(`${label}: ${s}`);
+  };
+  const id = fmcsaIdentity(r);
+  add('MC', id.mc);
+  add('DOT', id.dot);
+  add('Auth', r.auth);
+  add('County', r.county);
+  add('Power units', r.power);
+  add('Drivers', r.driver);
+  add('Cargo', r.cargo);
+  add('Fleet', r.fleet_operations);
+  add('Insurer', r.ins_co);
+  add('Coverage', r.cover);
+  add('Policy', r.policy_no);
+  add('Effective', r.effdate);
+  add('Fax', r.fax_no);
+  return bits.join(' · ').slice(0, 2000);
+}
+
+function pickImportState(r) {
+  const direct = firstNonEmpty(r, [
+    'property_state',
+    'submitted_property_state',
+    'golden_state',
+    'state',
+    'region',
+    'state_abbr',
+    'state_code',
+    'province',
+  ]);
+  if (direct) return direct.length === 2 ? direct.toUpperCase() : direct;
+  const st = firstNonEmpty(r, ['st']);
+  return isUsStateCode(st) ? st.toUpperCase() : '';
+}
+
 function pickImportZip(r) {
   const candidates = [
     'property_zipcode',
@@ -376,11 +469,13 @@ function pickImportZip(r) {
     'zip',
     'postal_code',
     'postalcode',
+    'city',
   ];
   for (const key of candidates) {
     const raw = r[key];
     if (isPlaceholderValue(raw)) continue;
     const s = String(raw).trim();
+    if (key === 'city' && !looksLikeZip(s)) continue;
     const m = s.match(/\b(\d{5})(?:-\d{4})?\b/);
     if (m) return m[1];
   }
@@ -546,6 +641,7 @@ function pickListingUrl(r) {
 }
 
 function applyRealEstateListingFields(lead, r, options = {}) {
+  if (lead.mcNumber || lead.dotNumber) return lead;
   const listingUrl = pickListingUrl(r);
   const importSourceRaw = firstNonEmpty(r, [
     'source_channel',
@@ -680,7 +776,9 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
   ]);
   const sourceChannelEarly = mapImportSourceChannel(importSourceRawEarly);
 
+  const fmcsa = isFmcsaCarrierRow(r);
   const rawCategory =
+    (fmcsa ? fmcsaCategory(r) : '') ||
     firstNonEmpty(r, [
       'company_type',
       'subtypes',
@@ -719,6 +817,9 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     'owner_name',
     'owner_full_name',
     'submitted_owner_full_name',
+    'company_rep',
+    'company_representative',
+    'representative',
   ]);
   const decisionMakerTitle = firstNonEmpty(r, [
     'decision_maker_job_title',
@@ -727,6 +828,17 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     'owner_officer_title',
   ]);
   const zip = pickImportZip(r);
+  let city =
+    areaPack.city ||
+    firstNonEmpty(r, [
+      'property_city',
+      'submitted_property_city',
+      'golden_city',
+      'city',
+    ]) ||
+    '';
+  if (looksLikeZip(city)) city = '';
+  const state = areaPack.state || pickImportState(r) || '';
 
   const lat = firstNonEmpty(r, ['latitude', 'lat']);
   const lng = firstNonEmpty(r, ['longitude', 'lng', 'lon']);
@@ -752,25 +864,8 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     email,
     categoryName,
     address: address || 'N/A',
-    city:
-      areaPack.city ||
-      firstNonEmpty(r, [
-        'property_city',
-        'submitted_property_city',
-        'golden_city',
-        'city',
-      ]) ||
-      '',
-    state:
-      areaPack.state ||
-      firstNonEmpty(r, [
-        'property_state',
-        'submitted_property_state',
-        'golden_state',
-        'state',
-        'region',
-      ]) ||
-      '',
+    city,
+    state,
     zip: zip || undefined,
     totalScore: parseStarRating(r),
     reviewsCount: parseReviewCount(r),
@@ -797,6 +892,7 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     importFields,
     linkedin: linkedin || undefined,
     decisionMakerName: decisionMakerName || undefined,
+    contactName: decisionMakerName || undefined,
     decisionMakerTitle: decisionMakerTitle || undefined,
     companyEmails: firstNonEmpty(r, ['company_emails']) || undefined,
     companyDomain: companyDomain || undefined,
@@ -811,6 +907,15 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
 
   if (sourceChannel) lead.sourceChannel = sourceChannel;
 
+  if (fmcsa) {
+    const id = fmcsaIdentity(r);
+    if (id.mc) lead.mcNumber = id.mc;
+    if (id.dot) lead.dotNumber = id.dot;
+    if (r.county && !isSlashPlaceholder(r.county)) lead.county = String(r.county).trim();
+    const coverage = fmcsaCoverageLine(r);
+    if (coverage) lead.carrierCoverage = coverage;
+  }
+
   if (whyProspect) {
     lead.updates = [
       {
@@ -819,6 +924,17 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
         timestamp: new Date().toISOString(),
       },
     ];
+  } else if (fmcsa) {
+    const note = fmcsaNote(r);
+    if (note) {
+      lead.updates = [
+        {
+          type: 'import',
+          message: note,
+          timestamp: new Date().toISOString(),
+        },
+      ];
+    }
   } else {
     const skipTraceNote = firstNonEmpty(r, ['result_details_beta', 'record_status']);
     if (skipTraceNote) {
@@ -848,6 +964,35 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
  * @param {string} originalFilename
  * @returns {Array<Record<string, unknown>>}
  */
+function mergeCarrierDuplicates(leads) {
+  const out = [];
+  const byKey = new Map();
+  for (const lead of leads) {
+    const key = lead.mcNumber ? `mc:${lead.mcNumber}` : lead.dotNumber ? `dot:${lead.dotNumber}` : '';
+    if (!key) {
+      out.push(lead);
+      continue;
+    }
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, lead);
+      out.push(lead);
+      continue;
+    }
+    ['email', 'phone', 'contactName', 'decisionMakerName', 'city', 'state', 'zip', 'address'].forEach((field) => {
+      const current = prev[field];
+      const next = lead[field];
+      if ((!current || current === 'N/A') && next && next !== 'N/A') prev[field] = next;
+    });
+    const extra = String(lead.carrierCoverage || '').trim();
+    const note = prev.updates && prev.updates[0];
+    if (extra && note && note.message && !note.message.includes(extra)) {
+      note.message = `${note.message} | ${extra}`.slice(0, 2000);
+    }
+  }
+  return out;
+}
+
 function rowsToLeadRecords(rows, originalFilename, options = {}) {
   const leads = [];
   let i = 0;
@@ -856,7 +1001,7 @@ function rowsToLeadRecords(rows, originalFilename, options = {}) {
     if (lead) leads.push(lead);
     i += 1;
   }
-  return leads;
+  return mergeCarrierDuplicates(leads);
 }
 
 /**

@@ -1,5 +1,39 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — FMCSA carrier CSV import (1.0.795)
+
+### What
+- A carrier list like `TX - December cleaned.csv` imports without renaming columns.
+- `St` is the state, `Company Rep` is the contact, `MC` / `FF` / `MX` become Motor carrier / Freight forwarder / Mexico carrier.
+- Same MC number collapses to one lead and keeps both coverage lines. A ZIP sitting in the City column is not used as the city.
+
+### Key files
+- `services/csvLeadImport.js`
+
+## 2026-11-19 — Instantly export (1.0.794)
+
+### What
+- Workspace → Integrations stores `instantlyApiKey` (`INSTANTLY_API_KEY`).
+- Pipeline and search bulk bars send the selection to an Instantly campaign or lead list (`POST /api/v2/leads/add`).
+- Campaigns skip leads with no email. Lists accept a business name. Re-exports skip addresses already in a campaign or list. Verification on import stays off.
+- 1.0.796: payloads use Instantly’s template only — email, first_name, last_name, job_title, company_name, personalization, phone, website. City/state/ZIP go in `Location`. A LinkedIn URL goes in `LinkedIn`. Trade, license, and source are not sent.
+
+### Key files
+- `services/instantlyClient.js`, `services/instantlyExport.js`, `routes/instantly.js`
+- `public/js/instantly-export.js`
+
+## 2026-11-19 — Licensed contractors lead source (1.0.793)
+
+### What
+- Find Leads → Licenses imports WA L&I (active, ZIP 986/985) and Oregon CCB (Multnomah, Washington, Clackamas).
+- Tags the 11 HomeElk trades, dedupes by phone, and files each trade into the matching trade folder (Auto). An explicit folder keeps the run together.
+- Optional Google Places on the first 25 (`GOOGLE_PLACES_API_KEY`). Registries themselves need no key.
+- Same path from `search_lead_source` / `schedule_search` with source `contractors`.
+
+### Key files
+- `services/contractorRegistry.js`, `services/contractorLeadPersist.js`, `routes/contractors.js`
+- `views/partials/find_panel_contractors.ejs`
+
 ## 2026-11-18 — CANONICAL: Alex merges same names across locations (1.0.786)
 
 ### Symptom

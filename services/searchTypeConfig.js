@@ -128,6 +128,21 @@ const SEARCH_TYPES = [
       'Apify US Business Formation Scraper — filter by state, entity type, and formation date. Daily schedules use monitor mode for only-new filings.',
     requiresLocation: false,
   },
+  {
+    jobType: JOB_TYPES.CONTRACTORS,
+    findTab: 'contractors',
+    label: 'Licensed contractors',
+    shortLabel: 'Licenses',
+    description:
+      'WA L&I and Oregon CCB contractor licenses for Clark County and the Portland metro, filed into trade folders.',
+    action: '/contractors/search',
+    category: 'contractors',
+    defaultKeyword: '',
+    defaultQuery: '',
+    scraperHint:
+      'Washington L&I (ZIP 986/985, active) and Oregon CCB (Multnomah, Washington, Clackamas). Phone-deduped and tagged to trade folders. Optional Google Places enrichment.',
+    requiresLocation: false,
+  },
 ];
 
 const BY_JOB_TYPE = SEARCH_TYPES.reduce((acc, row) => {

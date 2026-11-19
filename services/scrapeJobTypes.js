@@ -13,6 +13,7 @@ const JOB_TYPES = {
   WHOLESALE: 'wholesale',
   PERMITS: 'permits',
   BUSINESS_FORMATIONS: 'business_formations',
+  CONTRACTORS: 'contractors',
 };
 
 const JOB_TYPE_LABELS = {
@@ -24,6 +25,7 @@ const JOB_TYPE_LABELS = {
   [JOB_TYPES.WHOLESALE]: 'Wholesale',
   [JOB_TYPES.PERMITS]: 'Permits',
   [JOB_TYPES.BUSINESS_FORMATIONS]: 'New formations',
+  [JOB_TYPES.CONTRACTORS]: 'Licensed contractors',
 };
 
 const LISTING_JOB_TYPES = new Set([
@@ -50,6 +52,15 @@ function normalizeJobType(value) {
     v === 'newformation'
   ) {
     return JOB_TYPES.BUSINESS_FORMATIONS;
+  }
+  if (
+    v === JOB_TYPES.CONTRACTORS ||
+    v === 'contractor' ||
+    v === 'contractor_licenses' ||
+    v === 'licensed_contractors' ||
+    v === 'homeelk'
+  ) {
+    return JOB_TYPES.CONTRACTORS;
   }
   if (
     v === JOB_TYPES.REAL_ESTATE ||
@@ -105,6 +116,12 @@ function scheduleDisplayTitle(schedule) {
     const states = String((schedule && schedule.state) || '').trim();
     return states ? `${kw} · ${states}` : kw;
   }
+  if (jobType === JOB_TYPES.CONTRACTORS) {
+    const kw = formatSearchKeywordDisplay(
+      String((schedule && schedule.keyword) || 'Licensed contractors').trim()
+    );
+    return kw;
+  }
   return formatSearchKeywordDisplay(String((schedule && schedule.keyword) || 'Search'));
 }
 
@@ -149,6 +166,16 @@ function scheduleDisplaySubtitle(schedule) {
       parts.push(schedule.entityTypes.join(', '));
     }
     parts.push(`up to ${(schedule && schedule.maxResults) || 50} formations`);
+    return parts.join(' · ');
+  }
+
+  if (jobType === JOB_TYPES.CONTRACTORS) {
+    const parts = [];
+    if (Array.isArray(schedule && schedule.registries) && schedule.registries.length) {
+      parts.push(schedule.registries.map((r) => String(r).toUpperCase()).join(' + '));
+    }
+    if (schedule && schedule.enrichPlaces) parts.push('Google Places');
+    parts.push(`up to ${(schedule && schedule.maxResults) || 400} licenses`);
     return parts.join(' · ');
   }
 

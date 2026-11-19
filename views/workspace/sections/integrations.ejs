@@ -499,7 +499,7 @@
 
     <div id="integration-crm" class="scroll-mt-28" data-int-group>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">CRM</p>
-      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Sync leads, opportunities and pipeline stages with Go High Level. GHL email and texting also go out through this connection.</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Sync leads, opportunities and pipeline stages with Go High Level. GHL email and texting also go out through this connection. Instantly sends the same leads into a cold-email campaign or list.</p>
       <div class="space-y-4">
         <section id="ghl-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
           <%- include('../../partials/ghl_connection_banner', { ghlStatus: typeof ghlStatus !== 'undefined' ? ghlStatus : {} }) %>
@@ -627,6 +627,29 @@
               <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1" aria-live="polite"></p>
             </div>
           </div>
+        </section>
+
+        <section id="instantly-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Instantly</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">
+              Send selected leads straight into an Instantly campaign or lead list from the pipeline bulk bar.
+              Create a <strong>v2 API key</strong> in Instantly that can read campaigns and lists and create leads
+              (<code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">campaigns:read</code>,
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">leads:create</code>,
+              or <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">all:all</code>).
+              Each lead uses Instantly’s template fields: email, first name, last name, job title, company name, personalization, phone, and website. City, state, and ZIP go in Location. A LinkedIn URL goes in LinkedIn.
+              Campaigns only receive leads that have an email. Lists can take a business name when there is no email.
+              Re-exports skip addresses already in a campaign or list. Email verification stays off so this does not spend Instantly credits.
+            </p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.instantlyApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.instantlyApiKey %></p><% } %>
+            <input type="password" name="instantlyApiKey" autocomplete="off" placeholder="Instantly API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.instantlyApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="instantlyApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'instantly' }) %>
         </section>
       </div>
     </div>

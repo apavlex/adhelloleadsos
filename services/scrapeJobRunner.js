@@ -7,6 +7,12 @@ const directoryLeadSearch = require('./directoryLeadSearch');
 const realEstateSearch = require('./realEstateSearch');
 const listingSearch = require('./listingSearch');
 const businessFormationSearch = require('./businessFormationSearch');
+const {
+  collectContractorRecords,
+  placesKeyFromEnv,
+  recordToLead,
+  parseContractorSearchInput,
+} = require('./contractorRegistry');
 const { formationsToLeads } = require('./businessFormationLeadEnrich');
 const { parseFlipFilter, scoreAndFilterListings } = require('./listingFlipScore');
 const enricher = require('./enricher');
@@ -210,8 +216,26 @@ async function runFormationJob(schedule, integrationEnv) {
  * @param {Record<string,string>} integrationEnv
  * @param {{ directorySupplement?: boolean }} [options]
  */
+async function runContractorJob(schedule, integrationEnv) {
+  const parsed = parseContractorSearchInput({
+    registries: schedule.registries,
+    trades: schedule.trades,
+    maxResults: schedule.maxResults,
+    enrichPlaces: schedule.enrichPlaces,
+    splitByTrade: schedule.splitByTrade,
+  });
+  if (!parsed.ok) throw new Error(parsed.error);
+  const collected = await collectContractorRecords(parsed.params, {
+    placesKey: placesKeyFromEnv(integrationEnv),
+  });
+  return collected.records;
+}
+
 async function executeScrapeJob(schedule, integrationEnv, options = {}) {
   const jobType = normalizeJobType(schedule.jobType);
+  if (jobType === JOB_TYPES.CONTRACTORS) {
+    return runContractorJob(schedule, integrationEnv);
+  }
   if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
     return runFormationJob(schedule, integrationEnv);
   }
@@ -276,6 +300,20 @@ function buildSearchRecord(schedule, results, timestampIso) {
     return record;
   }
 
+  if (jobType === JOB_TYPES.CONTRACTORS) {
+    const rows = results || [];
+    return {
+      ...base,
+      keyword: schedule.keyword || 'Licensed contractors',
+      registries: schedule.registries || [],
+      trades: schedule.trades || [],
+      enrichPlaces: !!schedule.enrichPlaces,
+      splitByTrade: schedule.splitByTrade !== false,
+      resultCount: rows.length,
+      results: rows.slice(0, 200).map((row) => recordToLead(row)),
+    };
+  }
+
   if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
     const stateCodes = Array.isArray(schedule.stateCodes) ? schedule.stateCodes : [];
     const keyword = businessFormationSearch.scheduleKeywordLabel({
@@ -308,6 +346,7 @@ function formationToLeadRecord(row) {
 
 function isJobConfigured(schedule, integrationEnv) {
   const jobType = normalizeJobType(schedule.jobType);
+  if (jobType === JOB_TYPES.CONTRACTORS) return true;
   if (jobType === JOB_TYPES.BUSINESS_FORMATIONS) {
     return businessFormationSearch.isConfigured(integrationEnv);
   }

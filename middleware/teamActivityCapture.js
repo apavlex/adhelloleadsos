@@ -7,6 +7,7 @@ const teamActivity = require('../services/teamActivity');
 const SEARCH_ROUTES = [
   { path: '/permits/search', action: 'permit_search', label: 'Permit search' },
   { path: '/formations/search', action: 'formation_search', label: 'Business formation search' },
+  { path: '/contractors/search', action: 'contractor_search', label: 'Contractor license search' },
   { path: '/real-estate/search', action: 'real_estate_search', label: 'Real estate search' },
   { path: '/listings/search', action: 'listing_search', label: 'Listing search' },
   { path: '/mobile-homes/search', action: 'mobile_home_search', label: 'Mobile home search' },
@@ -23,7 +24,7 @@ function firstText(...values) {
 function searchSummary(route, body) {
   const what = firstText(body.keyword, body.permitKeyword, body.category, body.query, body.propertyType);
   const where = firstText(
-    [firstText(body.city, body.permitCity, body.location), firstText(body.state, body.stateCodes)].filter(Boolean),
+    [firstText(body.city, body.permitCity, body.location), firstText(body.state, body.stateCodes, body.contractorRegistries)].filter(Boolean),
     body.zip,
   );
   let summary = route.label;

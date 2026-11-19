@@ -18,6 +18,7 @@ const dataForSeoClient = require('./dataForSeoClient');
 const { chatCompletion } = require('./llmClient');
 const { FIELD_TO_ENV, INTEGRATION_FIELDS } = require('./workspaceIntegrations');
 const ghlClient = require('./ghlClient');
+const instantlyClient = require('./instantlyClient');
 const lobClient = require('./lobClient');
 const commsClient = require('./commsClient');
 const saperlyClient = require('./saperlyClient');
@@ -67,6 +68,7 @@ const PROVIDERS = {
   pagespeed: { label: 'PageSpeed Insights', fields: ['pagespeedApiKey'] },
   dataforseo: { label: 'DataForSEO', fields: ['dataforseoLogin', 'dataforseoApiPassword'] },
   ghl: { label: 'Go High Level', fields: ['ghlApiKey', 'ghlLocationId'] },
+  instantly: { label: 'Instantly', fields: ['instantlyApiKey'] },
   lob: {
     label: 'Lob Direct Mail',
     fields: ['lobApiKey', 'lobFromAddressLine1', 'lobFromCity', 'lobFromState', 'lobFromZip'],
@@ -433,6 +435,15 @@ async function testOpenRouter(integrationEnv) {
   return { message: `Connected${modelHint}` };
 }
 
+async function testInstantly(integrationEnv) {
+  if (!instantlyClient.isConfigured(integrationEnv)) {
+    throw new Error('Missing INSTANTLY_API_KEY — paste your v2 API key above or save first.');
+  }
+  const campaigns = await instantlyClient.listCampaigns(integrationEnv, { pageLimit: 1, limit: 10 });
+  const n = campaigns.length;
+  return { message: `Connected · ${n} campaign${n === 1 ? '' : 's'} visible` };
+}
+
 const RUNNERS = {
   rapidapi: () => testRapidapi,
   rapidapiwebsite: () => testRapidapiWebsite,
@@ -449,6 +460,7 @@ const RUNNERS = {
   pagespeed: () => testPageSpeed,
   dataforseo: () => testDataForSeo,
   ghl: () => testGhl,
+  instantly: () => testInstantly,
   lob: () => testLob,
   comms: () => testComms,
   saperly: () => testSaperly,
