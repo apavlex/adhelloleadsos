@@ -16,6 +16,7 @@
 - Workspace → Integrations stores `instantlyApiKey` (`INSTANTLY_API_KEY`).
 - Pipeline and search bulk bars send the selection to an Instantly campaign or lead list (`POST /api/v2/leads/add`).
 - Campaigns skip leads with no email. Lists accept a business name. Re-exports skip addresses already in a campaign or list. Verification on import stays off.
+- 1.0.796: payloads use Instantly’s template only — email, first_name, last_name, job_title, company_name, personalization, phone, website. City/state/ZIP go in `Location`. A LinkedIn URL goes in `LinkedIn`. Trade, license, and source are not sent.
 
 ### Key files
 - `services/instantlyClient.js`, `services/instantlyExport.js`, `routes/instantly.js`

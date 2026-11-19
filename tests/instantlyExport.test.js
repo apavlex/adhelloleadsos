@@ -17,32 +17,53 @@ function mockFetch(handler) {
   };
 }
 
-test('campaign rows require an email and keep trade details', () => {
+test('campaign rows match Instantly’s lead template', () => {
   const withEmail = instantlyExport.rowsForLead(
     {
       key: 'lead:1',
       title: 'Spark Electric',
       email: 'ada@spark.example',
       contactName: 'Ada Lovelace',
+      decisionMakerTitle: 'Owner',
+      personalization: 'Saw the new shop on Main.',
       phone: '360-555-0100',
       city: 'Vancouver',
       state: 'WA',
+      zip: '98662',
       categoryName: 'Electricians',
       contractorLicenseNumber: 'SPARK123',
       website: 'spark.example',
+      linkedin: 'linkedin.com/in/ada',
+      icebreaker: 'ignored when personalization is set',
     },
     { requireEmail: true },
   );
   assert.equal(withEmail.payloads.length, 1);
   assert.deepEqual(withEmail.skipped, []);
   const row = withEmail.payloads[0].payload;
+  assert.deepEqual(Object.keys(row).sort(), [
+    'company_name',
+    'custom_variables',
+    'email',
+    'first_name',
+    'job_title',
+    'last_name',
+    'personalization',
+    'phone',
+    'website',
+  ]);
   assert.equal(row.email, 'ada@spark.example');
   assert.equal(row.first_name, 'Ada');
   assert.equal(row.last_name, 'Lovelace');
   assert.equal(row.company_name, 'Spark Electric');
+  assert.equal(row.job_title, 'Owner');
+  assert.equal(row.personalization, 'Saw the new shop on Main.');
+  assert.equal(row.phone, '+13605550100');
   assert.equal(row.website, 'https://spark.example');
-  assert.equal(row.custom_variables.trade, 'Electricians');
-  assert.equal(row.custom_variables.license, 'SPARK123');
+  assert.deepEqual(row.custom_variables, {
+    Location: 'Vancouver, WA 98662',
+    LinkedIn: 'https://linkedin.com/in/ada',
+  });
 
   const noEmail = instantlyExport.rowsForLead(
     { key: 'lead:2', title: 'Quiet Handy', contactName: 'Sam Quiet' },

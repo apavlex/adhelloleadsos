@@ -1,6 +1,9 @@
 /**
- * Map workspace leads onto Instantly bulk-add payloads and send them in chunks of 1000.
- * Campaigns require an email. Lists accept an email or a person/company name.
+ * Map workspace leads onto Instantly's lead template and send them in chunks of 1000.
+ * Template fields: email, first_name, last_name, job_title, company_name,
+ * personalization, phone, website. Location and LinkedIn are the two predefined
+ * variables the API stores as custom variables. Campaigns require an email.
+ * Lists accept an email or a person name.
  */
 
 const instantlyClient = require('./instantlyClient');
@@ -47,23 +50,56 @@ function websiteOf(lead) {
   return `https://${raw}`;
 }
 
-function phoneOf(lead, contact) {
-  return clean((contact && contact.phone) || (lead && lead.phone) || '', 40);
+function instantlyPhone(raw) {
+  const cleaned = clean(raw, 40);
+  if (!cleaned) return '';
+  const digits = cleaned.replace(/\D/g, '');
+  if (cleaned.startsWith('+')) return digits ? `+${digits}` : '';
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+  return cleaned;
 }
 
-function customVariables(lead, phone) {
+function phoneOf(lead, contact) {
+  return instantlyPhone((contact && contact.phone) || (lead && lead.phone) || '');
+}
+
+function locationOf(lead) {
+  const city = clean(lead && lead.city, 80);
+  const state = clean(lead && lead.state, 40);
+  const zip = clean((lead && (lead.zip || lead.postalCode)) || '', 20);
+  const place = [city, state].filter(Boolean).join(', ');
+  return [place, zip].filter(Boolean).join(' ');
+}
+
+function linkedinOf(lead, contact) {
+  const raw = clean((contact && (contact.linkedin || contact.linkedinUrl)) || (lead && lead.linkedin), 240);
+  if (!raw || !/linkedin\.com/i.test(raw)) return '';
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+}
+
+function jobTitleOf(lead, contact) {
+  const role = clean(
+    (contact && (contact.jobTitle || contact.title || contact.role)) ||
+      (lead && (lead.decisionMakerTitle || lead.contactTitle || lead.jobTitle)) ||
+      '',
+    80,
+  );
+  if (!role || /^(email|owner email|contact)$/i.test(role)) return '';
+  return role;
+}
+
+function personalizationOf(lead) {
+  return clean((lead && (lead.personalization || lead.icebreaker)) || '', 500);
+}
+
+/** Only Instantly's predefined variables. Extra keys would be added to the campaign. */
+function templateVariables(lead, contact) {
   const vars = {};
-  const put = (key, value) => {
-    const s = clean(value, 200);
-    if (s) vars[key] = s;
-  };
-  put('phone', phone);
-  put('city', lead && lead.city);
-  put('state', lead && lead.state);
-  put('zip', lead && (lead.zip || lead.postalCode));
-  put('trade', lead && (lead.categoryName || lead.keyword));
-  put('license', lead && lead.contractorLicenseNumber);
-  put('source', lead && (lead.source || lead.sourceType));
+  const location = locationOf(lead);
+  const linkedin = linkedinOf(lead, contact);
+  if (location) vars.Location = location;
+  if (linkedin) vars.LinkedIn = linkedin;
   return Object.keys(vars).length ? vars : undefined;
 }
 
@@ -93,15 +129,15 @@ function payloadFrom(lead, { email, contact, requireEmail }) {
   const phone = phoneOf(lead, contact);
   const row = {
     email: email || null,
-    first_name: name.first_name || (!email && company ? company : '') || null,
+    first_name: name.first_name || (!email && !name.last_name && company ? company : '') || null,
     last_name: name.last_name || null,
     company_name: company || null,
+    job_title: jobTitleOf(lead, contact) || null,
+    personalization: personalizationOf(lead) || null,
     phone: phone || null,
     website: websiteOf(lead) || null,
-    custom_variables: customVariables(lead, phone),
+    custom_variables: templateVariables(lead, contact),
   };
-  const role = clean(contact && (contact.role || contact.title), 80);
-  if (role && !/^email$/i.test(role)) row.job_title = role;
   Object.keys(row).forEach((key) => {
     if (row[key] == null || row[key] === '') delete row[key];
   });
