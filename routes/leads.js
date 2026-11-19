@@ -639,6 +639,7 @@ router.post('/share-to-workspace', express.json({ limit: '256kb' }), async (req,
       leadKeys: body.leadKeys || body.keys,
       targetIds: body.targetIds || body.workspaceIds,
       folderKey: body.folderKey,
+      sourceFolderKey: body.sourceFolderKey || body.fromFolderKey,
     });
     if (!result.ok) return res.status(400).json({ success: false, error: result.error });
     res.json({ success: true, leadCount: result.leadCount, results: result.results });

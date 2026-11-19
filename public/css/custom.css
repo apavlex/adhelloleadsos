@@ -2195,6 +2195,13 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   letter-spacing: 0.1em;
 }
 
+/* Share / Delete stay readable — do not shrink away next to Call/SMS/Email. */
+#bulkActionBar .bulk-bar-primary-fixed {
+  flex: 0 0 auto;
+  min-width: 4.5rem;
+  width: auto;
+}
+
 #bulkActionBar .bulk-bar-btn--ghl.is-busy,
 #bulkActionBar .bulk-bar-btn--ghl[aria-busy='true'],
 #bulkActionBar .bulk-bar-btn--subaccount.is-busy,

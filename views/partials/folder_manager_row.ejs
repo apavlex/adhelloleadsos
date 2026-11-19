@@ -54,6 +54,7 @@
     </div>
     <div class="folder-row-more flex flex-col items-stretch sm:items-end gap-1.5">
     <div class="flex flex-wrap items-center justify-end gap-1.5" role="group" aria-label="Primary folder actions">
+      <button type="button" class="folder-share js-folder-share px-3 py-2 rounded-xl bg-sky-600/10 dark:bg-sky-950/40 border border-sky-500/35 text-[10px] font-black uppercase tracking-widest text-sky-800 dark:text-sky-200 hover:border-sky-500/55 transition-colors" data-folder-key="<%= _f.key %>" data-folder-name="<%= _f.name.replace(/"/g, '&quot;') %>" title="Copy all leads in this folder into another workspace">Share</button>
       <button type="button" class="folder-outreach-setup px-3 py-2 rounded-xl bg-emerald-600/10 dark:bg-emerald-950/40 border border-emerald-600/30 text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 hover:border-emerald-500/50 transition-colors" data-folder-key="<%= _f.key %>" title="Folder outreach settings — enrolls leads into your GHL auto-outreach workflow">Outreach</button>
       <button type="button" class="folder-run-search px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm" data-folder-key="<%= _f.key %>" title="Replay this folder’s saved search and merge new leads">Run search</button>
       <% if (_fc > 1) { %>
@@ -74,7 +75,7 @@
       <% if (!_f.isPipelineDefault) { %>
       <button type="button" class="folder-rename px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="<%= _f.key %>">Rename</button>
       <% } %>
-      <button type="button" class="folder-delete px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-red-600/80 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" data-folder-key="<%= _f.key %>">Remove</button>
+      <button type="button" class="folder-delete px-2 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest text-red-600/80 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" data-folder-key="<%= _f.key %>">Delete</button>
     </div>
     </div>
   </div>

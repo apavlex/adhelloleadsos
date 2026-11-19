@@ -1,12 +1,20 @@
 /**
- * Bulk bar: share/copy selected leads into other workspaces the user manages
+ * Bulk bar + Folders: share/copy leads into other workspaces the user manages
  * (e.g. AdHello → HomeElk).
  */
 (function () {
   'use strict';
 
   var modal = null;
-  var state = { targets: [], recent: [], targetIds: {}, leadKeys: [], busy: false };
+  var state = {
+    targets: [],
+    recent: [],
+    targetIds: {},
+    leadKeys: [],
+    sourceFolderKey: '',
+    folderName: '',
+    busy: false,
+  };
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -90,6 +98,19 @@
     return 'Share ' + plural(n, 'lead') + ' to ' + plural(t, 'workspace');
   }
 
+  function sharingSummary() {
+    if (state.sourceFolderKey && state.folderName) {
+      return (
+        'Sharing ' +
+        plural(state.leadKeys.length, 'lead') +
+        ' from “' +
+        state.folderName +
+        '”'
+      );
+    }
+    return 'Sharing ' + plural(state.leadKeys.length, 'lead');
+  }
+
   function render() {
     if (!modal) return;
     var body = modal.querySelector('[data-lws-body]');
@@ -142,8 +163,8 @@
 
     body.innerHTML =
       '<p class="text-xs text-brand-muted mb-4 leading-relaxed">Copies contact info into the other workspace. Originals stay here. Duplicates in the target merge by phone/email/name.</p>' +
-      '<p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Sharing ' +
-      esc(plural(state.leadKeys.length, 'lead')) +
+      '<p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">' +
+      esc(sharingSummary()) +
       '</p>' +
       (state.targets.length
         ? '<div class="space-y-2 mb-4">' + rows + '</div>'
@@ -188,11 +209,13 @@
     render();
     bind();
     try {
+      var body = { leadKeys: state.leadKeys, targetIds: ids };
+      if (state.sourceFolderKey) body.sourceFolderKey = state.sourceFolderKey;
       var res = await fetch('/leads/share-to-workspace', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'same-origin',
-        body: JSON.stringify({ leadKeys: state.leadKeys, targetIds: ids }),
+        body: JSON.stringify(body),
       });
       var data = await res.json().catch(function () {
         return {};
@@ -217,13 +240,83 @@
     }
   }
 
-  async function openShareModal() {
-    var keys = selectedLeadKeys();
+  async function loadTargetsIntoModal() {
+    var res = await fetch('/leads/share-targets.json', {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
+    var data = await res.json().catch(function () {
+      return {};
+    });
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not load workspaces');
+    }
+    state.targets = Array.isArray(data.targets) ? data.targets : [];
+    state.recent = Array.isArray(data.recent) ? data.recent : [];
+    render();
+    bind();
+  }
+
+  async function openShareModal(opts) {
+    opts = opts || {};
+    var folderKey = String(opts.folderKey || opts.sourceFolderKey || '').trim();
+    var keys = Array.isArray(opts.leadKeys) ? opts.leadKeys.slice() : [];
+    var folderName = String(opts.folderName || '').trim();
+
+    if (!keys.length && !folderKey) {
+      keys = selectedLeadKeys();
+    }
+
+    if (folderKey && !keys.length) {
+      open(
+        '<div class="flex items-start justify-between gap-3 mb-4"><div>' +
+          '<h2 class="font-display font-bold text-lg">Share to workspace</h2>' +
+          '<p class="text-xs text-brand-muted mt-1">Loading leads in this folder…</p>' +
+          '</div><button type="button" data-lws-close class="text-brand-muted hover:text-brand-dark dark:hover:text-white text-xl leading-none" aria-label="Close">×</button></div>' +
+          '<div data-lws-body><p class="text-sm text-brand-muted">Loading…</p></div>',
+      );
+      try {
+        var folderRes = await fetch(
+          '/folders/lead-keys.json?folderKey=' + encodeURIComponent(folderKey),
+          { headers: { Accept: 'application/json' }, credentials: 'same-origin' },
+        );
+        var folderData = await folderRes.json().catch(function () {
+          return {};
+        });
+        if (!folderRes.ok || !folderData.success) {
+          throw new Error((folderData && folderData.error) || 'Could not load folder leads');
+        }
+        keys = Array.isArray(folderData.leadKeys) ? folderData.leadKeys : [];
+        folderName = folderName || String(folderData.folderName || '').trim();
+        if (!keys.length) {
+          close();
+          toast('No leads in “' + (folderName || 'this folder') + '” to share.', 'error');
+          return;
+        }
+        if (folderData.capped) {
+          toast('Sharing the first ' + keys.length + ' leads in this folder (max per share).', 'info');
+        }
+      } catch (e) {
+        close();
+        toast(e.message || 'Could not load folder leads', 'error');
+        return;
+      }
+    }
+
     if (!keys.length) {
       toast('Select one or more saved leads first.', 'error');
       return;
     }
-    state = { targets: [], recent: [], targetIds: {}, leadKeys: keys, busy: false };
+
+    state = {
+      targets: [],
+      recent: [],
+      targetIds: {},
+      leadKeys: keys,
+      sourceFolderKey: folderKey,
+      folderName: folderName,
+      busy: false,
+    };
     open(
       '<div class="flex items-start justify-between gap-3 mb-4"><div>' +
         '<h2 class="font-display font-bold text-lg">Share to workspace</h2>' +
@@ -232,20 +325,7 @@
         '<div data-lws-body><p class="text-sm text-brand-muted">Loading workspaces…</p></div>',
     );
     try {
-      var res = await fetch('/leads/share-targets.json', {
-        headers: { Accept: 'application/json' },
-        credentials: 'same-origin',
-      });
-      var data = await res.json().catch(function () {
-        return {};
-      });
-      if (!res.ok || !data.success) {
-        throw new Error((data && data.error) || 'Could not load workspaces');
-      }
-      state.targets = Array.isArray(data.targets) ? data.targets : [];
-      state.recent = Array.isArray(data.recent) ? data.recent : [];
-      render();
-      bind();
+      await loadTargetsIntoModal();
     } catch (e) {
       close();
       toast(e.message || 'Could not load workspaces', 'error');
@@ -254,6 +334,22 @@
 
   function wire() {
     document.addEventListener('click', function (e) {
+      var folderBtn = e.target.closest('.folder-share, .folder-lite-share, .js-folder-share');
+      if (folderBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        var row = folderBtn.closest('.folder-lite-row, [data-folder-row], [data-folder-key]');
+        var folderKey =
+          folderBtn.getAttribute('data-folder-key') ||
+          (row && (row.getAttribute('data-folder-key') || row.getAttribute('data-folder-row'))) ||
+          '';
+        var folderName =
+          folderBtn.getAttribute('data-folder-name') ||
+          (row && row.getAttribute('data-folder-name')) ||
+          '';
+        void openShareModal({ folderKey: folderKey, folderName: folderName });
+        return;
+      }
       var btn = e.target.closest('#bulkShareWorkspaceBtn, .js-bulk-share-workspace');
       if (!btn) return;
       e.preventDefault();

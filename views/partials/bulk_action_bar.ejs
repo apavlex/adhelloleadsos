@@ -3,7 +3,7 @@
 <% const _bulkFolderPref = typeof activeFolderKey !== 'undefined' && activeFolderKey ? String(activeFolderKey) : (typeof targetFolderKey !== 'undefined' && targetFolderKey ? String(targetFolderKey) : ''); %>
 <div
   id="bulkActionBar"
-  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col items-stretch gap-1.5 w-[min(100vw-1rem,42rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
+  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col items-stretch gap-1.5 w-[min(100vw-1rem,48rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
   role="toolbar"
   aria-label="Bulk lead actions"
   aria-hidden="true"
@@ -55,7 +55,6 @@
         <% }); %>
       </select>
       <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled title="<%= _bulkMode === 'search' ? 'Save unsaved selected rows if needed, then move them into the selected folder' : 'Move saved leads into the selected folder only (does not add to Opportunities)' %>">To folder</button>
-      <button type="button" id="bulkShareWorkspaceBtn" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-share-workspace text-sky-300" disabled title="Copy selected leads into another workspace where you are owner, admin, or manager (e.g. AdHello → HomeElk)">Share workspace</button>
       <% if (_bulkMode === 'pipeline') { %>
       <% const _oppBoards = typeof opportunityBoards !== 'undefined' && opportunityBoards && Array.isArray(opportunityBoards.pipelines) ? opportunityBoards : null; %>
       <% const _oppActive = _oppBoards ? (_oppBoards.pipelines.find(function (pipeline) { return pipeline.id === _oppBoards.activePipelineId; }) || _oppBoards.pipelines[0]) : null; %>
@@ -95,6 +94,8 @@
       <button type="button" id="bulkEmailBtn" class="bulk-bar-btn bulk-bar-btn--email bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="AI-personalized follow-up email to selected leads">Email</button>
       <button type="button" id="bulkDirectMailBtn" class="bulk-bar-btn bulk-bar-btn--mail bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="Tag and move selected leads into the Direct Mail folder">Direct Mail</button>
       <button type="button" id="bulkAutoOutreachBtn" class="bulk-bar-btn bulk-bar-btn--accent bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="Find missing contacts via API, then tag auto-outreach and sync to GHL — your GHL workflow handles email, SMS, and RVM">Auto outreach</button>
+      <button type="button" id="bulkShareWorkspaceBtn" class="bulk-bar-btn bulk-bar-btn--ghost bulk-bar-btn--primary-lg bulk-bar-primary-split bulk-bar-primary-fixed js-bulk-share-workspace text-sky-200 border border-sky-400/40 bg-sky-500/15" disabled title="Copy selected leads into another workspace (AdHello → HomeElk, etc.)">Share</button>
+      <button type="button" id="bulkDeleteBtn" class="bulk-bar-btn bulk-bar-btn--ghost bulk-bar-btn--primary-lg bulk-bar-primary-split bulk-bar-primary-fixed text-rose-200 border border-rose-400/40 bg-rose-500/15" disabled title="Delete selected leads">Delete</button>
       <details id="bulkBarMore" class="bulk-bar-more">
         <summary class="bulk-bar-btn bulk-bar-btn--ghost bulk-bar-more__summary" title="More tools">
           More
@@ -185,9 +186,8 @@
 
     <div class="flex flex-wrap items-center justify-center gap-1.5 w-full bulk-bar-secondary-actions pt-0.5">
       <button type="button" id="cancelSelectionBtn" class="text-[10px] font-bold text-white/45 hover:text-white transition-colors uppercase tracking-wide px-1">Cancel</button>
-      <% if (_bulkMode === 'pipeline') { %>
-      <span class="text-white/20 text-[10px]" aria-hidden="true">|</span>
-      <button type="button" id="bulkDeleteBtn" class="text-[10px] font-bold uppercase tracking-wide text-rose-400/90 hover:text-rose-300 transition-colors px-1" title="Delete selected leads">Delete…</button>
+      <% if (_bulkMode !== 'pipeline') { %>
+      <button type="button" id="bulkShareWorkspaceBtn" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-share-workspace text-sky-300 shrink-0" disabled title="Copy selected leads into another workspace">Share</button>
       <% } %>
     </div>
   </div>

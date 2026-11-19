@@ -135,6 +135,22 @@ async function listShareTargets(email, sourceWid) {
 }
 
 /**
+ * Resolve lead keys for a folder share (capped at MAX_LEADS).
+ * @param {string} workspaceId
+ * @param {string} folderKey
+ * @returns {Promise<string[]>}
+ */
+async function listLeadKeysInFolder(workspaceId, folderKey) {
+  const fk = str(folderKey);
+  if (!fk) return [];
+  const leads = await dbService.listLeadsByFolderKeys(workspaceId, [fk]);
+  return [...new Set((Array.isArray(leads) ? leads : []).map((l) => normalizeLeadKey(l && l.key)).filter(Boolean))].slice(
+    0,
+    MAX_LEADS,
+  );
+}
+
+/**
  * Copy selected leads into each target workspace.
  * @param {{
  *   email: string,
@@ -142,6 +158,7 @@ async function listShareTargets(email, sourceWid) {
  *   leadKeys: string[],
  *   targetIds: string[],
  *   folderKey?: string,
+ *   sourceFolderKey?: string,
  * }} opts
  */
 async function shareLeadsToWorkspaces(opts) {
@@ -152,11 +169,18 @@ async function shareLeadsToWorkspaces(opts) {
     return { ok: false, error: 'Owner, admin, or manager permission required in this workspace.' };
   }
 
-  const keys = [...new Set((Array.isArray(opts.leadKeys) ? opts.leadKeys : []).map(normalizeLeadKey).filter(Boolean))].slice(
-    0,
-    MAX_LEADS,
-  );
-  if (!keys.length) return { ok: false, error: 'Pick at least one lead to share.' };
+  let keys = [...new Set((Array.isArray(opts.leadKeys) ? opts.leadKeys : []).map(normalizeLeadKey).filter(Boolean))];
+  const sourceFolderKey = str(opts.sourceFolderKey);
+  if (!keys.length && sourceFolderKey) {
+    keys = await listLeadKeysInFolder(sourceWid, sourceFolderKey);
+  }
+  keys = keys.slice(0, MAX_LEADS);
+  if (!keys.length) {
+    return {
+      ok: false,
+      error: sourceFolderKey ? 'No leads in that folder to share.' : 'Pick at least one lead to share.',
+    };
+  }
 
   const targets = [...new Set((Array.isArray(opts.targetIds) ? opts.targetIds : []).map(String))]
     .filter((id) => id && id !== sourceWid)
@@ -282,6 +306,7 @@ async function shareLeadsToWorkspaces(opts) {
 
 module.exports = {
   listShareTargets,
+  listLeadKeysInFolder,
   shareLeadsToWorkspaces,
   buildSharedLeadPayload,
   canShareLeads,

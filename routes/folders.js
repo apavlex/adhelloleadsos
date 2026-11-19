@@ -19,6 +19,7 @@ const {
 const { optimizeFolderGhlWorkflowPrompt } = require('../services/ghlWorkflowCoach');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const teamActivity = require('../services/teamActivity');
+const leadWorkspaceShare = require('../services/leadWorkspaceShare');
 
 async function folderLabel(workspaceId, folderKey) {
   if (!folderKey) return 'Unfiled';
@@ -53,6 +54,38 @@ router.post('/', async (req, res, next) => {
     const folder = await dbService.createFolder(wid, name, meta);
     teamActivity.record(req, { category: 'leads', action: 'folder_create', summary: `Created folder "${name}"` });
     res.json({ success: true, folder });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** GET JSON: lead keys in a folder (for Share-to-workspace from Folders). */
+router.get('/lead-keys.json', async (req, res, next) => {
+  try {
+    if (!req.canAssignWork) {
+      return res.status(403).json({
+        success: false,
+        error: 'Owner, admin, or manager permission required.',
+      });
+    }
+    const folderKey = String(req.query.folderKey || '').trim();
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const folder = await dbService.getFolder(req.workspaceId, folderKey);
+    if (!folder) {
+      return res.status(404).json({ success: false, error: 'Folder not found.' });
+    }
+    const keys = await leadWorkspaceShare.listLeadKeysInFolder(req.workspaceId, folderKey);
+    res.json({
+      success: true,
+      folderKey,
+      folderName: folder.name || 'Folder',
+      leadKeys: keys,
+      leadCount: keys.length,
+      capped: keys.length >= leadWorkspaceShare.MAX_LEADS,
+      maxLeads: leadWorkspaceShare.MAX_LEADS,
+    });
   } catch (e) {
     next(e);
   }
