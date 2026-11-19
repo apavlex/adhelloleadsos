@@ -78,6 +78,47 @@ describe('csvLeadImport parse', () => {
     assert.equal(leads[1].sponsored, false);
   });
 
+  it('imports an FMCSA carrier list without renaming columns', () => {
+    const csv = [
+      'Type,MC No.,Auth,DOT No,Name,Address,City,St,Zip,County,Phone,Fax No,Company Rep,Email,Power,Driver,Cargo,Ins Co,Cover,EffDate,Policy No',
+      'MC,1079735,C,3368666,ADEBOLA ADEDAYO JOHNSON,23110 BROAD SPRINGS COURT,77407,TX,77488,WHARTON,5126624236,,ADEBOLA JOHNSON,beejayyjohnson@gmail.com,A,1,D,PROGRESSIVE COUNTY MUTUAL,BI&PD,12/12/2023,CA01532554',
+      'MC,697761,P,1971700,EDWARD CANTU JR,1520 SOUTH EAST THIRD,AMARILLO,TX,79102,POTTER,8063738880,,EDWARD CANTU JR,,C,4,DE,ARGONAUT-MIDWEST INSURANCE COM,BI&PD,12/14/2024,MC8724917',
+      'MC,697761,P,1971700,EDWARD CANTU JR,1520 SOUTH EAST THIRD,AMARILLO,TX,79102,POTTER,8063738880,,EDWARD CANTU JR,,C,4,DE,"COLONY INSURANCE COMPANY",Cargo,12/14/2024,GAT-1000000-00',
+      'FF,12,C,99,FORWARD CO,1 MAIN,DALLAS,TX,75201,DALLAS,2145550100,,PAT FORWARD,pat@forward.example,A,1,A,ACME INS,BI&PD,1/1/2024,POL1',
+      'MC,1689147,C,4327350,ROADRUNNER MOBILE HOME TR,9 OAK,TYLER,TX,75701,SMITH,9035550100,,ALISHA CLEMMER,a@example.com,A,1,A,ACME INS,BI&PD,1/1/2024,POL2',
+    ].join('\n');
+    const { leads, rawRowCount } = parseImportFile(Buffer.from(csv, 'utf8'), 'TX - December cleaned.csv');
+    assert.equal(rawRowCount, 5);
+    assert.equal(leads.length, 4);
+    const ade = leads[0];
+    assert.equal(ade.title, 'ADEBOLA ADEDAYO JOHNSON');
+    assert.equal(ade.state, 'TX');
+    assert.equal(ade.city, '');
+    assert.equal(ade.zip, '77488');
+    assert.equal(ade.contactName, 'ADEBOLA JOHNSON');
+    assert.equal(ade.categoryName, 'Motor carrier');
+    assert.equal(ade.mcNumber, '1079735');
+    assert.equal(ade.dotNumber, '3368666');
+    assert.match(ade.updates[0].message, /WHARTON/);
+    const edward = leads[1];
+    assert.equal(edward.mcNumber, '697761');
+    assert.match(edward.updates[0].message, /BI&PD/);
+    assert.match(edward.updates[0].message, /Cargo/);
+    assert.equal(leads[2].categoryName, 'Freight forwarder');
+    assert.equal(leads[2].city, 'DALLAS');
+    assert.equal(leads[2].state, 'TX');
+    assert.equal(leads[3].categoryName, 'Motor carrier');
+    assert.equal(leads[3].jobType, undefined);
+  });
+
+  it('keeps a normal type column as the category', () => {
+    const csv = 'name,type,state\nAcme Paint,Painter,OR\n';
+    const { leads } = parseImportFile(Buffer.from(csv, 'utf8'), 'leads.csv');
+    assert.equal(leads[0].categoryName, 'Painter');
+    assert.equal(leads[0].state, 'OR');
+    assert.equal(leads[0].mcNumber, undefined);
+  });
+
   it('maps source_channel from extension bulk scrape CSV', () => {
     const csv = [
       'company_name,phone_number,source,source_channel',

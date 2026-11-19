@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — FMCSA carrier CSV import (1.0.795)
+
+### What
+- A carrier list like `TX - December cleaned.csv` imports without renaming columns.
+- `St` is the state, `Company Rep` is the contact, `MC` / `FF` / `MX` become Motor carrier / Freight forwarder / Mexico carrier.
+- Same MC number collapses to one lead and keeps both coverage lines. A ZIP sitting in the City column is not used as the city.
+
+### Key files
+- `services/csvLeadImport.js`
+
 ## 2026-11-19 — Instantly export (1.0.794)
 
 ### What
