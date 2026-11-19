@@ -51,6 +51,25 @@ describe('pavlexCrmDirect', () => {
     assert.deepEqual(matchDirectCrmQuery('merge locations').args, { match_by: 'name' });
   });
 
+  it('matches remove all / empty folders as a preview', () => {
+    const m = matchDirectCrmQuery('remove all folders');
+    assert.equal(m.tool, 'list_folders');
+    assert.equal(m.kind, 'delete_empty_preview');
+    assert.equal(matchDirectCrmQuery('delete empty folders').kind, 'delete_empty_preview');
+  });
+
+  it('matches confirm delete empty folders', () => {
+    const m = matchDirectCrmQuery('confirm delete empty folders');
+    assert.equal(m.kind, 'delete_empty_confirm');
+  });
+
+  it('matches delete one folder by name', () => {
+    const m = matchDirectCrmQuery('delete the Electrical folder');
+    assert.equal(m.tool, 'manage_folder');
+    assert.deepEqual(m.args, { action: 'delete', folder: 'Electrical' });
+    assert.equal(matchDirectCrmQuery('remove folder HVAC').args.folder, 'HVAC');
+  });
+
   it('returns null for non-direct questions', () => {
     assert.equal(matchDirectCrmQuery('What should I focus on today?'), null);
   });

@@ -3,7 +3,7 @@
  * when no tool-calling model answered. These providers get no native tools, so CRM tools
  * are offered through a text protocol and any <tool_call> blocks are executed in-process.
  */
-const { chatCompletion, openRouterProviders, legacyProviders } = require('../llmClient');
+const { chatCompletion, openRouterProviders, legacyProviders, looksLikeContextLengthError } = require('../llmClient');
 const { executeCrmTool, getOpenAiFunctionTools } = require('../mcp/mcpToolExecutor');
 const {
   stripThinking,
@@ -112,6 +112,10 @@ async function pavlexGeneralChat({ instructions, message, history = [], ctx = nu
       }
 
       const text = sanitizeAssistantText(parsed.cleaned, toolNames);
+      if (text && looksLikeContextLengthError(text)) {
+        failures.push(`${prov.name} ${prov.model || ''}: ${text}`.trim());
+        break;
+      }
       if (!text || looksLikeLeakedReasoning(text)) {
         failures.push(`${prov.name} ${prov.model || ''}: replied with reasoning instead of an answer`.trim());
         break;

@@ -96,6 +96,12 @@ function chatUnavailableMessage(detail, { toolsRan = false } = {}) {
   if (/timed out|timeout/i.test(d)) {
     return `The AI model took too long to answer. Please try again.${suffix}`;
   }
+  if (/message you submitted was too long|context.?length|maximum context|prompt is too long|input is too long/i.test(d)) {
+    return (
+      `That request was too large for the AI model to handle in one go.${suffix} ` +
+      `For folders, try a shorter command like "delete empty folders" or delete one by name — or use Delete on the Folder manager page.`
+    );
+  }
   if (/without calling CRM tools/i.test(d)) {
     return `Alex couldn't find a way to do that with its CRM tools. Try asking more specifically, or make the change on the page directly.${suffix}`;
   }

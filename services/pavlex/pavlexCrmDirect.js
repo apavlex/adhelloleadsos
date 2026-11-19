@@ -4,6 +4,9 @@
 const { executeCrmTool } = require('../mcp/mcpToolExecutor');
 const pavlexLogger = require('./pavlexLogger');
 
+const CONFIRM_DELETE_EMPTY =
+  /^(confirm(\s+delete)?(\s+empty)?(\s+folders?)?|yes[,.]?\s*(delete|remove)(\s+(all|empty))?(\s+folders?)?|delete\s+them)\s*[!.]?$/i;
+
 function formatListFolders(result) {
   const folders = (result && result.folders) || [];
   if (!folders.length) return 'You have no lead folders yet.';
@@ -93,14 +96,70 @@ function mentionsCrmAction(text) {
   return /\b(tasks?|tag(s|ged)?|ghl|gohighlevel|assign\w*|team\w*)\b/i.test(String(text || ''));
 }
 
+function formatDeleteFolder(result) {
+  if (!result || result.success === false) return null;
+  return result.message || 'Folder deleted.';
+}
+
+function emptyFoldersFromList(result) {
+  const folders = (result && result.folders) || [];
+  return folders
+    .filter((f) => f && f.key && !f.isPipelineDefault && (Number(f.leadCount) || 0) === 0)
+    .sort((a, b) => {
+      const depth = (f) => String(f.path || f.name || '').split(' / ').length;
+      return depth(b) - depth(a) || String(a.name || '').localeCompare(String(b.name || ''));
+    });
+}
+
+function previewDeleteEmptyFolders(result) {
+  const empty = emptyFoldersFromList(result);
+  if (!empty.length) {
+    return 'There are no empty folders to delete. System folders (Businesses, Permits, and the rest) stay put.';
+  }
+  const lines = empty.slice(0, 40).map((f) => `- ${f.path || f.name}`);
+  const more = empty.length > 40 ? `\n…and ${empty.length - 40} more` : '';
+  return (
+    `I can delete ${empty.length} empty folder${empty.length === 1 ? '' : 's'} (leads stay unfiled; system folders stay):\n` +
+    `${lines.join('\n')}${more}\n\n` +
+    `Reply **confirm delete empty folders** to proceed.`
+  );
+}
+
 /**
  * Map natural-language CRM questions to tool calls.
- * @returns {{ tool: string, args: object, formatter: Function } | null}
+ * @returns {{ tool: string, args: object, formatter: Function, kind?: string } | null}
  */
 function matchDirectCrmQuery(message) {
   const raw = String(message || '').trim();
   if (!raw) return null;
   const q = raw.toLowerCase();
+
+  if (CONFIRM_DELETE_EMPTY.test(raw)) {
+    return { tool: 'list_folders', args: {}, formatter: previewDeleteEmptyFolders, kind: 'delete_empty_confirm' };
+  }
+
+  if (
+    /^(remove|delete|clear)\s+(all\s+)?(empty\s+)?folders?\??$/i.test(raw) ||
+    /^(remove|delete|clear)\s+all\s+(the\s+)?(empty\s+)?folders?\??$/i.test(raw) ||
+    /^delete\s+empty\s+folders?\??$/i.test(raw) ||
+    /^remove\s+empty\s+folders?\??$/i.test(raw)
+  ) {
+    return { tool: 'list_folders', args: {}, formatter: previewDeleteEmptyFolders, kind: 'delete_empty_preview' };
+  }
+
+  const deleteOne =
+    raw.match(/^(?:delete|remove)\s+(?:the\s+)?(.+?)\s+folder\??$/i) ||
+    raw.match(/^(?:delete|remove)\s+folder\s+(.+?)\??$/i);
+  if (deleteOne && deleteOne[1]) {
+    const folderName = deleteOne[1].trim().replace(/^["']|["']$/g, '');
+    if (folderName && !/^(all|every|empty)$/i.test(folderName)) {
+      return {
+        tool: 'manage_folder',
+        args: { action: 'delete', folder: folderName },
+        formatter: formatDeleteFolder,
+      };
+    }
+  }
 
   if (
     /^(list|show)\s+(my\s+)?folders?\??$/i.test(raw) ||
@@ -198,6 +257,54 @@ function matchDirectCrmQuery(message) {
   return null;
 }
 
+async function deleteEmptyFoldersNow(ctx, listResult) {
+  const empty = emptyFoldersFromList(listResult);
+  if (!empty.length) {
+    return {
+      content: 'There are no empty folders to delete. System folders stay put.',
+      provider: 'crm-direct',
+      mcpEnabled: true,
+      mcpMode: 'direct_tools',
+      toolsUsed: ['list_folders'],
+    };
+  }
+  const deleted = [];
+  const failed = [];
+  const toolsUsed = ['list_folders'];
+  for (const folder of empty) {
+    // eslint-disable-next-line no-await-in-loop
+    const del = await executeCrmTool(ctx, 'manage_folder', { action: 'delete', folder: folder.key });
+    toolsUsed.push('manage_folder');
+    if (!del || del.success === false) {
+      failed.push({ name: folder.path || folder.name, error: (del && del.error) || 'failed' });
+    } else {
+      deleted.push(folder.path || folder.name);
+    }
+  }
+  const lines = deleted.slice(0, 40).map((name) => `- ${name}`);
+  const more = deleted.length > 40 ? `\n…and ${deleted.length - 40} more` : '';
+  let content =
+    deleted.length > 0
+      ? `Deleted ${deleted.length} empty folder${deleted.length === 1 ? '' : 's'}:\n${lines.join('\n')}${more}`
+      : 'No empty folders were deleted.';
+  if (failed.length) {
+    content += `\n\nCould not delete ${failed.length}: ${failed
+      .slice(0, 8)
+      .map((f) => f.name)
+      .join(', ')}.`;
+  }
+  content += '\nSystem folders were left alone. Refresh Folder manager to see the update.';
+  return {
+    content,
+    provider: 'crm-direct',
+    mcpEnabled: true,
+    mcpMode: 'direct_tools',
+    toolsUsed,
+    deletedCount: deleted.length,
+    failedCount: failed.length,
+  };
+}
+
 /**
  * Execute a matched CRM query without OpenAI.
  * @param {{ workspaceId: string, userEmail: string }} ctx
@@ -222,6 +329,20 @@ async function tryDirectCrmChat(ctx, message) {
       detail: (result && result.error) || `${match.tool} failed`,
       tool: match.tool,
     };
+  }
+
+  if (match.kind === 'delete_empty_confirm') {
+    const out = await deleteEmptyFoldersNow(ctx, result);
+    pavlexLogger.toolExecution({
+      user: ctx.userEmail,
+      question: message,
+      tool: 'manage_folder',
+      args: { action: 'delete_empty', confirm: true },
+      response: { deletedCount: out.deletedCount, failedCount: out.failedCount },
+      latencyMs: Date.now() - started,
+      mcpConnected: true,
+    });
+    return { ...out, latencyMs: Date.now() - started };
   }
 
   const reply = match.formatter(result);
@@ -253,4 +374,6 @@ module.exports = {
   looksLikeLeadGenRequest,
   matchDirectCrmQuery,
   tryDirectCrmChat,
+  emptyFoldersFromList,
+  CONFIRM_DELETE_EMPTY,
 };

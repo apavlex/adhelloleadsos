@@ -183,6 +183,10 @@ describe('provider errors', () => {
     assert.match(chatUnavailableMessage('No LLM key (OPENAI_API_KEY or OPENROUTER_API_KEY)'), /OPENROUTER_API_KEY/);
     assert.match(chatUnavailableMessage('x', { toolsRan: true }), /may already have run/);
     assert.match(chatUnavailableMessage('a: HTTP 400; General chat answered a CRM request without calling CRM tools'), /with its CRM tools/);
+    assert.match(
+      chatUnavailableMessage('The message you submitted was too long, please edit it and resubmit.'),
+      /too large|Folder manager|delete empty folders/i,
+    );
   });
 });
 

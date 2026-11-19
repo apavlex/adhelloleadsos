@@ -246,13 +246,23 @@ function extractOpenRouterApiError(data, status) {
   return status ? `OpenRouter HTTP ${status}` : 'OpenRouter request failed';
 }
 
+function looksLikeContextLengthError(text) {
+  return /message you submitted was too long|context.?length|maximum context|prompt is too long|tokens? excess|input is too long/i.test(
+    String(text || ''),
+  );
+}
+
 function extractOpenAIStyleMessageContent(data, { allowReasoningFallback = true } = {}) {
   const ch = data && data.choices && data.choices[0];
   if (!ch) return null;
   if (typeof ch.text === 'string' && ch.text.trim()) return ch.text;
   const msg = ch.message;
   if (!msg) return null;
-  if (typeof msg.refusal === 'string' && msg.refusal.trim()) return msg.refusal;
+  // Anthropic/OpenRouter sometimes put a context-limit refusal on the message — that is not a reply.
+  if (typeof msg.refusal === 'string' && msg.refusal.trim()) {
+    if (looksLikeContextLengthError(msg.refusal)) return null;
+    return msg.refusal;
+  }
   const c = msg.content;
   let text = null;
   if (typeof c === 'string') text = c;
@@ -410,6 +420,22 @@ async function runOpenAICompatible(prov, url, body, integrationEnv, timeoutMs, {
       error: true,
       httpStatus: res.status,
       errorMessage,
+    };
+  }
+  const refusal =
+    data &&
+    data.choices &&
+    data.choices[0] &&
+    data.choices[0].message &&
+    typeof data.choices[0].message.refusal === 'string'
+      ? data.choices[0].message.refusal.trim()
+      : '';
+  if (refusal && looksLikeContextLengthError(refusal)) {
+    return {
+      content: null,
+      provider: normalizeProviderName(prov.name),
+      error: true,
+      errorMessage: refusal,
     };
   }
   const content = extractOpenAIStyleMessageContent(data, { allowReasoningFallback });
@@ -602,6 +628,7 @@ module.exports = {
   legacyProviders,
   parseLlmJson,
   extractOpenRouterApiError,
+  looksLikeContextLengthError,
   resolveOpenRouterEnv,
   isOpenRouterConfigured,
   describeOpenRouterModelStack,
