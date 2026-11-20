@@ -1409,6 +1409,7 @@ document.addEventListener('DOMContentLoaded', () => {
       'domain',
       'city',
       'state',
+      'ccblicense',
       'listingsource',
     ].includes(key);
 
@@ -1433,6 +1434,7 @@ document.addEventListener('DOMContentLoaded', () => {
       listingBaths: 'listingbaths',
       city: 'city',
       state: 'state',
+      ccbLicense: 'ccblicense',
       listingSource: 'listingsource',
       lastTouch: 'lasttouch',
       engagementSignal: 'engagement',
@@ -1648,6 +1650,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         case 'state': {
           c = cmpStr((a.state || '').trim(), (b.state || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'ccblicense': {
+          c = cmpStr((a.ccbLicense || '').trim(), (b.ccbLicense || '').trim());
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
         }
@@ -2100,6 +2107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'listingBaths', label: 'Baths', defaultHidden: true },
         { id: 'city', label: 'City', defaultHidden: true },
         { id: 'state', label: 'State', defaultHidden: true },
+        { id: 'ccbLicense', label: 'CCB / License', defaultHidden: true },
         { id: 'listingSource', label: 'Source', defaultHidden: true },
         { id: 'findContact', label: 'Find a contact' },
         { id: 'category', label: 'Category' },
@@ -2173,6 +2181,7 @@ document.addEventListener('DOMContentLoaded', () => {
         permitStatusDate: 88,
         permitContractor: 112,
         permitOwner: 112,
+        ccbLicense: 96,
       };
 
       function migrateContactColumnVis(map) {

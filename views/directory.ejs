@@ -189,6 +189,16 @@
       </div>
       <div class="grid grid-cols-2 gap-3">
         <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">License label</span>
+          <input type="text" name="licenseLabel" placeholder="CCB / WA L&amp;I" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">CCB / License #</span>
+          <input type="text" name="licenseNumber" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Rating</span>
           <input type="number" name="rating" min="0" max="5" step="0.1" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
         </label>
@@ -302,7 +312,7 @@
     function fillEditForm(row) {
       if (!editForm || !row) return;
       editForm.querySelector('[name="id"]').value = row.id || '';
-      ['name', 'slug', 'category', 'city', 'state', 'address', 'phone', 'website', 'description', 'blurb', 'reviewSummary', 'imageUrl'].forEach(function (name) {
+      ['name', 'slug', 'category', 'city', 'state', 'address', 'phone', 'website', 'licenseLabel', 'licenseNumber', 'description', 'blurb', 'reviewSummary', 'imageUrl'].forEach(function (name) {
         var input = editForm.querySelector('[name="' + name + '"]');
         if (input) input.value = row[name] != null ? String(row[name]) : '';
       });
@@ -431,6 +441,9 @@
           + '<span class="font-black uppercase tracking-widest ' + pubClass + '">' + (row.published ? 'Published' : 'Draft') + '</span>'
           + ' · /' + esc(row.slug || '')
           + (row.category ? ' · ' + esc(row.category) : '')
+          + (row.licenseNumber
+            ? ' · ' + esc((row.licenseLabel || 'License') + ' ' + row.licenseNumber)
+            : '')
           + '</p>'
           + (contactBits.length
             ? ('<p class="text-[11px] text-brand-dark/80 dark:text-slate-300 mt-1.5 leading-relaxed break-words">' +

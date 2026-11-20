@@ -184,6 +184,18 @@ function leadPublicFields(lead) {
     (description ? description.slice(0, 220) : '') ||
     (reviewSummary ? reviewSummary.slice(0, 220) : '') ||
     (reviewSnippets[0] ? reviewSnippets[0].slice(0, 220) : '');
+  const licenseNumber = clean(
+    l.contractorLicenseNumber || l.licenseNumber || l.ccbLicense || l.license_number || '',
+    80,
+  );
+  const registry = String(l.contractorRegistry || '').trim().toUpperCase();
+  const licenseLabel = licenseNumber
+    ? registry.indexOf('OR') === 0 || registry.indexOf('CCB') !== -1
+      ? 'CCB'
+      : registry.indexOf('WA') === 0
+        ? 'WA L&I'
+        : 'License'
+    : '';
   return {
     name: title,
     category,
@@ -200,6 +212,8 @@ function leadPublicFields(lead) {
     reviewSnippets,
     reviewSummary,
     reviewSentiment,
+    licenseNumber,
+    licenseLabel,
   };
 }
 
@@ -244,6 +258,8 @@ function normalizeListing(raw, fallbackId) {
     reviewSnippets,
     reviewSummary: toPublicReviewSummary(row.reviewSummary || '', 800),
     reviewSentiment,
+    licenseNumber: clean(row.licenseNumber, 80),
+    licenseLabel: clean(row.licenseLabel, 40),
     published: row.published === true,
     createdAt: row.createdAt || new Date().toISOString(),
     publishedAt: row.publishedAt || (row.published === true ? new Date().toISOString() : null),
@@ -389,6 +405,8 @@ function lightListing(raw, fallbackId) {
     // Strip sales-coaching leftovers without the heavier snippet hunt-label parse.
     reviewSummary: toPublicReviewSummary(row.reviewSummary || '', 800),
     reviewSentiment: clean(row.reviewSentiment, 40),
+    licenseNumber: clean(row.licenseNumber, 80),
+    licenseLabel: clean(row.licenseLabel, 40),
     published: row.published === true,
     createdAt: row.createdAt || null,
     publishedAt: row.publishedAt || null,

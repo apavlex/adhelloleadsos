@@ -176,6 +176,9 @@ test('recordToLead keeps a phone-matched website and keys dedupe on the license'
   assert.equal(lead.website, 'https://spark.example');
   assert.equal(lead.categoryName, 'Electricians');
   assert.equal(lead.jobType, JOB_TYPES.CONTRACTORS);
+  assert.equal(lead.contractorLicenseNumber, 'SPARK123');
+  assert.equal(lead.contractorRegistry, 'WA_L&I');
+  assert.equal(lead.city, 'Vancouver');
   assert.equal(computeDedupeKey(lead), 'contractor:wa:spark123');
 
   const nameOnly = recordToLead({

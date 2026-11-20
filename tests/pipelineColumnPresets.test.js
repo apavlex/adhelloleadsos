@@ -45,6 +45,13 @@ describe('pipelineColumnPresets', () => {
     assert.equal(normalizePipelineColumnPreset('fmcsa'), PRESET_IDS.CARRIERS);
   });
 
+  it('contractors preset shows city + CCB / license column', () => {
+    const vis = visibilityForPreset(PRESET_IDS.CONTRACTORS);
+    assert.equal(vis.ccbLicense, true);
+    assert.equal(vis.city, true);
+    assert.equal(vis.state, true);
+  });
+
   it('buildEffectivePipelineTablePrefs merges user overrides onto workspace defaults', () => {
     const ws = { name: 'Truckers Ins.', prospecting: {} };
     const effective = buildEffectivePipelineTablePrefs(ws, {
