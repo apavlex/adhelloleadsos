@@ -488,7 +488,7 @@
                   </div>
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 overflow-hidden flex-wrap sm:flex-nowrap">
-                      <span class="company-title-text font-bold text-brand-dark dark:text-white group-hover/row:text-brand-dark dark:group-hover/row:text-brand-yellow transition-colors text-sm truncate shrink-0 max-w-[10rem] sm:max-w-[14rem]" title="<%= lead.title %>"><%= lead.title %></span>
+                      <button type="button" class="company-title-text js-money-mode-title font-bold text-brand-dark dark:text-white group-hover/row:text-brand-dark dark:group-hover/row:text-brand-yellow transition-colors text-sm truncate shrink-0 max-w-[10rem] sm:max-w-[14rem] text-left bg-transparent border-0 p-0 cursor-pointer hover:underline underline-offset-2" title="Open Money Mode for <%= plcEscAttr(lead.title) %>" aria-label="Open Money Mode for <%= plcEscAttr(lead.title) %>"><%= lead.title %></button>
                       <% 
                         var _touchPillText = 'Cold';
                         var _touchPillVariant = 'cold';

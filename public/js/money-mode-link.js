@@ -1,6 +1,7 @@
 /**
- * Opening a lead anywhere goes to Money Mode. Builds the /focus URL with an
- * optional queue (the list the lead was opened from) and a way back.
+ * Builds the Money Mode (/focus) URL with an optional queue (the list the lead
+ * was opened from) and a way back. Pipeline: only the company title uses this;
+ * the » details button opens the right-hand lead panel instead.
  */
 (function (global) {
   /* Long queues are capped so the /focus URL stays under proxy header limits. */

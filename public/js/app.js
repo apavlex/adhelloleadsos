@@ -6947,36 +6947,11 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch((err) => console.error('Failed to fetch saved leads:', err));
   }
 
-  /** Keys of the list a lead was opened from, starting at that lead, for the Money Mode queue. */
-  function moneyModeQueueKeys(tableRow, key) {
-    let keys = [];
-    const kanban = document.getElementById('kanbanView');
-    const card =
-      kanban && !kanban.classList.contains('hidden') && window.CSS && CSS.escape
-        ? kanban.querySelector(`[data-lead-key="${CSS.escape(key)}"]`)
-        : null;
-    const list = card && card.closest('.kanban-list');
-    if (list) {
-      keys = Array.from(list.querySelectorAll('[data-lead-key]')).map((el) => el.getAttribute('data-lead-key'));
-    } else {
-      keys = navigableRows().map((r) => r.dataset.leadKey);
-    }
-    keys = [...new Set(keys.map((k) => String(k || '').trim()).filter(Boolean))];
-    const start = keys.indexOf(key);
-    if (start > 0) keys = keys.slice(start).concat(keys.slice(0, start));
-    if (start === -1) keys.unshift(key);
-    return keys;
-  }
-
   // --- Centralized Row Selection Logic ---
+  // Opens the right-hand lead panel. Money Mode is title-only (see pipeline-row-actions).
   const selectRow = async (row) => {
     if (!row) return;
     const tableRow = resolvePipelineTableRowForPanel(row) || row;
-    const openKey = String(tableRow.dataset.leadKey || '').trim();
-    if (openKey && typeof window.__adhelloMoneyModeLeadUrl === 'function') {
-      window.location.assign(window.__adhelloMoneyModeLeadUrl(openKey, moneyModeQueueKeys(tableRow, openKey)));
-      return;
-    }
 
     // Remove existing selection
     rows.forEach((r) => r.classList.remove('selected'));
@@ -7119,13 +7094,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function shouldIgnoreRowOpenClick(target) {
     if (!target) return true;
     if (target.closest('.bookmark-btn')) return true;
-    // Company title / cell opens the panel (compact view hides the chevron column).
+    // Company title opens Money Mode (pipeline-row-actions). » opens this panel.
     // Only skip when the user is selecting text (e.g. copying an address).
     const sel = window.getSelection && window.getSelection();
     if (sel && String(sel.toString() || '').trim()) return true;
     return !!(
       target.type === 'checkbox' ||
       target.closest('.view-detail-btn') ||
+      target.closest('.company-title-text') ||
+      target.closest('.js-money-mode-title') ||
       target.closest('.ai-analysis-btn') ||
       target.closest('.lead-category-input') ||
       target.closest('select') ||
@@ -24555,10 +24532,6 @@ document.addEventListener('DOMContentLoaded', () => {
   window.openLeadDetailFromKey = async (rawKey) => {
     const k = String(rawKey || '').replace(/^lead:/, '').trim();
     if (!k) return { ok: false };
-    if (typeof window.__adhelloMoneyModeLeadUrl === 'function') {
-      window.location.assign(window.__adhelloMoneyModeLeadUrl(k));
-      return { ok: true, moneyMode: true };
-    }
     const host = document.getElementById('leadPanelDatasetHost');
     if (!host) {
       if (typeof window.__adhelloOpenLeadDetailFromKeyLite === 'function') {
