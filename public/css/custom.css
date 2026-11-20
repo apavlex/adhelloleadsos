@@ -659,38 +659,46 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
         height: 1.125rem;
     }
 
-    /* Instant hover name — body portal + .app-body-portal (grid crush would height:0 the tip). */
+    /* Instant hover name — brand pill; 2× padding vs text; above sidebar rail. */
     #sidebarInstantHoverTip.app-body-portal,
     #sidebarInstantHoverTip {
-        position: fixed;
-        z-index: 520;
+        position: fixed !important;
+        z-index: 10050 !important;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box !important;
         height: auto !important;
-        min-height: 0;
-        width: max-content;
-        max-width: min(16rem, calc(100vw - 5rem));
-        padding: 0.4rem 0.7rem;
-        border-radius: 0.5rem;
-        background: #111827;
-        color: #fff;
+        min-height: 2.5rem;
+        width: max-content !important;
+        max-width: min(18rem, calc(100vw - 5rem));
+        /* 2× prior padding (0.4 / 0.7) — keep font-size */
+        padding: 0.8rem 1.4rem !important;
+        border-radius: 999px;
+        border: 0;
+        background: var(--workspace-accent, var(--brand-yellow, #FFD644)) !important;
+        color: var(--brand-on-accent, #111827) !important;
         font-size: 0.75rem;
-        font-weight: 700;
+        font-weight: 800;
+        letter-spacing: 0.02em;
         line-height: 1.2;
         white-space: nowrap;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
         pointer-events: none !important;
         opacity: 0;
         visibility: hidden;
         transform: translateY(-50%);
         transition: none;
+        overflow: visible;
     }
     #sidebarInstantHoverTip.is-visible {
         opacity: 1;
         visibility: visible;
     }
     html.dark #sidebarInstantHoverTip {
-        background: #0f172a;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        color: #f8fafc;
+        background: var(--workspace-accent, var(--brand-yellow, #FFD644)) !important;
+        color: var(--brand-on-accent, #111827) !important;
+        border: 0;
     }
 
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-icon-collapse {
