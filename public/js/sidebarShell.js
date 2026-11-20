@@ -28,6 +28,115 @@
     return hasContextSidebar() ? 'collapsed' : 'expanded';
   }
 
+  function ensureSidebarHoverLabels() {
+    var root = document.getElementById('appSidebar');
+    if (!root) return;
+    var nodes = root.querySelectorAll('.sidebar-nav-link, .sidebar-ws-btn, .sidebar-settings-toggle');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (el.getAttribute('data-label')) continue;
+      var span = el.querySelector(':scope > span, .sidebar-settings-label, .sidebar-ws-text > span:first-child');
+      var label = span ? String(span.textContent || '').trim() : '';
+      if (!label) label = String(el.getAttribute('aria-label') || el.getAttribute('title') || '').trim();
+      // Prefer the short menu name (before an em dash / en dash description).
+      label = label.replace(/\s+[—–-]\s+.*$/, '').trim();
+      if (label) el.setAttribute('data-label', label);
+    }
+  }
+
+  function getInstantHoverTip() {
+    var tip = document.getElementById('sidebarInstantHoverTip');
+    if (tip) return tip;
+    tip = document.createElement('div');
+    tip.id = 'sidebarInstantHoverTip';
+    tip.setAttribute('role', 'tooltip');
+    tip.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(tip);
+    return tip;
+  }
+
+  function hideInstantHoverTip() {
+    var tip = document.getElementById('sidebarInstantHoverTip');
+    if (!tip) return;
+    tip.classList.remove('is-visible');
+    tip.setAttribute('aria-hidden', 'true');
+    tip.textContent = '';
+  }
+
+  function showInstantHoverTip(el) {
+    if (!body.classList.contains('sidebar-collapsed') || !el) {
+      hideInstantHoverTip();
+      return;
+    }
+    var label = String(el.getAttribute('data-label') || '').trim();
+    if (!label) {
+      hideInstantHoverTip();
+      return;
+    }
+    var tip = getInstantHoverTip();
+    tip.textContent = label;
+    var rect = el.getBoundingClientRect();
+    tip.style.left = Math.round(rect.right + 8) + 'px';
+    tip.style.top = Math.round(rect.top + rect.height / 2) + 'px';
+    tip.classList.add('is-visible');
+    tip.setAttribute('aria-hidden', 'false');
+  }
+
+  function bindInstantHoverLabels() {
+    var root = document.getElementById('appSidebar');
+    if (!root || root.dataset.instantHoverBound === '1') return;
+    root.dataset.instantHoverBound = '1';
+    root.addEventListener('pointerenter', function (e) {
+      var t = e.target && e.target.closest
+        ? e.target.closest('.sidebar-nav-link[data-label], .sidebar-ws-btn[data-label], .sidebar-settings-toggle[data-label]')
+        : null;
+      if (!t || !root.contains(t)) return;
+      showInstantHoverTip(t);
+    }, true);
+    root.addEventListener('pointermove', function (e) {
+      var t = e.target && e.target.closest
+        ? e.target.closest('.sidebar-nav-link[data-label], .sidebar-ws-btn[data-label], .sidebar-settings-toggle[data-label]')
+        : null;
+      if (!t || !root.contains(t)) {
+        hideInstantHoverTip();
+        return;
+      }
+      showInstantHoverTip(t);
+    }, true);
+    root.addEventListener('pointerleave', function () {
+      hideInstantHoverTip();
+    }, true);
+    root.addEventListener('focusin', function (e) {
+      var t = e.target && e.target.closest
+        ? e.target.closest('.sidebar-nav-link[data-label], .sidebar-ws-btn[data-label], .sidebar-settings-toggle[data-label]')
+        : null;
+      if (!t || !root.contains(t)) return;
+      showInstantHoverTip(t);
+    }, true);
+    root.addEventListener('focusout', function () {
+      hideInstantHoverTip();
+    }, true);
+  }
+
+  function syncNativeTitlesForCollapsed(collapsed) {
+    var root = document.getElementById('appSidebar');
+    if (!root) return;
+    var nodes = root.querySelectorAll('[data-label]');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (collapsed) {
+        if (el.hasAttribute('title') && !el.hasAttribute('data-title-native')) {
+          el.setAttribute('data-title-native', el.getAttribute('title') || '');
+        }
+        el.removeAttribute('title');
+      } else if (el.hasAttribute('data-title-native')) {
+        el.setAttribute('title', el.getAttribute('data-title-native') || '');
+        el.removeAttribute('data-title-native');
+      }
+    }
+    if (!collapsed) hideInstantHoverTip();
+  }
+
   function applyState(state) {
     body.classList.remove('sidebar-collapsed', 'sidebar-hidden');
     if (state === 'collapsed') body.classList.add('sidebar-collapsed');
@@ -35,6 +144,9 @@
     try {
       localStorage.setItem(STORAGE_KEY, state);
     } catch (e) {}
+    ensureSidebarHoverLabels();
+    bindInstantHoverLabels();
+    syncNativeTitlesForCollapsed(state === 'collapsed');
     syncToggleButtons(state);
   }
 
