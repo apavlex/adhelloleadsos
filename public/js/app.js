@@ -10624,6 +10624,7 @@ document.addEventListener('DOMContentLoaded', () => {
       address || row.dataset.address,
       row.dataset.city,
       row.dataset.state,
+      row.dataset.zip,
     );
     if (href) return href;
     try {
@@ -10635,6 +10636,7 @@ document.addEventListener('DOMContentLoaded', () => {
           snap.address || address || row.dataset.address,
           snap.city || row.dataset.city,
           snap.state || row.dataset.state,
+          snap.zip || snap.postalCode || row.dataset.zip,
         );
         if (href) return href;
       }
@@ -10649,6 +10651,7 @@ document.addEventListener('DOMContentLoaded', () => {
         embedded.address || address || row.dataset.address,
         embedded.city || row.dataset.city,
         embedded.state || row.dataset.state,
+        embedded.zip || embedded.postalCode || row.dataset.zip,
       );
       if (href) return href;
     }
@@ -11252,7 +11255,8 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.title,
       mapCenter || readPipelineRowDisplayAddress(row) || row.dataset.address,
       row.dataset.city,
-      row.dataset.state
+      row.dataset.state,
+      row.dataset.zip
     );
     const links = {
       gm: mapsHref || '',
@@ -11278,7 +11282,8 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.address,
       row.dataset.city,
       suffix,
-      row.dataset.state
+      row.dataset.state,
+      row.dataset.zip
     );
     const m = slot.match(/<div[^>]*>([\s\S]*)<\/div>/);
     if (m) return m[1].includes('<a ') ? m[1] : '';
@@ -12124,8 +12129,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initLeadDetailPanelChrome();
   }
 
-  /** Maps listing URL if stored; otherwise name + street/city/state search (USA/world disambiguation). */
-  function resolveGoogleMapsSocialHref(urlRaw, titleRaw, addressRaw, cityRaw, stateRaw) {
+  /** Maps listing URL if stored; otherwise "Name + ZIP" (city/state fallback). Never street-first. */
+  function resolveGoogleMapsSocialHref(urlRaw, titleRaw, addressRaw, cityRaw, stateRaw, zipRaw) {
     const isGoogleMapsListingUrl = (absUrl) => {
       try {
         const u = new URL(absUrl);
@@ -12149,12 +12154,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const address = String(addressRaw || '').trim();
     const city = String(cityRaw || '').trim();
     const state = String(stateRaw || '').trim();
+    const zipSource = String(zipRaw || '').trim() || address;
+    const zipMatch = zipSource.match(/\b(\d{5})(?:-\d{4})?\b/);
+    const zip = zipMatch ? zipMatch[1] : '';
     const parts = [];
     if (title) parts.push(title);
-    if (address && address !== 'N/A') parts.push(address);
-    const soFar = () => parts.join(' ').toLowerCase();
-    if (city && city !== 'N/A' && !soFar().includes(city.toLowerCase())) parts.push(city);
-    if (state && state !== 'N/A' && !soFar().includes(state.toLowerCase())) parts.push(state);
+    if (zip) {
+      parts.push(zip);
+    } else {
+      if (city && city !== 'N/A') parts.push(city);
+      if (state && state !== 'N/A') parts.push(state);
+    }
     if (!parts.length) return null;
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(' '))}`;
   }
@@ -12583,7 +12593,8 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.title,
       center || address || row.dataset.address,
       row.dataset.city,
-      row.dataset.state
+      row.dataset.state,
+      row.dataset.zip
     );
     const chipHref = gmListing || mapsUrl || '';
 
@@ -21495,8 +21506,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50 max-w-[200px]" title="${escapeHtmlAttr(w)}" data-url="${escapeHtmlAttr(w)}">${escapeHtmlText(disp)}</a>`;
   }
 
-  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter, title, address, city, gradSuffix, state) {
-    const gmResolved = resolveGoogleMapsSocialHref(mapsUrl, title, address, city, state);
+  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter, title, address, city, gradSuffix, state, zip) {
+    const gmResolved = resolveGoogleMapsSocialHref(mapsUrl, title, address, city, state, zip);
     const gm = gmResolved ? String(gmResolved).trim() : '';
     const fb = facebook && facebook !== 'N/A' ? String(facebook).trim() : '';
     const ig = instagram && instagram !== 'N/A' ? String(instagram).trim() : '';
@@ -21632,7 +21643,8 @@ document.addEventListener('DOMContentLoaded', () => {
           row.dataset.title,
           row.dataset.address,
           row.dataset.city,
-          row.dataset.state
+          row.dataset.state,
+          row.dataset.zip
         );
         let socialsHtml = '<div class="flex items-center justify-center gap-2.5">';
         if (__socialBrand) {

@@ -1799,7 +1799,7 @@
       return 'https://' + s.replace(/^\/\//, '');
     }
 
-    /** Name + street/city/state so USA/world leads with the same company name don't collide. */
+    /** Name first + ZIP (preferred) so street matches don't drop the business name. */
     function googleMapsSocialHrefFromLead(lead) {
       var raw = lead.url && lead.url !== 'N/A' ? String(lead.url).trim() : '';
       function isGmListing(absUrl) {
@@ -1822,12 +1822,17 @@
       var address = String(lead.address || '').trim();
       var city = String(lead.city || '').trim();
       var state = String(lead.state || '').trim();
+      var zipRaw = String(lead.zip || lead.postalCode || '').trim();
+      var zipMatch = (zipRaw || address).match(/\b(\d{5})(?:-\d{4})?\b/);
+      var zip = zipMatch ? zipMatch[1] : '';
       var parts = [];
       if (title) parts.push(title);
-      if (address && address !== 'N/A') parts.push(address);
-      var soFar = function () { return parts.join(' ').toLowerCase(); };
-      if (city && city !== 'N/A' && soFar().indexOf(city.toLowerCase()) === -1) parts.push(city);
-      if (state && state !== 'N/A' && soFar().indexOf(state.toLowerCase()) === -1) parts.push(state);
+      if (zip) {
+        parts.push(zip);
+      } else {
+        if (city && city !== 'N/A') parts.push(city);
+        if (state && state !== 'N/A') parts.push(state);
+      }
       if (!parts.length) return '';
       return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parts.join(' '));
     }

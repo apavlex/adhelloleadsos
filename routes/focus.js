@@ -177,6 +177,8 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     tags: dbService.normalizeTagKeys(l.tags),
     city: l.city || '',
     state: l.state || '',
+    zip: String(l.zip || l.postalCode || '').trim(),
+    postalCode: String(l.postalCode || l.zip || '').trim(),
     address: l.address && l.address !== 'N/A' ? l.address : '',
     latitude: l.latitude != null && l.latitude !== '' ? Number(l.latitude) : null,
     longitude: l.longitude != null && l.longitude !== '' ? Number(l.longitude) : null,
