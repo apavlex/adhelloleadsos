@@ -40,14 +40,14 @@ function messageIdSeen(updates, messageId) {
   if (!id) return false;
   return (updates || []).some((u) => {
     if (!u || typeof u !== 'object') return false;
-    return [u.messageSid, u.ghlMessageId, u.commsMessageId]
+    return [u.messageSid, u.ghlMessageId, u.commsMessageId, u.instantlyEmailId]
       .map((x) => String(x || '').trim())
       .includes(id);
   });
 }
 
 /**
- * @param {{ lead: object, workspaceId: string, channel: 'sms'|'email', body: string, messageId?: string, provider?: string, commsChannel?: string, ghlContactId?: string, conversationId?: string, timestamp?: string }} ctx
+ * @param {{ lead: object, workspaceId: string, channel: 'sms'|'email', body: string, messageId?: string, provider?: string, commsChannel?: string, ghlContactId?: string, conversationId?: string, timestamp?: string, autoResponder?: boolean, extraEntry?: object, extraPatch?: object }} ctx
  */
 async function handleInboundReply(ctx) {
   const lead = ctx.lead;
@@ -72,7 +72,9 @@ async function handleInboundReply(ctx) {
   const entryType = channel === 'email' ? 'email_inbound' : 'sms_inbound';
   const signalType = channel === 'email' ? 'email_reply' : 'sms_reply';
   const commsChannel = String(ctx.commsChannel || '').trim().toLowerCase();
-  const autoResponder = isAutoResponderBody(body);
+  const autoResponder = !!ctx.autoResponder || isAutoResponderBody(body);
+  const extraEntry =
+    ctx.extraEntry && typeof ctx.extraEntry === 'object' ? ctx.extraEntry : {};
 
   updates.push({
     timestamp: atIso,
@@ -81,18 +83,21 @@ async function handleInboundReply(ctx) {
     messageSid: messageId,
     ghlMessageId: provider === 'ghl' ? messageId : '',
     commsMessageId: provider === 'comms' ? messageId : '',
+    instantlyEmailId: provider === 'instantly' ? messageId : '',
     provider,
     channel: commsChannel || channel,
     ghlContactId: ctx.ghlContactId || lead.ghlContactId || '',
     conversationId: ctx.conversationId || '',
     reply: true,
     autoResponder: autoResponder || undefined,
+    ...extraEntry,
   });
   if (!autoResponder) {
     updates.push(
       buildEngagementUpdateEntry(signalType, atIso, {
         provider,
         messageId,
+        linkUrl: extraEntry.linkUrl || extraEntry.instantlyUniboxUrl || '',
       }),
     );
   }
@@ -148,6 +153,9 @@ async function handleInboundReply(ctx) {
   };
   const priorReplyEvents = Array.isArray(lead.inboundEvents) ? lead.inboundEvents : [];
   const replyEventIsNew = !replyEvent.id || !priorReplyEvents.some((e) => e && e.id === replyEvent.id);
+  const channelLabelResolved =
+    provider === 'instantly' ? 'Email (Instantly)' : channelLabel;
+
   const patch = {
     lastTouchChannel: channel,
     nextActionAt: respondBy,
@@ -158,11 +166,12 @@ async function handleInboundReply(ctx) {
       {
         type: autoResponder ? 'inbound_auto_reply' : 'inbound_reply',
         message: autoResponder
-          ? `Automated ${channelLabel} reply (not a real conversation) — cadence paused; call instead of texting.`
-          : `Inbound ${channelLabel} reply — cadence paused, follow-up scheduled.`,
+          ? `Automated ${channelLabelResolved} reply (not a real conversation) — cadence paused; call instead of texting.`
+          : `Inbound ${channelLabelResolved} reply — cadence paused, follow-up scheduled.`,
         timestamp: now.toISOString(),
       },
     ],
+    ...(ctx.extraPatch && typeof ctx.extraPatch === 'object' ? ctx.extraPatch : {}),
   };
   if (!autoResponder) {
     patch.status = 'Connected - Follow Up';

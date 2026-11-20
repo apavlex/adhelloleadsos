@@ -4,10 +4,25 @@
   <%- include('partials/head') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%
+    var contextSidebar = {
+      eyebrow: 'Sales engine',
+      title: 'Lead pipeline',
+      links: [
+        { href: '/today', label: 'Today' },
+        { href: '/sales/workflow', label: 'Pipeline', active: true },
+        { href: '/sales/tracker', label: 'Touches' },
+        { href: '/sales/personas/arms-reach', label: 'Scripts' }
+      ]
+    };
+  %>
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-10 md:py-14">
     <%- include('partials/sales-nav') %>
+    <div class="mb-4 md:hidden">
+      <button type="button" class="js-open-context-sidebar btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Sales menu</button>
+    </div>
 
     <style>.workflow-filtered-out{display:none!important}</style>
     <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 mb-10">

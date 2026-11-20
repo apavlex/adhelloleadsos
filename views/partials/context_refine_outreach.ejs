@@ -1,0 +1,80 @@
+<% const _pipeSrc = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
+<% const _pipeCounts = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts : { all: 0, cold: 0, inbound: 0 }; %>
+<% const _pf = typeof pipelineFilters !== 'undefined' && pipelineFilters ? pipelineFilters : { q: '', stage: '', status: '', minRating: '', minReviews: '', origin: '', addedFrom: '', addedTo: '' }; %>
+<% const _pfSuffix = typeof pipelineFilterSuffix !== 'undefined' ? pipelineFilterSuffix : ''; %>
+<% const _statusOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
+<% const _pfActive = _pf && Object.values(_pf).some(function (v) { return v != null && String(v).trim() !== ''; }); %>
+<% const _pipeLeads = typeof pipelineBoardLeads !== 'undefined' ? pipelineBoardLeads : []; %>
+
+<section class="app-context-refine" aria-label="Filter this view">
+  <div class="flex items-center justify-between gap-2 mb-2 px-1">
+    <p class="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] dark:text-slate-500">Search &amp; refine</p>
+    <% if (_pfActive) { %>
+    <span class="rounded-full bg-brand-yellow/25 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow">Active</span>
+    <% } %>
+  </div>
+  <p class="text-[10px] font-semibold text-[#6B7280] dark:text-slate-400 px-1 mb-3 tabular-nums"><%= _pipeLeads.length %> lead<%= _pipeLeads.length === 1 ? '' : 's' %> in view</p>
+
+  <div class="flex flex-col gap-1 mb-3" role="tablist" aria-label="Filter by lead source">
+    <a href="/outreach?tab=pipeline&amp;source=all<%- _pfSuffix.replace(/&/g, '&amp;') %>" class="app-context-chip<%= _pipeSrc === 'all' ? ' is-active' : '' %>">All (<%= _pipeCounts.all %>)</a>
+    <a href="/outreach?tab=pipeline&amp;source=cold<%- _pfSuffix.replace(/&/g, '&amp;') %>" class="app-context-chip<%= _pipeSrc === 'cold' ? ' is-active' : '' %>">Cold (<%= _pipeCounts.cold %>)</a>
+    <a href="/outreach?tab=pipeline&amp;source=inbound<%- _pfSuffix.replace(/&/g, '&amp;') %>" class="app-context-chip<%= _pipeSrc === 'inbound' ? ' is-active is-warm' : '' %>">Warm inbound (<%= _pipeCounts.inbound %>)</a>
+  </div>
+
+  <form method="get" action="/outreach" class="space-y-3">
+    <input type="hidden" name="tab" value="pipeline" />
+    <input type="hidden" name="source" value="<%= _pipeSrc %>" />
+    <div>
+      <label class="app-context-label">Search</label>
+      <input type="search" name="q" value="<%= _pf.q %>" autocomplete="off" class="app-context-input" placeholder="Company, email, phone…" />
+    </div>
+    <div>
+      <label class="app-context-label">Origin</label>
+      <select name="origin" class="app-context-input">
+        <option value=""<%= !_pf.origin ? ' selected' : '' %>>All origins</option>
+        <option value="search"<%= _pf.origin === 'search' ? ' selected' : '' %>>Searched / maps</option>
+        <option value="csv"<%= _pf.origin === 'csv' ? ' selected' : '' %>>CSV import</option>
+        <option value="manual"<%= _pf.origin === 'manual' ? ' selected' : '' %>>Manual / offline</option>
+        <option value="warm"<%= _pf.origin === 'warm' ? ' selected' : '' %>>Warm (inbound)</option>
+      </select>
+    </div>
+    <div>
+      <label class="app-context-label">Added from</label>
+      <input type="date" name="addedFrom" value="<%= _pf.addedFrom || '' %>" class="app-context-input" />
+    </div>
+    <div>
+      <label class="app-context-label">Added to</label>
+      <input type="date" name="addedTo" value="<%= _pf.addedTo || '' %>" class="app-context-input" />
+    </div>
+    <div>
+      <label class="app-context-label">Pipeline stage</label>
+      <select name="stage" class="app-context-input">
+        <option value="">All stages</option>
+        <% for (let i = 1; i <= 10; i += 1) { %>
+        <option value="<%= i %>"<%= String(_pf.stage) === String(i) ? ' selected' : '' %>><%= i %></option>
+        <% } %>
+      </select>
+    </div>
+    <div>
+      <label class="app-context-label">Status</label>
+      <select name="status" class="app-context-input">
+        <option value="">Any status</option>
+        <% _statusOpts.forEach(function (st) { %>
+        <option value="<%= st %>"<%= _pf.status === st ? ' selected' : '' %>><%= st %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div>
+      <label class="app-context-label">Min rating</label>
+      <input type="number" name="minRating" min="0" max="5" step="0.1" value="<%= _pf.minRating %>" placeholder="0" class="app-context-input" />
+    </div>
+    <div>
+      <label class="app-context-label">Min reviews</label>
+      <input type="number" name="minReviews" min="0" step="1" value="<%= _pf.minReviews %>" placeholder="0" class="app-context-input" />
+    </div>
+    <div class="flex flex-wrap gap-2 pt-1">
+      <button type="submit" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Apply</button>
+      <a href="/outreach?tab=pipeline&amp;source=<%= _pipeSrc %>" class="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Clear</a>
+    </div>
+  </form>
+</section>

@@ -1,13 +1,18 @@
 <style id="appShellStyles">
   #appSidebar { display: none; }
-  :root { --app-sidebar-width: 16.5rem; }
+  #appContextSidebar { display: none; }
+  :root {
+    --app-sidebar-width: 16.5rem;
+    --app-context-width: 0px;
+  }
   @media (min-width: 768px) {
     body:has(#appSidebar) {
       display: grid;
-      grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
+      grid-template-columns: var(--app-sidebar-width) var(--app-context-width) minmax(0, 1fr);
       min-height: 100vh;
       transition: grid-template-columns 0.22s ease;
     }
+    body:has(#appSidebar).has-context-sidebar { --app-context-width: 18rem; }
     body:has(#appSidebar).sidebar-collapsed { --app-sidebar-width: 4.25rem; }
     body:has(#appSidebar).sidebar-hidden { --app-sidebar-width: 0px; }
     body:has(#appSidebar) #appSidebar {
@@ -41,8 +46,32 @@
       pointer-events: none;
       transform: translateX(-100%);
     }
-    body:has(#appSidebar) .app-shell-content {
+    body:has(#appSidebar) #appContextSidebar {
       grid-column: 2;
+      grid-row: 1 / -1;
+      align-self: start;
+      display: none;
+      flex-direction: column;
+      width: var(--app-context-width);
+      min-width: var(--app-context-width);
+      position: sticky;
+      top: 0;
+      height: 100dvh;
+      overflow: hidden;
+      z-index: 55;
+      background: #ffffff;
+      border-right: 1px solid #e5e7eb;
+      box-sizing: border-box;
+    }
+    html.dark body:has(#appSidebar) #appContextSidebar {
+      background: #0f172a;
+      border-right-color: rgba(255, 255, 255, 0.08);
+    }
+    body:has(#appSidebar).has-context-sidebar #appContextSidebar {
+      display: flex;
+    }
+    body:has(#appSidebar) .app-shell-content {
+      grid-column: 3;
       grid-row: 1;
       min-width: 0;
       width: 100%;
@@ -50,6 +79,9 @@
       display: flex;
       flex-direction: column;
       min-height: 100dvh;
+    }
+    body:has(#appSidebar):not(.has-context-sidebar) .app-shell-content {
+      grid-column: 2;
     }
     body:has(#appSidebar) .app-shell-content > main {
       flex: 0 1 auto;

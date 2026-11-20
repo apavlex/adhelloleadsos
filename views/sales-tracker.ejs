@@ -4,10 +4,25 @@
   <%- include('partials/head') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%
+    var contextSidebar = {
+      eyebrow: 'Sales engine',
+      title: 'Touches',
+      links: [
+        { href: '/today', label: 'Today' },
+        { href: '/sales/workflow', label: 'Pipeline' },
+        { href: '/sales/tracker', label: 'Touches', active: true },
+        { href: '/sales/personas/arms-reach', label: 'Scripts' }
+      ]
+    };
+  %>
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-10 md:py-14">
     <%- include('partials/sales-nav') %>
+    <div class="mb-4 md:hidden">
+      <button type="button" class="js-open-context-sidebar btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Sales menu</button>
+    </div>
     <%- include('partials/prospecting_coach_card', { coachCardClass: 'mb-10 md:mb-12' }) %>
     <%- include('partials/sales_tracker_content') %>
   </main>

@@ -110,8 +110,39 @@
     });
   }
 
+  function setContextSidebarOpen(open) {
+    body.classList.toggle('context-sidebar-open', !!open);
+  }
+
+  var contextCloseBtn = document.getElementById('contextSidebarCloseBtn');
+  if (contextCloseBtn) {
+    contextCloseBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      setContextSidebarOpen(false);
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var openBtn = e.target && e.target.closest && e.target.closest('.js-open-context-sidebar');
+    if (openBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextSidebarOpen(true);
+      return;
+    }
+    if (!body.classList.contains('context-sidebar-open')) return;
+    if (e.target.closest('#appContextSidebar')) return;
+    if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) {
+      setContextSidebarOpen(false);
+    }
+  }, true);
+
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
+    if (body.classList.contains('context-sidebar-open')) {
+      setContextSidebarOpen(false);
+      return;
+    }
     if (isSettingsOpen()) {
       setSettingsOpen(false);
       return;

@@ -1,6 +1,6 @@
 # Engineering memory — AdHello Leads OS
 
-## 2026-11-19 — Per-workspace goals / CCB+COI scoring (1.0.803)
+## 2026-11-19 — Per-workspace goals / CCB+COI scoring (1.0.805)
 
 ### What
 - Workspace goal (`prospecting.roiProfile`) is set in Workspace → Pipeline and on create-workspace step 4.
@@ -10,6 +10,20 @@
 
 ### Key files
 - `services/workspaceRoiProfile.js`, `services/localProspectScore.js`, `services/opportunityScore.js`, `services/focusQueue.js`, `services/contractorRegistry.js`, `services/prospectGapLabels.js`, `views/workspace/sections/pipeline.ejs`, `views/workspaces-wizard.ejs`
+
+## 2026-11-19 — Dual sidebar menus (1.0.804)
+
+### What
+- Instantly-style 2nd left panel (`#appContextSidebar`) for page menus + Search & Refine.
+- Pipeline / leads / outreach / sales pages move center Cadences·Queue·Team links and refine forms into that panel.
+- Primary nav still shows menu names when expanded; with a context panel open it prefers the icon rail so labels live in the 2nd menu.
+- Mobile: “Menu & refine” opens the context drawer.
+
+### Key files
+- `views/partials/app_context_sidebar.ejs`, `context_refine_*.ejs`
+- `public/css/custom.css`, `public/js/sidebarShell.js`, `views/partials/navbar.ejs`
+- `views/prospecting.ejs`, `views/partials/prospecting_board.ejs`, `views/leads.ejs`, `views/outreach.ejs`, `views/sales-*.ejs`
+
 
 ## 2026-11-19 — Select-all performance (1.0.802)
 
@@ -68,6 +82,19 @@
 
 ### Key files
 - `services/csvLeadImport.js`
+
+## 2026-11-19 — Instantly reply sync + 2-way (1.0.803)
+
+### What
+- Instantly webhooks (`POST /api/webhooks/instantly`) map `reply_received` → Engagement inbox, nav notifications / push, cadence pause (same path as GHL inbound).
+- Opens / email clicks also land as engagement signals.
+- Workspace → Integrations → Instantly: Copy webhook URL (per-workspace `instantlyWebhookSecret`). Paste into Instantly → Settings → Webhooks.
+- Two-way: Engagement shows **Open Instantly** (Unibox) and **Reply in Instantly** (`POST /leads/instantly/reply` → Instantly `/api/v2/emails/reply`) when email id + sending account were stored from the webhook.
+
+### Key files
+- `services/instantlyInbound.js`, `services/instantlyClient.js` (`replyToEmail`)
+- `routes/api.js` webhook, `routes/instantly.js` reply, `routes/workspace.js` webhook URL
+- `views/engagement.ejs`, `views/workspace/sections/integrations.ejs`
 
 ## 2026-11-19 — Instantly export (1.0.794)
 
