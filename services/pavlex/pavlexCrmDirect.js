@@ -1,11 +1,21 @@
 /**
  * Direct CRM tool execution for common Pavlex questions — no OpenAI required.
  */
+const dbService = require('../database');
+const { filterLeadsForRequest } = require('../workspaceService');
+const { hasContactValue } = require('../leadPanelNormalize');
+const { buildReqLike } = require('../mcp/mcpCrmService');
 const { executeCrmTool } = require('../mcp/mcpToolExecutor');
 const pavlexLogger = require('./pavlexLogger');
 
+/** Must mention folders so it does not steal confirmations meant for lead deletes. */
 const CONFIRM_DELETE_EMPTY =
-  /^(confirm(\s+delete)?(\s+empty)?(\s+folders?)?|yes[,.]?\s*(delete|remove)(\s+(all|empty))?(\s+folders?)?|delete\s+them)\s*[!.]?$/i;
+  /^(confirm(\s+delete)?(\s+empty)?\s+folders?|yes[,.]?\s*(delete|remove)(\s+(all|empty))?\s+folders?)\s*[!.]?$/i;
+
+const CONFIRM_DELETE_NO_EMAIL =
+  /^(confirm(\s+delete)?(\s+(all\s+)?)?(leads?|contacts?)?\s*(with\s+)?no(\s+|-)?emails?|confirm(\s+delete)?(\s+(all\s+)?)?(leads?|contacts?)?\s+without\s+emails?|yes[,.]?\s*(delete|remove)(\s+(all\s+)?)?(leads?|contacts?)?\s*(with\s+)?no(\s+|-)?emails?|yes[,.]?\s*(delete|remove)(\s+(all\s+)?)?(leads?|contacts?)?\s+without\s+emails?)\s*[!.]?$/i;
+
+const DELETE_BATCH = 50;
 
 function formatListFolders(result) {
   const folders = (result && result.folders) || [];
@@ -125,6 +135,44 @@ function previewDeleteEmptyFolders(result) {
   );
 }
 
+function leadHasEmail(lead) {
+  if (!lead) return false;
+  if (hasContactValue(lead.email) || hasContactValue(lead.emailNorm)) return true;
+  if (Array.isArray(lead.contacts)) {
+    for (const c of lead.contacts) {
+      if (c && hasContactValue(c.email)) return true;
+    }
+  }
+  return false;
+}
+
+async function listLeadsWithoutEmail(ctx) {
+  const reqLike = buildReqLike(ctx.workspaceId, ctx.userEmail);
+  const all = await dbService.getAllLeads(ctx.workspaceId);
+  const visible = filterLeadsForRequest(reqLike, all);
+  return (visible || [])
+    .filter((l) => l && l.key && !leadHasEmail(l))
+    .sort((a, b) => String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' }));
+}
+
+function previewDeleteNoEmailLeads(leads) {
+  if (!leads.length) {
+    return 'Every lead in this workspace already has an email — nothing to delete.';
+  }
+  const lines = leads.slice(0, 25).map((l) => {
+    const bits = [l.title || 'Untitled'];
+    if (l.city) bits.push(l.city);
+    if (hasContactValue(l.phone)) bits.push(l.phone);
+    return `- ${bits.join(' · ')}`;
+  });
+  const more = leads.length > 25 ? `\n…and ${leads.length - 25} more` : '';
+  return (
+    `I can permanently delete **${leads.length}** lead${leads.length === 1 ? '' : 's'} with no email:\n` +
+    `${lines.join('\n')}${more}\n\n` +
+    `This cannot be undone. Reply **confirm delete leads with no email** to proceed.`
+  );
+}
+
 /**
  * Map natural-language CRM questions to tool calls.
  * @returns {{ tool: string, args: object, formatter: Function, kind?: string } | null}
@@ -133,6 +181,21 @@ function matchDirectCrmQuery(message) {
   const raw = String(message || '').trim();
   if (!raw) return null;
   const q = raw.toLowerCase();
+
+  if (CONFIRM_DELETE_NO_EMAIL.test(raw)) {
+    return { tool: null, args: {}, formatter: null, kind: 'delete_no_email_confirm' };
+  }
+
+  if (
+    /^(remove|delete|clear)\s+(all\s+)?(leads?|contacts?|companies|businesses)\s+(that\s+)?((dont|don't|do\s+not)\s+have\s+(an?\s+)?emails?|without\s+(an?\s+)?emails?|with\s+no(\s+|-)?emails?)\??$/i.test(
+      raw,
+    ) ||
+    /^(remove|delete|clear)\s+(all\s+)?(leads?|contacts?)\s+with\s+no(\s+|-)?emails?\??$/i.test(raw) ||
+    /^(remove|delete|clear)\s+(all\s+)?(leads?|contacts?)\s+without\s+(an?\s+)?emails?\??$/i.test(raw) ||
+    /^delete\s+(all\s+)?no(\s+|-)?email\s+(leads?|contacts?)\??$/i.test(raw)
+  ) {
+    return { tool: null, args: {}, formatter: null, kind: 'delete_no_email_preview' };
+  }
 
   if (CONFIRM_DELETE_EMPTY.test(raw)) {
     return { tool: 'list_folders', args: {}, formatter: previewDeleteEmptyFolders, kind: 'delete_empty_confirm' };
@@ -305,6 +368,65 @@ async function deleteEmptyFoldersNow(ctx, listResult) {
   };
 }
 
+async function deleteNoEmailLeadsNow(ctx) {
+  const leads = await listLeadsWithoutEmail(ctx);
+  if (!leads.length) {
+    return {
+      content: 'Every lead in this workspace already has an email — nothing to delete.',
+      provider: 'crm-direct',
+      mcpEnabled: true,
+      mcpMode: 'direct_tools',
+      toolsUsed: ['delete_leads'],
+      deletedCount: 0,
+      failedCount: 0,
+    };
+  }
+
+  let deleted = 0;
+  let failed = 0;
+  const toolsUsed = [];
+  const sampleTitles = [];
+
+  for (let i = 0; i < leads.length; i += DELETE_BATCH) {
+    const chunk = leads.slice(i, i + DELETE_BATCH);
+    const leadIds = chunk.map((l) => l.key);
+    // eslint-disable-next-line no-await-in-loop
+    const del = await executeCrmTool(ctx, 'delete_leads', { lead_ids: leadIds, confirm: true });
+    toolsUsed.push('delete_leads');
+    if (!del || del.success === false) {
+      failed += chunk.length;
+      continue;
+    }
+    const batchDeleted = typeof del.deleted === 'number' ? del.deleted : chunk.length;
+    deleted += batchDeleted;
+    failed += Math.max(0, chunk.length - batchDeleted);
+    for (const lead of chunk) {
+      if (sampleTitles.length < 15) sampleTitles.push(lead.title || 'Untitled');
+    }
+  }
+
+  const lines = sampleTitles.map((t) => `- ${t}`);
+  const more = deleted > sampleTitles.length ? `\n…and ${deleted - sampleTitles.length} more` : '';
+  let content =
+    deleted > 0
+      ? `Deleted ${deleted} lead${deleted === 1 ? '' : 's'} with no email:\n${lines.join('\n')}${more}`
+      : 'No leads were deleted.';
+  if (failed) {
+    content += `\n\nCould not delete ${failed} lead${failed === 1 ? '' : 's'}.`;
+  }
+  content += '\nRefresh Pipeline to see the update.';
+
+  return {
+    content,
+    provider: 'crm-direct',
+    mcpEnabled: true,
+    mcpMode: 'direct_tools',
+    toolsUsed,
+    deletedCount: deleted,
+    failedCount: failed,
+  };
+}
+
 /**
  * Execute a matched CRM query without OpenAI.
  * @param {{ workspaceId: string, userEmail: string }} ctx
@@ -314,6 +436,43 @@ async function tryDirectCrmChat(ctx, message) {
   if (!match) return null;
 
   const started = Date.now();
+
+  if (match.kind === 'delete_no_email_preview') {
+    const leads = await listLeadsWithoutEmail(ctx);
+    const content = previewDeleteNoEmailLeads(leads);
+    pavlexLogger.toolExecution({
+      user: ctx.userEmail,
+      question: message,
+      tool: 'delete_leads',
+      args: { preview: 'no_email', count: leads.length },
+      response: { count: leads.length },
+      latencyMs: Date.now() - started,
+      mcpConnected: true,
+    });
+    return {
+      content,
+      provider: 'crm-direct',
+      mcpEnabled: true,
+      mcpMode: 'direct_tools',
+      toolsUsed: ['delete_leads'],
+      latencyMs: Date.now() - started,
+    };
+  }
+
+  if (match.kind === 'delete_no_email_confirm') {
+    const out = await deleteNoEmailLeadsNow(ctx);
+    pavlexLogger.toolExecution({
+      user: ctx.userEmail,
+      question: message,
+      tool: 'delete_leads',
+      args: { confirm: true, filter: 'no_email' },
+      response: { deletedCount: out.deletedCount, failedCount: out.failedCount },
+      latencyMs: Date.now() - started,
+      mcpConnected: true,
+    });
+    return { ...out, latencyMs: Date.now() - started };
+  }
+
   const result = await executeCrmTool(ctx, match.tool, match.args);
   const latencyMs = Date.now() - started;
 
@@ -375,5 +534,7 @@ module.exports = {
   matchDirectCrmQuery,
   tryDirectCrmChat,
   emptyFoldersFromList,
+  leadHasEmail,
   CONFIRM_DELETE_EMPTY,
+  CONFIRM_DELETE_NO_EMAIL,
 };
