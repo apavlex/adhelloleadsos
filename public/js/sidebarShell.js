@@ -46,14 +46,18 @@
 
   function getInstantHoverTip() {
     var tip = document.getElementById('sidebarInstantHoverTip');
-    if (tip) return tip;
+    if (tip) {
+      if (!tip.classList.contains('app-body-portal')) tip.classList.add('app-body-portal');
+      return tip;
+    }
     tip = document.createElement('div');
     tip.id = 'sidebarInstantHoverTip';
-    /* Must be .app-body-portal — desktop sidebar grid crushes other body children to height:0. */
+    /* Prefer floating widgets portal; else body with .app-body-portal (avoids grid height:0). */
     tip.className = 'app-body-portal';
     tip.setAttribute('role', 'tooltip');
     tip.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(tip);
+    var host = document.getElementById('appFloatingWidgets') || document.body;
+    host.appendChild(tip);
     return tip;
   }
 
@@ -86,7 +90,10 @@
     var tip = getInstantHoverTip();
     tip.textContent = label;
     var rect = el.getBoundingClientRect();
-    tip.style.left = Math.round(rect.right + 10) + 'px';
+    var sidebar = document.getElementById('appSidebar');
+    var railRight = sidebar ? Math.round(sidebar.getBoundingClientRect().right) : 0;
+    var left = Math.max(Math.round(rect.right + 12), railRight + 10);
+    tip.style.left = left + 'px';
     tip.style.top = Math.round(rect.top + rect.height / 2) + 'px';
     tip.classList.add('is-visible');
     tip.setAttribute('aria-hidden', 'false');

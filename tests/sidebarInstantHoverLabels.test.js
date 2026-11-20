@@ -12,7 +12,10 @@ describe('collapsed sidebar instant hover labels', () => {
     assert.match(css, /#sidebarInstantHoverTip\.is-visible/);
     assert.match(css, /transition:\s*none/);
     assert.match(css, /height:\s*auto\s*!important/);
-    assert.match(css, /z-index:\s*520/);
+    assert.match(css, /z-index:\s*10050/);
+    assert.match(css, /padding:\s*0\.8rem\s+1\.4rem/);
+    assert.match(css, /--brand-yellow/);
+    assert.match(css, /--brand-on-accent/);
   });
 
   it('seeds data-label, shows tip immediately, and suppresses native title while collapsed', () => {
