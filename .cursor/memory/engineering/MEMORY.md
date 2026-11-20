@@ -58,6 +58,19 @@
 ### Key files
 - `services/csvLeadImport.js`
 
+## 2026-11-19 — Instantly reply sync + 2-way (1.0.803)
+
+### What
+- Instantly webhooks (`POST /api/webhooks/instantly`) map `reply_received` → Engagement inbox, nav notifications / push, cadence pause (same path as GHL inbound).
+- Opens / email clicks also land as engagement signals.
+- Workspace → Integrations → Instantly: Copy webhook URL (per-workspace `instantlyWebhookSecret`). Paste into Instantly → Settings → Webhooks.
+- Two-way: Engagement shows **Open Instantly** (Unibox) and **Reply in Instantly** (`POST /leads/instantly/reply` → Instantly `/api/v2/emails/reply`) when email id + sending account were stored from the webhook.
+
+### Key files
+- `services/instantlyInbound.js`, `services/instantlyClient.js` (`replyToEmail`)
+- `routes/api.js` webhook, `routes/instantly.js` reply, `routes/workspace.js` webhook URL
+- `views/engagement.ejs`, `views/workspace/sections/integrations.ejs`
+
 ## 2026-11-19 — Instantly export (1.0.794)
 
 ### What

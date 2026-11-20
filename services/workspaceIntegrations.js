@@ -48,6 +48,7 @@ const INTEGRATION_FIELDS = [
   'ghlEmailFrom',
   'ghlSmsFromNumber',
   'instantlyApiKey',
+  'instantlyWebhookSecret',
   'lobApiKey',
   'lobFromName',
   'lobFromAddressLine1',
@@ -113,6 +114,7 @@ const FIELD_TO_ENV = {
   ghlEmailFrom: 'GHL_EMAIL_FROM',
   ghlSmsFromNumber: 'GHL_SMS_FROM_NUMBER',
   instantlyApiKey: 'INSTANTLY_API_KEY',
+  instantlyWebhookSecret: 'INSTANTLY_WEBHOOK_SECRET',
   lobApiKey: 'LOB_API_KEY',
   lobFromName: 'LOB_FROM_NAME',
   lobFromAddressLine1: 'LOB_FROM_ADDRESS_LINE1',
@@ -409,6 +411,7 @@ function integrationMasks(workspace) {
     'ghlApiKey',
     'ghlAgencyApiKey',
     'instantlyApiKey',
+    'instantlyWebhookSecret',
     'ghlWebhookSecret',
     'lobApiKey',
     'commsApiKey',
@@ -473,9 +476,23 @@ async function findWorkspaceIdByGhlWebhookSecret(token) {
   return null;
 }
 
+async function findWorkspaceIdByInstantlyWebhookSecret(token) {
+  const t = String(token || '').trim();
+  if (t.length < 8) return null;
+  const ids = await dbService.listWorkspaceIds();
+  for (const wid of ids) {
+    // eslint-disable-next-line no-await-in-loop
+    const ws = await dbService.getWorkspace(wid);
+    const secret = String(decryptedFromWorkspace(ws).instantlyWebhookSecret || '').trim();
+    if (secret && secret === t) return wid;
+  }
+  return null;
+}
+
 module.exports = {
   INTEGRATION_FIELDS,
   findWorkspaceIdByGhlWebhookSecret,
+  findWorkspaceIdByInstantlyWebhookSecret,
   FIELD_TO_ENV,
   decryptedFromWorkspace,
   getResolvedIntegrationEnv,

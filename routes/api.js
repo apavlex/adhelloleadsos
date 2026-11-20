@@ -28,6 +28,7 @@ const messageLog = require('../services/messageLog');
 const commsClient = require('../services/commsClient');
 const commsSync = require('../services/commsSync');
 const lobWebhook = require('../services/lobWebhook');
+const instantlyInbound = require('../services/instantlyInbound');
 const dialInLaml = require('../services/dialInLaml');
 
 async function routeLeadAfterIngest(leadKey, workspaceId, source) {
@@ -159,6 +160,36 @@ async function lobWebhookAuthorized(req) {
   const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
   const wsSecret = String(plain.lobWebhookSecret || '').trim();
   return !!(wsSecret && token === wsSecret);
+}
+
+async function instantlyWebhookAuthorized(req) {
+  const token = String(
+    (req.query && req.query.token) ||
+      req.headers['x-instantly-webhook-token'] ||
+      req.headers['x-api-key'] ||
+      '',
+  ).trim();
+  if (!token) return false;
+
+  const globalSecret = String(process.env.INSTANTLY_WEBHOOK_SECRET || '').trim();
+  const ingestKey = String(process.env.API_INGEST_KEY || 'adhello_secret_123').trim();
+  if (globalSecret && token === globalSecret) return true;
+  if (token === ingestKey) return true;
+
+  const wid = workspaceIdFromReq(req);
+  const ws = await dbService.getWorkspace(wid);
+  const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
+  const wsSecret = String(plain.instantlyWebhookSecret || '').trim();
+  if (wsSecret && token === wsSecret) {
+    req.instantlyTokenWorkspaceId = wid;
+    return true;
+  }
+  const owner = await workspaceIntegrations.findWorkspaceIdByInstantlyWebhookSecret(token);
+  if (owner) {
+    req.instantlyTokenWorkspaceId = owner;
+    return true;
+  }
+  return false;
 }
 
 async function findLeadForTelephonyEvent({ leadKey, workspaceId, from, to }) {
@@ -514,6 +545,30 @@ router.post('/webhooks/lob', express.json(), async (req, res, next) => {
     const workspaceId = workspaceIdFromReq(req);
     const body = req.body || {};
     const result = await lobWebhook.processLobWebhook(body, { workspaceId });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/webhooks/instantly
+ * Instantly reply_received / email_opened / link_clicked → Engagement + notifications.
+ * Auth: ?token=INSTANTLY_WEBHOOK_SECRET or x-instantly-webhook-token (or workspace instantlyWebhookSecret).
+ * Paste the Copy URL from Workspace → Integrations → Instantly into Instantly → Settings → Webhooks
+ * (subscribe to reply_received at minimum).
+ */
+router.post('/webhooks/instantly', express.json(), async (req, res, next) => {
+  try {
+    if (!(await instantlyWebhookAuthorized(req))) {
+      return res.status(401).json({ error: 'Unauthorized: invalid webhook token' });
+    }
+    const headerWid = req.headers['x-workspace-id'];
+    const workspaceId =
+      req.instantlyTokenWorkspaceId ||
+      (typeof headerWid === 'string' && headerWid.trim() ? headerWid.trim() : workspaceIdFromReq(req));
+    const body = req.body || {};
+    const result = await instantlyInbound.processWebhook(body, { workspaceId });
     return res.json({ success: true, ...result });
   } catch (err) {
     next(err);
