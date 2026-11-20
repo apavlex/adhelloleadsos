@@ -28,6 +28,26 @@
     <% }); %>
   </fieldset>
 
+  <% const _colCatalog = typeof pipelineColumnPresetCatalog !== 'undefined' && Array.isArray(pipelineColumnPresetCatalog) ? pipelineColumnPresetCatalog : []; %>
+  <% const _colPreset = typeof workspacePipelineColumnPreset !== 'undefined' && workspacePipelineColumnPreset ? workspacePipelineColumnPreset : 'local_agency'; %>
+  <% if (_colCatalog.length) { %>
+  <h3 class="font-bold text-sm text-brand-dark dark:text-white mb-2 mt-8">Pipeline Detail columns</h3>
+  <p class="text-sm text-brand-muted mb-4">Default columns for this workspace’s Detail table (Compact stays the short view). Saving resets your personal column tweaks for this workspace to the preset.</p>
+  <fieldset class="space-y-3 mb-6">
+    <legend class="sr-only">Pipeline column layout</legend>
+    <% _colCatalog.forEach(function (p) { %>
+    <label class="flex gap-3 items-start cursor-pointer rounded-2xl border border-brand-border dark:border-white/10 p-4 has-[:checked]:border-brand-yellow has-[:checked]:bg-brand-yellow/5">
+      <input type="radio" name="wsPipelineColumnPreset" value="<%= p.id %>" class="mt-1" <%= _colPreset === p.id ? 'checked' : '' %> />
+      <span>
+        <strong class="text-brand-dark dark:text-white"><%= p.label %></strong>
+        <span class="block text-xs text-brand-muted mt-0.5"><%= p.bestFor %></span>
+        <span class="block text-[11px] text-brand-muted mt-1"><%= p.hint %></span>
+      </span>
+    </label>
+    <% }); %>
+  </fieldset>
+  <% } %>
+
   <h3 class="font-bold text-sm text-brand-dark dark:text-white mb-2">Prospecting signals</h3>
   <p class="text-sm text-brand-muted mb-4">Extra knobs for the Opportunity column (mainly website / reviews workspaces).</p>
   <div class="space-y-4 max-w-md">
@@ -37,7 +57,7 @@
       <p class="text-[11px] text-brand-muted mt-1">Leads with this many Google reviews or fewer get the <strong class="text-brand-dark dark:text-white">LOW REVIEWS</strong> tag (agency / partner goals). Default is 30.</p>
     </div>
     <p id="wsPipelineSettingsMsg" class="hidden text-sm"></p>
-    <button type="button" id="wsPipelineSettingsSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save workspace goal</button>
+    <button type="button" id="wsPipelineSettingsSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save workspace layout</button>
   </div>
 </div>
 <%- include('../partials/scripts_pipeline') %>

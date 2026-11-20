@@ -360,6 +360,25 @@
       </fieldset>
       <% } %>
 
+      <% const _colPresets = typeof PIPELINE_COLUMN_PRESETS !== 'undefined' && Array.isArray(PIPELINE_COLUMN_PRESETS) ? PIPELINE_COLUMN_PRESETS : []; %>
+      <% const _wizDefaultCols = w.pipelineColumnPreset || (_wizDefaultGoal === 'license_renewal' ? 'contractors' : (String(w.name || '').toLowerCase().match(/truck|carrier|fmcsa/) ? 'carriers' : 'local_agency')); %>
+      <% if (_colPresets.length) { %>
+      <fieldset class="space-y-3">
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Pipeline Detail columns</legend>
+        <p class="text-xs text-brand-muted mb-2">Which columns show by default on Pipeline Detail for this workspace. You can still tweak Columns later — or change the preset under Workspace → Pipeline.</p>
+        <% _colPresets.forEach(function (p) { %>
+        <label class="flex gap-3 items-start cursor-pointer rounded-2xl border border-brand-border dark:border-white/10 p-4 has-[:checked]:border-brand-yellow has-[:checked]:bg-brand-yellow/5">
+          <input type="radio" name="pipelineColumnPreset" value="<%= p.id %>" class="mt-1" <%= _wizDefaultCols === p.id ? 'checked' : '' %> />
+          <span>
+            <strong class="text-brand-dark dark:text-white"><%= p.label %></strong>
+            <span class="block text-xs text-brand-muted mt-0.5"><%= p.bestFor %></span>
+            <span class="block text-[11px] text-brand-muted mt-1"><%= p.hint %></span>
+          </span>
+        </label>
+        <% }); %>
+      </fieldset>
+      <% } %>
+
       <div class="grid sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Business name</label>

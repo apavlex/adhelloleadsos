@@ -5,14 +5,27 @@
 (function () {
   'use strict';
 
-  var VIS_KEY = 'pipelineTableColVisibility';
-  var WIDTH_KEY = 'pipelineTableColWidths';
-  var DENSITY_KEY = 'prospectLeadTableDensity';
   var VIEW_KEY = 'adhello_pipeline_view';
   var PAGE_SIZE_KEY = 'pipelineTablePageSize';
   var PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
-  var SYNC_TS_KEY = 'pipelineTablePrefsUpdatedAt';
   var SYNC_URL = '/pipeline-table-prefs';
+
+  function storageKeys() {
+    var wid = '';
+    try {
+      wid = String(window.__ADHELLO_WORKSPACE_ID__ || '').trim();
+    } catch (_) {
+      wid = '';
+    }
+    var suffix = wid ? ':' + wid : '';
+    return {
+      vis: 'pipelineTableColVisibility' + suffix,
+      widths: 'pipelineTableColWidths' + suffix,
+      density: 'prospectLeadTableDensity' + suffix,
+      syncTs: 'pipelineTablePrefsUpdatedAt' + suffix,
+    };
+  }
+  window.__pipelinePrefsStorageKeys = storageKeys;
 
   function readJsonKey(key) {
     try {
@@ -25,27 +38,60 @@
 
   function localSyncTs() {
     try {
-      return Number(localStorage.getItem(SYNC_TS_KEY) || 0) || 0;
+      return Number(localStorage.getItem(storageKeys().syncTs) || 0) || 0;
     } catch (_) {
       return 0;
     }
   }
 
   function readLocalTablePrefs() {
+    var keys = storageKeys();
     var density = 'compact';
     try {
-      density = localStorage.getItem(DENSITY_KEY) === 'comfortable' ? 'comfortable' : 'compact';
+      density = localStorage.getItem(keys.density) === 'comfortable' ? 'comfortable' : 'compact';
     } catch (_) {
       /* ignore */
     }
-    return { vis: readJsonKey(VIS_KEY), widths: readJsonKey(WIDTH_KEY), density: density };
+    return { vis: readJsonKey(keys.vis), widths: readJsonKey(keys.widths), density: density };
   }
 
   function hasLegacyLocalTablePrefs() {
     try {
+      var keys = storageKeys();
       return Boolean(
-        localStorage.getItem(VIS_KEY) || localStorage.getItem(WIDTH_KEY) || localStorage.getItem(DENSITY_KEY),
+        localStorage.getItem(keys.vis) ||
+          localStorage.getItem(keys.widths) ||
+          localStorage.getItem(keys.density) ||
+          // Pre-workspace-scoped keys (shared across workspaces — only migrate when no ws copy).
+          (!window.__ADHELLO_WORKSPACE_ID__ &&
+            (localStorage.getItem('pipelineTableColVisibility') ||
+              localStorage.getItem('pipelineTableColWidths'))),
       );
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function seedFromWorkspaceDefaultsIfEmpty() {
+    var keys = storageKeys();
+    var defaults = window.__WORKSPACE_PIPELINE_COLUMN_DEFAULTS;
+    if (!defaults || !defaults.vis) return false;
+    var hasLocal = false;
+    try {
+      hasLocal = Boolean(localStorage.getItem(keys.vis) || localStorage.getItem(keys.syncTs));
+    } catch (_) {
+      hasLocal = false;
+    }
+    if (hasLocal) return false;
+    try {
+      localStorage.setItem(keys.vis, JSON.stringify(defaults.vis || {}));
+      if (defaults.density) {
+        localStorage.setItem(
+          keys.density,
+          defaults.density === 'comfortable' ? 'comfortable' : 'compact',
+        );
+      }
+      return true;
     } catch (_) {
       return false;
     }
@@ -76,7 +122,7 @@
   window.__pipelineTablePrefsChanged = function () {
     var ts = Date.now();
     try {
-      localStorage.setItem(SYNC_TS_KEY, String(ts));
+      localStorage.setItem(storageKeys().syncTs, String(ts));
     } catch (_) {
       /* ignore */
     }
@@ -89,15 +135,19 @@
    * wide screens only, so a phone's untouched defaults can't overwrite the desktop setup.
    */
   function syncTablePrefsFromServer() {
+    var keys = storageKeys();
     var server = window.__SERVER_PIPELINE_TABLE_PREFS;
     var localTs = localSyncTs();
     var serverTs = server && Number(server.updatedAt) > 0 ? Number(server.updatedAt) : 0;
     if (server && serverTs > localTs) {
       try {
-        localStorage.setItem(VIS_KEY, JSON.stringify(server.vis || {}));
-        localStorage.setItem(WIDTH_KEY, JSON.stringify(server.widths || {}));
-        localStorage.setItem(DENSITY_KEY, server.density === 'comfortable' ? 'comfortable' : 'compact');
-        localStorage.setItem(SYNC_TS_KEY, String(serverTs));
+        localStorage.setItem(keys.vis, JSON.stringify(server.vis || {}));
+        localStorage.setItem(keys.widths, JSON.stringify(server.widths || {}));
+        localStorage.setItem(
+          keys.density,
+          server.density === 'comfortable' ? 'comfortable' : 'compact',
+        );
+        localStorage.setItem(keys.syncTs, String(serverTs));
       } catch (_) {
         /* ignore */
       }
@@ -107,6 +157,11 @@
       pushTablePrefs(localTs);
       return;
     }
+    if (server && server.fromWorkspaceDefault && !localTs) {
+      seedFromWorkspaceDefaultsIfEmpty();
+      return;
+    }
+    if (!localTs) seedFromWorkspaceDefaultsIfEmpty();
     if (!server && !localTs && hasLegacyLocalTablePrefs()) {
       var wide = false;
       try {
@@ -311,9 +366,10 @@
   }
 
   function readVis() {
+    var keys = storageKeys();
     var vis = {};
     try {
-      vis = JSON.parse(localStorage.getItem(VIS_KEY) || '{}');
+      vis = JSON.parse(localStorage.getItem(keys.vis) || '{}');
     } catch (_) {
       vis = {};
     }
@@ -322,7 +378,7 @@
     vis = migrateContactColumnVis(vis);
     if (hadLegacyContact) {
       try {
-        localStorage.setItem(VIS_KEY, JSON.stringify(vis));
+        localStorage.setItem(keys.vis, JSON.stringify(vis));
       } catch (_) {
         /* ignore */
       }
@@ -330,7 +386,7 @@
     if (wantsRealEstateColumnPreset()) {
       vis = applyRealEstateImportColumnVis(vis);
       try {
-        localStorage.setItem(VIS_KEY, JSON.stringify(vis));
+        localStorage.setItem(keys.vis, JSON.stringify(vis));
       } catch (_) {
         /* ignore */
       }
@@ -338,7 +394,7 @@
     if (wantsPermitsColumnPreset()) {
       vis = applyPermitsImportColumnVis(vis);
       try {
-        localStorage.setItem(VIS_KEY, JSON.stringify(vis));
+        localStorage.setItem(keys.vis, JSON.stringify(vis));
       } catch (_) {
         /* ignore */
       }
@@ -346,7 +402,7 @@
     if (wantsBusinessesColumnPreset()) {
       vis = applyBusinessesColumnPreset(vis);
       try {
-        localStorage.setItem(VIS_KEY, JSON.stringify(vis));
+        localStorage.setItem(keys.vis, JSON.stringify(vis));
       } catch (_) {
         /* ignore */
       }
@@ -361,7 +417,8 @@
     try {
       var vis = readVis();
       var css = [];
-      var density = localStorage.getItem(DENSITY_KEY) === 'comfortable' ? 'comfortable' : 'compact';
+      var density =
+        localStorage.getItem(storageKeys().density) === 'comfortable' ? 'comfortable' : 'compact';
       var comfortable = density === 'comfortable';
 
       if (!comfortable) {
@@ -397,7 +454,7 @@
 
       var widths = {};
       try {
-        widths = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
+        widths = JSON.parse(localStorage.getItem(storageKeys().widths) || '{}');
       } catch (_) {
         widths = {};
       }
@@ -472,7 +529,7 @@
     try {
       var density =
         document.documentElement.getAttribute('data-prospect-density') ||
-        (localStorage.getItem(DENSITY_KEY) === 'comfortable' ? 'comfortable' : 'compact');
+        (localStorage.getItem(storageKeys().density) === 'comfortable' ? 'comfortable' : 'compact');
       table.classList.remove('prospect-leads-table--comfortable', 'prospect-leads-table--compact');
       table.classList.add(
         density === 'comfortable' ? 'prospect-leads-table--comfortable' : 'prospect-leads-table--compact',
