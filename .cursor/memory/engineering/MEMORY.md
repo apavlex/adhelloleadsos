@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Bulk bar Share/Delete + select all in list (1.0.800)
+
+### What
+- Share and Delete sit under Cancel on the floating bulk menu (not in the Call/SMS primary row).
+- "Select all N" on the paging bar / bulk menu selects every lead in the current folder via `/folders/lead-keys.json?purpose=select` (up to 10k) without Load more.
+- Folder-wide keys feed move/export; export auto-loads remaining rows when needed.
+
+### Key files
+- `views/partials/bulk_action_bar.ejs`, `views/partials/leads_pipeline_core.ejs`, `public/js/pipeline-bulk-select.js`, `public/js/app.js`, `routes/folders.js`, `services/leadWorkspaceShare.js`
+
 ## 2026-11-19 — Alex delete leads with no email (1.0.799)
 
 ### What

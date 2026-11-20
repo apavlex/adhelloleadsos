@@ -2302,6 +2302,19 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   width: 100%;
 }
 
+#bulkActionBar .bulk-bar-secondary-actions #bulkSelectAllFolderBtn,
+#bulkActionBar .bulk-bar-secondary-actions #bulkShareWorkspaceBtn,
+#bulkActionBar .bulk-bar-secondary-actions #bulkDeleteBtn {
+  min-height: 1.75rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.625rem;
+}
+
+#bulkActionBar .bulk-bar-secondary-actions #cancelSelectionBtn {
+  min-height: 1.75rem;
+  padding: 0.3rem 0.65rem;
+}
+
 @media (max-width: 639px) {
   #bulkActionBar {
     max-height: calc(100dvh - 5.5rem);
