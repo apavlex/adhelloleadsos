@@ -1610,32 +1610,94 @@ table {
     transform: scale(1.002);
 }
 
-/* Bulk checkbox selection — white + workspace brand accent (no cream/yellow wash). */
+/* Bulk checkbox selection — accent gradient only on check + company; City→end stays white. */
 .result-row.bulk-selected {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 10%, #fff) !important;
+    background-color: #ffffff !important;
     box-shadow: inset 4px 0 0 var(--workspace-accent, var(--brand-yellow));
 }
 
 .result-row.bulk-selected > td {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 10%, #fff) !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+}
+
+.result-row.bulk-selected > td[data-plc="check"],
+.result-row.bulk-selected > td.lead-sticky-check {
+    background-color: transparent !important;
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 22%, #fff),
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #fff)
+    ) !important;
+}
+
+.result-row.bulk-selected > td[data-plc="company"],
+.result-row.bulk-selected > td.lead-sticky-company {
+    background-color: transparent !important;
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #fff),
+        #ffffff
+    ) !important;
 }
 
 .result-row.bulk-selected:hover {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 16%, #fff) !important;
+    background-color: #ffffff !important;
 }
 
-.result-row.bulk-selected:hover > td {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 16%, #fff) !important;
+.result-row.bulk-selected:hover > td:not([data-plc="check"]):not([data-plc="company"]):not(.lead-sticky-check):not(.lead-sticky-company) {
+    background-color: #ffffff !important;
+}
+
+.result-row.bulk-selected:hover > td[data-plc="check"],
+.result-row.bulk-selected:hover > td.lead-sticky-check {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 28%, #fff),
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #fff)
+    ) !important;
+}
+
+.result-row.bulk-selected:hover > td[data-plc="company"],
+.result-row.bulk-selected:hover > td.lead-sticky-company {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #fff),
+        #ffffff
+    ) !important;
 }
 
 tbody.bulk-select-all-active .result-row.bulk-selected,
 table.bulk-select-all-active .result-row.bulk-selected {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 8%, #fff) !important;
+    background-color: #ffffff !important;
 }
 
 tbody.bulk-select-all-active .result-row.bulk-selected > td,
 table.bulk-select-all-active .result-row.bulk-selected > td {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 8%, #fff) !important;
+    background-color: #ffffff !important;
+    background-image: none !important;
+}
+
+tbody.bulk-select-all-active .result-row.bulk-selected > td[data-plc="check"],
+tbody.bulk-select-all-active .result-row.bulk-selected > td.lead-sticky-check,
+table.bulk-select-all-active .result-row.bulk-selected > td[data-plc="check"],
+table.bulk-select-all-active .result-row.bulk-selected > td.lead-sticky-check {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #fff),
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 12%, #fff)
+    ) !important;
+}
+
+tbody.bulk-select-all-active .result-row.bulk-selected > td[data-plc="company"],
+tbody.bulk-select-all-active .result-row.bulk-selected > td.lead-sticky-company,
+table.bulk-select-all-active .result-row.bulk-selected > td[data-plc="company"],
+table.bulk-select-all-active .result-row.bulk-selected > td.lead-sticky-company {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 12%, #fff),
+        #ffffff
+    ) !important;
 }
 
 html.dark .result-row:hover {
@@ -1643,21 +1705,63 @@ html.dark .result-row:hover {
 }
 
 html.dark .result-row.bulk-selected {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a) !important;
+    background-color: var(--brand-card-bg, #0f172a) !important;
 }
 
 html.dark .result-row.bulk-selected > td {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a) !important;
+    background-color: var(--brand-card-bg, #0f172a) !important;
+    background-image: none !important;
+}
+
+html.dark .result-row.bulk-selected > td[data-plc="check"],
+html.dark .result-row.bulk-selected > td.lead-sticky-check {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 28%, #0f172a),
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a)
+    ) !important;
+}
+
+html.dark .result-row.bulk-selected > td[data-plc="company"],
+html.dark .result-row.bulk-selected > td.lead-sticky-company {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a),
+        var(--brand-card-bg, #0f172a)
+    ) !important;
 }
 
 html.dark tbody.bulk-select-all-active .result-row.bulk-selected,
 html.dark table.bulk-select-all-active .result-row.bulk-selected {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #0f172a) !important;
+    background-color: var(--brand-card-bg, #0f172a) !important;
 }
 
 html.dark tbody.bulk-select-all-active .result-row.bulk-selected > td,
 html.dark table.bulk-select-all-active .result-row.bulk-selected > td {
-    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #0f172a) !important;
+    background-color: var(--brand-card-bg, #0f172a) !important;
+    background-image: none !important;
+}
+
+html.dark tbody.bulk-select-all-active .result-row.bulk-selected > td[data-plc="check"],
+html.dark tbody.bulk-select-all-active .result-row.bulk-selected > td.lead-sticky-check,
+html.dark table.bulk-select-all-active .result-row.bulk-selected > td[data-plc="check"],
+html.dark table.bulk-select-all-active .result-row.bulk-selected > td.lead-sticky-check {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 22%, #0f172a),
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #0f172a)
+    ) !important;
+}
+
+html.dark tbody.bulk-select-all-active .result-row.bulk-selected > td[data-plc="company"],
+html.dark tbody.bulk-select-all-active .result-row.bulk-selected > td.lead-sticky-company,
+html.dark table.bulk-select-all-active .result-row.bulk-selected > td[data-plc="company"],
+html.dark table.bulk-select-all-active .result-row.bulk-selected > td.lead-sticky-company {
+    background-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #0f172a),
+        var(--brand-card-bg, #0f172a)
+    ) !important;
 }
 
 .result-row.selected {
@@ -3299,14 +3403,65 @@ html.dark #pipelineColumnsPopover {
   background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 10%, #0f172a);
 }
 
+/* Selected: City and later stay white; check + company keep accent gradient (see .result-row.bulk-selected). */
 .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td,
 .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td {
-  background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 10%, #fff);
+  background-color: #ffffff;
+  background-image: none;
+}
+
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td[data-plc="check"],
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td[data-plc="check"],
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td.lead-sticky-check,
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td.lead-sticky-check {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 22%, #fff),
+    color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #fff)
+  ) !important;
+}
+
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td[data-plc="company"],
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td[data-plc="company"],
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td.lead-sticky-company,
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td.lead-sticky-company {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #fff),
+    #ffffff
+  ) !important;
 }
 
 .dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td,
 .dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td {
-  background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a);
+  background-color: var(--brand-card-bg, #0f172a);
+  background-image: none;
+}
+
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td[data-plc="check"],
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td[data-plc="check"],
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td.lead-sticky-check,
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td.lead-sticky-check {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 28%, #0f172a),
+    color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a)
+  ) !important;
+}
+
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td[data-plc="company"],
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td[data-plc="company"],
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td.lead-sticky-company,
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td.lead-sticky-company {
+  background-color: transparent !important;
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a),
+    var(--brand-card-bg, #0f172a)
+  ) !important;
 }
 
 .prospect-leads-table--comfortable tbody td {

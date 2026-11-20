@@ -16,4 +16,10 @@ describe('pipeline table white + brand row colors', () => {
     assert.doesNotMatch(css, /\.result-row\.bulk-selected \{\s*background-color:\s*rgba\(253,\s*224,\s*71/);
     assert.match(css, /\.result-row\.bulk-selected \{[\s\S]*?--workspace-accent/);
   });
+
+  it('keeps bulk-selected accent on check + company only; City onward stays white', () => {
+    assert.match(css, /\.result-row\.bulk-selected > td \{[\s\S]*?background-color:\s*#ffffff/);
+    assert.match(css, /data-plc="check"[\s\S]*?linear-gradient/);
+    assert.match(css, /data-plc="company"[\s\S]*?linear-gradient/);
+  });
 });
