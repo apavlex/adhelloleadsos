@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Select-all performance (1.0.802)
+
+### What
+- Selecting ~1k+ leads no longer checks every loaded row or rebuilds softphone/focus URLs with the full key list.
+- Folder-wide keys stay in memory; only the visible page is painted. Call/email assume contacts exist; softphone sync skips heavy selections.
+
+### Key files
+- `public/js/pipeline-bulk-select.js`, `public/js/app.js`, `public/js/navbar-shell.js`
+
 ## 2026-11-19 — Bulk bar Share/Delete + select all in list (1.0.800)
 
 ### What

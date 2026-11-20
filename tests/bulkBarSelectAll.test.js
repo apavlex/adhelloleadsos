@@ -70,4 +70,17 @@ describe('bulk bar Share/Delete + select-all', () => {
     assert.match(js, /folderWideKeys/);
     assert.match(js, /pipelineTableSelectAllBtn/);
   });
+
+  it('keeps large select-all off the per-row DOM / softphone hot path', () => {
+    const bulk = fs.readFileSync(bulkSelectPath, 'utf8');
+    const app = fs.readFileSync(path.join(__dirname, '../public/js/app.js'), 'utf8');
+    const nav = fs.readFileSync(path.join(__dirname, '../public/js/navbar-shell.js'), 'utf8');
+    assert.match(bulk, /markVisibleRowsForFolderWideSelection/);
+    assert.match(bulk, /pipeline-row-page-hidden/);
+    assert.match(bulk, /BULK_SELECTION_HEAVY_AT/);
+    assert.match(bulk, /FOCUS_URL_KEY_CAP/);
+    assert.match(app, /isHeavyFolderWideSelection/);
+    assert.match(app, /updateBulkActionBar = \(opts\)/);
+    assert.match(nav, /__bulkFolderWideIsHeavy/);
+  });
 });
