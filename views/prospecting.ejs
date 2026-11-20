@@ -7,10 +7,51 @@
   <% } %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
+  <%
+    var contextSidebar = null;
+    if (activeTab === 'pipeline') {
+      contextSidebar = {
+        eyebrow: 'Pipeline',
+        title: 'Leads & Referrals',
+        subtitle: 'Search, refine, and jump to related tools',
+        links: [
+          { href: '/sequences', label: 'Cadences' },
+          { href: '/prospecting?tab=queue', label: 'Working queue' },
+          { href: '/prospecting?tab=folders', label: 'Folders' },
+          { href: '/leads/find', label: 'Find more leads' }
+        ].concat(typeof canManageWorkspace !== 'undefined' && canManageWorkspace
+          ? [{ href: '/workspace/team', label: 'Team & assign' }]
+          : []),
+        refine: 'pipeline'
+      };
+    } else if (activeTab === 'queue') {
+      contextSidebar = {
+        eyebrow: 'Leads',
+        title: 'Working queue',
+        links: [
+          { href: '/prospecting?tab=pipeline', label: 'Pipeline' },
+          { href: '/prospecting?tab=folders', label: 'Folders' },
+          { href: '/sequences', label: 'Cadences' },
+          { href: '/leads/find', label: 'Find more leads' }
+        ]
+      };
+    } else if (activeTab === 'folders') {
+      contextSidebar = {
+        eyebrow: 'Leads',
+        title: 'Folders',
+        links: [
+          { href: '/prospecting?tab=pipeline', label: 'Pipeline' },
+          { href: '/prospecting?tab=queue', label: 'Working queue' },
+          { href: '/sequences', label: 'Cadences' },
+          { href: '/leads/find', label: 'Find more leads' }
+        ]
+      };
+    }
+  %>
   <%- include('partials/navbar') %>
 
   <main class="max-wide w-full min-w-0 px-6 py-10 md:py-14">
-    <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
     <% if (activeTab === 'pipeline') { %>
       <%- include('partials/prospecting_board') %>
     <% } else if (activeTab === 'queue') { %>

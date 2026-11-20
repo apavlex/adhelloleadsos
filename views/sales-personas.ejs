@@ -4,12 +4,29 @@
   <%- include('partials/head') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <% const _tab = typeof activeScriptsTab !== 'undefined' ? activeScriptsTab : 'arms-reach'; %>
+  <%
+    var contextSidebar = {
+      eyebrow: 'Sales engine',
+      title: 'Sales scripts',
+      links: [
+        { href: '/today', label: 'Today' },
+        { href: '/sales/workflow', label: 'Pipeline' },
+        { href: '/sales/tracker', label: 'Touches' },
+        { href: '/sales/personas/arms-reach', label: 'Scripts', active: true },
+        { href: '/sales/personas/arms-reach', label: "Arm's Reach", active: _tab === 'arms-reach' },
+        { href: '/sales/personas/computers-reach', label: "Computer's Reach", active: _tab === 'computers-reach' },
+        { href: '/sales/personas/cars-reach', label: "Car's Reach", active: _tab === 'cars-reach' },
+        { href: '/sales/personas/offers', label: 'By offer', active: _tab === 'offers' },
+        { href: '/scripts', label: 'Script library' }
+      ]
+    };
+  %>
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-10 md:py-14">
     <%- include('partials/sales-nav') %>
 
-    <% const _tab = typeof activeScriptsTab !== 'undefined' ? activeScriptsTab : 'arms-reach'; %>
     <div class="mb-8 max-w-3xl">
       <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Sales <span class="text-brand-muted">scripts</span></h1>
       <% if (_tab === 'arms-reach') { %>
@@ -21,9 +38,14 @@
       <% } else { %>
       <p class="text-brand-muted font-medium mt-2"><strong class="text-brand-dark dark:text-white">By offer</strong> — Call and SMS scripts organized by service. Edit, save to your library, and refine with the AI coach.</p>
       <% } %>
+      <div class="mt-3 flex flex-wrap items-center gap-2 md:hidden">
+        <button type="button" class="js-open-context-sidebar btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Scripts menu</button>
+      </div>
     </div>
 
-    <%- include('partials/scripts_subnav') %>
+    <div class="js-center-page-refine md:hidden mb-6">
+      <%- include('partials/scripts_subnav') %>
+    </div>
 
     <% if (_tab === 'arms-reach') { %>
     <%- include('partials/arms_reach_scripts') %>

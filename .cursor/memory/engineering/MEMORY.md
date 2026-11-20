@@ -1,5 +1,18 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Dual sidebar menus (1.0.803)
+
+### What
+- Instantly-style 2nd left panel (`#appContextSidebar`) for page menus + Search & Refine.
+- Pipeline / leads / outreach / sales pages move center Cadences·Queue·Team links and refine forms into that panel.
+- Primary nav still shows menu names when expanded; with a context panel open it prefers the icon rail so labels live in the 2nd menu.
+- Mobile: “Menu & refine” opens the context drawer.
+
+### Key files
+- `views/partials/app_context_sidebar.ejs`, `context_refine_*.ejs`
+- `public/css/custom.css`, `public/js/sidebarShell.js`, `views/partials/navbar.ejs`
+- `views/prospecting.ejs`, `views/partials/prospecting_board.ejs`, `views/leads.ejs`, `views/outreach.ejs`, `views/sales-*.ejs`
+
 ## 2026-11-19 — Select-all performance (1.0.802)
 
 ### What
