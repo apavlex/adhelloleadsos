@@ -1,5 +1,15 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Fix crushed layout without context sidebar (1.0.806)
+
+### What
+- Dual-sidebar FOUC CSS placed `.app-shell-content` in grid column 2 when `has-context-sidebar` was absent.
+- Column 2 is the 0-width context slot, so Engagement / Today / Focus (and any page without the 2nd menu) crushed into a thin vertical strip.
+- Content always stays in column 3; empty context column collapses to 0.
+
+### Key files
+- `public/css/custom.css`, `views/partials/app_shell_styles.ejs`
+
 ## 2026-11-19 — Per-workspace goals / CCB+COI scoring (1.0.805)
 
 ### What

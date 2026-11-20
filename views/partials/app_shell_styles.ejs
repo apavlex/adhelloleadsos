@@ -71,6 +71,7 @@
       display: flex;
     }
     body:has(#appSidebar) .app-shell-content {
+      /* Always column 3 — 0-width context column collapses when no dual sidebar. */
       grid-column: 3;
       grid-row: 1;
       min-width: 0;
@@ -79,9 +80,6 @@
       display: flex;
       flex-direction: column;
       min-height: 100dvh;
-    }
-    body:has(#appSidebar):not(.has-context-sidebar) .app-shell-content {
-      grid-column: 2;
     }
     body:has(#appSidebar) .app-shell-content > main {
       flex: 0 1 auto;
