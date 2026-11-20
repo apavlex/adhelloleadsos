@@ -7,7 +7,38 @@
 
   var CFG = window.__PAVLEX_CHAT__ || {};
   var REQUEST_TIMEOUT_MS = 90000;
-  var AVATAR_SVG = CFG.avatarSvg || '';
+  var EMPLOYEES = Array.isArray(CFG.employees) && CFG.employees.length ? CFG.employees : [
+    {
+      id: 'alex',
+      name: 'Alex',
+      title: 'Receptionist & sales assistant',
+      greeting: "Hey, I'm Alex.",
+      emptyLead: 'Find prospects, update your pipeline, add tasks, and write scripts',
+      placeholder: 'Message Alex… or tap the mic',
+      avatarKind: 'alex',
+      suggestions: [],
+    },
+  ];
+  var EMPLOYEE_BY_ID = {};
+  EMPLOYEES.forEach(function (e) {
+    EMPLOYEE_BY_ID[e.id] = e;
+  });
+  var DEFAULT_EMPLOYEE_ID = CFG.defaultEmployeeId || EMPLOYEES[0].id;
+  var AVATARS = CFG.avatars || {};
+  var AVATARS_LARGE = CFG.avatarsLarge || {};
+  var ICONS = CFG.icons || {};
+  var AVATAR_SVG = CFG.avatarSvg || AVATARS.alex || '';
+
+  function getEmployee(id) {
+    return EMPLOYEE_BY_ID[id] || EMPLOYEE_BY_ID[DEFAULT_EMPLOYEE_ID] || EMPLOYEES[0];
+  }
+
+  function avatarHtml(kind, size) {
+    var map = size === 'large' ? AVATARS_LARGE : AVATARS;
+    if (kind === 'grok' && map.grok) return map.grok;
+    if (map.alex) return map.alex;
+    return AVATAR_SVG;
+  }
 
   var TOOL_LABELS = {
     search_leads: 'Searched leads',
@@ -277,6 +308,15 @@
     form: document.getElementById('pcForm'),
     input: document.getElementById('pcInput'),
     send: document.getElementById('pcSend'),
+    employee: document.getElementById('pcEmployee'),
+    employeeTitle: document.getElementById('pcEmployeeTitle'),
+    headerAvatar: document.getElementById('pcHeaderAvatar'),
+    heroAvatar: document.getElementById('pcHeroAvatar'),
+    emptyGreeting: document.getElementById('pcEmptyGreeting'),
+    emptyLead: document.getElementById('pcEmptyLead'),
+    suggestions: document.getElementById('pcSuggestions'),
+    typingAvatar: document.getElementById('pcTypingAvatar'),
+    composerHint: document.getElementById('pcComposerHint'),
   };
   if (!els.form || !els.thread) return;
 
@@ -287,6 +327,8 @@
     /** Bumped whenever the visible thread changes, so late replies never render into the wrong chat. */
     epoch: 0,
     filter: '',
+    employeeId: DEFAULT_EMPLOYEE_ID,
+    employeeLocked: false,
   };
 
   function workspaceId() {
@@ -372,7 +414,7 @@
     if (!items.length) {
       els.list.innerHTML =
         '<p class="px-3 py-6 text-xs text-brand-muted text-center">' +
-        (q ? 'No chats match “' + escapeHtml(state.filter.trim()) + '”.' : 'No chats yet. Ask Alex anything to start one.') +
+        (q ? 'No chats match “' + escapeHtml(state.filter.trim()) + '”.' : 'No chats yet. Pick a teammate and ask anything to start one.') +
         '</p>';
       return;
     }
@@ -394,12 +436,16 @@
         '</p>';
       byLabel[label].forEach(function (c) {
         var active = c.id === state.activeId;
+        var emp = getEmployee(c.employeeId);
         html +=
           '<div role="listitem" class="pc-conv flex items-center rounded-2xl mb-0.5' + (active ? ' pc-conv--active' : '') +
           '" data-id="' + escapeHtml(c.id) + '">' +
           '<a href="/chat?c=' + encodeURIComponent(c.id) + '" class="pc-conv-open flex-1 min-w-0 pl-4 pr-3 py-2.5" data-id="' + escapeHtml(c.id) + '"' + (active ? ' aria-current="page"' : '') + '>' +
           '<span class="block text-[13px] ' + (active ? 'font-bold' : 'font-semibold') + ' text-brand-dark dark:text-white truncate">' + escapeHtml(c.title || 'New chat') + '</span>' +
-          (c.lastPreview ? '<span class="block text-[11px] text-brand-muted dark:text-slate-400 truncate mt-0.5">' + escapeHtml(c.lastPreview) + '</span>' : '') +
+          '<span class="block text-[10px] font-bold uppercase tracking-wider text-brand-muted dark:text-slate-500 truncate mt-0.5">' +
+          escapeHtml(emp.name) +
+          (c.lastPreview ? ' · ' + escapeHtml(c.lastPreview) : '') +
+          '</span>' +
           '</a>' +
           '<div class="pc-conv-actions flex items-center pr-1">' +
           '<button type="button" class="pc-conv-pin pc-conv-act ' + (c.pinned ? 'text-brand-dark dark:text-brand-yellow' : 'text-brand-muted') + ' hover:bg-black/5 dark:hover:bg-white/10" data-id="' + escapeHtml(c.id) + '" aria-label="' + (c.pinned ? 'Unpin chat' : 'Pin chat') + '" title="' + (c.pinned ? 'Unpin' : 'Pin') + '">' + (c.pinned ? ICON_PIN_FILLED : ICON_PIN) + '</button>' +
@@ -478,9 +524,92 @@
   // ── Thread ──────────────────────────────────────────────────────────────────
 
   function setTitle(title) {
-    var t = title || 'Alex';
+    var emp = getEmployee(state.employeeId);
+    var t = title || emp.name;
     if (els.title) els.title.textContent = t;
-    document.title = (title ? title + ' · ' : '') + 'Alex | Agency OS';
+    document.title = (title ? title + ' · ' : '') + emp.name + ' | Agency OS';
+  }
+
+  function applyEmployeeUi(opts) {
+    opts = opts || {};
+    var emp = getEmployee(state.employeeId);
+    if (els.employee && !opts.skipSelect) {
+      els.employee.value = emp.id;
+      els.employee.disabled = state.employeeLocked === true;
+      els.employee.title = state.employeeLocked
+        ? 'This chat stays with ' + emp.name + '. Start a new chat to switch teammates.'
+        : 'Choose who you are talking to';
+    }
+    if (els.employeeTitle) els.employeeTitle.textContent = emp.title;
+    if (els.headerAvatar) els.headerAvatar.innerHTML = avatarHtml(emp.avatarKind, 'small');
+    if (els.heroAvatar) els.heroAvatar.innerHTML = avatarHtml(emp.avatarKind, 'large');
+    if (els.typingAvatar) els.typingAvatar.innerHTML = avatarHtml(emp.avatarKind, 'small');
+    if (els.emptyGreeting) els.emptyGreeting.textContent = emp.greeting;
+    if (els.emptyLead) {
+      els.emptyLead.innerHTML =
+        escapeHtml(emp.emptyLead) +
+        ' in <strong class="font-semibold text-brand-dark dark:text-white">' +
+        escapeHtml(CFG.workspaceName || 'this workspace') +
+        '</strong>. Pick a teammate above — each chat stays with that employee.';
+    }
+    if (els.input) els.input.placeholder = emp.placeholder || ('Message ' + emp.name + '…');
+    if (els.composerHint) {
+      els.composerHint.textContent =
+        'Mic to dictate · Enter to send · Shift+Enter for a new line · ' +
+        emp.name +
+        ' can make mistakes — check important changes.';
+    }
+    if (els.suggestions && Array.isArray(emp.suggestions) && emp.suggestions.length) {
+      els.suggestions.innerHTML = emp.suggestions
+        .map(function (s) {
+          var iconPath = ICONS[s.icon] || ICONS.search || '';
+          var attrs = s.prompt
+            ? ' data-prompt="' + escapeHtml(s.prompt) + '"'
+            : ' data-prefill="' + escapeHtml(s.prefill || '') + '" data-caret="' + escapeHtml(String(s.caret || '')) + '"';
+          return (
+            '<button type="button" class="pc-suggest group flex items-center gap-3 rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3.5 py-3 min-h-[3.5rem] text-left text-sm font-semibold leading-snug text-brand-dark dark:text-slate-100"' +
+            attrs +
+            '>' +
+            '<span class="pc-suggest-icon w-9 h-9 shrink-0 rounded-xl flex items-center justify-center" aria-hidden="true">' +
+            '<svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="' +
+            iconPath +
+            '"/></svg></span>' +
+            '<span class="min-w-0 flex-1">' +
+            escapeHtml(s.label || '') +
+            '</span></button>'
+          );
+        })
+        .join('');
+      bindSuggestionClicks();
+    }
+    if (!state.activeId) setTitle(emp.name);
+  }
+
+  function bindSuggestionClicks() {
+    if (!els.suggestions) return;
+    els.suggestions.querySelectorAll('.pc-suggest').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var prompt = btn.getAttribute('data-prompt');
+        var prefill = btn.getAttribute('data-prefill');
+        if (prompt) {
+          sendMessage(prompt);
+          return;
+        }
+        if (prefill) {
+          els.input.value = prefill;
+          autosize();
+          els.input.focus();
+          var caret = parseInt(btn.getAttribute('data-caret'), 10);
+          if (Number.isFinite(caret)) {
+            try {
+              els.input.setSelectionRange(caret, caret);
+            } catch (_) {
+              /* ignore */
+            }
+          }
+        }
+      });
+    });
   }
 
   function showEmpty(show) {
@@ -523,9 +652,10 @@
   }
 
   function avatar() {
+    var emp = getEmployee(state.employeeId);
     return (
       '<span class="pc-avatar shrink-0 w-8 h-8 rounded-full overflow-hidden bg-white" aria-hidden="true">' +
-      AVATAR_SVG +
+      avatarHtml(emp.avatarKind, 'small') +
       '</span>'
     );
   }
@@ -542,7 +672,7 @@
     });
     if (!labels.length) return '';
     return (
-      '<div class="flex flex-wrap gap-1.5 mt-3" aria-label="Tools Alex used">' +
+      '<div class="flex flex-wrap gap-1.5 mt-3" aria-label="Tools used">' +
       labels
         .map(function (l) {
           return (
@@ -655,6 +785,11 @@
     updateUrl(id);
     renderList();
     var known = findConversation(id);
+    if (known && known.employeeId) {
+      state.employeeId = known.employeeId;
+      state.employeeLocked = true;
+      applyEmployeeUi();
+    }
     setTitle(known ? known.title : 'Loading…');
     if (!isDesktop()) setDrawer(false);
     showTyping(false);
@@ -664,8 +799,13 @@
     return api('GET', '/api/pavlex/conversations/' + encodeURIComponent(id) + '/messages').then(function (d) {
       if (seq !== state.epoch) return;
       if (d.success) {
-        if (d.conversation) upsertConversation(d.conversation);
-        setTitle(d.conversation ? d.conversation.title : 'Alex');
+        if (d.conversation) {
+          upsertConversation(d.conversation);
+          state.employeeId = d.conversation.employeeId || state.employeeId;
+          state.employeeLocked = true;
+          applyEmployeeUi();
+        }
+        setTitle(d.conversation ? d.conversation.title : getEmployee(state.employeeId).name);
         renderMessages(d.messages || []);
         if (!opts.keepFocus && isDesktop()) els.input.focus();
       } else if (d.__status === 404) {
@@ -684,11 +824,13 @@
     cancelVoice();
     state.epoch++;
     state.activeId = '';
+    state.employeeLocked = false;
     updateUrl('');
-    setTitle('');
     clearThread();
     showEmpty(true);
     showTyping(false);
+    applyEmployeeUi();
+    setTitle(getEmployee(state.employeeId).name);
     renderList();
     if (!isDesktop()) setDrawer(false);
     if (isDesktop()) els.input.focus();
@@ -776,6 +918,7 @@
         conversationId: convAtSend || undefined,
         workspaceId: workspaceId() || undefined,
         platform: 'chat',
+        employeeId: state.employeeId,
         page: '/chat',
         pageTitle: document.title || '',
         ui:
@@ -793,7 +936,10 @@
           if (d.conversation) {
             if (viewing && !convAtSend) {
               state.activeId = d.conversation.id;
+              state.employeeId = d.conversation.employeeId || state.employeeId;
+              state.employeeLocked = true;
               updateUrl(d.conversation.id);
+              applyEmployeeUi();
             }
             upsertConversation(d.conversation);
           }
@@ -811,7 +957,7 @@
           loadConversations();
           return;
         }
-        fail(d.error || 'Alex could not answer just now. Try again.');
+        fail(d.error || getEmployee(state.employeeId).name + ' could not answer just now. Try again.');
       })
       .catch(function () {
         clearTimeout(timer);
@@ -867,29 +1013,18 @@
   if (window.AlexVoice) attachVoice();
   else document.addEventListener('alexvoice:ready', attachVoice, { once: true });
 
-  document.querySelectorAll('.pc-suggest').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var prompt = btn.getAttribute('data-prompt');
-      var prefill = btn.getAttribute('data-prefill');
-      if (prompt) {
-        sendMessage(prompt);
+  bindSuggestionClicks();
+
+  if (els.employee) {
+    els.employee.addEventListener('change', function () {
+      if (state.employeeLocked) {
+        els.employee.value = state.employeeId;
         return;
       }
-      if (prefill) {
-        els.input.value = prefill;
-        autosize();
-        els.input.focus();
-        var caret = parseInt(btn.getAttribute('data-caret'), 10);
-        if (Number.isFinite(caret)) {
-          try {
-            els.input.setSelectionRange(caret, caret);
-          } catch (_) {
-            /* ignore */
-          }
-        }
-      }
+      state.employeeId = els.employee.value || DEFAULT_EMPLOYEE_ID;
+      applyEmployeeUi({ skipSelect: true });
     });
-  });
+  }
 
   // ── Sidebar events ──────────────────────────────────────────────────────────
 

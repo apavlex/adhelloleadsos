@@ -34,8 +34,12 @@ function isUnreliableToolModel(model) {
   return /(^|\/)(deepseek-r1|qwq|o1-mini|o1-preview)\b|-r1\b|thinking/.test(m);
 }
 
-/** Ordered tool-capable model candidates; first one is the primary. */
-function resolvePavlexToolLlmChain() {
+/**
+ * Ordered tool-capable model candidates; first one is the primary.
+ * @param {{ preferredOpenRouterModels?: string[] }} [opts]
+ *   When set (e.g. Grokbot), those OpenRouter models are tried first, then the normal chain.
+ */
+function resolvePavlexToolLlmChain(opts = {}) {
   const chain = [];
   const seen = new Set();
   const add = (entry) => {
@@ -44,6 +48,23 @@ function resolvePavlexToolLlmChain() {
     seen.add(key);
     chain.push(entry);
   };
+
+  const preferred = Array.isArray(opts.preferredOpenRouterModels)
+    ? opts.preferredOpenRouterModels.map((m) => String(m || '').trim()).filter(Boolean)
+    : [];
+
+  const orKey = env('OPENROUTER_API_KEY');
+  if (orKey && preferred.length) {
+    const base = {
+      provider: 'openrouter',
+      apiKey: orKey,
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      extraHeaders: openRouterExtraHeaders(),
+    };
+    for (const model of preferred) {
+      if (!isUnreliableToolModel(model)) add({ ...base, model });
+    }
+  }
 
   const openaiKey = env('OPENAI_API_KEY');
   if (openaiKey) {
@@ -60,7 +81,6 @@ function resolvePavlexToolLlmChain() {
     });
   }
 
-  const orKey = env('OPENROUTER_API_KEY');
   if (orKey) {
     const base = {
       provider: 'openrouter',
@@ -78,8 +98,8 @@ function resolvePavlexToolLlmChain() {
   return chain;
 }
 
-function resolvePavlexToolLlm() {
-  const chain = resolvePavlexToolLlmChain();
+function resolvePavlexToolLlm(opts = {}) {
+  const chain = resolvePavlexToolLlmChain(opts);
   return chain.length ? chain[0] : null;
 }
 

@@ -23,6 +23,7 @@ const { chatUnavailableMessage } = require('./pavlexCrmIntent');
  * @param {string} [opts.pageTitle]
  * @param {object} [opts.ui]
  * @param {boolean} [opts.persistHistory]
+ * @param {string} [opts.employeeId] — chat employee (alex, grokbot, …)
  */
 async function runPavlexChat(req, opts) {
   const started = Date.now();
@@ -42,6 +43,7 @@ async function runPavlexChat(req, opts) {
   const page = String(opts.page || '').trim().slice(0, 500);
   const pageTitle = String(opts.pageTitle || '').trim().slice(0, 200);
   const ui = opts.ui && typeof opts.ui === 'object' && !Array.isArray(opts.ui) ? opts.ui : null;
+  const employeeId = String(opts.employeeId || '').trim() || undefined;
   const persistHistory =
     opts.persistHistory !== false &&
     (platform === 'automate' || platform === 'global' || platform === 'chat');
@@ -52,13 +54,15 @@ async function runPavlexChat(req, opts) {
     throw err;
   }
 
-  const { instructions, mcpConfig } = await buildPavlexContext(req, auth, {
-    platform,
-    message,
-    page,
-    pageTitle,
-    ui,
-  });
+  const { instructions, mcpConfig, employeeId: resolvedEmployeeId, preferredOpenRouterModels } =
+    await buildPavlexContext(req, auth, {
+      platform,
+      message,
+      page,
+      pageTitle,
+      ui,
+      employeeId,
+    });
 
   // Chat runs CRM tools in-process; no HTTP round-trip to our own /ceo/mcp endpoint.
   const connection = await connectMCP({
@@ -83,7 +87,8 @@ async function runPavlexChat(req, opts) {
     history: history.slice(-10),
     mcpConfig,
     maxTokens: platform === 'assistant' ? 1000 : platform === 'chat' ? 1600 : 1200,
-    temperature: platform === 'assistant' ? 0.52 : 0.7,
+    temperature: platform === 'assistant' ? 0.52 : resolvedEmployeeId === 'grokbot' ? 0.85 : 0.7,
+    preferredOpenRouterModels,
   });
 
   if (!chatOut.content || chatOut.error) {
@@ -117,10 +122,12 @@ async function runPavlexChat(req, opts) {
   return {
     reply: chatOut.content,
     provider: chatOut.provider || 'none',
+    model: chatOut.model || null,
     mcpEnabled: !!chatOut.mcpEnabled,
     mcpMode: chatOut.mcpMode || null,
     toolsUsed: chatOut.toolsUsed || [],
     conversationId,
+    employeeId: resolvedEmployeeId,
     user: {
       email: auth.email,
       workspaceId: auth.workspaceId,

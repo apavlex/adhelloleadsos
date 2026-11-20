@@ -11,12 +11,16 @@
   >
     <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-brand-border/60 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 shrink-0">
       <div class="flex items-center gap-3 min-w-0">
-        <span class="shrink-0 w-10 h-10 rounded-full overflow-hidden border border-brand-border/60 dark:border-white/20 bg-white shadow-sm" aria-hidden="true">
+        <span id="assistantAvatar" class="shrink-0 w-10 h-10 rounded-full overflow-hidden border border-brand-border/60 dark:border-white/20 bg-white shadow-sm" aria-hidden="true">
           <img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="40" height="40" loading="lazy" decoding="async" />
         </span>
         <div class="min-w-0">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Alex · AI Assistant</p>
-        <p class="text-xs font-bold text-brand-dark dark:text-white truncate">Leads, pipeline &amp; operations</p>
+        <label class="sr-only" for="assistantEmployee">Chat employee</label>
+        <select id="assistantEmployee" class="w-full max-w-[12rem] h-7 rounded-lg border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-900 px-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">
+          <option value="alex" selected>Alex</option>
+          <option value="grokbot">Grokbot</option>
+        </select>
+        <p id="assistantEmployeeTitle" class="text-xs font-bold text-brand-dark dark:text-white truncate mt-0.5">Leads, pipeline &amp; operations</p>
         </div>
       </div>
       <button type="button" id="assistantClose" class="w-9 h-9 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center transition-colors" aria-label="Close sales coach">

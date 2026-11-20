@@ -179,8 +179,15 @@
   <%- include('partials/navbar') %>
   <% const _pcWs = typeof workspace !== 'undefined' && workspace ? workspace : null; %>
   <% const _pcWsName = (_pcWs && _pcWs.name) || 'Workspace'; %>
-  <% const _pcAvatar = '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="32" height="32" loading="lazy" decoding="async" />'; %>
-  <% const _pcAvatarLarge = '<img src="/img/alex-avatar.jpg" alt="Alex" class="w-full h-full rounded-full object-cover" width="96" height="96" decoding="async" />'; %>
+  <% const _pcEmployees = (typeof chatEmployees !== 'undefined' && Array.isArray(chatEmployees) && chatEmployees.length) ? chatEmployees : [{ id: 'alex', name: 'Alex', title: 'Receptionist & sales assistant', blurb: 'Leads, pipeline, tasks, and scripts.', greeting: "Hey, I'm Alex.", emptyLead: 'Find prospects, update your pipeline, add tasks, and write scripts', placeholder: 'Message Alex… or tap the mic', avatarKind: 'alex', suggestions: [] }]; %>
+  <% const _pcDefaultEmployeeId = (typeof defaultChatEmployeeId !== 'undefined' && defaultChatEmployeeId) ? defaultChatEmployeeId : 'alex'; %>
+  <% const _pcEmployee = _pcEmployees.find(function (e) { return e.id === _pcDefaultEmployeeId; }) || _pcEmployees[0]; %>
+  <% const _pcAvatarAlex = '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="32" height="32" loading="lazy" decoding="async" />'; %>
+  <% const _pcAvatarGrok = '<span class="flex h-full w-full items-center justify-center bg-sky-500 text-white font-black text-sm" aria-hidden="true">G</span>'; %>
+  <% const _pcAvatarAlexLarge = '<img src="/img/alex-avatar.jpg" alt="Alex" class="w-full h-full rounded-full object-cover" width="96" height="96" decoding="async" />'; %>
+  <% const _pcAvatarGrokLarge = '<span class="flex h-full w-full items-center justify-center bg-sky-500 text-white font-black text-3xl md:text-4xl" aria-hidden="true">G</span>'; %>
+  <% const _pcAvatar = _pcEmployee.avatarKind === 'grok' ? _pcAvatarGrok : _pcAvatarAlex; %>
+  <% const _pcAvatarLarge = _pcEmployee.avatarKind === 'grok' ? _pcAvatarGrokLarge : _pcAvatarAlexLarge; %>
   <%
     const _pcIcons = {
       users: 'M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z',
@@ -192,16 +199,12 @@
       sync: 'M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99',
       script: 'M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.501 48.172 48.172 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z',
     };
-    const _pcSuggestions = [
-      { icon: 'users', label: 'Find referral partners for my business', prompt: 'Find referral partners for my business' },
-      { icon: 'search', label: 'Find 20 interior designers in Camas, WA and save them to a Referral Partners folder', prompt: 'Find 20 interior designers in Camas, WA and save them to a Referral Partners folder' },
-      { icon: 'bookmark', label: 'Show my bookmarked leads', prompt: 'Show my bookmarked leads' },
-      { icon: 'today', label: 'What should I work on today?', prompt: 'What should I work on today?' },
-      { icon: 'task', label: 'Create a task to call back … tomorrow', prefill: 'Create a task to call back  tomorrow', caret: 29 },
-      { icon: 'tag', label: 'Tag the top 10 plumbers as Hot', prompt: 'Tag the top 10 plumbers as Hot' },
-      { icon: 'sync', label: 'Sync my bookmarked leads to GHL', prompt: 'Sync my bookmarked leads to GHL' },
-      { icon: 'script', label: 'Write an opening script for property managers', prompt: 'Write an opening script for property managers' },
-    ];
+    const _pcSuggestions = Array.isArray(_pcEmployee.suggestions) && _pcEmployee.suggestions.length
+      ? _pcEmployee.suggestions
+      : [
+          { icon: 'users', label: 'Find referral partners for my business', prompt: 'Find referral partners for my business' },
+          { icon: 'today', label: 'What should I work on today?', prompt: 'What should I work on today?' },
+        ];
   %>
 
   <main id="pavlexChatApp" class="relative flex w-full min-w-0 overflow-hidden md:gap-4 md:px-6 md:pb-5">
@@ -236,7 +239,7 @@
       </p>
     </aside>
 
-    <section class="flex-1 min-w-0 min-h-0 flex flex-col bg-white/80 dark:bg-slate-900/70 md:rounded-[2rem] md:border md:border-brand-border md:dark:border-white/10 md:shadow-sm overflow-hidden" aria-label="Chat with Alex">
+    <section class="flex-1 min-w-0 min-h-0 flex flex-col bg-white/80 dark:bg-slate-900/70 md:rounded-[2rem] md:border md:border-brand-border md:dark:border-white/10 md:shadow-sm overflow-hidden" aria-label="Team chat">
       <header class="shrink-0 flex items-center gap-2 md:gap-3 px-3 md:px-6 py-2.5 md:py-3.5 border-b border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/80 backdrop-blur [padding-top:max(0.6rem,env(safe-area-inset-top))] md:pt-3.5">
         <button type="button" id="pcAppMenu" class="md:hidden relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-[22%] border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800/80" aria-label="Open app menu" title="Menu">
           <img src="/images/adhello-app-icon.png" alt="" width="44" height="44" class="h-full w-full object-contain" decoding="async" />
@@ -244,17 +247,25 @@
         <button type="button" id="pcDrawerOpen" class="md:hidden w-11 h-11 shrink-0 flex items-center justify-center rounded-full border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 transition-colors" aria-label="Open chat history" aria-controls="pcSidebar" aria-expanded="false" title="Chat history">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         </button>
-        <span class="hidden md:block relative w-10 h-10 shrink-0" aria-hidden="true">
-          <span class="pc-avatar block w-10 h-10 rounded-full overflow-hidden bg-white"><%- _pcAvatar %></span>
+        <span id="pcHeaderAvatarWrap" class="hidden md:block relative w-10 h-10 shrink-0" aria-hidden="true">
+          <span id="pcHeaderAvatar" class="pc-avatar block w-10 h-10 rounded-full overflow-hidden bg-white"><%- _pcAvatar %></span>
           <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 border-2 border-white dark:border-slate-900"></span>
         </span>
         <div class="min-w-0 flex-1">
-          <h1 id="pcTitle" class="font-display font-extrabold text-[15px] md:text-base leading-tight tracking-tight truncate text-brand-dark dark:text-white">Alex</h1>
+          <div class="flex flex-wrap items-center gap-2 min-w-0">
+            <h1 id="pcTitle" class="font-display font-extrabold text-[15px] md:text-base leading-tight tracking-tight truncate text-brand-dark dark:text-white"><%= _pcEmployee.name %></h1>
+            <label class="sr-only" for="pcEmployee">Chat employee</label>
+            <select id="pcEmployee" class="max-w-[11rem] h-8 rounded-full border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-2.5 text-[11px] font-bold text-brand-dark dark:text-white truncate">
+              <% _pcEmployees.forEach(function (emp) { %>
+              <option value="<%= emp.id %>"<%= emp.id === _pcEmployee.id ? ' selected' : '' %>><%= emp.name %></option>
+              <% }); %>
+            </select>
+          </div>
           <p class="mt-0.5 text-[11px] font-semibold text-brand-muted dark:text-slate-400 truncate flex items-center gap-1.5">
             <span class="md:hidden w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" aria-hidden="true"></span>
-            <span>Online</span>
+            <span id="pcEmployeeTitle" class="truncate"><%= _pcEmployee.title %></span>
             <span aria-hidden="true">·</span>
-            <span id="pcWorkspaceName" class="truncate" title="Alex works in this workspace"><%= _pcWsName %></span>
+            <span id="pcWorkspaceName" class="truncate" title="Works in this workspace"><%= _pcWsName %></span>
           </p>
         </div>
         <button type="button" id="pcNewChatHeader" class="w-11 h-11 shrink-0 flex items-center justify-center rounded-full border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 transition-colors md:hidden" aria-label="New chat" title="New chat">
@@ -267,17 +278,17 @@
           <div class="pc-empty-glow" aria-hidden="true"></div>
           <div class="relative">
             <span class="relative inline-block" aria-hidden="true">
-              <span class="pc-hero-avatar block w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-white"><%- _pcAvatarLarge %></span>
+              <span id="pcHeroAvatar" class="pc-hero-avatar block w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-white"><%- _pcAvatarLarge %></span>
               <span class="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-400 border-[3px] border-white dark:border-slate-900"></span>
             </span>
-            <h2 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-6 text-brand-dark dark:text-white">Hey, I'm Alex.</h2>
-            <p class="text-[15px] text-brand-muted dark:text-slate-400 mt-2.5 max-w-md mx-auto leading-relaxed">Find prospects, update your pipeline, add tasks, and write scripts in <strong class="font-semibold text-brand-dark dark:text-white"><%= _pcWsName %></strong>. Your chats are saved here.</p>
+            <h2 id="pcEmptyGreeting" class="font-display font-extrabold text-3xl md:text-4xl tracking-tight mt-6 text-brand-dark dark:text-white"><%= _pcEmployee.greeting %></h2>
+            <p id="pcEmptyLead" class="text-[15px] text-brand-muted dark:text-slate-400 mt-2.5 max-w-md mx-auto leading-relaxed"><%= _pcEmployee.emptyLead %> in <strong class="font-semibold text-brand-dark dark:text-white"><%= _pcWsName %></strong>. Pick a teammate above — each chat stays with that employee.</p>
             <p class="mt-8 mb-3 text-[10px] font-black uppercase tracking-widest text-brand-muted text-left sm:text-center">Try asking</p>
             <div id="pcSuggestions" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left">
               <% _pcSuggestions.forEach(function (s) { %>
               <button type="button" class="pc-suggest group flex items-center gap-3 rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3.5 py-3 min-h-[3.5rem] text-left text-sm font-semibold leading-snug text-brand-dark dark:text-slate-100<%= s.wide ? ' sm:col-span-2' : '' %>"<% if (s.prompt) { %> data-prompt="<%= s.prompt %>"<% } else { %> data-prefill="<%= s.prefill %>" data-caret="<%= s.caret %>"<% } %>>
                 <span class="pc-suggest-icon w-9 h-9 shrink-0 rounded-xl flex items-center justify-center" aria-hidden="true">
-                  <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="<%= _pcIcons[s.icon] %>" /></svg>
+                  <svg class="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="<%= _pcIcons[s.icon] || _pcIcons.search %>" /></svg>
                 </span>
                 <span class="min-w-0 flex-1"><%= s.label %></span>
               </button>
@@ -286,9 +297,9 @@
           </div>
         </div>
         <div id="pcMessages" class="max-w-3xl mx-auto px-4 md:px-6 py-5 md:py-6 space-y-6 hidden"></div>
-        <div id="pcTyping" class="max-w-3xl mx-auto px-4 md:px-6 pb-5 hidden" aria-label="Alex is typing">
+        <div id="pcTyping" class="max-w-3xl mx-auto px-4 md:px-6 pb-5 hidden" aria-label="Assistant is typing">
           <div class="flex gap-3 items-center">
-            <span class="pc-avatar shrink-0 w-8 h-8 rounded-full overflow-hidden bg-white" aria-hidden="true"><%- _pcAvatar %></span>
+            <span id="pcTypingAvatar" class="pc-avatar shrink-0 w-8 h-8 rounded-full overflow-hidden bg-white" aria-hidden="true"><%- _pcAvatar %></span>
             <div class="inline-flex items-center gap-2.5 rounded-full bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 pl-4 pr-4 py-2.5 shadow-sm">
               <span class="flex items-center gap-1 text-brand-muted dark:text-slate-400" aria-hidden="true">
                 <span class="pc-dot"></span>
@@ -303,8 +314,8 @@
 
       <div class="shrink-0 px-3 md:px-6 pt-2 md:pt-3 [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))] md:pb-4">
         <form id="pcForm" class="pc-composer max-w-3xl mx-auto flex items-end gap-1 rounded-[1.75rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/90 p-1.5 pl-5" novalidate>
-          <label for="pcInput" class="sr-only">Message Alex</label>
-          <textarea id="pcInput" rows="1" maxlength="6000" enterkeyhint="send" placeholder="Message Alex… or tap the mic" class="pc-composer-input flex-1 min-w-0 self-center resize-none max-h-48 border-0 bg-transparent px-0 py-[0.6rem] font-medium text-brand-dark dark:text-white placeholder:text-brand-muted placeholder:font-normal"></textarea>
+          <label for="pcInput" class="sr-only">Message</label>
+          <textarea id="pcInput" rows="1" maxlength="6000" enterkeyhint="send" placeholder="<%= _pcEmployee.placeholder %>" class="pc-composer-input flex-1 min-w-0 self-center resize-none max-h-48 border-0 bg-transparent px-0 py-[0.6rem] font-medium text-brand-dark dark:text-white placeholder:text-brand-muted placeholder:font-normal"></textarea>
           <button type="button" id="pcMic" class="alex-voice-btn shrink-0 w-11 h-11 md:w-10 md:h-10 rounded-full text-brand-muted hover:text-brand-dark hover:bg-brand-cream dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10" aria-label="Dictate a message" title="Tap to speak — text lands in the box" aria-pressed="false">
             <svg class="alex-voice-icon alex-voice-icon--mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z"/></svg>
           </button>
@@ -312,7 +323,7 @@
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" /></svg>
           </button>
         </form>
-        <p class="max-w-3xl mx-auto mt-2 text-[10px] font-medium text-brand-muted opacity-70 dark:text-slate-500 text-center hidden md:block">Mic to dictate · Enter to send · Shift+Enter for a new line · Alex can make mistakes — check important changes.</p>
+        <p id="pcComposerHint" class="max-w-3xl mx-auto mt-2 text-[10px] font-medium text-brand-muted opacity-70 dark:text-slate-500 text-center hidden md:block">Mic to dictate · Enter to send · Shift+Enter for a new line · <%= _pcEmployee.name %> can make mistakes — check important changes.</p>
       </div>
     </section>
   </main>
@@ -322,7 +333,12 @@
       initialConversationId: typeof initialConversationId !== 'undefined' ? initialConversationId : '',
       workspaceId: (typeof workspaceId !== 'undefined' && workspaceId) || (_pcWs && _pcWs.id) || '',
       workspaceName: _pcWsName,
-      avatarSvg: _pcAvatar,
+      avatarSvg: _pcAvatarAlex,
+      avatars: { alex: _pcAvatarAlex, grok: _pcAvatarGrok },
+      avatarsLarge: { alex: _pcAvatarAlexLarge, grok: _pcAvatarGrokLarge },
+      icons: _pcIcons,
+      employees: _pcEmployees,
+      defaultEmployeeId: _pcDefaultEmployeeId,
     }) %>;
   </script>
   <%# Voice dictation for the composer (also loaded from the navbar when signed in). %>

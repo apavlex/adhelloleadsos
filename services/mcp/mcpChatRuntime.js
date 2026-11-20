@@ -18,6 +18,7 @@ async function pavlexChatWithCrmTools({
   mcpConfig = null,
   maxTokens = 1200,
   temperature = 0.7,
+  preferredOpenRouterModels = [],
 }) {
   const ctx = {
     workspaceId: req.workspaceId,
@@ -65,6 +66,7 @@ async function pavlexChatWithCrmTools({
       history,
       ctx,
       requireTools: crmRequired,
+      preferredOpenRouterModels,
     });
 
     if (inlineOut.content && !inlineOut.error) {
@@ -94,6 +96,7 @@ async function pavlexChatWithCrmTools({
     message,
     history,
     ctx: hasCtx ? ctx : null,
+    preferredOpenRouterModels,
   });
   if (generalOut.content && !generalOut.error) {
     if (!crmRequired || (generalOut.toolsUsed && generalOut.toolsUsed.length)) {

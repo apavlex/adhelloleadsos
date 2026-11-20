@@ -21,9 +21,11 @@ test('create, list, rename, pin and delete a conversation', () => {
   assert.match(a.id, /^c_/);
   assert.equal(a.title, conv.DEFAULT_TITLE);
   assert.equal(a.messageCount, 0);
+  assert.equal(a.employeeId, 'alex');
 
-  const b = conv.createConversation('ws_a', OWNER, { title: 'Pricing ideas' });
+  const b = conv.createConversation('ws_a', OWNER, { title: 'Pricing ideas', employeeId: 'grokbot' });
   assert.equal(b.title, 'Pricing ideas');
+  assert.equal(b.employeeId, 'grokbot');
 
   let list = conv.listConversations('ws_a', OWNER);
   assert.deepEqual(

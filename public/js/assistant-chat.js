@@ -14,14 +14,45 @@
       .replace(/"/g, '&quot;');
   }
 
+  var EMPLOYEE_META = {
+    alex: {
+      title: 'Leads, pipeline & operations',
+      avatar:
+        '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="40" height="40" loading="lazy" decoding="async" />',
+    },
+    grokbot: {
+      title: 'Outreach & research specialist',
+      avatar:
+        '<span class="flex h-full w-full items-center justify-center bg-sky-500 text-white font-black text-sm" aria-hidden="true">G</span>',
+    },
+  };
+
+  function currentEmployeeId() {
+    var sel = document.getElementById('assistantEmployee');
+    var id = sel && sel.value ? String(sel.value) : 'alex';
+    return EMPLOYEE_META[id] ? id : 'alex';
+  }
+
+  function assistantAvatarHtml() {
+    return (EMPLOYEE_META[currentEmployeeId()] || EMPLOYEE_META.alex).avatar;
+  }
+
   function assistantAvatarNode() {
     const span = document.createElement('span');
     span.className =
       'shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-slate-200/90 dark:border-white/20 bg-white dark:bg-slate-800 shadow-sm ring-2 ring-slate-200/80 dark:ring-white/10';
     span.setAttribute('aria-hidden', 'true');
-    span.innerHTML =
-      '<img src="/img/alex-avatar-96.jpg" alt="" class="w-full h-full rounded-full object-cover" width="40" height="40" loading="lazy" decoding="async" />';
+    span.innerHTML = assistantAvatarHtml();
     return span;
+  }
+
+  function syncAssistantEmployeeUi() {
+    var id = currentEmployeeId();
+    var meta = EMPLOYEE_META[id] || EMPLOYEE_META.alex;
+    var avatar = document.getElementById('assistantAvatar');
+    var title = document.getElementById('assistantEmployeeTitle');
+    if (avatar) avatar.innerHTML = meta.avatar;
+    if (title) title.textContent = meta.title;
   }
 
   /** Prefer plain text from model; lightly style legacy **pairs** and strip stray asterisks. */
@@ -196,6 +227,11 @@
     const form = document.getElementById('assistantForm');
     const input = document.getElementById('assistantInput');
     const sendBtn = document.getElementById('assistantSend');
+    const employeeSel = document.getElementById('assistantEmployee');
+    if (employeeSel) {
+      employeeSel.addEventListener('change', syncAssistantEmployeeUi);
+      syncAssistantEmployeeUi();
+    }
     const messagesEl = document.getElementById('assistantMessages');
     const citeEl = document.getElementById('assistantCitations');
     const mic = document.getElementById('assistantMic');
@@ -369,6 +405,7 @@
             history: prior,
             workspaceId: String(window.__ADHELLO_WORKSPACE_ID__ || '').trim() || undefined,
             platform: 'assistant',
+            employeeId: currentEmployeeId(),
             page: (window.location.pathname || '') + (window.location.search || ''),
             pageTitle: document.title || '',
             ui:

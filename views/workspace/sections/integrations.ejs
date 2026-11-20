@@ -942,6 +942,8 @@
                 <option value="qwen/qwen3-coder:free">Qwen3 Coder (free)</option>
                 <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (paid)</option>
                 <option value="deepseek/deepseek-v4-flash:floor">DeepSeek V4 Flash :floor (cheapest provider)</option>
+                <option value="x-ai/grok-4">Grok 4 (xAI via OpenRouter — used by Grokbot)</option>
+                <option value="x-ai/grok-4-fast">Grok 4 Fast</option>
               </datalist>
               <% if (masks.openrouterModel) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterModel_clear" value="1" /> Remove</label><% } %>
               <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Overrides the server default model chain for this workspace only. Paid models (e.g. Flash) need OpenRouter credits — leave blank to stay on free models.</p>

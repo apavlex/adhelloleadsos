@@ -55,9 +55,34 @@ function serializeToolResult(result) {
  * @param {string} opts.message
  * @param {Array<{role:string,content:string}>} [opts.history]
  * @param {{ workspaceId: string, userEmail: string }|null} [opts.ctx] — enables text tool calls
+ * @param {string[]} [opts.preferredOpenRouterModels] — tried first on OpenRouter (e.g. Grok)
  */
-async function pavlexGeneralChat({ instructions, message, history = [], ctx = null }) {
-  const providers = [...openRouterProviders(), ...legacyProviders()];
+async function pavlexGeneralChat({
+  instructions,
+  message,
+  history = [],
+  ctx = null,
+  preferredOpenRouterModels = [],
+}) {
+  const preferred = Array.isArray(preferredOpenRouterModels)
+    ? preferredOpenRouterModels.map((m) => String(m || '').trim()).filter(Boolean)
+    : [];
+  const baseOpenRouter = openRouterProviders();
+  const preferredProviders = [];
+  if (preferred.length && baseOpenRouter.length) {
+    const template = baseOpenRouter[0];
+    const seen = new Set();
+    for (const model of preferred) {
+      if (seen.has(model)) continue;
+      seen.add(model);
+      preferredProviders.push({
+        ...template,
+        name: `openrouter-${model.replace(/[^\w.-]+/g, '-')}`,
+        model,
+      });
+    }
+  }
+  const providers = [...preferredProviders, ...baseOpenRouter, ...legacyProviders()];
   if (!providers.length) return { content: null, error: true, detail: 'No LLM providers configured' };
 
   const tools = getOpenAiFunctionTools();

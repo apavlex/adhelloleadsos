@@ -7,6 +7,27 @@ const { runPavlexChat } = require('../services/pavlex/pavlexAgent');
 const { assertPavlexAuth } = require('../services/pavlex/pavlexAuth');
 const { pinPavlexWorkspace } = require('../services/pavlex/pavlexWorkspaceScope');
 const pavlexConversations = require('../services/pavlex/pavlexConversations');
+const {
+  normalizeEmployeeId,
+  listEmployees,
+  DEFAULT_EMPLOYEE_ID,
+} = require('../services/pavlex/pavlexEmployees');
+
+router.get('/employees', (req, res) => {
+  try {
+    assertPavlexAuth(req);
+    res.json({
+      success: true,
+      defaultEmployeeId: DEFAULT_EMPLOYEE_ID,
+      employees: listEmployees(),
+    });
+  } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ success: false, error: err.message });
+    }
+    throw err;
+  }
+});
 
 router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) => {
   try {
@@ -39,15 +60,21 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) =>
       req.body.ui && typeof req.body.ui === 'object' && !Array.isArray(req.body.ui)
         ? req.body.ui
         : null;
+    let employeeId = normalizeEmployeeId(req.body.employeeId);
 
     const auth = assertPavlexAuth(req);
     let createdConversation = null;
     if (conversationId) {
-      if (!pavlexConversations.getConversation(auth.workspaceId, auth.email, conversationId)) {
+      const existing = pavlexConversations.getConversation(auth.workspaceId, auth.email, conversationId);
+      if (!existing) {
         return res.status(404).json({ success: false, error: 'Conversation not found.' });
       }
+      // Lock the employee to whoever started this chat.
+      employeeId = normalizeEmployeeId(existing.employeeId || employeeId);
     } else if (platform === 'chat' && message) {
-      createdConversation = pavlexConversations.createConversation(auth.workspaceId, auth.email);
+      createdConversation = pavlexConversations.createConversation(auth.workspaceId, auth.email, {
+        employeeId,
+      });
       conversationId = createdConversation.id;
     }
     if (conversationId) {
@@ -67,6 +94,7 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) =>
         page,
         pageTitle,
         ui,
+        employeeId,
         persistHistory: platform === 'automate' || platform === 'global' || platform === 'chat',
       });
     } catch (err) {
