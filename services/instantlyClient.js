@@ -156,6 +156,36 @@ async function addLeads(integrationEnv, { campaignId, listId, leads, fetchImpl, 
   return data && typeof data === 'object' ? data : {};
 }
 
+/**
+ * Reply in-thread to an Instantly email.
+ * @param {object} integrationEnv
+ * @param {{ eaccount: string, replyToUuid: string, subject: string, text?: string, html?: string, fetchImpl?: Function }} opts
+ */
+async function replyToEmail(integrationEnv, opts = {}) {
+  const eaccount = String(opts.eaccount || '').trim();
+  const replyToUuid = String(opts.replyToUuid || opts.reply_to_uuid || '').trim();
+  const subject = String(opts.subject || '').trim() || 'Re:';
+  const text = String(opts.text || '').trim();
+  const html = String(opts.html || '').trim();
+  if (!eaccount) throw Object.assign(new Error('Instantly sending account (eaccount) is required.'), { code: 'INSTANTLY_REPLY_MISSING_ACCOUNT' });
+  if (!replyToUuid) throw Object.assign(new Error('Instantly reply_to_uuid (email id) is required.'), { code: 'INSTANTLY_REPLY_MISSING_UUID' });
+  if (!text && !html) throw Object.assign(new Error('Reply body is required.'), { code: 'INSTANTLY_REPLY_MISSING_BODY' });
+  const body = {
+    eaccount,
+    reply_to_uuid: replyToUuid,
+    subject,
+    body: {
+      ...(text ? { text } : {}),
+      ...(html ? { html } : !text ? { text: '' } : {}),
+    },
+  };
+  return request(integrationEnv, '/api/v2/emails/reply', {
+    method: 'POST',
+    body,
+    fetchImpl: opts.fetchImpl,
+  });
+}
+
 module.exports = {
   BASE,
   BATCH_LIMIT,
@@ -165,4 +195,5 @@ module.exports = {
   listCampaigns,
   listLeadLists,
   addLeads,
+  replyToEmail,
 };
