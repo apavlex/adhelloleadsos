@@ -270,12 +270,74 @@
         </div>
         <button type="button" id="pcHandoffGrok" class="hidden sm:inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-sky-400/40 bg-sky-500/10 px-3 text-[10px] font-black uppercase tracking-widest text-sky-900 dark:text-sky-200 hover:bg-sky-500/20 transition-colors" title="Copy a Grok handoff so work continues outside AdHello">Continue in Grok</button>
         <button type="button" id="pcAddEmployee" class="hidden md:inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-brand-border dark:border-white/10 px-3 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream dark:hover:bg-white/5 transition-colors" title="Add a custom specialist">+ Bot</button>
+        <button type="button" id="pcSettingsOpen" class="w-11 h-11 md:w-9 md:h-9 shrink-0 flex items-center justify-center rounded-full border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 hover:border-brand-yellow/50 transition-colors" aria-label="Chat settings" title="API keys, handoff & integrations" aria-controls="pcSettingsPanel" aria-expanded="false">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/></svg>
+        </button>
         <button type="button" id="pcNewChatHeader" class="w-11 h-11 shrink-0 flex items-center justify-center rounded-full border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 transition-colors md:hidden" aria-label="New chat" title="New chat">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
         </button>
       </header>
 
-      <div id="pcHandoffModal" class="hidden fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="pcHandoffTitle">
+      <div id="pcSettingsBackdrop" class="fixed inset-0 z-[190] bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm hidden" aria-hidden="true"></div>
+      <aside id="pcSettingsPanel" class="fixed inset-y-0 right-0 z-[200] w-[min(100vw,22rem)] translate-x-full transition-transform duration-300 bg-white dark:bg-slate-900 border-l border-brand-border dark:border-white/10 shadow-2xl flex flex-col [padding-top:max(1rem,env(safe-area-inset-top))] [padding-bottom:max(0.75rem,env(safe-area-inset-bottom))]" role="dialog" aria-modal="true" aria-labelledby="pcSettingsTitle" aria-hidden="true" hidden>
+        <div class="px-5 pb-3 flex items-center gap-2 border-b border-brand-border dark:border-white/10">
+          <h2 id="pcSettingsTitle" class="flex-1 min-w-0 font-display font-extrabold text-base tracking-tight text-brand-dark dark:text-white">Chat settings</h2>
+          <button type="button" id="pcSettingsClose" class="w-10 h-10 shrink-0 flex items-center justify-center rounded-full text-brand-muted hover:text-brand-dark hover:bg-brand-cream dark:hover:text-white dark:hover:bg-white/5" aria-label="Close settings">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.25" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div class="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5 custom-scrollbar">
+          <section class="space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">API keys</p>
+            <a href="/workspace/integrations#xai-integration" class="flex items-start gap-3 rounded-2xl border border-sky-400/30 bg-sky-500/5 px-3.5 py-3 hover:border-sky-400/60 transition-colors">
+              <span class="mt-0.5 w-8 h-8 shrink-0 rounded-xl bg-sky-500 text-white flex items-center justify-center text-xs font-black" aria-hidden="true">G</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-bold text-brand-dark dark:text-white">xAI / Grok key</span>
+                <span class="block text-[11px] text-brand-muted mt-0.5 leading-snug">Personal Grok API for Grokbot specialists</span>
+              </span>
+            </a>
+            <a href="/workspace/integrations#openrouter-integration" class="flex items-start gap-3 rounded-2xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/50 px-3.5 py-3 hover:border-brand-yellow/50 transition-colors">
+              <span class="mt-0.5 w-8 h-8 shrink-0 rounded-xl bg-brand-yellow text-brand-dark flex items-center justify-center text-[10px] font-black" aria-hidden="true">OR</span>
+              <span class="min-w-0">
+                <span class="block text-sm font-bold text-brand-dark dark:text-white">OpenRouter key</span>
+                <span class="block text-[11px] text-brand-muted mt-0.5 leading-snug">Powers Alex and fallback models</span>
+              </span>
+            </a>
+            <a href="/workspace/integrations#integration-ai" class="block text-[11px] font-semibold text-brand-muted hover:text-brand-dark dark:hover:text-white underline underline-offset-2">All AI integrations →</a>
+          </section>
+
+          <section class="space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Handoff</p>
+            <label class="flex items-start gap-3 rounded-2xl border border-brand-border dark:border-white/10 px-3.5 py-3 cursor-pointer">
+              <input id="pcHandoffEnabled" type="checkbox" class="mt-1 rounded border-brand-border" checked />
+              <span class="min-w-0">
+                <span class="block text-sm font-bold text-brand-dark dark:text-white">Show Continue in Grok</span>
+                <span class="block text-[11px] text-brand-muted mt-0.5 leading-snug">Copy a handoff so Grok keeps working after you close AdHello</span>
+              </span>
+            </label>
+            <button type="button" id="pcSettingsHandoff" class="w-full rounded-2xl border border-sky-400/40 bg-sky-500/10 px-3.5 py-3 text-left hover:bg-sky-500/20 transition-colors">
+              <span class="block text-sm font-bold text-sky-950 dark:text-sky-100">Create handoff now</span>
+              <span class="block text-[11px] text-sky-900/70 dark:text-sky-200/70 mt-0.5">Mint an agent token + paste pack for the Grok app</span>
+            </button>
+            <a href="/workspace/ai-apps#grok" class="flex items-start gap-3 rounded-2xl border border-brand-border dark:border-white/10 px-3.5 py-3 hover:border-brand-yellow/50 transition-colors">
+              <span class="min-w-0">
+                <span class="block text-sm font-bold text-brand-dark dark:text-white">AI Connector (MCP)</span>
+                <span class="block text-[11px] text-brand-muted mt-0.5 leading-snug">Connect Grok, ChatGPT, Claude to this workspace</span>
+              </span>
+            </a>
+          </section>
+
+          <section class="space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Team</p>
+            <button type="button" id="pcSettingsAddBot" class="w-full rounded-2xl border border-brand-border dark:border-white/10 px-3.5 py-3 text-left hover:border-brand-yellow/50 transition-colors">
+              <span class="block text-sm font-bold text-brand-dark dark:text-white">Add custom specialist</span>
+              <span class="block text-[11px] text-brand-muted mt-0.5">New Grokbot for a specific job (copy, research, permits…)</span>
+            </button>
+          </section>
+        </div>
+      </aside>
+
+      <div id="pcHandoffModal" class="hidden fixed inset-0 z-[210] flex items-end sm:items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="pcHandoffTitle">
         <div class="w-full max-w-lg rounded-3xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl p-5 space-y-3">
           <div class="flex items-start justify-between gap-3">
             <div>
@@ -287,7 +349,8 @@
           <pre id="pcHandoffText" class="max-h-64 overflow-y-auto text-[11px] whitespace-pre-wrap break-all rounded-2xl bg-brand-cream/60 dark:bg-slate-950 px-3 py-3 font-mono text-brand-dark dark:text-slate-200"></pre>
           <div class="flex flex-wrap gap-2">
             <button type="button" id="pcHandoffCopy" class="btn-primary rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest">Copy handoff</button>
-            <a href="/workspace/ai-apps#grok" class="inline-flex items-center rounded-full border border-brand-border dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">AI Connector help</a>
+            <a href="/workspace/integrations#xai-integration" class="inline-flex items-center rounded-full border border-brand-border dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">API keys</a>
+            <a href="/workspace/ai-apps#grok" class="inline-flex items-center rounded-full border border-brand-border dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">AI Connector</a>
           </div>
         </div>
       </div>

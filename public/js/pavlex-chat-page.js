@@ -323,6 +323,13 @@
     handoffCopy: document.getElementById('pcHandoffCopy'),
     handoffClose: document.getElementById('pcHandoffClose'),
     addEmployee: document.getElementById('pcAddEmployee'),
+    settingsOpen: document.getElementById('pcSettingsOpen'),
+    settingsClose: document.getElementById('pcSettingsClose'),
+    settingsPanel: document.getElementById('pcSettingsPanel'),
+    settingsBackdrop: document.getElementById('pcSettingsBackdrop'),
+    settingsHandoff: document.getElementById('pcSettingsHandoff'),
+    settingsAddBot: document.getElementById('pcSettingsAddBot'),
+    handoffEnabled: document.getElementById('pcHandoffEnabled'),
   };
   if (!els.form || !els.thread) return;
 
@@ -1056,6 +1063,68 @@
     applyEmployeeUi();
   }
 
+  var HANDOFF_PREF_KEY = 'pavlexChatHandoffEnabled';
+
+  function isHandoffEnabled() {
+    try {
+      var raw = localStorage.getItem(HANDOFF_PREF_KEY);
+      if (raw == null) return true;
+      return raw === '1' || raw === 'true';
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function setHandoffEnabled(on) {
+    try {
+      localStorage.setItem(HANDOFF_PREF_KEY, on ? '1' : '0');
+    } catch (_) {
+      /* ignore */
+    }
+    syncHandoffVisibility();
+  }
+
+  function syncHandoffVisibility() {
+    var on = isHandoffEnabled();
+    if (els.handoffBtn) {
+      // Base classes: hidden on phone, inline on sm+ when enabled.
+      els.handoffBtn.classList.toggle('hidden', !on);
+      els.handoffBtn.classList.toggle('sm:inline-flex', on);
+    }
+    if (els.handoffEnabled) els.handoffEnabled.checked = on;
+  }
+
+  function setSettingsOpen(open) {
+    if (!els.settingsPanel) return;
+    if (open) {
+      els.settingsPanel.hidden = false;
+      els.settingsPanel.setAttribute('aria-hidden', 'false');
+      requestAnimationFrame(function () {
+        els.settingsPanel.classList.remove('translate-x-full');
+      });
+      if (els.settingsBackdrop) els.settingsBackdrop.classList.remove('hidden');
+      if (els.settingsOpen) els.settingsOpen.setAttribute('aria-expanded', 'true');
+      try {
+        if (location.hash !== '#settings') history.replaceState(null, '', '#settings');
+      } catch (_) {
+        /* ignore */
+      }
+    } else {
+      els.settingsPanel.classList.add('translate-x-full');
+      els.settingsPanel.setAttribute('aria-hidden', 'true');
+      if (els.settingsBackdrop) els.settingsBackdrop.classList.add('hidden');
+      if (els.settingsOpen) els.settingsOpen.setAttribute('aria-expanded', 'false');
+      setTimeout(function () {
+        if (els.settingsPanel.getAttribute('aria-hidden') === 'true') els.settingsPanel.hidden = true;
+      }, 300);
+      try {
+        if (location.hash === '#settings') history.replaceState(null, '', location.pathname + location.search);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+  }
+
   function openHandoffModal(text) {
     if (!els.handoffModal || !els.handoffText) return;
     els.handoffText.textContent = text || '';
@@ -1066,29 +1135,65 @@
     if (els.handoffModal) els.handoffModal.classList.add('hidden');
   }
 
+  function runHandoff(triggerBtn) {
+    if (triggerBtn) triggerBtn.disabled = true;
+    if (els.handoffBtn) els.handoffBtn.disabled = true;
+    api('POST', '/api/pavlex/handoff', {
+      employeeId: state.employeeId,
+      conversationId: state.activeId || undefined,
+      createToken: true,
+    })
+      .then(function (d) {
+        if (!d.success || !d.setupMessage) {
+          window.alert(d.error || 'Could not build a Grok handoff.');
+          return;
+        }
+        setSettingsOpen(false);
+        openHandoffModal(d.setupMessage);
+      })
+      .catch(function () {
+        window.alert('Could not build a Grok handoff. Try again.');
+      })
+      .finally(function () {
+        if (triggerBtn) triggerBtn.disabled = false;
+        if (els.handoffBtn) els.handoffBtn.disabled = false;
+      });
+  }
+
   if (els.handoffBtn) {
     els.handoffBtn.addEventListener('click', function () {
-      els.handoffBtn.disabled = true;
-      api('POST', '/api/pavlex/handoff', {
-        employeeId: state.employeeId,
-        conversationId: state.activeId || undefined,
-        createToken: true,
-      })
-        .then(function (d) {
-          if (!d.success || !d.setupMessage) {
-            window.alert(d.error || 'Could not build a Grok handoff.');
-            return;
-          }
-          openHandoffModal(d.setupMessage);
-        })
-        .catch(function () {
-          window.alert('Could not build a Grok handoff. Try again.');
-        })
-        .finally(function () {
-          els.handoffBtn.disabled = false;
-        });
+      runHandoff(els.handoffBtn);
     });
   }
+
+  if (els.settingsOpen) {
+    els.settingsOpen.addEventListener('click', function () {
+      setSettingsOpen(true);
+    });
+  }
+  if (els.settingsClose) els.settingsClose.addEventListener('click', function () { setSettingsOpen(false); });
+  if (els.settingsBackdrop) els.settingsBackdrop.addEventListener('click', function () { setSettingsOpen(false); });
+  if (els.settingsHandoff) {
+    els.settingsHandoff.addEventListener('click', function () {
+      runHandoff(els.settingsHandoff);
+    });
+  }
+  if (els.settingsAddBot && els.addEmployee) {
+    els.settingsAddBot.addEventListener('click', function () {
+      setSettingsOpen(false);
+      els.addEmployee.click();
+    });
+  }
+  if (els.handoffEnabled) {
+    els.handoffEnabled.addEventListener('change', function () {
+      setHandoffEnabled(els.handoffEnabled.checked);
+    });
+  }
+  syncHandoffVisibility();
+  if (location.hash === '#settings') setSettingsOpen(true);
+  window.addEventListener('hashchange', function () {
+    if (location.hash === '#settings') setSettingsOpen(true);
+  });
   if (els.handoffClose) els.handoffClose.addEventListener('click', closeHandoffModal);
   if (els.handoffModal) {
     els.handoffModal.addEventListener('click', function (e) {
@@ -1205,7 +1310,16 @@
   if (els.drawerClose) els.drawerClose.addEventListener('click', function () { setDrawer(false); });
   if (els.backdrop) els.backdrop.addEventListener('click', function () { setDrawer(false); });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !isDesktop()) setDrawer(false);
+    if (e.key !== 'Escape') return;
+    if (els.handoffModal && !els.handoffModal.classList.contains('hidden')) {
+      closeHandoffModal();
+      return;
+    }
+    if (els.settingsPanel && els.settingsPanel.getAttribute('aria-hidden') === 'false') {
+      setSettingsOpen(false);
+      return;
+    }
+    if (!isDesktop()) setDrawer(false);
   });
   if (els.appMenu) {
     els.appMenu.addEventListener('click', function () {
