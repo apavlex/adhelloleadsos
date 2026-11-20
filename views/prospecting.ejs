@@ -15,15 +15,8 @@
       locals.contextSidebar = {
         eyebrow: 'Pipeline',
         title: 'Leads & Referrals',
-        subtitle: 'Search, refine, and jump to related tools',
-        links: [
-          { href: '/sequences', label: 'Cadences' },
-          { href: '/prospecting?tab=queue', label: 'Working queue' },
-          { href: '/prospecting?tab=folders', label: 'Folders' },
-          { href: '/leads/find', label: 'Find more leads' }
-        ].concat(typeof canManageWorkspace !== 'undefined' && canManageWorkspace
-          ? [{ href: '/workspace/team', label: 'Team & assign' }]
-          : []),
+        subtitle: 'Search and refine this list',
+        links: [],
         refine: 'pipeline'
       };
     } else if (activeTab === 'queue') {
