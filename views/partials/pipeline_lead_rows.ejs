@@ -1,8 +1,10 @@
 <%
-    var resolveCarrierSellingPoints =
+    /* Prefer app.locals.resolveCarrierSellingPoints — relative require() from EJS
+       resolves against process.cwd(), not this file, and breaks row rendering. */
+    var resolveCarrierPts =
       typeof resolveCarrierSellingPoints === 'function'
         ? resolveCarrierSellingPoints
-        : require('../../services/carrierSellingPoints').resolveCarrierSellingPoints;
+        : function () { return { chips: [], summaryLine: '', hasAny: false }; };
     var labelReviewFreshnessServer =
       typeof labelReviewFreshness === 'function' ? labelReviewFreshness : null;
     function googleMapsSocialHrefForLead(lead) {
@@ -533,7 +535,7 @@
                       <% } %>
                     </div>
                     <% 
-                      var _carrierPts = resolveCarrierSellingPoints(lead);
+                      var _carrierPts = resolveCarrierPts(lead);
                       var _carrierChips = _carrierPts && Array.isArray(_carrierPts.chips) ? _carrierPts.chips.slice(0, 5) : [];
                       var _carrierTitle = _carrierPts && _carrierPts.summaryLine ? _carrierPts.summaryLine : '';
                     %>
