@@ -638,6 +638,7 @@
               (<code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">campaigns:read</code>,
               <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">leads:create</code>,
               or <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">all:all</code>).
+              Add <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">emails:create</code> (or <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">all:all</code>) to reply in-thread from Agency OS.
               Each lead uses Instantly’s template fields: email, first name, last name, job title, company name, personalization, phone, and website. City, state, and ZIP go in Location. A LinkedIn URL goes in LinkedIn.
               Campaigns only receive leads that have an email. Lists can take a business name when there is no email.
               Re-exports skip addresses already in a campaign or list. Email verification stays off so this does not spend Instantly credits.
@@ -650,6 +651,23 @@
             <% if (masks.instantlyApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="instantlyApiKey_clear" value="1" /> Remove</label><% } %>
           </div>
           <%- include('../../partials/integration_test_row', { provider: 'instantly' }) %>
+          <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (Instantly → Agency OS)</p>
+            <p class="text-xs text-brand-muted leading-relaxed">
+              Paste this URL into Instantly → Settings → Webhooks. Subscribe at least to
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">reply_received</code>
+              (also useful: <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">email_opened</code>,
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">link_clicked</code>,
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">lead_interested</code>).
+              Replies land in Engagement, the nav bell, and push notifications. Open Unibox from Engagement for two-way email, or reply from the lead when a thread id is stored.
+            </p>
+            <% const _instHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
+            <div class="flex flex-wrap items-center gap-2">
+              <code id="instantlyWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _instHookBase %>/api/webhooks/instantly?token=••••••••</code>
+              <button type="button" id="copyInstantlyWebhookUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Copy URL</button>
+            </div>
+            <p id="instantlyWebhookUrlMsg" class="hidden text-xs text-rose-600"></p>
+          </div>
         </section>
       </div>
     </div>
@@ -1457,6 +1475,41 @@
           }
         })
         .then(function () { copyGhlBtn.disabled = false; });
+    });
+  }
+
+  var copyInstantlyBtn = document.getElementById('copyInstantlyWebhookUrl');
+  if (copyInstantlyBtn) {
+    copyInstantlyBtn.addEventListener('click', function () {
+      var el = document.getElementById('instantlyWebhookUrl');
+      var msg = document.getElementById('instantlyWebhookUrlMsg');
+      if (msg) msg.classList.add('hidden');
+      copyInstantlyBtn.disabled = true;
+      fetch('/workspace/integrations/instantly-webhook-url', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.success || !d.url) throw new Error((d && d.error) || 'Could not get the webhook URL.');
+          if (el) el.textContent = d.url;
+          var done = function () {
+            copyInstantlyBtn.textContent = 'Copied';
+            setTimeout(function () { copyInstantlyBtn.textContent = 'Copy URL'; }, 2000);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(d.url).then(done, function () { copyInstantlyBtn.textContent = 'Select & copy'; });
+          }
+          copyInstantlyBtn.textContent = 'Select & copy';
+        })
+        .catch(function (err) {
+          if (msg) {
+            msg.textContent = err.message;
+            msg.classList.remove('hidden');
+          }
+        })
+        .then(function () { copyInstantlyBtn.disabled = false; });
     });
   }
 

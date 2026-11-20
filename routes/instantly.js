@@ -44,6 +44,102 @@ router.get('/destinations', async (req, res) => {
   }
 });
 
+/**
+ * Reply in Instantly Unibox thread from a lead that previously replied.
+ * Body: { leadKey, text, subject? }
+ * Uses lead.instantlyLastEmailId + lead.instantlyEmailAccount (from reply webhook).
+ */
+router.post('/reply', async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const leadKey = String(body.leadKey || '').trim();
+    const text = String(body.text || body.body || '').trim();
+    const subject = String(body.subject || '').trim() || 'Re:';
+    if (!leadKey) {
+      return res.status(400).json({ success: false, error: 'leadKey is required.' });
+    }
+    if (!text) {
+      return res.status(400).json({ success: false, error: 'Reply text is required.' });
+    }
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (!instantlyClient.isConfigured(integrationEnv)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Instantly is not connected. Add an API key under Workspace → Integrations.',
+      });
+    }
+    let lead = await dbService.getLead(leadKey, req.workspaceId);
+    if (!lead) {
+      const resolved = await dbService.resolveLeadStorageKey(leadKey, req.workspaceId);
+      if (resolved) lead = await dbService.getLead(resolved, req.workspaceId);
+    }
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    const replyToUuid = String(
+      body.replyToUuid || lead.instantlyLastEmailId || '',
+    ).trim();
+    const eaccount = String(
+      body.eaccount || lead.instantlyEmailAccount || '',
+    ).trim();
+    if (!replyToUuid || !eaccount) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'No Instantly thread on this lead yet. Wait for a reply webhook (needs email id + sending account), or open Unibox.',
+        uniboxUrl: String(lead.instantlyUniboxUrl || '').trim() || undefined,
+      });
+    }
+    const data = await instantlyClient.replyToEmail(integrationEnv, {
+      eaccount,
+      replyToUuid,
+      subject,
+      text,
+    });
+    const at = new Date().toISOString();
+    const updates = Array.isArray(lead.updates) ? [...lead.updates] : [];
+    updates.push({
+      timestamp: at,
+      type: 'email_outbound',
+      value: text.slice(0, 2000),
+      provider: 'instantly',
+      instantlyEmailId: replyToUuid,
+      channel: 'email',
+    });
+    await dbService.updateLead(
+      lead.key,
+      {
+        updates,
+        lastTouchChannel: 'email',
+        logs: [
+          {
+            type: 'instantly_reply',
+            message: 'Replied via Instantly',
+            timestamp: at,
+          },
+        ],
+      },
+      req.workspaceId,
+    );
+    return res.json({
+      success: true,
+      uniboxUrl: String(lead.instantlyUniboxUrl || '').trim() || undefined,
+      data: data && typeof data === 'object' ? data : {},
+    });
+  } catch (e) {
+    const status =
+      e && (e.code === 'INSTANTLY_NOT_CONFIGURED' || String(e.code || '').startsWith('INSTANTLY_REPLY_'))
+        ? 400
+        : e && e.status === 401
+          ? 401
+          : 502;
+    return res.status(status).json({
+      success: false,
+      error: (e && e.message) || 'Instantly reply failed.',
+    });
+  }
+});
+
 router.post('/export', async (req, res) => {
   try {
     const body = req.body && typeof req.body === 'object' ? req.body : {};

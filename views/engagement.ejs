@@ -131,6 +131,16 @@
           </div>
           <div class="flex flex-wrap gap-2 shrink-0 sm:pt-1">
             <a href="<%= ev.href %>" class="btn-pill bg-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95">Call in Focus</a>
+            <% if (ev.uniboxUrl) { %>
+            <a href="<%= ev.uniboxUrl %>" target="_blank" rel="noopener noreferrer" class="btn-pill border border-sky-500/40 bg-sky-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-sky-900 dark:text-sky-200 hover:bg-sky-500/20">Open Instantly</a>
+            <% } %>
+            <% if (ev.canInstantlyReply) { %>
+            <button
+              type="button"
+              class="btn-pill border border-sky-500/40 bg-sky-500/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-sky-900 dark:text-sky-200 hover:bg-sky-500/20 js-instantly-reply"
+              data-lead-key="<%= ev.leadKey %>"
+            >Reply in Instantly</button>
+            <% } %>
             <% if (_send) { %>
             <button
               type="button"
@@ -201,6 +211,41 @@
     })();
   </script>
   <% } %>
+  <script>
+    (function () {
+      document.addEventListener('click', function (ev) {
+        var btn = ev.target && ev.target.closest && ev.target.closest('.js-instantly-reply');
+        if (!btn) return;
+        var leadKey = btn.getAttribute('data-lead-key') || '';
+        if (!leadKey) return;
+        var text = window.prompt('Reply via Instantly (sends in the existing email thread):');
+        if (text == null) return;
+        text = String(text).trim();
+        if (!text) return;
+        btn.disabled = true;
+        fetch('/leads/instantly/reply', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKey: leadKey, text: text }),
+        })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok || !res.d || !res.d.success) {
+              throw new Error((res.d && res.d.error) || 'Reply failed');
+            }
+            btn.textContent = 'Sent';
+            if (res.d.uniboxUrl) {
+              try { window.open(res.d.uniboxUrl, '_blank', 'noopener'); } catch (_) {}
+            }
+          })
+          .catch(function (err) {
+            window.alert(err && err.message ? err.message : 'Reply failed');
+            btn.disabled = false;
+          });
+      });
+    })();
+  </script>
   <%- include('partials/footer') %>
 </body>
 </html>

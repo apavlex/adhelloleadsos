@@ -197,6 +197,9 @@ function groupEventsByLead(events, leadsByKey, cutoffMs) {
     // Inbound-only list (newest first) for badges / older clients.
     row.replies = thread.filter((m) => m.direction === 'in').reverse().map((m) => ({ ...m, repeat: 1 }));
     row.sendLead = leadSendPrefill(lead);
+    row.uniboxUrl = String((lead && lead.instantlyUniboxUrl) || '').trim();
+    row.instantlyEmailId = String((lead && lead.instantlyLastEmailId) || '').trim();
+    row.canInstantlyReply = !!(row.instantlyEmailId && String((lead && lead.instantlyEmailAccount) || '').trim());
     if (thread.length) {
       const lastIn = [...thread].reverse().find((m) => m.direction === 'in');
       if (lastIn && row.sendLead) {
