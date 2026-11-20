@@ -124,16 +124,15 @@
     const title = String((L && L.title) || (row && row.dataset && row.dataset.title) || '').trim();
     const address = pickAddress(L) || String((row && row.dataset && row.dataset.address) || '').trim();
     const city = String((L && L.city) || (row && row.dataset && row.dataset.city) || '').trim();
-    if (address && address !== 'N/A') {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address} ${title}`.trim())}`;
-    }
-    if (title && city) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} ${city}`.trim())}`;
-    }
-    if (title) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title)}`;
-    }
-    return '';
+    const state = String((L && L.state) || (row && row.dataset && row.dataset.state) || '').trim();
+    const parts = [];
+    if (title) parts.push(title);
+    if (address && address !== 'N/A') parts.push(address);
+    const soFar = () => parts.join(' ').toLowerCase();
+    if (city && city !== 'N/A' && !soFar().includes(city.toLowerCase())) parts.push(city);
+    if (state && state !== 'N/A' && !soFar().includes(state.toLowerCase())) parts.push(state);
+    if (!parts.length) return '';
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(' '))}`;
   }
 
   function paintQuickOutreachLinks(L, row) {

@@ -1799,7 +1799,7 @@
       return 'https://' + s.replace(/^\/\//, '');
     }
 
-    /** Same rules as pipeline `googleMapsSocialHrefForLead` (views/partials/leads_pipeline_core.ejs). */
+    /** Name + street/city/state so USA/world leads with the same company name don't collide. */
     function googleMapsSocialHrefFromLead(lead) {
       var raw = lead.url && lead.url !== 'N/A' ? String(lead.url).trim() : '';
       function isGmListing(absUrl) {
@@ -1821,16 +1821,15 @@
       var title = String(lead.title || '').trim();
       var address = String(lead.address || '').trim();
       var city = String(lead.city || '').trim();
-      if (address && address !== 'N/A') {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((address + ' ' + title).trim());
-      }
-      if (title && city) {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((title + ' ' + city).trim());
-      }
-      if (title) {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(title);
-      }
-      return '';
+      var state = String(lead.state || '').trim();
+      var parts = [];
+      if (title) parts.push(title);
+      if (address && address !== 'N/A') parts.push(address);
+      var soFar = function () { return parts.join(' ').toLowerCase(); };
+      if (city && city !== 'N/A' && soFar().indexOf(city.toLowerCase()) === -1) parts.push(city);
+      if (state && state !== 'N/A' && soFar().indexOf(state.toLowerCase()) === -1) parts.push(state);
+      if (!parts.length) return '';
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parts.join(' '));
     }
 
     var FOCUS_SVG_GOOGLE_MAPS =

@@ -303,22 +303,17 @@
     const title = String((ds && ds.title) || '').trim();
     const address = String((ds && ds.address) || '').trim();
     const city = String((ds && ds.city) || '').trim();
-    if (address && address !== 'N/A') {
-      return (
-        'https://www.google.com/maps/search/?api=1&query=' +
-        encodeURIComponent((address + ' ' + title).trim())
-      );
-    }
-    if (title && city) {
-      return (
-        'https://www.google.com/maps/search/?api=1&query=' +
-        encodeURIComponent((title + ' ' + city).trim())
-      );
-    }
-    if (title) {
-      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(title);
-    }
-    return '';
+    const state = String((ds && ds.state) || '').trim();
+    const parts = [];
+    if (title) parts.push(title);
+    if (address && address !== 'N/A') parts.push(address);
+    const soFar = () => parts.join(' ').toLowerCase();
+    if (city && city !== 'N/A' && !soFar().includes(city.toLowerCase())) parts.push(city);
+    if (state && state !== 'N/A' && !soFar().includes(state.toLowerCase())) parts.push(state);
+    if (!parts.length) return '';
+    return (
+      'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parts.join(' '))
+    );
   }
 
   function buildKanbanSocialsHtml(row, leadKey) {

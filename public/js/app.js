@@ -10623,6 +10623,7 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.title,
       address || row.dataset.address,
       row.dataset.city,
+      row.dataset.state,
     );
     if (href) return href;
     try {
@@ -10633,6 +10634,7 @@ document.addEventListener('DOMContentLoaded', () => {
           snap.title || row.dataset.title,
           snap.address || address || row.dataset.address,
           snap.city || row.dataset.city,
+          snap.state || row.dataset.state,
         );
         if (href) return href;
       }
@@ -10646,6 +10648,7 @@ document.addEventListener('DOMContentLoaded', () => {
         embedded.title || row.dataset.title,
         embedded.address || address || row.dataset.address,
         embedded.city || row.dataset.city,
+        embedded.state || row.dataset.state,
       );
       if (href) return href;
     }
@@ -11248,7 +11251,8 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.url,
       row.dataset.title,
       mapCenter || readPipelineRowDisplayAddress(row) || row.dataset.address,
-      row.dataset.city
+      row.dataset.city,
+      row.dataset.state
     );
     const links = {
       gm: mapsHref || '',
@@ -11273,7 +11277,8 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.title,
       row.dataset.address,
       row.dataset.city,
-      suffix
+      suffix,
+      row.dataset.state
     );
     const m = slot.match(/<div[^>]*>([\s\S]*)<\/div>/);
     if (m) return m[1].includes('<a ') ? m[1] : '';
@@ -12119,8 +12124,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initLeadDetailPanelChrome();
   }
 
-  /** Maps listing URL if stored; otherwise a Google Maps search URL from address/title (matches detail panel socials). */
-  function resolveGoogleMapsSocialHref(urlRaw, titleRaw, addressRaw, cityRaw) {
+  /** Maps listing URL if stored; otherwise name + street/city/state search (USA/world disambiguation). */
+  function resolveGoogleMapsSocialHref(urlRaw, titleRaw, addressRaw, cityRaw, stateRaw) {
     const isGoogleMapsListingUrl = (absUrl) => {
       try {
         const u = new URL(absUrl);
@@ -12143,16 +12148,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const title = String(titleRaw || '').trim();
     const address = String(addressRaw || '').trim();
     const city = String(cityRaw || '').trim();
-    if (address && address !== 'N/A') {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address} ${title}`.trim())}`;
-    }
-    if (title && city) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} ${city}`.trim())}`;
-    }
-    if (title) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title)}`;
-    }
-    return null;
+    const state = String(stateRaw || '').trim();
+    const parts = [];
+    if (title) parts.push(title);
+    if (address && address !== 'N/A') parts.push(address);
+    const soFar = () => parts.join(' ').toLowerCase();
+    if (city && city !== 'N/A' && !soFar().includes(city.toLowerCase())) parts.push(city);
+    if (state && state !== 'N/A' && !soFar().includes(state.toLowerCase())) parts.push(state);
+    if (!parts.length) return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(parts.join(' '))}`;
   }
 
   const GOOGLE_BUSINESS_ICON_SVG =
@@ -12578,7 +12582,8 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.url,
       row.dataset.title,
       center || address || row.dataset.address,
-      row.dataset.city
+      row.dataset.city,
+      row.dataset.state
     );
     const chipHref = gmListing || mapsUrl || '';
 
@@ -21490,8 +21495,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50 max-w-[200px]" title="${escapeHtmlAttr(w)}" data-url="${escapeHtmlAttr(w)}">${escapeHtmlText(disp)}</a>`;
   }
 
-  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter, title, address, city, gradSuffix) {
-    const gmResolved = resolveGoogleMapsSocialHref(mapsUrl, title, address, city);
+  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter, title, address, city, gradSuffix, state) {
+    const gmResolved = resolveGoogleMapsSocialHref(mapsUrl, title, address, city, state);
     const gm = gmResolved ? String(gmResolved).trim() : '';
     const fb = facebook && facebook !== 'N/A' ? String(facebook).trim() : '';
     const ig = instagram && instagram !== 'N/A' ? String(instagram).trim() : '';
@@ -21626,7 +21631,8 @@ document.addEventListener('DOMContentLoaded', () => {
           row.dataset.url,
           row.dataset.title,
           row.dataset.address,
-          row.dataset.city
+          row.dataset.city,
+          row.dataset.state
         );
         let socialsHtml = '<div class="flex items-center justify-center gap-2.5">';
         if (__socialBrand) {
