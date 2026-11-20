@@ -1,14 +1,35 @@
 const express = require('express');
 const { userEmail } = require('../services/workspaceService');
-const { loadPipelineTablePrefs, savePipelineTablePrefs } = require('../services/pipelineTablePrefs');
+const {
+  loadPipelineTablePrefs,
+  savePipelineTablePrefs,
+  buildEffectivePipelineTablePrefs,
+} = require('../services/pipelineTablePrefs');
+const { resolveWorkspacePipelineColumnDefaults } = require('../services/pipelineColumnPresets');
 
 const router = express.Router();
+
+function activeWorkspaceId(req) {
+  return String(
+    (req.workspace && req.workspace.id) ||
+      req.workspaceId ||
+      (req.session && (req.session.activeWorkspaceId || req.session.workspaceId)) ||
+      '',
+  ).trim();
+}
 
 router.get('/', async (req, res, next) => {
   try {
     const email = userEmail(req);
     if (!email) return res.status(401).json({ success: false, error: 'Sign in to load table settings.' });
-    res.json({ success: true, prefs: await loadPipelineTablePrefs(email) });
+    const wid = activeWorkspaceId(req);
+    const saved = await loadPipelineTablePrefs(email, wid);
+    const prefs = buildEffectivePipelineTablePrefs(req.workspace || null, saved);
+    res.json({
+      success: true,
+      prefs,
+      workspaceDefaults: resolveWorkspacePipelineColumnDefaults(req.workspace || null),
+    });
   } catch (e) {
     next(e);
   }
@@ -18,7 +39,8 @@ router.post('/', async (req, res, next) => {
   try {
     const email = userEmail(req);
     if (!email) return res.status(401).json({ success: false, error: 'Sign in to save table settings.' });
-    const prefs = await savePipelineTablePrefs(email, req.body);
+    const wid = activeWorkspaceId(req) || String((req.body && req.body.workspaceId) || '').trim();
+    const prefs = await savePipelineTablePrefs(email, req.body, wid);
     if (!prefs) return res.status(400).json({ success: false, error: 'Invalid table settings.' });
     res.json({ success: true, prefs });
   } catch (e) {
@@ -42,18 +64,24 @@ function needsPipelineTablePrefs(req) {
   );
 }
 
-/** Exposes saved table setup to pipeline views only (skip Today and other HTML GETs). */
+/** Exposes effective table setup (workspace defaults + per-workspace overrides) to pipeline views. */
 async function attachPipelineTablePrefs(req, res, next) {
   if (req.method !== 'GET') return next();
   if (!needsPipelineTablePrefs(req)) {
     res.locals.pipelineTablePrefs = null;
+    res.locals.workspacePipelineColumnDefaults = null;
     return next();
   }
   try {
     const email = userEmail(req);
-    res.locals.pipelineTablePrefs = email ? await loadPipelineTablePrefs(email) : null;
+    const wid = activeWorkspaceId(req);
+    const saved = email ? await loadPipelineTablePrefs(email, wid) : null;
+    const ws = req.workspace || res.locals.workspace || null;
+    res.locals.workspacePipelineColumnDefaults = resolveWorkspacePipelineColumnDefaults(ws);
+    res.locals.pipelineTablePrefs = buildEffectivePipelineTablePrefs(ws, saved);
   } catch (_) {
     res.locals.pipelineTablePrefs = null;
+    res.locals.workspacePipelineColumnDefaults = null;
   }
   next();
 }

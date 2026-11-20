@@ -231,6 +231,9 @@
 <script src="/js/direct-mail-queue.js?v=<%= _av %>" defer></script>
 <% } %>
 <% if (_needPipeline) { %>
+<% if (typeof workspacePipelineColumnDefaults !== 'undefined' && workspacePipelineColumnDefaults) { %>
+<script>window.__WORKSPACE_PIPELINE_COLUMN_DEFAULTS = <%- JSON.stringify(workspacePipelineColumnDefaults).replace(/</g, '\\u003c') %>;</script>
+<% } %>
 <% if (typeof pipelineTablePrefs !== 'undefined' && pipelineTablePrefs) { %>
 <script>window.__SERVER_PIPELINE_TABLE_PREFS = <%- JSON.stringify(pipelineTablePrefs).replace(/</g, '\\u003c') %>;</script>
 <% } %>

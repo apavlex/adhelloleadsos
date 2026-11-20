@@ -103,12 +103,14 @@ router.get('/new', async (req, res, next) => {
     const errQ = typeof req.query.error === 'string' ? req.query.error.trim() : '';
 
     const { GOAL_CATALOG } = require('../services/workspaceRoiProfile');
+    const { PRESET_CATALOG: PIPELINE_COLUMN_PRESETS } = require('../services/pipelineColumnPresets');
     res.render('workspaces-wizard', {
       title: 'New workspace | Agency OS',
       activePage: 'workspace',
       PALETTE,
       PRESET_LIST,
       GOAL_CATALOG,
+      PIPELINE_COLUMN_PRESETS,
       wizard: w,
       error: errQ || null,
     });
@@ -567,15 +569,45 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
         normalizeRoiProfile(w.roiProfile) ||
         defaultRoiProfileForPreset(w.presetKey || scriptPresetKey) ||
         inferRoiProfile(doc);
+      const {
+        normalizePipelineColumnPreset,
+        defaultPresetForRoiProfile,
+        defaultPresetForWorkspace,
+      } = require('../services/pipelineColumnPresets');
+      const pickedColumns =
+        normalizePipelineColumnPreset(req.body.pipelineColumnPreset) ||
+        normalizePipelineColumnPreset(w.pipelineColumnPreset) ||
+        defaultPresetForRoiProfile(pickedGoal) ||
+        defaultPresetForWorkspace({ name, prospecting: { roiProfile: pickedGoal } });
       doc.prospecting = {
         ...(doc.prospecting && typeof doc.prospecting === 'object' ? doc.prospecting : {}),
         roiProfile: pickedGoal,
+        pipelineColumnPreset: pickedColumns,
       };
 
       await dbService.saveWorkspace(newId, doc);
       await dbService.saveWorkspaceSlug(slug, newId);
       await dbService.addUserWorkspaceId(em, newId);
       await dbService.saveUserPrefs(em, { activeWorkspaceId: newId });
+      try {
+        const {
+          visibilityForPreset,
+          densityForPreset,
+        } = require('../services/pipelineColumnPresets');
+        const { savePipelineTablePrefs } = require('../services/pipelineTablePrefs');
+        await savePipelineTablePrefs(
+          em,
+          {
+            vis: visibilityForPreset(pickedColumns),
+            widths: {},
+            density: densityForPreset(pickedColumns),
+            updatedAt: Date.now(),
+          },
+          newId,
+        );
+      } catch (_) {
+        /* ignore column seed failures */
+      }
       if (req.session) {
         req.session.activeWorkspaceId = newId;
         req.session.workspaceId = newId;

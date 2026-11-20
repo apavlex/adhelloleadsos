@@ -1994,7 +1994,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     (function initPipelineToolbarEarly() {
       const table = prospectTable;
-      const densityKey = 'prospectLeadTableDensity';
+      const densityKey =
+        typeof window.__pipelinePrefsStorageKeys === 'function'
+          ? window.__pipelinePrefsStorageKeys().density
+          : 'prospectLeadTableDensity';
       function applyTableDensity(mode) {
         const d = mode === 'compact' ? 'compact' : 'comfortable';
         table.classList.remove('prospect-leads-table--comfortable', 'prospect-leads-table--compact');
@@ -2230,12 +2233,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!Object.prototype.hasOwnProperty.call(map, id)) return defaultOn;
         return map[id] !== false;
       }
-      const VIS_KEY = 'pipelineTableColVisibility';
-      const WIDTH_KEY = 'pipelineTableColWidths';
+      function prefsKeys() {
+        if (typeof window.__pipelinePrefsStorageKeys === 'function') {
+          return window.__pipelinePrefsStorageKeys();
+        }
+        return {
+          vis: 'pipelineTableColVisibility',
+          widths: 'pipelineTableColWidths',
+          density: 'prospectLeadTableDensity',
+          syncTs: 'pipelineTablePrefsUpdatedAt',
+        };
+      }
+      const VIS_KEY = prefsKeys().vis;
+      const WIDTH_KEY = prefsKeys().widths;
 
       function loadVis() {
         try {
-          const raw = localStorage.getItem(VIS_KEY);
+          const raw = localStorage.getItem(prefsKeys().vis);
           return migrateContactColumnVis(raw ? JSON.parse(raw) : {});
         } catch (_) {
           return {};
@@ -2244,7 +2258,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       function saveVis(obj) {
         try {
-          localStorage.setItem(VIS_KEY, JSON.stringify(obj));
+          localStorage.setItem(prefsKeys().vis, JSON.stringify(obj));
         } catch (_) {
           /* ignore */
         }

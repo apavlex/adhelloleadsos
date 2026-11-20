@@ -1819,11 +1819,15 @@ router.post('/settings', express.json(), async (req, res) => {
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingLowReviewsThreshold') ||
         Object.prototype.hasOwnProperty.call(req.body, 'roiProfile') ||
         Object.prototype.hasOwnProperty.call(req.body, 'workspaceGoal') ||
-        Object.prototype.hasOwnProperty.call(req.body, 'prospectingRoiProfile'))
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingRoiProfile') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'pipelineColumnPreset'))
     ) {
       const { normalizeAutoPoolSettings } = require('../services/prospectingAutoPool');
       const { normalizeLowReviewsThreshold } = require('../services/prospectGapLabels');
       const { normalizeRoiProfile } = require('../services/workspaceRoiProfile');
+      const {
+        normalizePipelineColumnPreset,
+      } = require('../services/pipelineColumnPresets');
       const prospecting =
         ws.prospecting && typeof ws.prospecting === 'object' ? { ...ws.prospecting } : {};
       const prev = normalizeAutoPoolSettings(prospecting.autoPool);
@@ -1909,6 +1913,35 @@ router.post('/settings', express.json(), async (req, res) => {
               : req.body.prospectingRoiProfile;
         const normalized = normalizeRoiProfile(raw);
         if (normalized) prospecting.roiProfile = normalized;
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'pipelineColumnPreset')) {
+        const colPreset = normalizePipelineColumnPreset(req.body.pipelineColumnPreset);
+        if (colPreset) {
+          prospecting.pipelineColumnPreset = colPreset;
+          // Reset this user's per-workspace column overrides so the new layout applies.
+          try {
+            const email = workspaceService.userEmail(req);
+            if (email) {
+              const {
+                visibilityForPreset,
+                densityForPreset,
+              } = require('../services/pipelineColumnPresets');
+              const { savePipelineTablePrefs } = require('../services/pipelineTablePrefs');
+              await savePipelineTablePrefs(
+                email,
+                {
+                  vis: visibilityForPreset(colPreset),
+                  widths: {},
+                  density: densityForPreset(colPreset),
+                  updatedAt: Date.now(),
+                },
+                wid,
+              );
+            }
+          } catch (_) {
+            /* ignore prefs reset failures */
+          }
+        }
       }
       ws.prospecting = prospecting;
       if (prospecting.autoPool && prospecting.autoPool.enabled && !prev.enabled) {
@@ -2798,8 +2831,14 @@ router.get('/:section', async (req, res, next) => {
         GOAL_CATALOG,
         resolveRoiProfile,
       } = require('../services/workspaceRoiProfile');
+      const {
+        PRESET_CATALOG,
+        defaultPresetForWorkspace,
+      } = require('../services/pipelineColumnPresets');
       renderLocals.workspaceGoalCatalog = GOAL_CATALOG;
       renderLocals.workspaceRoiProfile = resolveRoiProfile(ws);
+      renderLocals.pipelineColumnPresetCatalog = PRESET_CATALOG;
+      renderLocals.workspacePipelineColumnPreset = defaultPresetForWorkspace(ws);
     }
     if (section === 'team') {
       renderLocals.roleAccess = {
