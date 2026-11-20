@@ -11,6 +11,7 @@ const pavlexLogger = require('./pavlexLogger');
 const { pavlexChatChannel } = require('./pavlexWorkspaceScope');
 const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
 const { chatUnavailableMessage } = require('./pavlexCrmIntent');
+const workspaceIntegrations = require('../workspaceIntegrations');
 
 /**
  * @param {import('express').Request} req
@@ -54,15 +55,20 @@ async function runPavlexChat(req, opts) {
     throw err;
   }
 
-  const { instructions, mcpConfig, employeeId: resolvedEmployeeId, preferredOpenRouterModels } =
-    await buildPavlexContext(req, auth, {
-      platform,
-      message,
-      page,
-      pageTitle,
-      ui,
-      employeeId,
-    });
+  const {
+    instructions,
+    mcpConfig,
+    employeeId: resolvedEmployeeId,
+    preferredOpenRouterModels,
+    preferredXaiModels,
+  } = await buildPavlexContext(req, auth, {
+    platform,
+    message,
+    page,
+    pageTitle,
+    ui,
+    employeeId,
+  });
 
   // Chat runs CRM tools in-process; no HTTP round-trip to our own /ceo/mcp endpoint.
   const connection = await connectMCP({
@@ -70,6 +76,8 @@ async function runPavlexChat(req, opts) {
     workspaceId: auth.workspaceId,
     userEmail: auth.email,
   });
+
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(auth.workspaceId);
 
   pavlexLogger.chatRequest({
     user: auth.email,
@@ -87,8 +95,11 @@ async function runPavlexChat(req, opts) {
     history: history.slice(-10),
     mcpConfig,
     maxTokens: platform === 'assistant' ? 1000 : platform === 'chat' ? 1600 : 1200,
-    temperature: platform === 'assistant' ? 0.52 : resolvedEmployeeId === 'grokbot' ? 0.85 : 0.7,
+    temperature:
+      platform === 'assistant' ? 0.52 : preferredXaiModels && preferredXaiModels.length ? 0.85 : 0.7,
     preferredOpenRouterModels,
+    preferredXaiModels,
+    integrationEnv,
   });
 
   if (!chatOut.content || chatOut.error) {

@@ -93,6 +93,10 @@ const PROVIDERS = {
     label: 'OpenRouter (AI)',
     fields: ['openrouterApiKey', 'openrouterModel'],
   },
+  xai: {
+    label: 'xAI / Grok',
+    fields: ['xaiApiKey', 'xaiModel'],
+  },
 };
 
 function listProviderIds() {
@@ -391,6 +395,28 @@ function formatOpenRouterTestError(result, fallback) {
   return detail || fallback || 'OpenRouter request failed — check your key and model setting.';
 }
 
+async function testXai(integrationEnv) {
+  const key = String(integrationEnv.XAI_API_KEY || '').trim();
+  if (!key) {
+    throw new Error('Missing xAI API key — get one at console.x.ai, paste it here, and save.');
+  }
+  const model = String(integrationEnv.XAI_MODEL || '').trim() || 'grok-4';
+  const url = String(integrationEnv.XAI_API_BASE || '').trim() || 'https://api.x.ai/v1/chat/completions';
+  const result = await chatCompletion({
+    messages: [{ role: 'user', content: 'Reply with exactly: ok' }],
+    max_tokens: 24,
+    temperature: 0,
+    providersOverride: [{ name: 'xai-test', apiKey: key, url, model }],
+  });
+  if (!result.content || result.error) {
+    throw new Error(
+      (result && result.errorMessage) ||
+        `xAI request failed for model "${model}" — check your key and credits.`,
+    );
+  }
+  return { message: `Connected · ${result.model || model}` };
+}
+
 async function testOpenRouter(integrationEnv) {
   const key = String(integrationEnv.OPENROUTER_API_KEY || '').trim();
   if (!key) {
@@ -461,12 +487,13 @@ const RUNNERS = {
   dataforseo: () => testDataForSeo,
   ghl: () => testGhl,
   instantly: () => testInstantly,
+  openrouter: () => testOpenRouter,
+  xai: () => testXai,
   lob: () => testLob,
   comms: () => testComms,
   saperly: () => testSaperly,
   tikhub: () => testTikHub,
   monid: () => testMonid,
-  openrouter: () => testOpenRouter,
 };
 
 /**

@@ -56,6 +56,8 @@ function serializeToolResult(result) {
  * @param {Array<{role:string,content:string}>} [opts.history]
  * @param {{ workspaceId: string, userEmail: string }|null} [opts.ctx] — enables text tool calls
  * @param {string[]} [opts.preferredOpenRouterModels] — tried first on OpenRouter (e.g. Grok)
+ * @param {string[]} [opts.preferredXaiModels] — tried first on personal xAI key
+ * @param {Record<string,string>|null} [opts.integrationEnv]
  */
 async function pavlexGeneralChat({
   instructions,
@@ -63,26 +65,46 @@ async function pavlexGeneralChat({
   history = [],
   ctx = null,
   preferredOpenRouterModels = [],
+  preferredXaiModels = [],
+  integrationEnv = null,
 }) {
   const preferred = Array.isArray(preferredOpenRouterModels)
     ? preferredOpenRouterModels.map((m) => String(m || '').trim()).filter(Boolean)
     : [];
-  const baseOpenRouter = openRouterProviders();
-  const preferredProviders = [];
-  if (preferred.length && baseOpenRouter.length) {
-    const template = baseOpenRouter[0];
-    const seen = new Set();
-    for (const model of preferred) {
-      if (seen.has(model)) continue;
-      seen.add(model);
-      preferredProviders.push({
-        ...template,
-        name: `openrouter-${model.replace(/[^\w.-]+/g, '-')}`,
-        model,
-      });
+  const preferredXai = Array.isArray(preferredXaiModels)
+    ? preferredXaiModels.map((m) => String(m || '').trim()).filter(Boolean)
+    : [];
+  const env = integrationEnv && typeof integrationEnv === 'object' ? integrationEnv : {};
+  const xaiKey = String(env.XAI_API_KEY || process.env.XAI_API_KEY || '').trim();
+  const xaiProviders = [];
+  if (xaiKey && preferredXai.length) {
+    const url = String(env.XAI_API_BASE || process.env.XAI_API_BASE || 'https://api.x.ai/v1/chat/completions').trim();
+    for (const model of preferredXai) {
+      xaiProviders.push({ name: `xai-${model}`, apiKey: xaiKey, url, model });
     }
   }
-  const providers = [...preferredProviders, ...baseOpenRouter, ...legacyProviders()];
+  const baseOpenRouter = openRouterProviders(integrationEnv);
+  const preferredProviders = [];
+  if (preferred.length && (baseOpenRouter.length || xaiKey)) {
+    const template = baseOpenRouter[0] || {
+      name: 'openrouter',
+      apiKey: String(env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || '').trim(),
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+    };
+    if (template.apiKey) {
+      const seen = new Set();
+      for (const model of preferred) {
+        if (seen.has(model)) continue;
+        seen.add(model);
+        preferredProviders.push({
+          ...template,
+          name: `openrouter-${model.replace(/[^\w.-]+/g, '-')}`,
+          model,
+        });
+      }
+    }
+  }
+  const providers = [...xaiProviders, ...preferredProviders, ...baseOpenRouter, ...legacyProviders()];
   if (!providers.length) return { content: null, error: true, detail: 'No LLM providers configured' };
 
   const tools = getOpenAiFunctionTools();

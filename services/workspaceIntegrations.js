@@ -74,6 +74,8 @@ const INTEGRATION_FIELDS = [
   'monidApiBase',
   'openrouterApiKey',
   'openrouterModel',
+  'xaiApiKey',
+  'xaiModel',
   'smsPrimary',
 ];
 
@@ -140,6 +142,8 @@ const FIELD_TO_ENV = {
   monidApiBase: 'MONID_API_BASE',
   openrouterApiKey: 'OPENROUTER_API_KEY',
   openrouterModel: 'OPENROUTER_MODEL',
+  xaiApiKey: 'XAI_API_KEY',
+  xaiModel: 'XAI_MODEL',
   smsPrimary: 'SMS_PRIMARY',
 };
 
@@ -222,6 +226,7 @@ const SHARED_GROUPS = [
   ['tikhubApiKey', 'tikhubApiBase'],
   ['monidApiKey', 'monidApiBase'],
   ['openrouterApiKey', 'openrouterModel'],
+  ['xaiApiKey', 'xaiModel'],
 ];
 
 const SHARED_SOURCE_SLUG = 'adhello-agency';
@@ -391,6 +396,7 @@ async function sharedProvidersFor(workspaceId) {
     tikhubApiKey: 'TikHub',
     monidApiKey: 'Monid',
     openrouterApiKey: 'OpenRouter AI',
+    xaiApiKey: 'xAI / Grok',
   };
   return SHARED_GROUPS.filter((group) => !group.some((f) => hasValue(own[f])) && hasValue(pooled[group[0]])).map(
     (group) => labels[group[0]] || group[0],
@@ -494,6 +500,7 @@ function integrationMasks(workspace) {
     'tikhubApiKey',
     'monidApiKey',
     'openrouterApiKey',
+    'xaiApiKey',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];

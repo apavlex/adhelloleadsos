@@ -2,28 +2,47 @@
  * Resolve LLM credentials for Pavlex tool-calling and general chat.
  *
  * Tool turns need native function calling, so they get their own model chain:
+ *   XAI_API_KEY         → preferred XAI models (Grokbot family) then XAI_MODEL | grok-4
  *   OPENAI_API_KEY      → OPENAI_TOOL_MODEL | OPENAI_RESPONSES_MODEL | OPENAI_MODEL | gpt-4o-mini
- *   OPENROUTER_API_KEY  → OPENROUTER_TOOL_MODEL, then OPENROUTER_MODEL (unless it is a free/auto
- *                         router or reasoning-only model), then openai/gpt-4o-mini
+ *   OPENROUTER_API_KEY  → preferred OpenRouter models, OPENROUTER_TOOL_MODEL, OPENROUTER_MODEL, gpt-4o-mini
+ *
+ * Workspace integration env (getResolvedIntegrationEnv) overrides process.env when passed in.
  */
 
 const DEFAULT_OPENAI_TOOL_MODEL = 'gpt-4o-mini';
 const DEFAULT_OPENROUTER_TOOL_MODEL = 'openai/gpt-4o-mini';
+const DEFAULT_XAI_MODEL = 'grok-4';
+const DEFAULT_XAI_URL = 'https://api.x.ai/v1/chat/completions';
 
-function openRouterExtraHeaders() {
+function openRouterExtraHeaders(integrationEnv) {
   const refererRaw =
-    process.env.OPENROUTER_HTTP_REFERER || process.env.BASE_URL || 'https://leads.adhello.io';
+    pick(integrationEnv, 'OPENROUTER_HTTP_REFERER') ||
+    pick(integrationEnv, 'BASE_URL') ||
+    process.env.OPENROUTER_HTTP_REFERER ||
+    process.env.BASE_URL ||
+    'https://leads.adhello.io';
   const referer = /^https?:\/\//i.test(refererRaw)
     ? refererRaw
     : `https://${String(refererRaw).replace(/^\/+/, '')}`;
   return {
     'HTTP-Referer': referer,
-    'X-Title': process.env.OPENROUTER_APP_NAME || 'AdHello Leads OS',
+    'X-Title':
+      pick(integrationEnv, 'OPENROUTER_APP_NAME') ||
+      process.env.OPENROUTER_APP_NAME ||
+      'AdHello Leads OS',
   };
 }
 
 function env(name) {
   return String(process.env[name] || '').trim();
+}
+
+function pick(integrationEnv, name) {
+  if (integrationEnv && typeof integrationEnv === 'object') {
+    const fromWs = integrationEnv[name];
+    if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
+  }
+  return env(name);
 }
 
 /** Free routers, :free variants and reasoning-only models fail or print text instead of calling tools. */
@@ -36,12 +55,12 @@ function isUnreliableToolModel(model) {
 
 /**
  * Ordered tool-capable model candidates; first one is the primary.
- * @param {{ preferredOpenRouterModels?: string[] }} [opts]
- *   When set (e.g. Grokbot), those OpenRouter models are tried first, then the normal chain.
+ * @param {{ preferredOpenRouterModels?: string[], preferredXaiModels?: string[], integrationEnv?: Record<string,string> }} [opts]
  */
 function resolvePavlexToolLlmChain(opts = {}) {
   const chain = [];
   const seen = new Set();
+  const integrationEnv = opts.integrationEnv || null;
   const add = (entry) => {
     const key = `${entry.provider}:${entry.model}`;
     if (!entry.model || seen.has(key)) return;
@@ -49,33 +68,50 @@ function resolvePavlexToolLlmChain(opts = {}) {
     chain.push(entry);
   };
 
-  const preferred = Array.isArray(opts.preferredOpenRouterModels)
+  const preferredOr = Array.isArray(opts.preferredOpenRouterModels)
     ? opts.preferredOpenRouterModels.map((m) => String(m || '').trim()).filter(Boolean)
     : [];
+  const preferredXai = Array.isArray(opts.preferredXaiModels)
+    ? opts.preferredXaiModels.map((m) => String(m || '').trim()).filter(Boolean)
+    : [];
 
-  const orKey = env('OPENROUTER_API_KEY');
-  if (orKey && preferred.length) {
+  const xaiKey = pick(integrationEnv, 'XAI_API_KEY');
+  // Only route through personal xAI when this employee asked for Grok models.
+  if (xaiKey && preferredXai.length) {
     const base = {
-      provider: 'openrouter',
-      apiKey: orKey,
-      url: 'https://openrouter.ai/api/v1/chat/completions',
-      extraHeaders: openRouterExtraHeaders(),
+      provider: 'xai',
+      apiKey: xaiKey,
+      url: pick(integrationEnv, 'XAI_API_BASE') || DEFAULT_XAI_URL,
+      extraHeaders: {},
     };
-    for (const model of preferred) {
+    for (const model of preferredXai) {
       if (!isUnreliableToolModel(model)) add({ ...base, model });
     }
   }
 
-  const openaiKey = env('OPENAI_API_KEY');
+  const orKey = pick(integrationEnv, 'OPENROUTER_API_KEY');
+  if (orKey && preferredOr.length) {
+    const base = {
+      provider: 'openrouter',
+      apiKey: orKey,
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      extraHeaders: openRouterExtraHeaders(integrationEnv),
+    };
+    for (const model of preferredOr) {
+      if (!isUnreliableToolModel(model)) add({ ...base, model });
+    }
+  }
+
+  const openaiKey = pick(integrationEnv, 'OPENAI_API_KEY');
   if (openaiKey) {
     add({
       provider: 'openai',
       apiKey: openaiKey,
       url: 'https://api.openai.com/v1/chat/completions',
       model:
-        env('OPENAI_TOOL_MODEL') ||
-        env('OPENAI_RESPONSES_MODEL') ||
-        env('OPENAI_MODEL') ||
+        pick(integrationEnv, 'OPENAI_TOOL_MODEL') ||
+        pick(integrationEnv, 'OPENAI_RESPONSES_MODEL') ||
+        pick(integrationEnv, 'OPENAI_MODEL') ||
         DEFAULT_OPENAI_TOOL_MODEL,
       extraHeaders: {},
     });
@@ -86,10 +122,10 @@ function resolvePavlexToolLlmChain(opts = {}) {
       provider: 'openrouter',
       apiKey: orKey,
       url: 'https://openrouter.ai/api/v1/chat/completions',
-      extraHeaders: openRouterExtraHeaders(),
+      extraHeaders: openRouterExtraHeaders(integrationEnv),
     };
-    const toolModel = env('OPENROUTER_TOOL_MODEL');
-    const generalModel = env('OPENROUTER_MODEL');
+    const toolModel = pick(integrationEnv, 'OPENROUTER_TOOL_MODEL');
+    const generalModel = pick(integrationEnv, 'OPENROUTER_MODEL');
     if (toolModel) add({ ...base, model: toolModel });
     if (generalModel && !isUnreliableToolModel(generalModel)) add({ ...base, model: generalModel });
     add({ ...base, model: DEFAULT_OPENROUTER_TOOL_MODEL });
@@ -103,13 +139,17 @@ function resolvePavlexToolLlm(opts = {}) {
   return chain.length ? chain[0] : null;
 }
 
-function hasPavlexToolLlm() {
-  return Boolean(resolvePavlexToolLlm());
+function hasPavlexToolLlm(opts = {}) {
+  return Boolean(resolvePavlexToolLlm(opts));
 }
 
 /** OpenAI-only — Responses API remote MCP requires native OpenAI key. */
-function resolveOpenAiDirectKey() {
-  return String(process.env.OPENAI_API_KEY || '').trim() || null;
+function resolveOpenAiDirectKey(integrationEnv) {
+  return pick(integrationEnv, 'OPENAI_API_KEY') || null;
+}
+
+function isXaiConfigured(integrationEnv) {
+  return Boolean(pick(integrationEnv, 'XAI_API_KEY'));
 }
 
 module.exports = {
@@ -118,5 +158,8 @@ module.exports = {
   hasPavlexToolLlm,
   resolveOpenAiDirectKey,
   isUnreliableToolModel,
+  isXaiConfigured,
   DEFAULT_OPENROUTER_TOOL_MODEL,
+  DEFAULT_XAI_MODEL,
+  DEFAULT_XAI_URL,
 };

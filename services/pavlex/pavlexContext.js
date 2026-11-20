@@ -115,7 +115,7 @@ async function buildPavlexContext(
   const mcpConfig = await loadWorkspaceMcpConfig(req);
   const memoryCtx = readMemoryFile(MEMORY_FILE);
   const userCtx = readMemoryFile(USER_FILE);
-  const employee = getEmployee(employeeId);
+  const employee = getEmployee(employeeId, auth.workspaceId);
 
   const platformLabels = {
     assistant: 'Agency OS floating chat',
@@ -181,6 +181,7 @@ ${platform === 'assistant' || platform === 'global' ? '- Plain text only. No mar
     folderCount: folders.length,
     employeeId: employee.id,
     preferredOpenRouterModels: [...(employee.preferredOpenRouterModels || [])],
+    preferredXaiModels: [...(employee.preferredXaiModels || [])],
   };
 }
 

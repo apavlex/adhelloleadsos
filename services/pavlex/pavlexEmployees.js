@@ -1,11 +1,13 @@
 /**
  * In-app chat employees — multiple AI personas that share CRM tools.
- * Models still go through OpenRouter (or OpenAI); each employee pins preferred models + voice.
+ * Sources (later wins on same id): built-ins → chat-employees/*.json → workspace customs.
  */
 
-const DEFAULT_EMPLOYEE_ID = 'alex';
+const fs = require('fs');
+const path = require('path');
+const { DEFAULT_EMPLOYEE_ID, normalizeEmployeeId } = require('./pavlexEmployeesCore');
 
-const EMPLOYEES = [
+const BUILTIN_EMPLOYEES = [
   {
     id: 'alex',
     name: 'Alex',
@@ -16,7 +18,9 @@ const EMPLOYEES = [
     placeholder: 'Message Alex… or tap the mic',
     color: '#111827',
     avatarKind: 'alex',
+    family: 'default',
     preferredOpenRouterModels: [],
+    preferredXaiModels: [],
     suggestions: [
       { icon: 'users', label: 'Find referral partners for my business', prompt: 'Find referral partners for my business' },
       { icon: 'search', label: 'Find 20 interior designers in Camas, WA and save them to a Referral Partners folder', prompt: 'Find 20 interior designers in Camas, WA and save them to a Referral Partners folder' },
@@ -30,19 +34,21 @@ const EMPLOYEES = [
     identityPrompt: `You are Alex, the AI receptionist and sales assistant. You have access to this user's CRM via MCP tools. Your name is Alex; if memory or earlier messages call you Pavlex, that was your old name — always introduce yourself as Alex.
 
 Tone: direct, pragmatic, concise. You are the default teammate for CRM work.`,
+    source: 'builtin',
   },
   {
     id: 'grokbot',
     name: 'Grokbot',
     title: 'Outreach & research specialist',
-    blurb: 'Sharp copy, candid research, and fast lead intel — powered by Grok via OpenRouter.',
+    blurb: 'Sharp copy, candid research, and fast lead intel — powered by Grok (xAI or OpenRouter).',
     greeting: "I'm Grokbot.",
     emptyLead: 'Research leads, roast weak copy, and draft outreach that sounds human',
     placeholder: 'Message Grokbot… or tap the mic',
     color: '#0ea5e9',
     avatarKind: 'grok',
-    // Prefer Grok on OpenRouter; falls back to the normal tool-capable chain if unavailable.
+    family: 'grok',
     preferredOpenRouterModels: ['x-ai/grok-4', 'x-ai/grok-4-fast', 'x-ai/grok-3-mini'],
+    preferredXaiModels: ['grok-4', 'grok-3-mini'],
     suggestions: [
       { icon: 'script', label: 'Rewrite this opener so it does not sound like AI', prompt: 'Rewrite a cold SMS opener for a local contractor that does not sound like AI. Keep it under 320 characters and use {{name}} / {{company}}.' },
       { icon: 'search', label: 'Research this business before I call', prompt: 'Research the open lead (or ask which one) and give me a 5-bullet call brief: what they do, likely pain, angle, risk flags, and first question.' },
@@ -58,27 +64,114 @@ Tone: direct, pragmatic, concise. You are the default teammate for CRM work.`,
 Personality: witty, blunt when useful, never cruel to the user's customers. Prefer short punchy answers, strong first lines, and concrete next steps. Introduce yourself as Grokbot (not Alex, not Grok the consumer app).
 
 Specialties: cold outreach copy that sounds human, pre-call research briefs, ranking who to call, and calling out weak scripts. You are not the default receptionist — if they need a calm CRM walkthrough, still help, but stay in character.`,
+    source: 'builtin',
   },
 ];
 
-const EMPLOYEE_BY_ID = Object.fromEntries(EMPLOYEES.map((e) => [e.id, e]));
+const DIR_CANDIDATES = [
+  path.join(process.cwd(), 'chat-employees'),
+  path.join(__dirname, '..', '..', 'chat-employees'),
+];
 
-function normalizeEmployeeId(raw) {
-  const id = String(raw || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, '');
-  if (id === 'grok' || id === 'grok-bot') return 'grokbot';
-  if (EMPLOYEE_BY_ID[id]) return id;
+function coerceEmployee(raw, source) {
+  if (!raw || typeof raw !== 'object') return null;
+  const id = normalizeEmployeeId(raw.id);
+  if (!id) return null;
+  const name = String(raw.name || '').trim();
+  if (!name) return null;
+  const family =
+    String(raw.family || '').trim().toLowerCase() === 'grok' ||
+    String(raw.avatarKind || '').trim() === 'grok' ||
+    id === 'grokbot' ||
+    id.includes('grok')
+      ? 'grok'
+      : 'default';
+  return {
+    id,
+    name,
+    title: String(raw.title || 'Specialist').trim().slice(0, 80),
+    blurb: String(raw.blurb || '').trim().slice(0, 240),
+    greeting: String(raw.greeting || `I'm ${name}.`).trim().slice(0, 80),
+    emptyLead: String(raw.emptyLead || raw.blurb || 'Help with CRM work').trim().slice(0, 160),
+    placeholder: String(raw.placeholder || `Message ${name}…`).trim().slice(0, 80),
+    color: String(raw.color || (family === 'grok' ? '#0ea5e9' : '#111827')).trim().slice(0, 32),
+    avatarKind: family === 'grok' ? 'grok' : String(raw.avatarKind || 'alex') === 'grok' ? 'grok' : 'alex',
+    family,
+    preferredOpenRouterModels: Array.isArray(raw.preferredOpenRouterModels)
+      ? raw.preferredOpenRouterModels.map((m) => String(m || '').trim()).filter(Boolean)
+      : family === 'grok'
+        ? ['x-ai/grok-4', 'x-ai/grok-4-fast', 'x-ai/grok-3-mini']
+        : [],
+    preferredXaiModels: Array.isArray(raw.preferredXaiModels)
+      ? raw.preferredXaiModels.map((m) => String(m || '').trim()).filter(Boolean)
+      : family === 'grok'
+        ? ['grok-4', 'grok-3-mini']
+        : [],
+    suggestions: Array.isArray(raw.suggestions) ? raw.suggestions : [],
+    identityPrompt: String(raw.identityPrompt || '').trim(),
+    source,
+  };
+}
+
+function loadDirectoryEmployees() {
+  const out = [];
+  for (const dir of DIR_CANDIDATES) {
+    let names;
+    try {
+      names = fs.readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (!/\.json$/i.test(name) || name.startsWith('.')) continue;
+      try {
+        const raw = JSON.parse(fs.readFileSync(path.join(dir, name), 'utf8'));
+        const emp = coerceEmployee(raw, 'directory');
+        if (emp && emp.identityPrompt) out.push(emp);
+      } catch (err) {
+        console.warn('[pavlexEmployees] skip', name, err && err.message);
+      }
+    }
+    if (out.length) break;
+  }
+  return out;
+}
+
+let cachedDirectory = null;
+
+function directoryEmployees() {
+  if (!cachedDirectory) cachedDirectory = loadDirectoryEmployees();
+  return cachedDirectory;
+}
+
+function mergeEmployees(workspaceId) {
+  const byId = new Map();
+  for (const e of BUILTIN_EMPLOYEES) byId.set(e.id, e);
+  for (const e of directoryEmployees()) byId.set(e.id, e);
+  if (workspaceId) {
+    try {
+      const store = require('./pavlexEmployeeStore');
+      for (const e of store.listWorkspaceEmployees(workspaceId)) {
+        const coerced = coerceEmployee(e, 'workspace');
+        if (coerced && coerced.identityPrompt) byId.set(coerced.id, coerced);
+      }
+    } catch (_) {
+      /* store optional during early boot */
+    }
+  }
+  return [...byId.values()];
+}
+
+function resolveEmployeeId(raw, workspaceId) {
+  const id = normalizeEmployeeId(raw);
+  const list = mergeEmployees(workspaceId);
+  if (list.some((e) => e.id === id)) return id;
   return DEFAULT_EMPLOYEE_ID;
 }
 
-function getEmployee(id) {
-  return EMPLOYEE_BY_ID[normalizeEmployeeId(id)];
-}
-
-function listEmployees() {
-  return EMPLOYEES.map((e) => publicEmployee(e));
+function getEmployee(id, workspaceId) {
+  const resolved = resolveEmployeeId(id, workspaceId);
+  return mergeEmployees(workspaceId).find((e) => e.id === resolved) || BUILTIN_EMPLOYEES[0];
 }
 
 function publicEmployee(e) {
@@ -92,22 +185,37 @@ function publicEmployee(e) {
     placeholder: e.placeholder,
     color: e.color,
     avatarKind: e.avatarKind,
-    suggestions: e.suggestions,
+    family: e.family || 'default',
+    source: e.source || 'builtin',
+    suggestions: e.suggestions || [],
     preferredOpenRouterModels: [...(e.preferredOpenRouterModels || [])],
+    preferredXaiModels: [...(e.preferredXaiModels || [])],
   };
 }
 
-function employeeForClient(id) {
-  return publicEmployee(getEmployee(id));
+function listEmployees(workspaceId) {
+  return mergeEmployees(workspaceId).map(publicEmployee);
 }
+
+function employeeForClient(id, workspaceId) {
+  return publicEmployee(getEmployee(id, workspaceId));
+}
+
+/** @deprecated use listEmployees — kept for older imports */
+const EMPLOYEES = BUILTIN_EMPLOYEES;
+const EMPLOYEE_BY_ID = Object.fromEntries(BUILTIN_EMPLOYEES.map((e) => [e.id, e]));
 
 module.exports = {
   DEFAULT_EMPLOYEE_ID,
   EMPLOYEES,
   EMPLOYEE_BY_ID,
+  BUILTIN_EMPLOYEES,
   normalizeEmployeeId,
+  resolveEmployeeId,
   getEmployee,
   listEmployees,
   employeeForClient,
   publicEmployee,
+  directoryEmployees,
+  mergeEmployees,
 };

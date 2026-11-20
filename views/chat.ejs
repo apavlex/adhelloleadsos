@@ -268,10 +268,29 @@
             <span id="pcWorkspaceName" class="truncate" title="Works in this workspace"><%= _pcWsName %></span>
           </p>
         </div>
+        <button type="button" id="pcHandoffGrok" class="hidden sm:inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-sky-400/40 bg-sky-500/10 px-3 text-[10px] font-black uppercase tracking-widest text-sky-900 dark:text-sky-200 hover:bg-sky-500/20 transition-colors" title="Copy a Grok handoff so work continues outside AdHello">Continue in Grok</button>
+        <button type="button" id="pcAddEmployee" class="hidden md:inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-brand-border dark:border-white/10 px-3 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream dark:hover:bg-white/5 transition-colors" title="Add a custom specialist">+ Bot</button>
         <button type="button" id="pcNewChatHeader" class="w-11 h-11 shrink-0 flex items-center justify-center rounded-full border border-brand-border dark:border-white/10 text-brand-dark dark:text-white bg-white dark:bg-slate-800 transition-colors md:hidden" aria-label="New chat" title="New chat">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
         </button>
       </header>
+
+      <div id="pcHandoffModal" class="hidden fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="pcHandoffTitle">
+        <div class="w-full max-w-lg rounded-3xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl p-5 space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <h2 id="pcHandoffTitle" class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Continue in Grok</h2>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed">Paste this into the Grok app (or xAI agent). It connects to AdHello over MCP so the bot can keep working after you close this tab.</p>
+            </div>
+            <button type="button" id="pcHandoffClose" class="w-9 h-9 rounded-full text-brand-muted hover:bg-brand-cream dark:hover:bg-white/5" aria-label="Close">×</button>
+          </div>
+          <pre id="pcHandoffText" class="max-h-64 overflow-y-auto text-[11px] whitespace-pre-wrap break-all rounded-2xl bg-brand-cream/60 dark:bg-slate-950 px-3 py-3 font-mono text-brand-dark dark:text-slate-200"></pre>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="pcHandoffCopy" class="btn-primary rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-widest">Copy handoff</button>
+            <a href="/workspace/ai-apps#grok" class="inline-flex items-center rounded-full border border-brand-border dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">AI Connector help</a>
+          </div>
+        </div>
+      </div>
 
       <div id="pcThread" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar" aria-live="polite">
         <div id="pcEmpty" class="relative max-w-2xl mx-auto px-4 pt-10 md:pt-16 pb-8 text-center">

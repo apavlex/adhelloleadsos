@@ -317,6 +317,12 @@
     suggestions: document.getElementById('pcSuggestions'),
     typingAvatar: document.getElementById('pcTypingAvatar'),
     composerHint: document.getElementById('pcComposerHint'),
+    handoffBtn: document.getElementById('pcHandoffGrok'),
+    handoffModal: document.getElementById('pcHandoffModal'),
+    handoffText: document.getElementById('pcHandoffText'),
+    handoffCopy: document.getElementById('pcHandoffCopy'),
+    handoffClose: document.getElementById('pcHandoffClose'),
+    addEmployee: document.getElementById('pcAddEmployee'),
   };
   if (!els.form || !els.thread) return;
 
@@ -1023,6 +1029,118 @@
       }
       state.employeeId = els.employee.value || DEFAULT_EMPLOYEE_ID;
       applyEmployeeUi({ skipSelect: true });
+    });
+  }
+
+  function refreshEmployeeSelect(list) {
+    if (!els.employee || !Array.isArray(list)) return;
+    EMPLOYEES.length = 0;
+    list.forEach(function (e) {
+      EMPLOYEES.push(e);
+      EMPLOYEE_BY_ID[e.id] = e;
+    });
+    var current = state.employeeId;
+    els.employee.innerHTML = list
+      .map(function (e) {
+        return (
+          '<option value="' +
+          escapeHtml(e.id) +
+          '"' +
+          (e.id === current ? ' selected' : '') +
+          '>' +
+          escapeHtml(e.name) +
+          '</option>'
+        );
+      })
+      .join('');
+    applyEmployeeUi();
+  }
+
+  function openHandoffModal(text) {
+    if (!els.handoffModal || !els.handoffText) return;
+    els.handoffText.textContent = text || '';
+    els.handoffModal.classList.remove('hidden');
+  }
+
+  function closeHandoffModal() {
+    if (els.handoffModal) els.handoffModal.classList.add('hidden');
+  }
+
+  if (els.handoffBtn) {
+    els.handoffBtn.addEventListener('click', function () {
+      els.handoffBtn.disabled = true;
+      api('POST', '/api/pavlex/handoff', {
+        employeeId: state.employeeId,
+        conversationId: state.activeId || undefined,
+        createToken: true,
+      })
+        .then(function (d) {
+          if (!d.success || !d.setupMessage) {
+            window.alert(d.error || 'Could not build a Grok handoff.');
+            return;
+          }
+          openHandoffModal(d.setupMessage);
+        })
+        .catch(function () {
+          window.alert('Could not build a Grok handoff. Try again.');
+        })
+        .finally(function () {
+          els.handoffBtn.disabled = false;
+        });
+    });
+  }
+  if (els.handoffClose) els.handoffClose.addEventListener('click', closeHandoffModal);
+  if (els.handoffModal) {
+    els.handoffModal.addEventListener('click', function (e) {
+      if (e.target === els.handoffModal) closeHandoffModal();
+    });
+  }
+  if (els.handoffCopy) {
+    els.handoffCopy.addEventListener('click', function () {
+      var text = els.handoffText ? els.handoffText.textContent : '';
+      copyText(text).then(
+        function () {
+          els.handoffCopy.textContent = 'Copied';
+          setTimeout(function () {
+            els.handoffCopy.textContent = 'Copy handoff';
+          }, 1600);
+        },
+        function () {
+          window.prompt('Copy this into Grok:', text);
+        },
+      );
+    });
+  }
+
+  if (els.addEmployee) {
+    els.addEmployee.addEventListener('click', function () {
+      var name = window.prompt('Specialist name (e.g. Permit Grok)');
+      if (name == null) return;
+      name = name.trim();
+      if (!name) return;
+      var title = window.prompt('One-line job title', 'Specialist') || 'Specialist';
+      var promptText =
+        window.prompt(
+          'Role instructions (what this bot specializes in)',
+          'You are ' + name + ', a specialized AdHello employee. Use CRM tools. Stay in character.',
+        ) || '';
+      api('POST', '/api/pavlex/employees', {
+        name: name,
+        title: title,
+        family: 'grok',
+        identityPrompt: promptText,
+        blurb: title,
+      }).then(function (d) {
+        if (!d.success) {
+          window.alert(d.error || 'Could not add specialist.');
+          return;
+        }
+        if (Array.isArray(d.employees)) refreshEmployeeSelect(d.employees);
+        if (d.employee && d.employee.id && !state.employeeLocked) {
+          state.employeeId = d.employee.id;
+          applyEmployeeUi();
+        }
+      });
     });
   }
 

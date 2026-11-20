@@ -12,7 +12,9 @@ const apiRouter = express.Router();
 
 pageRouter.get('/', (req, res) => {
   const initialConversationId = conversations.isValidConversationId(req.query.c) ? String(req.query.c) : '';
-  const employees = listEmployees();
+  const workspaceId =
+    (req.workspace && req.workspace.id) || req.workspaceId || req.query.workspaceId || '';
+  const employees = listEmployees(workspaceId);
   res.render('chat', {
     title: 'Team chat | Agency OS',
     activePage: 'chat',

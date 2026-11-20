@@ -196,6 +196,8 @@ async function runToolLoop({ llm, messages, tools, toolNames, ctx, requireTools,
  * @param {{ workspaceId: string, userEmail?: string }} opts.ctx
  * @param {boolean} [opts.requireTools]
  * @param {string[]} [opts.preferredOpenRouterModels]
+ * @param {string[]} [opts.preferredXaiModels]
+ * @param {Record<string,string>|null} [opts.integrationEnv]
  */
 async function inlineCrmToolChat({
   instructions,
@@ -204,8 +206,14 @@ async function inlineCrmToolChat({
   ctx,
   requireTools = false,
   preferredOpenRouterModels = [],
+  preferredXaiModels = [],
+  integrationEnv = null,
 }) {
-  const chain = resolvePavlexToolLlmChain({ preferredOpenRouterModels });
+  const chain = resolvePavlexToolLlmChain({
+    preferredOpenRouterModels,
+    preferredXaiModels,
+    integrationEnv,
+  });
   if (!chain.length) {
     return {
       content: null,
