@@ -1,10 +1,14 @@
 /**
  * Per-workspace API keys and URLs. Same resolved values apply to every member (owner, admin, SDR, viewer).
- * Resolution: non-empty workspace value wins; then the agency workspace's shared data/AI keys
- * (SHARED_GROUPS); otherwise process.env (deployment default).
+ * Resolution for SHARED_GROUPS (scrapers, enrichers, AI — not CRM/SMS/email/mail):
+ *   1) this workspace's own key
+ *   2) other workspaces with the same owner (so AdHello ↔ HomeElk share BetterContact, etc.)
+ *   3) AdHello agency workspace (slug adhello-agency / SHARED_INTEGRATIONS_WORKSPACE_ID)
+ *   4) process.env
  */
 
 const dbService = require('./database');
+const { emailAliases } = require('./workspaceService');
 const { decryptIntegrations, encryptIntegrations, isEncryptionAvailable } = require('./workspaceIntegrationSecrets');
 
 /** Keys stored in encrypted blob (plain object before encrypt). */
@@ -160,7 +164,12 @@ async function getResolvedIntegrationEnv(workspaceId) {
   const wid = workspaceId || 'default';
   const ws = await dbService.getWorkspace(wid);
   const own = decryptedFromWorkspace(ws);
-  const fromWs = ws && !ws.isDemo ? withSharedKeys(own, await sharedSource(wid)) : own;
+  let fromWs = own;
+  if (ws && !ws.isDemo) {
+    const ownerShared = await ownerSiblingSharedFields(wid, ws);
+    const agencyShared = await sharedSource(wid);
+    fromWs = withSharedKeys(withSharedKeys(own, ownerShared), agencyShared);
+  }
   const out = {};
   for (const field of INTEGRATION_FIELDS) {
     const envName = FIELD_TO_ENV[field];
@@ -191,9 +200,9 @@ async function getResolvedIntegrationEnv(workspaceId) {
 const TRIAL_DISABLED = 'trial-disabled';
 
 /**
- * Lead search, scraping and AI keys every workspace borrows from the agency workspace when it has none.
- * Each group is all-or-nothing so a workspace's own key is never paired with the agency's host/endpoint.
- * CRM, texting, email and direct mail are never shared: those would act as the agency.
+ * Lead search, scraping and AI keys workspaces borrow when they have none.
+ * Each group is all-or-nothing so a workspace's own key is never paired with another host/endpoint.
+ * CRM, texting, email and direct mail are never shared: those stay per-workspace.
  */
 const SHARED_GROUPS = [
   ['rapidapiKey', 'rapidapiHost', 'rapidapiLocalBusinessEndpoint', 'rapidapiSearchQueryParam', 'rapidapiSearchLimitParam'],
@@ -218,9 +227,23 @@ const SHARED_GROUPS = [
 const SHARED_SOURCE_SLUG = 'adhello-agency';
 const SHARED_CACHE_MS = 30000;
 let sharedCache = null;
+/** @type {{ at: number, byOwner: Map<string, Record<string, string>|null> }|null} */
+let ownerSharedCache = null;
 
 function hasValue(v) {
   return typeof v === 'string' && v.trim() !== '';
+}
+
+function ownersMatch(a, b) {
+  const left = emailAliases(a);
+  const right = new Set(emailAliases(b));
+  if (!left.length || !right.size) return false;
+  return left.some((em) => right.has(em));
+}
+
+function clearSharedCaches() {
+  sharedCache = null;
+  ownerSharedCache = null;
 }
 
 /** Agency workspace id + decrypted keys, or null. Cached briefly; cleared when any workspace saves keys. */
@@ -243,6 +266,53 @@ async function loadSharedSource() {
 async function sharedSource(workspaceId) {
   const src = await loadSharedSource();
   return src && src.workspaceId !== workspaceId ? src.fields : null;
+}
+
+/**
+ * Merge SHARED_GROUPS from other workspaces owned by the same person.
+ * @param {string} workspaceId
+ * @param {object} [workspaceDoc] optional already-loaded workspace
+ * @returns {Promise<Record<string, string>|null>}
+ */
+async function ownerSiblingSharedFields(workspaceId, workspaceDoc) {
+  const wid = workspaceId || 'default';
+  const ws = workspaceDoc || (await dbService.getWorkspace(wid));
+  const owner = String((ws && ws.ownerUserId) || '')
+    .trim()
+    .toLowerCase();
+  if (!owner) return null;
+
+  if (
+    ownerSharedCache &&
+    Date.now() - ownerSharedCache.at < SHARED_CACHE_MS &&
+    ownerSharedCache.byOwner &&
+    ownerSharedCache.byOwner.has(owner)
+  ) {
+    return ownerSharedCache.byOwner.get(owner) || null;
+  }
+
+  let merged = {};
+  try {
+    const ids = await dbService.listWorkspaceIds();
+    for (const id of ids) {
+      if (!id || id === wid) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const other = await dbService.getWorkspace(id);
+      if (!other || other.isDemo || other.archivedAt) continue;
+      if (!ownersMatch(owner, other.ownerUserId)) continue;
+      merged = withSharedKeys(merged, decryptedFromWorkspace(other));
+    }
+  } catch (e) {
+    console.warn('[workspaceIntegrations] owner shared keys unavailable:', e && e.message);
+    merged = {};
+  }
+
+  const value = Object.keys(merged).some((k) => hasValue(merged[k])) ? merged : null;
+  if (!ownerSharedCache || Date.now() - ownerSharedCache.at >= SHARED_CACHE_MS) {
+    ownerSharedCache = { at: Date.now(), byOwner: new Map() };
+  }
+  ownerSharedCache.byOwner.set(owner, value);
+  return value;
 }
 
 /**
@@ -293,13 +363,16 @@ function withSharedKeys(own, shared) {
   return out;
 }
 
-/** Labels of providers this workspace is borrowing from the agency workspace (for the Integrations page). */
+/** Labels of providers this workspace is borrowing from owner siblings or the agency workspace. */
 async function sharedProvidersFor(workspaceId) {
-  const ws = await dbService.getWorkspace(workspaceId);
+  const wid = workspaceId || 'default';
+  const ws = await dbService.getWorkspace(wid);
   if (!ws || ws.isDemo) return [];
-  const shared = await sharedSource(workspaceId);
-  if (!shared) return [];
   const own = decryptedFromWorkspace(ws);
+  const ownerShared = await ownerSiblingSharedFields(wid, ws);
+  const agencyShared = await sharedSource(wid);
+  const pooled = withSharedKeys(withSharedKeys({}, ownerShared), agencyShared);
+  if (!Object.keys(pooled).length) return [];
   const labels = {
     rapidapiKey: 'RapidAPI (Maps)',
     rapidapiWebsiteKey: 'RapidAPI (website)',
@@ -319,7 +392,7 @@ async function sharedProvidersFor(workspaceId) {
     monidApiKey: 'Monid',
     openrouterApiKey: 'OpenRouter AI',
   };
-  return SHARED_GROUPS.filter((group) => !group.some((f) => hasValue(own[f])) && hasValue(shared[group[0]])).map(
+  return SHARED_GROUPS.filter((group) => !group.some((f) => hasValue(own[f])) && hasValue(pooled[group[0]])).map(
     (group) => labels[group[0]] || group[0],
   );
 }
@@ -383,7 +456,7 @@ async function saveWorkspaceIntegrations(workspaceId, plain) {
     integrationsCipher: cipher,
     integrationsUpdatedAt: new Date().toISOString(),
   });
-  sharedCache = null;
+  clearSharedCaches();
 }
 
 /**
