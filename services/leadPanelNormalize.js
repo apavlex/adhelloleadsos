@@ -3,6 +3,8 @@
  * panel/table shape so SSR rows and /panel-data return usable phone/address/map data.
  */
 
+const { applyCarrierSellingPoints } = require('./carrierSellingPoints');
+
 function hasContactValue(v) {
   const s = v == null ? '' : String(v).trim();
   return !!(s && s !== 'N/A' && s !== '—' && s !== '-' && s !== 'undefined' && s !== 'null');
@@ -213,7 +215,7 @@ function normalizeLeadForPanel(lead) {
     out.tags = [];
   }
 
-  return out;
+  return applyCarrierSellingPoints(out);
 }
 
 function coalesceReviewSnippets(lead) {

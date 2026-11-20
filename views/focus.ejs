@@ -271,6 +271,47 @@
             </div>
           </div>
             </div>
+            <div id="focus-carrier-selling-wrap" class="hidden mt-3 pt-3 border-t border-brand-border/40 dark:border-white/10">
+              <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Carrier selling points</p>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-xs">
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">MC #</p>
+                  <p id="focus-carrier-mc" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">DOT #</p>
+                  <p id="focus-carrier-dot" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">Drivers</p>
+                  <p id="focus-carrier-drivers" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">Power units</p>
+                  <p id="focus-carrier-power" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">Insurance</p>
+                  <p id="focus-carrier-insurer" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">Coverage</p>
+                  <p id="focus-carrier-cover" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">Policy</p>
+                  <p id="focus-carrier-policy" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">Effective</p>
+                  <p id="focus-carrier-eff" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-0.5">Cargo</p>
+                  <p id="focus-carrier-cargo" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+                </div>
+              </div>
+            </div>
           </div>
           </div>
           <div class="min-w-0 w-full">
@@ -824,6 +865,16 @@
     var elBizCategory = document.getElementById('focus-biz-category');
     var elBizReviews = document.getElementById('focus-biz-reviews');
     var elBizReviewStars = document.getElementById('focus-biz-review-stars');
+    var elCarrierWrap = document.getElementById('focus-carrier-selling-wrap');
+    var elCarrierMc = document.getElementById('focus-carrier-mc');
+    var elCarrierDot = document.getElementById('focus-carrier-dot');
+    var elCarrierDrivers = document.getElementById('focus-carrier-drivers');
+    var elCarrierPower = document.getElementById('focus-carrier-power');
+    var elCarrierInsurer = document.getElementById('focus-carrier-insurer');
+    var elCarrierCover = document.getElementById('focus-carrier-cover');
+    var elCarrierPolicy = document.getElementById('focus-carrier-policy');
+    var elCarrierEff = document.getElementById('focus-carrier-eff');
+    var elCarrierCargo = document.getElementById('focus-carrier-cargo');
     var elBuiltWithWrap = document.getElementById('focus-builtwith-wrap');
     var elBuiltWithCms = document.getElementById('focus-builtwith-cms');
     var elBuiltWithTags = document.getElementById('focus-builtwith-tags');
@@ -4297,6 +4348,58 @@
         });
     }
 
+    function pickCarrierImportField(lead, keys) {
+      var imp = lead && lead.importFields && typeof lead.importFields === 'object' ? lead.importFields : null;
+      if (!imp) return '';
+      var entries = Object.keys(imp);
+      for (var i = 0; i < keys.length; i++) {
+        var want = String(keys[i] || '').toLowerCase();
+        for (var j = 0; j < entries.length; j++) {
+          var k = entries[j];
+          if (String(k || '').toLowerCase() === want) {
+            var v = String(imp[k] == null ? '' : imp[k]).trim();
+            if (v && v !== 'N/A' && v !== '—' && !/^[/.\-\s]+$/.test(v)) return v;
+          }
+        }
+      }
+      return '';
+    }
+
+    function resolveFocusCarrierPoints(lead) {
+      var L = lead || {};
+      function top(v) {
+        var s = String(v == null ? '' : v).trim();
+        return s && s !== 'N/A' && s !== '—' ? s : '';
+      }
+      return {
+        mc: top(L.mcNumber) || pickCarrierImportField(L, ['mc_no', 'mc_number', 'mc']),
+        dot: top(L.dotNumber) || pickCarrierImportField(L, ['dot_no', 'dot_number', 'usdot', 'dot']),
+        drivers: top(L.driverCount) || pickCarrierImportField(L, ['driver', 'drivers', 'driver_count']),
+        power: top(L.powerUnits) || pickCarrierImportField(L, ['power', 'power_units']),
+        insurer: top(L.insuranceCompany) || pickCarrierImportField(L, ['ins_co', 'insurance_company', 'insurer', 'insurance']),
+        cover: top(L.insuranceCoverage) || pickCarrierImportField(L, ['cover', 'coverage', 'insurance_coverage']),
+        policy: top(L.insurancePolicyNo) || pickCarrierImportField(L, ['policy_no', 'policy_number', 'policy']),
+        eff: top(L.insuranceEffectiveDate) || pickCarrierImportField(L, ['effdate', 'effective_date', 'insurance_effective']),
+        cargo: top(L.cargo) || pickCarrierImportField(L, ['cargo', 'cargo_type']),
+      };
+    }
+
+    function renderCarrierSellingPoints(lead) {
+      if (!elCarrierWrap) return;
+      var pts = resolveFocusCarrierPoints(lead);
+      var hasAny = !!(pts.mc || pts.dot || pts.drivers || pts.power || pts.insurer || pts.cover || pts.policy || pts.eff || pts.cargo);
+      elCarrierWrap.classList.toggle('hidden', !hasAny);
+      if (elCarrierMc) elCarrierMc.textContent = pts.mc || '—';
+      if (elCarrierDot) elCarrierDot.textContent = pts.dot || '—';
+      if (elCarrierDrivers) elCarrierDrivers.textContent = pts.drivers || '—';
+      if (elCarrierPower) elCarrierPower.textContent = pts.power || '—';
+      if (elCarrierInsurer) elCarrierInsurer.textContent = pts.insurer || '—';
+      if (elCarrierCover) elCarrierCover.textContent = pts.cover || '—';
+      if (elCarrierPolicy) elCarrierPolicy.textContent = pts.policy || '—';
+      if (elCarrierEff) elCarrierEff.textContent = pts.eff || '—';
+      if (elCarrierCargo) elCarrierCargo.textContent = pts.cargo || '—';
+    }
+
     function renderBusinessInfo(lead) {
       var websiteHref = hrefUrl(lead.website || '');
       if (websiteHref) {
@@ -4329,6 +4432,7 @@
       applyReviewTone(score, reviews);
       renderReviewStars(score);
       syncFocusOwnerSignalUi(lead);
+      renderCarrierSellingPoints(lead);
 
       renderFocusMap(lead);
       renderWhyReasons(lead);

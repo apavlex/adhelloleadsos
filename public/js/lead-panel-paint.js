@@ -463,6 +463,70 @@
     }
   }
 
+  function pickImportField(lead, keys) {
+    const imp = lead && lead.importFields && typeof lead.importFields === 'object' ? lead.importFields : null;
+    if (!imp) return '';
+    for (const key of keys) {
+      const want = String(key || '').toLowerCase();
+      for (const [k, v] of Object.entries(imp)) {
+        if (String(k || '').toLowerCase() === want && !isEmpty(v)) {
+          const s = String(v).trim();
+          if (!/^[/.\-\s]+$/.test(s)) return s;
+        }
+      }
+    }
+    return '';
+  }
+
+  function resolveCarrierPoints(lead) {
+    const L = lead || {};
+    const top = (v) => (!isEmpty(v) ? String(v).trim() : '');
+    return {
+      mc: top(L.mcNumber) || pickImportField(L, ['mc_no', 'mc_number', 'mc']),
+      dot: top(L.dotNumber) || pickImportField(L, ['dot_no', 'dot_number', 'usdot', 'dot']),
+      drivers: top(L.driverCount) || pickImportField(L, ['driver', 'drivers', 'driver_count']),
+      power: top(L.powerUnits) || pickImportField(L, ['power', 'power_units']),
+      insurer: top(L.insuranceCompany) || pickImportField(L, ['ins_co', 'insurance_company', 'insurer', 'insurance']),
+      cover: top(L.insuranceCoverage) || pickImportField(L, ['cover', 'coverage', 'insurance_coverage']),
+      cargo: top(L.cargo) || pickImportField(L, ['cargo', 'cargo_type']),
+    };
+  }
+
+  function paintCarrierSellingPoints(lead) {
+    const section = document.getElementById('leadPanelCarrierSellingSection');
+    if (!section) return;
+    const pts = resolveCarrierPoints(lead);
+    const chips = [];
+    if (pts.mc) chips.push(`MC ${pts.mc}`);
+    if (pts.dot) chips.push(`DOT ${pts.dot}`);
+    if (pts.drivers) chips.push(`${pts.drivers} driver${pts.drivers === '1' ? '' : 's'}`);
+    if (pts.power) chips.push(`Power ${pts.power}`);
+    if (pts.insurer) chips.push(pts.insurer);
+    if (pts.cover) chips.push(pts.cover);
+    if (pts.cargo) chips.push(`Cargo ${pts.cargo}`);
+    const hasAny = chips.length > 0;
+    section.classList.toggle('hidden', !hasAny);
+    const host = document.getElementById('leadPanelCarrierSellingChips');
+    if (host) {
+      host.innerHTML = '';
+      chips.slice(0, 6).forEach((chip) => {
+        const span = document.createElement('span');
+        span.className =
+          'inline-flex px-1.5 py-0.5 rounded-md border border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-200 text-[8px] font-black uppercase tracking-wider';
+        span.textContent = chip;
+        host.appendChild(span);
+      });
+    }
+    const setTxt = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val || '—';
+    };
+    setTxt('leadPanelCarrierInsurer', pts.insurer);
+    setTxt('leadPanelCarrierCover', pts.cover);
+    setTxt('leadPanelCarrierDrivers', pts.drivers);
+    setTxt('leadPanelCarrierPower', pts.power);
+  }
+
   function paintPanelFromLeadRecord(lead, tableRow) {
     const row = tableRow || null;
     let L = lead || (row ? findLeadRecord(row) : null);
@@ -525,6 +589,7 @@
 
     paintQuickOutreachLinks(L, row);
     paintLoyaltyProgram(L, row);
+    paintCarrierSellingPoints(L);
 
     const starsEl = panelEl('mobilePanelStars');
     const ratingText = panelEl('mobilePanelRatingText');
