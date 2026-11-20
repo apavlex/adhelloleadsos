@@ -49,6 +49,8 @@
     if (tip) return tip;
     tip = document.createElement('div');
     tip.id = 'sidebarInstantHoverTip';
+    /* Must be .app-body-portal — desktop sidebar grid crushes other body children to height:0. */
+    tip.className = 'app-body-portal';
     tip.setAttribute('role', 'tooltip');
     tip.setAttribute('aria-hidden', 'true');
     document.body.appendChild(tip);
@@ -61,6 +63,14 @@
     tip.classList.remove('is-visible');
     tip.setAttribute('aria-hidden', 'true');
     tip.textContent = '';
+  }
+
+  function hoverLabelTarget(root, from) {
+    if (!from || !from.closest) return null;
+    var t = from.closest(
+      '.sidebar-nav-link[data-label], .sidebar-ws-btn[data-label], .sidebar-settings-toggle[data-label]',
+    );
+    return t && root.contains(t) ? t : null;
   }
 
   function showInstantHoverTip(el) {
@@ -76,7 +86,7 @@
     var tip = getInstantHoverTip();
     tip.textContent = label;
     var rect = el.getBoundingClientRect();
-    tip.style.left = Math.round(rect.right + 8) + 'px';
+    tip.style.left = Math.round(rect.right + 10) + 'px';
     tip.style.top = Math.round(rect.top + rect.height / 2) + 'px';
     tip.classList.add('is-visible');
     tip.setAttribute('aria-hidden', 'false');
@@ -86,36 +96,32 @@
     var root = document.getElementById('appSidebar');
     if (!root || root.dataset.instantHoverBound === '1') return;
     root.dataset.instantHoverBound = '1';
-    root.addEventListener('pointerenter', function (e) {
-      var t = e.target && e.target.closest
-        ? e.target.closest('.sidebar-nav-link[data-label], .sidebar-ws-btn[data-label], .sidebar-settings-toggle[data-label]')
-        : null;
-      if (!t || !root.contains(t)) return;
+    root.addEventListener('pointerover', function (e) {
+      var t = hoverLabelTarget(root, e.target);
+      if (!t) return;
       showInstantHoverTip(t);
-    }, true);
-    root.addEventListener('pointermove', function (e) {
-      var t = e.target && e.target.closest
-        ? e.target.closest('.sidebar-nav-link[data-label], .sidebar-ws-btn[data-label], .sidebar-settings-toggle[data-label]')
-        : null;
-      if (!t || !root.contains(t)) {
-        hideInstantHoverTip();
-        return;
+    });
+    root.addEventListener('pointerout', function (e) {
+      var next = e.relatedTarget;
+      if (next && root.contains(next)) {
+        var t = hoverLabelTarget(root, next);
+        if (t) {
+          showInstantHoverTip(t);
+          return;
+        }
       }
-      showInstantHoverTip(t);
-    }, true);
-    root.addEventListener('pointerleave', function () {
       hideInstantHoverTip();
-    }, true);
+    });
     root.addEventListener('focusin', function (e) {
-      var t = e.target && e.target.closest
-        ? e.target.closest('.sidebar-nav-link[data-label], .sidebar-ws-btn[data-label], .sidebar-settings-toggle[data-label]')
-        : null;
-      if (!t || !root.contains(t)) return;
+      var t = hoverLabelTarget(root, e.target);
+      if (!t) return;
       showInstantHoverTip(t);
-    }, true);
-    root.addEventListener('focusout', function () {
+    });
+    root.addEventListener('focusout', function (e) {
+      var next = e.relatedTarget;
+      if (next && root.contains(next) && hoverLabelTarget(root, next)) return;
       hideInstantHoverTip();
-    }, true);
+    });
   }
 
   function syncNativeTitlesForCollapsed(collapsed) {

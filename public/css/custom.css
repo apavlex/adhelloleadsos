@@ -659,11 +659,16 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
         height: 1.125rem;
     }
 
-    /* Instant hover name — tip is portaled to body (sidebar overflow would clip ::after). */
+    /* Instant hover name — body portal + .app-body-portal (grid crush would height:0 the tip). */
+    #sidebarInstantHoverTip.app-body-portal,
     #sidebarInstantHoverTip {
         position: fixed;
-        z-index: 400;
-        padding: 0.35rem 0.65rem;
+        z-index: 520;
+        height: auto !important;
+        min-height: 0;
+        width: max-content;
+        max-width: min(16rem, calc(100vw - 5rem));
+        padding: 0.4rem 0.7rem;
         border-radius: 0.5rem;
         background: #111827;
         color: #fff;
@@ -671,8 +676,8 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
         font-weight: 700;
         line-height: 1.2;
         white-space: nowrap;
-        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.22);
-        pointer-events: none;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.28);
+        pointer-events: none !important;
         opacity: 0;
         visibility: hidden;
         transform: translateY(-50%);
@@ -685,6 +690,7 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
     html.dark #sidebarInstantHoverTip {
         background: #0f172a;
         border: 1px solid rgba(255, 255, 255, 0.12);
+        color: #f8fafc;
     }
 
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-icon-collapse {
