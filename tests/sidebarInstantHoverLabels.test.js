@@ -11,6 +11,8 @@ describe('collapsed sidebar instant hover labels', () => {
     assert.match(css, /#sidebarInstantHoverTip/);
     assert.match(css, /#sidebarInstantHoverTip\.is-visible/);
     assert.match(css, /transition:\s*none/);
+    assert.match(css, /height:\s*auto\s*!important/);
+    assert.match(css, /z-index:\s*520/);
   });
 
   it('seeds data-label, shows tip immediately, and suppresses native title while collapsed', () => {
@@ -22,5 +24,8 @@ describe('collapsed sidebar instant hover labels', () => {
     assert.match(js, /ensureSidebarHoverLabels\(\)/);
     assert.match(js, /bindInstantHoverLabels\(\)/);
     assert.match(js, /syncNativeTitlesForCollapsed\(state === 'collapsed'\)/);
+    assert.match(js, /app-body-portal/);
+    assert.match(js, /pointerover/);
+    assert.match(js, /relatedTarget/);
   });
 });
