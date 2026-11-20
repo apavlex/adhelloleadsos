@@ -7,16 +7,27 @@ const path = require('path');
 const views = path.join(__dirname, '..', 'views');
 
 describe('contextSidebar EJS locals', () => {
-  it('parent var alone does not reach includes (documents the trap)', () => {
-    const tpl = `<% var contextSidebar = { title: 'FromVar', links: [] }; %><%- include('partials/app_context_sidebar') %>`;
+  it('always renders the second-bar shell so nav flyouts have a host', () => {
+    const tpl = `<%- include('partials/app_context_sidebar') %>`;
     const html = ejs.render(tpl, {}, { filename: path.join(views, 'prospecting.ejs'), root: views, views: [views] });
-    assert.equal(html.includes('appContextSidebar'), false);
+    assert.match(html, /id="appContextSidebar"/);
+    assert.match(html, /id="contextSidebarNavPanel"/);
+    assert.match(html, /data-has-page-context="0"/);
+  });
+
+  it('parent var alone does not populate page panel (documents the trap)', () => {
+    const tpl = `<% var contextSidebar = { title: 'FromVar', links: [{ href: '/x', label: 'X' }] }; %><%- include('partials/app_context_sidebar') %>`;
+    const html = ejs.render(tpl, {}, { filename: path.join(views, 'prospecting.ejs'), root: views, views: [views] });
+    assert.match(html, /id="appContextSidebar"/);
+    assert.doesNotMatch(html, /FromVar/);
+    assert.doesNotMatch(html, />X</);
   });
 
   it('locals.contextSidebar reaches app_context_sidebar include', () => {
     const tpl = `<% locals.contextSidebar = { title: 'Pipeline Test', eyebrow: 'Pipeline', links: [{ href: '/sequences', label: 'Cadences' }], refine: false }; %><%- include('partials/app_context_sidebar') %>`;
     const html = ejs.render(tpl, {}, { filename: path.join(views, 'prospecting.ejs'), root: views, views: [views] });
     assert.match(html, /id="appContextSidebar"/);
+    assert.match(html, /data-has-page-context="1"/);
     assert.match(html, /Pipeline Test/);
     assert.match(html, /Cadences/);
   });
