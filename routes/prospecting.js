@@ -277,12 +277,28 @@ router.get('/', async (req, res, next) => {
         leadListFilters.folderKey = String(bizFolder.key);
       }
     }
+    const originIsCsv =
+      String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
+    // CSV imports are usually unfiled (or outside maps Businesses). ANDing the
+    // default Businesses folder with origin=csv falsely empties the list.
+    if (originIsCsv && String(leadListFilters.folderKey || '').trim()) {
+      const folderForCsv = folders.find(
+        (f) => f && String(f.key) === String(leadListFilters.folderKey).trim(),
+      );
+      if (
+        !folderForCsv ||
+        folderForCsv.isPipelineDefault ||
+        folderForCsv.jobType === 'maps_business'
+      ) {
+        delete leadListFilters.folderKey;
+      }
+    }
     const includeFoldered =
       req.query.includeFoldered === '1' ||
       req.query.includeFoldered === 'true' ||
       hasGlobalSearch ||
       hasWorkedBy ||
-      String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
+      originIsCsv;
     const activeFolderKey = String(leadListFilters.folderKey || '').trim();
     const folderKeys = activeFolderKey
       ? folderKeysIncludingDescendants(folderTree, activeFolderKey)
@@ -872,12 +888,28 @@ router.get('/table-rows', async (req, res, next) => {
         leadListFilters.folderKey = String(bizFolder.key);
       }
     }
+    const originIsCsv =
+      String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
+    // CSV imports are usually unfiled (or outside maps Businesses). ANDing the
+    // default Businesses folder with origin=csv falsely empties the list.
+    if (originIsCsv && String(leadListFilters.folderKey || '').trim()) {
+      const folderForCsv = folders.find(
+        (f) => f && String(f.key) === String(leadListFilters.folderKey).trim(),
+      );
+      if (
+        !folderForCsv ||
+        folderForCsv.isPipelineDefault ||
+        folderForCsv.jobType === 'maps_business'
+      ) {
+        delete leadListFilters.folderKey;
+      }
+    }
     const includeFoldered =
       req.query.includeFoldered === '1' ||
       req.query.includeFoldered === 'true' ||
       hasGlobalSearch ||
       hasWorkedBy ||
-      String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
+      originIsCsv;
     const activeFolderKey = String(leadListFilters.folderKey || '').trim();
     const folderKeys = activeFolderKey
       ? folderKeysIncludingDescendants(folderTree, activeFolderKey)

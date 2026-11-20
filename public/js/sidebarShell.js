@@ -4,12 +4,20 @@
   var body = document.body;
   if (!body || !document.getElementById('appSidebar')) return;
 
+  function hasContextSidebar() {
+    return body.classList.contains('has-context-sidebar') && !!document.getElementById('appContextSidebar');
+  }
+
   function getState() {
     try {
       var s = localStorage.getItem(STORAGE_KEY);
       if (s === 'collapsed' || s === 'hidden') return s;
+      // With the 2nd menu open, prefer the icon rail by default (Instantly-style).
+      // Still honor an explicit expand for this session via applyState('expanded').
+      if (hasContextSidebar() && s !== 'expanded') return 'collapsed';
+      if (s === 'expanded') return 'expanded';
     } catch (e) {}
-    return 'expanded';
+    return hasContextSidebar() ? 'collapsed' : 'expanded';
   }
 
   function applyState(state) {
@@ -44,7 +52,14 @@
     }
   }
 
-  applyState(getState());
+  // When a page context menu is present, force icon-rail on load even if the
+  // user last left the primary nav expanded on a single-sidebar page.
+  if (hasContextSidebar()) {
+    var initial = getState();
+    applyState(initial === 'hidden' ? 'hidden' : 'collapsed');
+  } else {
+    applyState(getState());
+  }
 
   var settingsToggle = document.getElementById('sidebarSettingsToggle');
   var settingsMenu = document.getElementById('sidebarSettingsMenu');
