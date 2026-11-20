@@ -794,165 +794,166 @@ router.get('/folders-section', async (req, res, next) => {
 });
 
 /**
+ * Resolve the same lead set the pipeline table / Load more uses.
+ * Shared by /table-rows and /lead-keys.json so Select all matches the visible list.
+ */
+async function resolvePipelineListLeads(req) {
+  const wid = req.workspaceId;
+  const folderKeyFromQuery = String(req.query.folderKey || '').trim();
+  const pipelineWantsFullScan =
+    !!String(req.query.q || '').trim() ||
+    !!String(req.query.workedBy || '').trim() ||
+    req.query.includeFoldered === '1' ||
+    req.query.includeFoldered === 'true' ||
+    String(req.query.origin || '').trim().toLowerCase() === 'csv';
+  const openFolderScoped =
+    !pipelineWantsFullScan && typeof dbService.listLeadsByFolderKeys === 'function';
+
+  let all;
+  let folders;
+  let folderTree;
+  let tags;
+  let stageRows;
+  let ws;
+  let scopedFolderKey = folderKeyFromQuery;
+  if (openFolderScoped) {
+    let foldersInitial;
+    [foldersInitial, tags, stageRows, ws] = await Promise.all([
+      dbService.listFolders(wid),
+      dbService.listTags(wid),
+      pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
+      dbService.getWorkspace(wid),
+    ]);
+    folders = Array.isArray(foldersInitial) ? foldersInitial : [];
+    folderTree = buildFolderTree(folders);
+    if (!scopedFolderKey) {
+      const bizFolder = folders.find(
+        (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
+      );
+      if (bizFolder && bizFolder.key) scopedFolderKey = String(bizFolder.key);
+    }
+    if (scopedFolderKey) {
+      const scopedKeys =
+        folderKeysIncludingDescendants(folderTree, scopedFolderKey) ||
+        new Set([scopedFolderKey]);
+      all = await dbService.listLeadsByFolderKeys(wid, scopedKeys);
+    } else {
+      all = await dbService.getAllLeads(wid);
+    }
+  } else {
+    let foldersInitial;
+    [all, foldersInitial, tags, stageRows, ws] = await Promise.all([
+      dbService.getAllLeads(wid),
+      ensurePipelineFolders(wid),
+      dbService.listTags(wid),
+      pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
+      dbService.getWorkspace(wid),
+    ]);
+    const migrated = await maybeMigrateLegacyFolders(wid, foldersInitial);
+    folders = migrated.folders;
+    folderTree = buildFolderTree(folders);
+  }
+  const visible = filterLeadsForRequest(req, all);
+  const pipelineVisible = excludeOutreachFolderLeads(visible);
+
+  const leadListFilters = normalizeLeadListFilters(req.query);
+  const hasGlobalSearch = !!String(leadListFilters.q || '').trim();
+  const hasWorkedBy = !!String(leadListFilters.workedBy || '').trim();
+  teamActivity.attachWorkedByKeys(leadListFilters, wid);
+  if (!String(leadListFilters.folderKey || '').trim() && scopedFolderKey) {
+    leadListFilters.folderKey = scopedFolderKey;
+  } else if (
+    !openFolderScoped &&
+    !String(leadListFilters.folderKey || '').trim() &&
+    !String(leadListFilters.origin || '').trim() &&
+    !hasGlobalSearch &&
+    !hasWorkedBy &&
+    req.query.includeFoldered !== '1' &&
+    req.query.includeFoldered !== 'true'
+  ) {
+    const bizFolder = folders.find(
+      (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
+    );
+    if (bizFolder && bizFolder.key) {
+      leadListFilters.folderKey = String(bizFolder.key);
+    }
+  }
+  const originIsCsv = String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
+  // CSV imports are usually unfiled (or outside maps Businesses). ANDing the
+  // default Businesses folder with origin=csv falsely empties the list.
+  if (originIsCsv && String(leadListFilters.folderKey || '').trim()) {
+    const folderForCsv = folders.find(
+      (f) => f && String(f.key) === String(leadListFilters.folderKey).trim(),
+    );
+    if (
+      !folderForCsv ||
+      folderForCsv.isPipelineDefault ||
+      folderForCsv.jobType === 'maps_business'
+    ) {
+      delete leadListFilters.folderKey;
+    }
+  }
+  const includeFoldered =
+    req.query.includeFoldered === '1' ||
+    req.query.includeFoldered === 'true' ||
+    hasGlobalSearch ||
+    hasWorkedBy ||
+    originIsCsv;
+  const activeFolderKey = String(leadListFilters.folderKey || '').trim();
+  const folderKeys = activeFolderKey
+    ? folderKeysIncludingDescendants(folderTree, activeFolderKey)
+    : null;
+  if (folderKeys) leadListFilters.folderKeys = folderKeys;
+  if (hasGlobalSearch) {
+    leadListFilters.searchContext = buildLeadSearchContext(tags, folders, { workspace: ws });
+  }
+  const folderMembers = folderKeys
+    ? visible.filter((l) => folderKeys.has(String(l.folderKey || '').trim()))
+    : null;
+  const pipelineBase =
+    folderMembers != null ? folderMembers : includeFoldered ? visible : pipelineVisible;
+
+  const sourceFilter = String(req.query.source || 'all').toLowerCase();
+  let leads = pipelineBase;
+  if (sourceFilter === 'inbound') {
+    leads = pipelineBase.filter((l) => l.source && l.source.startsWith('adhello_'));
+  } else if (sourceFilter === 'cold') {
+    leads = pipelineBase.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+  }
+  leads = applyLeadListFilters(leads, leadListFilters);
+
+  const activeFolder = folders.find((f) => f && String(f.key) === activeFolderKey);
+  const originFilter = String(leadListFilters.origin || '').trim().toLowerCase();
+  const isBusinessesView =
+    (activeFolder && activeFolder.jobType === 'maps_business') ||
+    originFilter === 'maps_business' ||
+    originFilter === 'maps' ||
+    originFilter === 'business';
+  if (isBusinessesView) {
+    leads.sort((a, b) => {
+      const ha = hasUsableWebsite(a) ? 1 : 0;
+      const hb = hasUsableWebsite(b) ? 1 : 0;
+      if (ha !== hb) return ha - hb;
+      return TITLE_COLLATOR.compare(String(a.title || ''), String(b.title || ''));
+    });
+  }
+
+  return { leads, folders, tags, stageRows, ws, activeFolderKey };
+}
+
+/**
  * HTML fragment of additional pipeline table rows (Load more).
  * Query: offset, limit, same filters as /prospecting?tab=pipeline.
  */
 router.get('/table-rows', async (req, res, next) => {
   try {
-    const wid = req.workspaceId;
     const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
     const limit = Math.min(
       200,
       Math.max(1, parseInt(req.query.limit, 10) || PIPELINE_SSR_ROW_CAP),
     );
 
-    const folderKeyFromQuery = String(req.query.folderKey || '').trim();
-    const pipelineWantsFullScan =
-      !!String(req.query.q || '').trim() ||
-      !!String(req.query.workedBy || '').trim() ||
-      req.query.includeFoldered === '1' ||
-      req.query.includeFoldered === 'true' ||
-      String(req.query.origin || '').trim().toLowerCase() === 'csv';
-    const openFolderScoped =
-      !pipelineWantsFullScan && typeof dbService.listLeadsByFolderKeys === 'function';
-
-    let all;
-    let folders;
-    let folderTree;
-    let tags;
-    let stageRows;
-    let ws;
-    let scopedFolderKey = folderKeyFromQuery;
-    if (openFolderScoped) {
-      let foldersInitial;
-      [foldersInitial, tags, stageRows, ws] = await Promise.all([
-        dbService.listFolders(wid),
-        dbService.listTags(wid),
-        pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
-        dbService.getWorkspace(wid),
-      ]);
-      folders = Array.isArray(foldersInitial) ? foldersInitial : [];
-      folderTree = buildFolderTree(folders);
-      if (!scopedFolderKey) {
-        const bizFolder = folders.find(
-          (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
-        );
-        if (bizFolder && bizFolder.key) scopedFolderKey = String(bizFolder.key);
-      }
-      if (scopedFolderKey) {
-        const scopedKeys =
-          folderKeysIncludingDescendants(folderTree, scopedFolderKey) ||
-          new Set([scopedFolderKey]);
-        all = await dbService.listLeadsByFolderKeys(wid, scopedKeys);
-      } else {
-        all = await dbService.getAllLeads(wid);
-      }
-    } else {
-      let foldersInitial;
-      [all, foldersInitial, tags, stageRows, ws] = await Promise.all([
-        dbService.getAllLeads(wid),
-        ensurePipelineFolders(wid),
-        dbService.listTags(wid),
-        pipelineStagesService.ensureWorkspaceStagesSeeded(wid),
-        dbService.getWorkspace(wid),
-      ]);
-      const migrated = await maybeMigrateLegacyFolders(wid, foldersInitial);
-      folders = migrated.folders;
-      folderTree = buildFolderTree(folders);
-    }
-    const visible = filterLeadsForRequest(req, all);
-    const pipelineVisible = excludeOutreachFolderLeads(visible);
-
-    const leadListFilters = normalizeLeadListFilters(req.query);
-    const hasGlobalSearch = !!String(leadListFilters.q || '').trim();
-    const hasWorkedBy = !!String(leadListFilters.workedBy || '').trim();
-    teamActivity.attachWorkedByKeys(leadListFilters, wid);
-    if (
-      !String(leadListFilters.folderKey || '').trim() &&
-      scopedFolderKey
-    ) {
-      leadListFilters.folderKey = scopedFolderKey;
-    } else if (
-      !openFolderScoped &&
-      !String(leadListFilters.folderKey || '').trim() &&
-      !String(leadListFilters.origin || '').trim() &&
-      !hasGlobalSearch &&
-      !hasWorkedBy &&
-      req.query.includeFoldered !== '1' &&
-      req.query.includeFoldered !== 'true'
-    ) {
-      const bizFolder = folders.find(
-        (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
-      );
-      if (bizFolder && bizFolder.key) {
-        leadListFilters.folderKey = String(bizFolder.key);
-      }
-    }
-    const originIsCsv =
-      String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
-    // CSV imports are usually unfiled (or outside maps Businesses). ANDing the
-    // default Businesses folder with origin=csv falsely empties the list.
-    if (originIsCsv && String(leadListFilters.folderKey || '').trim()) {
-      const folderForCsv = folders.find(
-        (f) => f && String(f.key) === String(leadListFilters.folderKey).trim(),
-      );
-      if (
-        !folderForCsv ||
-        folderForCsv.isPipelineDefault ||
-        folderForCsv.jobType === 'maps_business'
-      ) {
-        delete leadListFilters.folderKey;
-      }
-    }
-    const includeFoldered =
-      req.query.includeFoldered === '1' ||
-      req.query.includeFoldered === 'true' ||
-      hasGlobalSearch ||
-      hasWorkedBy ||
-      originIsCsv;
-    const activeFolderKey = String(leadListFilters.folderKey || '').trim();
-    const folderKeys = activeFolderKey
-      ? folderKeysIncludingDescendants(folderTree, activeFolderKey)
-      : null;
-    if (folderKeys) leadListFilters.folderKeys = folderKeys;
-    if (hasGlobalSearch) {
-      leadListFilters.searchContext = buildLeadSearchContext(tags, folders, { workspace: ws });
-    }
-    const folderMembers = folderKeys
-      ? visible.filter((l) => folderKeys.has(String(l.folderKey || '').trim()))
-      : null;
-    const pipelineBase =
-      folderMembers != null
-        ? folderMembers
-        : includeFoldered
-          ? visible
-          : pipelineVisible;
-
-    const sourceFilter = String(req.query.source || 'all').toLowerCase();
-    let leads = pipelineBase;
-    if (sourceFilter === 'inbound') {
-      leads = pipelineBase.filter((l) => l.source && l.source.startsWith('adhello_'));
-    } else if (sourceFilter === 'cold') {
-      leads = pipelineBase.filter((l) => !l.source || !l.source.startsWith('adhello_'));
-    }
-    leads = applyLeadListFilters(leads, leadListFilters);
-
-    const activeFolder = folders.find((f) => f && String(f.key) === activeFolderKey);
-    const originFilter = String(leadListFilters.origin || '').trim().toLowerCase();
-    const isBusinessesView =
-      (activeFolder && activeFolder.jobType === 'maps_business') ||
-      originFilter === 'maps_business' ||
-      originFilter === 'maps' ||
-      originFilter === 'business';
-    if (isBusinessesView) {
-      leads.sort((a, b) => {
-        const ha = hasUsableWebsite(a) ? 1 : 0;
-        const hb = hasUsableWebsite(b) ? 1 : 0;
-        if (ha !== hb) return ha - hb;
-        return TITLE_COLLATOR.compare(String(a.title || ''), String(b.title || ''));
-      });
-    }
-
+    const { leads, tags, stageRows, ws } = await resolvePipelineListLeads(req);
     const total = leads.length;
     const slice = leads.slice(offset, offset + limit).map((l) => {
       const normalized = normalizeLeadForPanel(l);
@@ -981,6 +982,40 @@ router.get('/table-rows', async (req, res, next) => {
       tags,
       rowIndexOffset: offset,
       workspaceProspecting: normalizeProspectingSettings(ws && ws.prospecting),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * JSON lead keys for the current pipeline list (Select all).
+ * Same filters as /table-rows — includes folder descendants and list filters.
+ */
+router.get('/lead-keys.json', async (req, res, next) => {
+  try {
+    const maxLeads = Math.min(
+      10000,
+      Math.max(1, parseInt(req.query.max, 10) || 10000),
+    );
+    const { leads, activeFolderKey } = await resolvePipelineListLeads(req);
+    const keys = [
+      ...new Set(
+        (Array.isArray(leads) ? leads : [])
+          .map((l) => String((l && l.key) || '').trim())
+          .filter(Boolean),
+      ),
+    ].slice(0, maxLeads);
+    res.set({ 'Cache-Control': 'private, no-store' });
+    res.json({
+      success: true,
+      folderKey: activeFolderKey || '',
+      leadKeys: keys,
+      leadCount: keys.length,
+      total: Array.isArray(leads) ? leads.length : keys.length,
+      capped: keys.length >= maxLeads && (Array.isArray(leads) ? leads.length : 0) > keys.length,
+      maxLeads,
+      purpose: 'select',
     });
   } catch (e) {
     next(e);
