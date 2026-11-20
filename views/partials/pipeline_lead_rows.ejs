@@ -384,6 +384,8 @@
                 data-address="<%= plcEscAttr(lead.address || 'N/A') %>"
                 data-city="<%= plcEscAttr(lead.city || '') %>"
                 data-state="<%= plcEscAttr(lead.state || '') %>"
+                data-ccb-license="<%= plcEscAttr(lead.contractorLicenseNumber || lead.licenseNumber || '') %>"
+                data-contractor-registry="<%= plcEscAttr(lead.contractorRegistry || '') %>"
                 data-zip="<%= plcEscAttr(_listZip) %>"
                 data-rating="<%= lead.totalScore || 0 %>"
                 data-reviews="<%= lead.reviewsCount || 0 %>"
@@ -599,6 +601,23 @@
               </td>
               <td data-plc="state" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <span class="text-xs font-semibold text-brand-dark dark:text-slate-200"><%= _listState || '—' %></span>
+              </td>
+              <% 
+                var _licNo = String(lead.contractorLicenseNumber || lead.licenseNumber || '').trim();
+                var _licReg = String(lead.contractorRegistry || '').trim().toUpperCase();
+                var _licLabel = _licReg.indexOf('OR') === 0 || _licReg.indexOf('CCB') !== -1 ? 'CCB' : (_licReg.indexOf('WA') === 0 ? 'WA' : 'Lic');
+                var _licExpires = String(lead.contractorLicenseExpires || lead.ccbExpires || '').trim();
+                var _licTitle = [_licLabel + ' ' + _licNo, _licExpires ? ('Expires ' + _licExpires) : ''].filter(Boolean).join(' · ');
+              %>
+              <td data-plc="ccbLicense" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap max-w-[10rem]">
+                <% if (_licNo) { %>
+                <span class="inline-flex items-center gap-1 max-w-full rounded-full border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-bold tabular-nums text-sky-900 dark:text-sky-100" title="<%= plcEscAttr(_licTitle) %>">
+                  <span class="uppercase tracking-wide text-[9px] opacity-70"><%= _licLabel %></span>
+                  <span class="truncate"><%= _licNo %></span>
+                </span>
+                <% } else { %>
+                <span class="text-xs text-brand-muted">—</span>
+                <% } %>
               </td>
               <td data-plc="listingSource" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap max-w-[10rem]">
                 <span class="text-[10px] font-semibold text-brand-dark dark:text-slate-200 truncate block" title="<%= _listSource || _listSourceRaw %>"><%= _listSource || '—' %></span>

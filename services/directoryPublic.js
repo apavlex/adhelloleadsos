@@ -37,6 +37,8 @@ function publicListingView(row, settings = {}) {
     image_url: row.imageUrl || '',
     description: row.description || '',
     blurb: row.blurb || '',
+    license_number: row.licenseNumber || '',
+    license_label: row.licenseLabel || (row.licenseNumber ? 'License' : ''),
     published_at: row.publishedAt || null,
   };
 }
@@ -96,6 +98,16 @@ function buildLocalBusinessSchema(row, pageUrl) {
       ...(row.address ? { streetAddress: row.address } : {}),
       ...(row.city ? { addressLocality: row.city } : {}),
       ...(row.state ? { addressRegion: row.state } : {}),
+    };
+  }
+  const licenseNo = row.licenseNumber || row.license_number || '';
+  const licenseLabel = row.licenseLabel || row.license_label || 'License';
+  if (licenseNo) {
+    schema.identifier = `${licenseLabel} ${licenseNo}`.trim();
+    schema.hasCredential = {
+      '@type': 'EducationalOccupationalCredential',
+      credentialCategory: licenseLabel,
+      identifier: String(licenseNo),
     };
   }
   if (row.rating != null && Number.isFinite(Number(row.rating))) {

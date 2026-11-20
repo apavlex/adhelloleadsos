@@ -215,6 +215,7 @@
     { id: 'listingBaths', defaultHidden: true },
     { id: 'city', defaultHidden: true },
     { id: 'state', defaultHidden: true },
+    { id: 'ccbLicense', defaultHidden: true },
     { id: 'listingSource', defaultHidden: true },
     { id: 'findContact' },
     { id: 'category' },
@@ -335,6 +336,7 @@
     permitStatusDate: 88,
     permitContractor: 112,
     permitOwner: 112,
+    ccbLicense: 96,
   };
 
   function migrateContactColumnVis(vis) {

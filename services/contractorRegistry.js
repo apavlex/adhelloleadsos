@@ -350,8 +350,12 @@ function recordToLead(rec) {
   const trade = tradeById(row.trade);
   const phoneMatch = row.google_match_confidence === 'phone';
   const notes = [
-    row.license_number ? `License ${row.license_number}` : '',
-    row.license_expires ? `CCB expires ${row.license_expires}` : '',
+    row.license_number
+      ? `${row.source === 'OR_CCB' ? 'CCB' : 'License'} ${row.license_number}`
+      : '',
+    row.license_expires
+      ? `${row.source === 'OR_CCB' ? 'CCB' : 'License'} expires ${row.license_expires}`
+      : '',
     row.insurance_expires ? `COI expires ${row.insurance_expires}` : '',
     row.specialty_raw || row.endorsement_raw || '',
     row.ubi ? `UBI ${row.ubi}` : '',

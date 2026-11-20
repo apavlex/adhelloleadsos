@@ -42,6 +42,8 @@ describe('public business directory', () => {
       totalScore: 4.8,
       reviewsCount: 42,
       address: '100 Main St',
+      contractorLicenseNumber: 'CCB-123456',
+      contractorRegistry: 'OR_CCB',
       description: 'Family-owned chimney cleaning and repair across Austin.',
       reviewSnippets: [
         'They were on time and cleaned everything carefully.',
@@ -60,6 +62,8 @@ describe('public business directory', () => {
     assert.equal(listing.slug, 'acme-chimney-sweep');
     assert.equal(listing.name, 'Acme Chimney Sweep');
     assert.equal(listing.category, 'Chimney Sweep');
+    assert.equal(listing.licenseNumber, 'CCB-123456');
+    assert.equal(listing.licenseLabel, 'CCB');
     assert.match(listing.description, /Family-owned/);
     assert.equal(listing.rating, 4.8);
     assert.equal(listing.reviewCount, 42);
@@ -76,6 +80,8 @@ describe('public business directory', () => {
     assert.equal(feed.businesses.length, 1);
     assert.equal(feed.businesses[0].slug, 'acme-chimney-sweep');
     assert.equal(feed.businesses[0].category, 'Chimney Sweep');
+    assert.equal(feed.businesses[0].license_number, 'CCB-123456');
+    assert.equal(feed.businesses[0].license_label, 'CCB');
     assert.equal(feed.businesses[0].review_sentiment, 'positive');
     assert.equal(feed.businesses[0].reviews.length, 2);
     assert.match(feed.businesses[0].description, /Family-owned/);
