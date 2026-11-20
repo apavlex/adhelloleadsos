@@ -134,19 +134,27 @@ async function listShareTargets(email, sourceWid) {
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Hard ceiling for selection / move / export key lists (not workspace share). */
+const MAX_SELECTION_LEADS = 10000;
+
 /**
- * Resolve lead keys for a folder share (capped at MAX_LEADS).
+ * Resolve lead keys for a folder.
  * @param {string} workspaceId
  * @param {string} folderKey
+ * @param {{ max?: number }} [opts]
  * @returns {Promise<string[]>}
  */
-async function listLeadKeysInFolder(workspaceId, folderKey) {
+async function listLeadKeysInFolder(workspaceId, folderKey, opts) {
   const fk = str(folderKey);
   if (!fk) return [];
+  const maxRaw = opts && opts.max != null ? parseInt(opts.max, 10) : MAX_LEADS;
+  const max = Number.isFinite(maxRaw)
+    ? Math.min(MAX_SELECTION_LEADS, Math.max(1, maxRaw))
+    : MAX_LEADS;
   const leads = await dbService.listLeadsByFolderKeys(workspaceId, [fk]);
   return [...new Set((Array.isArray(leads) ? leads : []).map((l) => normalizeLeadKey(l && l.key)).filter(Boolean))].slice(
     0,
-    MAX_LEADS,
+    max,
   );
 }
 
@@ -307,6 +315,7 @@ async function shareLeadsToWorkspaces(opts) {
 module.exports = {
   listShareTargets,
   listLeadKeysInFolder,
+  MAX_SELECTION_LEADS,
   shareLeadsToWorkspaces,
   buildSharedLeadPayload,
   canShareLeads,

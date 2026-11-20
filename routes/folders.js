@@ -59,10 +59,13 @@ router.post('/', async (req, res, next) => {
   }
 });
 
-/** GET JSON: lead keys in a folder (for Share-to-workspace from Folders). */
+/** GET JSON: lead keys in a folder (Share from Folders, or bulk select-all). */
 router.get('/lead-keys.json', async (req, res, next) => {
   try {
-    if (!req.canAssignWork) {
+    const purpose = String(req.query.purpose || '').trim().toLowerCase();
+    const forSelection = purpose === 'select' || purpose === 'selection';
+    // Share still needs assign permission; select-all only needs folder access.
+    if (!forSelection && !req.canAssignWork) {
       return res.status(403).json({
         success: false,
         error: 'Owner, admin, or manager permission required.',
@@ -76,15 +79,35 @@ router.get('/lead-keys.json', async (req, res, next) => {
     if (!folder) {
       return res.status(404).json({ success: false, error: 'Folder not found.' });
     }
-    const keys = await leadWorkspaceShare.listLeadKeysInFolder(req.workspaceId, folderKey);
+    const maxLeads = forSelection
+      ? leadWorkspaceShare.MAX_SELECTION_LEADS
+      : leadWorkspaceShare.MAX_LEADS;
+    let keys;
+    if (forSelection) {
+      // Same visibility as the pipeline table (assigned-only SDRs, etc.).
+      const leads = await dbService.listLeadsByFolderKeys(req.workspaceId, [folderKey]);
+      const visible = filterLeadsForRequest(req, Array.isArray(leads) ? leads : []);
+      keys = [
+        ...new Set(
+          visible
+            .map((l) => String((l && l.key) || '').trim())
+            .filter(Boolean),
+        ),
+      ].slice(0, maxLeads);
+    } else {
+      keys = await leadWorkspaceShare.listLeadKeysInFolder(req.workspaceId, folderKey, {
+        max: maxLeads,
+      });
+    }
     res.json({
       success: true,
       folderKey,
       folderName: folder.name || 'Folder',
       leadKeys: keys,
       leadCount: keys.length,
-      capped: keys.length >= leadWorkspaceShare.MAX_LEADS,
-      maxLeads: leadWorkspaceShare.MAX_LEADS,
+      capped: keys.length >= maxLeads,
+      maxLeads,
+      purpose: forSelection ? 'select' : 'share',
     });
   } catch (e) {
     next(e);

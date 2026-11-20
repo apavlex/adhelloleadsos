@@ -25,10 +25,79 @@
     });
   }
 
+  /** Keys selected beyond the loaded page (Select all in list / folder). */
+  let folderWideKeys = null;
+
+  function getFolderWideKeys() {
+    return folderWideKeys;
+  }
+
+  function setFolderWideKeys(keys) {
+    const list = Array.isArray(keys) ? keys : [];
+    const next = new Set();
+    list.forEach((raw) => {
+      const k = String(raw || '').trim();
+      if (k) next.add(k);
+    });
+    folderWideKeys = next.size ? next : null;
+    window.__bulkFolderWideKeys = folderWideKeys;
+    return folderWideKeys;
+  }
+
+  function clearFolderWideKeys() {
+    folderWideKeys = null;
+    window.__bulkFolderWideKeys = null;
+  }
+
   function countCheckedGlobally() {
+    if (folderWideKeys && folderWideKeys.size) return folderWideKeys.size;
     return document.querySelectorAll(
       'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
     ).length;
+  }
+
+  function activePipelineFolderKey() {
+    if (typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string' && window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()) {
+      return window.PROSPECTING_ACTIVE_FOLDER_KEY.trim();
+    }
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const fromQuery = String(params.get('folderKey') || '').trim();
+      if (fromQuery) return fromQuery;
+    } catch (_) {
+      /* ignore */
+    }
+    return '';
+  }
+
+  function pipelineListTotal() {
+    const meta =
+      window.__PIPELINE_ROWS_META && typeof window.__PIPELINE_ROWS_META === 'object'
+        ? window.__PIPELINE_ROWS_META
+        : null;
+    const fromMeta = meta ? parseInt(meta.total, 10) : 0;
+    const table = document.getElementById('prospectLeadsTable');
+    const domCount = table ? table.querySelectorAll('tbody tr.result-row').length : 0;
+    return Math.max(Number.isFinite(fromMeta) ? fromMeta : 0, domCount, folderWideKeys ? folderWideKeys.size : 0);
+  }
+
+  function syncSelectAllFolderBtn() {
+    const total = pipelineListTotal();
+    const selected = countCheckedGlobally();
+    const folderKey = activePipelineFolderKey();
+    const canSelectAll = total > 1 && selected < total;
+    const label = total > 1 ? `Select all ${total}` : 'Select all';
+    const title = folderKey
+      ? `Select all ${total} leads in this folder — no Load more needed`
+      : `Select all ${total} leads in this list — no Load more needed`;
+    ['bulkSelectAllFolderBtn', 'pipelineTableSelectAllBtn'].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      btn.classList.toggle('hidden', !canSelectAll);
+      if (btn.getAttribute('aria-busy') === 'true') return;
+      btn.textContent = label;
+      btn.setAttribute('title', title);
+    });
   }
 
   function mountBulkBarToBody() {
@@ -104,11 +173,13 @@
     if (bar.dataset.holdSaved === '1') return;
     const n = Math.max(0, parseInt(count, 10) || 0);
     const visible = n > 0;
+    if (!visible) clearFolderWideKeys();
     bar.dataset.visible = visible ? 'true' : 'false';
     bar.classList.toggle('bulk-action-bar--visible', visible);
     bar.setAttribute('aria-hidden', visible ? 'false' : 'true');
     const circle = document.getElementById('selectedCountCircle');
     if (circle) circle.textContent = String(n);
+    syncSelectAllFolderBtn();
     if (visible) {
       bar.classList.remove('opacity-0', 'translate-y-16', 'pointer-events-none');
       bar.classList.add('opacity-100', 'translate-y-0');
@@ -253,6 +324,9 @@
       seen.add(k);
       out.push(k);
     };
+    if (folderWideKeys && folderWideKeys.size) {
+      folderWideKeys.forEach(add);
+    }
     if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
       window.__getSelectedLeadKeysForBulk().forEach(add);
     }
@@ -262,6 +336,184 @@
     collectSelectedLeadKeysFromDom().forEach(add);
     return out;
   }
+
+  function checkAllLoadedPipelineRows() {
+    const table = document.getElementById('prospectLeadsTable');
+    if (!table) return 0;
+    let n = 0;
+    table.querySelectorAll('tbody tr.result-row').forEach((tr) => {
+      const cb = tr.querySelector('input.lead-checkbox, input.row-checkbox');
+      if (!cb) return;
+      setCheckboxChecked(cb, true);
+      n += 1;
+    });
+    const header = table.querySelector('thead input[data-select-all-leads]');
+    if (header) {
+      header.checked = true;
+      header.indeterminate = false;
+    }
+    return n;
+  }
+
+  async function fetchFolderSelectionKeys(folderKey) {
+    const res = await fetch(
+      '/folders/lead-keys.json?purpose=select&folderKey=' + encodeURIComponent(folderKey),
+      { credentials: 'same-origin', headers: { Accept: 'application/json' } },
+    );
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not load folder leads.');
+    }
+    return {
+      keys: Array.isArray(data.leadKeys) ? data.leadKeys : [],
+      capped: !!data.capped,
+      maxLeads: data.maxLeads,
+      folderName: data.folderName || 'Folder',
+    };
+  }
+
+  async function loadRemainingPipelineRowsForSelection(onProgress) {
+    const meta =
+      window.__PIPELINE_ROWS_META && typeof window.__PIPELINE_ROWS_META === 'object'
+        ? window.__PIPELINE_ROWS_META
+        : null;
+    if (!meta || !meta.hasMore) return;
+    const table = document.getElementById('prospectLeadsTable');
+    const tbody = table && table.querySelector('tbody');
+    if (!tbody) return;
+    let serverHasMore = !!meta.hasMore;
+    let serverNextOffset = Math.max(0, parseInt(meta.nextOffset, 10) || 0);
+    let serverTotal = Math.max(0, parseInt(meta.total, 10) || 0);
+    const rowsQuery = String(meta.query || '');
+    let guard = 0;
+    while (serverHasMore && guard < 80) {
+      guard += 1;
+      if (typeof onProgress === 'function') {
+        onProgress({
+          loaded: tbody.querySelectorAll('tr.result-row').length,
+          total: serverTotal,
+        });
+      }
+      const qs = [
+        rowsQuery,
+        `offset=${encodeURIComponent(String(serverNextOffset))}`,
+        'limit=200',
+      ]
+        .filter(Boolean)
+        .join('&');
+      const res = await fetch(`/prospecting/table-rows?${qs}`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'text/html' },
+      });
+      if (!res.ok) throw new Error(`Could not load more leads (${res.status}).`);
+      const html = await res.text();
+      const totalHdr = parseInt(res.headers.get('X-Pipeline-Total') || '', 10);
+      const nextHdr = parseInt(res.headers.get('X-Pipeline-Next-Offset') || '', 10);
+      const hasMoreHdr = res.headers.get('X-Pipeline-Has-More');
+      if (Number.isFinite(totalHdr) && totalHdr >= 0) serverTotal = totalHdr;
+      if (Number.isFinite(nextHdr) && nextHdr >= 0) serverNextOffset = nextHdr;
+      if (hasMoreHdr === '0' || hasMoreHdr === '1') serverHasMore = hasMoreHdr === '1';
+      else serverHasMore = serverNextOffset < serverTotal;
+      if (html && html.trim()) tbody.insertAdjacentHTML('beforeend', html);
+      window.__PIPELINE_ROWS_META = {
+        ...(window.__PIPELINE_ROWS_META || {}),
+        total: serverTotal,
+        loaded: tbody.querySelectorAll('tr.result-row').length,
+        hasMore: serverHasMore,
+        nextOffset: serverNextOffset,
+        query: rowsQuery,
+      };
+      if (!html || !html.trim()) break;
+    }
+    if (typeof window.__pipelineTablePagingApply === 'function') {
+      window.__pipelineTablePagingApply();
+    }
+  }
+
+  async function selectAllInCurrentList() {
+    const buttons = ['bulkSelectAllFolderBtn', 'pipelineTableSelectAllBtn']
+      .map((id) => document.getElementById(id))
+      .filter(Boolean);
+    if (buttons.some((btn) => btn.getAttribute('aria-busy') === 'true')) return;
+    const folderKey = activePipelineFolderKey();
+    const prevLabels = buttons.map((btn) => btn.textContent);
+    buttons.forEach((btn) => {
+      btn.setAttribute('aria-busy', 'true');
+      btn.disabled = true;
+      btn.textContent = 'Selecting…';
+    });
+    const setBusyLabel = (text) => {
+      buttons.forEach((btn) => {
+        btn.textContent = text;
+      });
+    };
+    try {
+      let keys = [];
+      let capped = false;
+      if (folderKey) {
+        const result = await fetchFolderSelectionKeys(folderKey);
+        keys = result.keys;
+        capped = result.capped;
+      } else {
+        await loadRemainingPipelineRowsForSelection((p) => {
+          const loaded = p && p.loaded != null ? p.loaded : 0;
+          const total = p && p.total != null ? p.total : 0;
+          setBusyLabel(total > 0 ? `Loading ${loaded}/${total}…` : `Loading ${loaded}…`);
+        });
+        const table = document.getElementById('prospectLeadsTable');
+        if (table) {
+          table.querySelectorAll('tbody tr.result-row').forEach((tr) => {
+            const k = String(tr.getAttribute('data-lead-key') || tr.dataset.leadKey || '').trim();
+            if (k) keys.push(k);
+          });
+        }
+      }
+      if (!keys.length) {
+        throw new Error('No leads to select in this list.');
+      }
+      setFolderWideKeys(keys);
+      checkAllLoadedPipelineRows();
+      showBulkActionBar(keys.length);
+      if (typeof window.__applyFolderWideSelectionKeys === 'function') {
+        window.__applyFolderWideSelectionKeys(keys);
+      } else if (typeof window.__syncBulkSelectionFromDom === 'function') {
+        window.__syncBulkSelectionFromDom();
+      } else if (typeof window.__updateBulkActionBar === 'function') {
+        window.__updateBulkActionBar();
+      }
+      syncSelectAllFolderBtn();
+      const msg = capped
+        ? `Selected the first ${keys.length} leads in this list (max per select).`
+        : `Selected all ${keys.length} lead${keys.length === 1 ? '' : 's'}.`;
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'success', duration: 4200 });
+      }
+      const feedback = document.getElementById('bulkSaveFeedback');
+      if (feedback) {
+        feedback.textContent = msg;
+        feedback.classList.remove('hidden');
+        feedback.style.color = '#6ee7b7';
+      }
+    } catch (err) {
+      const fail = (err && err.message) || 'Could not select all leads.';
+      if (typeof window.showAppToast === 'function') window.showAppToast(fail, { variant: 'error' });
+      else window.alert(fail);
+    } finally {
+      buttons.forEach((btn, i) => {
+        btn.removeAttribute('aria-busy');
+        btn.disabled = false;
+        btn.textContent = prevLabels[i] || 'Select all';
+      });
+      syncSelectAllFolderBtn();
+    }
+  }
+
+  window.__getBulkFolderWideKeys = getFolderWideKeys;
+  window.__setBulkFolderWideKeys = setFolderWideKeys;
+  window.__clearBulkFolderWideKeys = clearFolderWideKeys;
+  window.__selectAllInCurrentList = selectAllInCurrentList;
+  window.__syncSelectAllFolderBtn = syncSelectAllFolderBtn;
 
   function collectFocusSelectionKeys() {
     return collectSelectedLeadKeysEarly().map(normalizeFocusLeadKey).filter(Boolean);
@@ -723,6 +975,9 @@
       return 0;
     }
 
+    // Page-level toggle exits folder-wide select-all.
+    clearFolderWideKeys();
+
     boxes.forEach((cb) => {
       cb.checked = checked;
       if (checked) cb.setAttribute('checked', 'checked');
@@ -740,6 +995,7 @@
     });
 
     syncBulkBarFromDom();
+    syncSelectAllFolderBtn();
     if (!checked) resetBulkSelectAnchor();
     return boxes.length;
   }
@@ -754,7 +1010,12 @@
       if (!t || t.tagName !== 'INPUT') return;
       if (!t.classList.contains('lead-checkbox') && !t.classList.contains('row-checkbox')) return;
       if (!window.__bulkSelectRangeSync) setBulkSelectAnchor(table, t);
+      // Editing one row exits "select all in list" and keeps only checked DOM rows.
+      if (folderWideKeys && folderWideKeys.size) {
+        clearFolderWideKeys();
+      }
       scheduleSyncBulkBarFromDom();
+      syncSelectAllFolderBtn();
     }
 
     table.addEventListener('change', onRowCheckboxChange);
@@ -805,11 +1066,37 @@
     bindBulkBoardButtonDirect();
     bindShiftClickRangeSelection();
     bindCheckCellTapToggle();
+    document.addEventListener(
+      'click',
+      (e) => {
+        const btn =
+          e.target && e.target.closest
+            ? e.target.closest('#bulkSelectAllFolderBtn, #pipelineTableSelectAllBtn')
+            : null;
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        void selectAllInCurrentList();
+      },
+      true,
+    );
+    document.addEventListener(
+      'click',
+      (e) => {
+        const cancel =
+          e.target && e.target.closest ? e.target.closest('#cancelSelectionBtn') : null;
+        if (!cancel) return;
+        clearFolderWideKeys();
+        syncSelectAllFolderBtn();
+      },
+      true,
+    );
     document.querySelectorAll('table').forEach((table) => {
       if (table.querySelector('thead input[data-select-all-leads]')) {
         bindTable(table);
       }
     });
+    syncSelectAllFolderBtn();
 
     // Capture-phase fallback: runs before app.js table handlers call stopPropagation.
     document.addEventListener(

@@ -1746,6 +1746,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.__updateBulkActionBar === 'function') {
           window.__updateBulkActionBar();
         }
+        if (typeof window.__syncSelectAllFolderBtn === 'function') {
+          window.__syncSelectAllFolderBtn();
+        }
         if (typeof window.__applyReviewStars === 'function') {
           window.__applyReviewStars(
             tbody.querySelectorAll('tr.result-row:not(.pipeline-row-page-hidden)'),
@@ -2564,8 +2567,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function collectLeadDatasetsForBulkExport() {
     const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
     const leadsToExport = [];
+    const seen = new Set();
     const pushRow = (row) => {
       if (!row) return;
+      const key = String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim();
+      if (key) {
+        if (seen.has(key)) return;
+        seen.add(key);
+      }
       try {
         if (typeof coalesceRowDatasetFromContacts === 'function') coalesceRowDatasetFromContacts(row);
         if (typeof hydrateRowDatasetFromTableDom === 'function') hydrateRowDatasetFromTableDom(row);
@@ -2574,12 +2583,110 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       leadsToExport.push(row.dataset);
     };
+    const folderWide =
+      typeof window.__getBulkFolderWideKeys === 'function'
+        ? window.__getBulkFolderWideKeys()
+        : window.__bulkFolderWideKeys;
+    if (folderWide && folderWide.size) {
+      folderWide.forEach((raw) => {
+        const k = String(raw || '').trim();
+        if (!k) return;
+        const row = findLeadRowForBulkKey(k);
+        if (row) pushRow(row);
+      });
+      // Prefer folder-wide selection when active — even if only some rows are loaded.
+      if (leadsToExport.length) return leadsToExport;
+    }
     if (selectedCheckboxes.length > 0) {
       selectedCheckboxes.forEach((cb) => pushRow(cb.closest('.result-row')));
     } else {
       document.querySelectorAll('.result-row').forEach((row) => pushRow(row));
     }
     return leadsToExport;
+  }
+
+  async function ensureFolderWideRowsLoadedForExport() {
+    const folderWide =
+      typeof window.__getBulkFolderWideKeys === 'function'
+        ? window.__getBulkFolderWideKeys()
+        : window.__bulkFolderWideKeys;
+    if (!folderWide || !folderWide.size) return;
+    const missing = [];
+    folderWide.forEach((raw) => {
+      const k = String(raw || '').trim();
+      if (!k) return;
+      if (!findLeadRowForBulkKey(k)) missing.push(k);
+    });
+    if (!missing.length) return;
+    // Load remaining HTML rows so export can read row datasets (no Load more clicks).
+    const meta =
+      window.__PIPELINE_ROWS_META && typeof window.__PIPELINE_ROWS_META === 'object'
+        ? window.__PIPELINE_ROWS_META
+        : null;
+    if (!meta || !meta.hasMore) return;
+    let serverHasMore = !!meta.hasMore;
+    let serverNextOffset = Math.max(0, parseInt(meta.nextOffset, 10) || 0);
+    let serverTotal = Math.max(0, parseInt(meta.total, 10) || 0);
+    const rowsQuery = String(meta.query || '');
+    const table = document.getElementById('prospectLeadsTable');
+    const tbody = table && table.querySelector('tbody');
+    if (!tbody) return;
+    let guard = 0;
+    while (serverHasMore && guard < 80) {
+      guard += 1;
+      const qs = [
+        rowsQuery,
+        `offset=${encodeURIComponent(String(serverNextOffset))}`,
+        'limit=200',
+      ]
+        .filter(Boolean)
+        .join('&');
+      const res = await fetch(`/prospecting/table-rows?${qs}`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'text/html' },
+      });
+      if (!res.ok) break;
+      const html = await res.text();
+      const totalHdr = parseInt(res.headers.get('X-Pipeline-Total') || '', 10);
+      const nextHdr = parseInt(res.headers.get('X-Pipeline-Next-Offset') || '', 10);
+      const hasMoreHdr = res.headers.get('X-Pipeline-Has-More');
+      if (Number.isFinite(totalHdr) && totalHdr >= 0) serverTotal = totalHdr;
+      if (Number.isFinite(nextHdr) && nextHdr >= 0) serverNextOffset = nextHdr;
+      if (hasMoreHdr === '0' || hasMoreHdr === '1') serverHasMore = hasMoreHdr === '1';
+      else serverHasMore = serverNextOffset < serverTotal;
+      if (html && html.trim()) tbody.insertAdjacentHTML('beforeend', html);
+      window.__PIPELINE_ROWS_META = {
+        ...(window.__PIPELINE_ROWS_META || {}),
+        total: serverTotal,
+        loaded: tbody.querySelectorAll('tr.result-row').length,
+        hasMore: serverHasMore,
+        nextOffset: serverNextOffset,
+        query: rowsQuery,
+      };
+      if (!html || !html.trim()) break;
+      let stillMissing = 0;
+      folderWide.forEach((raw) => {
+        const k = String(raw || '').trim();
+        if (k && !findLeadRowForBulkKey(k)) stillMissing += 1;
+      });
+      if (!stillMissing) break;
+    }
+    if (typeof window.__pipelineTablePagingApply === 'function') {
+      window.__pipelineTablePagingApply();
+    }
+    // Re-check loaded rows for the folder-wide selection.
+    folderWide.forEach((raw) => {
+      const k = String(raw || '').trim();
+      if (!k) return;
+      const row = findLeadRowForBulkKey(k);
+      if (!row) return;
+      const cb = row.querySelector('input.lead-checkbox, input.row-checkbox');
+      if (cb) {
+        cb.checked = true;
+        cb.setAttribute('checked', 'checked');
+      }
+      row.classList.toggle('bulk-selected', true);
+    });
   }
 
   function parseContactsFromDataset(l) {
@@ -2798,38 +2905,44 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.js-bulk-export-csv').forEach((exportBtn) => {
     exportBtn.addEventListener('click', (e) => {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-      const leadsToExport = collectLeadDatasetsForBulkExport();
-      if (leadsToExport.length === 0) return alert('No leads found to export.');
-      const filename = defaultLeadsExportFilename();
       exportBtn.disabled = true;
       exportBtn.setAttribute('aria-busy', 'true');
-      withExportProgress(filename, () =>
-        buildLeadsCsvFromDatasetsAsync(leadsToExport, (p) => {
-          if (window.__pipelineTransferProgress && typeof window.__pipelineTransferProgress.update === 'function') {
-            window.__pipelineTransferProgress.update({
-              action: 'Exporting',
-              fileName: filename,
-              percent: Math.max(1, Math.min(99, p.percent)),
-              processed: p.processed,
-              total: p.total,
-              etaMs: p.etaMs,
-            });
+      void (async () => {
+        try {
+          await ensureFolderWideRowsLoadedForExport();
+          const leadsToExport = collectLeadDatasetsForBulkExport();
+          if (leadsToExport.length === 0) {
+            alert('No leads found to export.');
+            return;
           }
-        }).then((csvContent) => {
-          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-          const link = document.createElement('a');
-          link.href = URL.createObjectURL(blob);
-          link.setAttribute('download', filename);
-          link.click();
-        })
-      )
-        .catch((err) => {
+          const filename = defaultLeadsExportFilename();
+          await withExportProgress(filename, () =>
+            buildLeadsCsvFromDatasetsAsync(leadsToExport, (p) => {
+              if (window.__pipelineTransferProgress && typeof window.__pipelineTransferProgress.update === 'function') {
+                window.__pipelineTransferProgress.update({
+                  action: 'Exporting',
+                  fileName: filename,
+                  percent: Math.max(1, Math.min(99, p.percent)),
+                  processed: p.processed,
+                  total: p.total,
+                  etaMs: p.etaMs,
+                });
+              }
+            }).then((csvContent) => {
+              const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.setAttribute('download', filename);
+              link.click();
+            }),
+          );
+        } catch (err) {
           alert((err && err.message) || 'Export failed');
-        })
-        .finally(() => {
+        } finally {
           exportBtn.disabled = false;
           exportBtn.removeAttribute('aria-busy');
-        });
+        }
+      })();
     });
   });
 
@@ -19202,7 +19315,38 @@ document.addEventListener('DOMContentLoaded', () => {
         if (key !== '') selectedKeys.add(key);
       });
     });
+    const folderWide =
+      typeof window.__getBulkFolderWideKeys === 'function'
+        ? window.__getBulkFolderWideKeys()
+        : window.__bulkFolderWideKeys;
+    if (folderWide && typeof folderWide.forEach === 'function') {
+      folderWide.forEach((key) => {
+        const k = String(key || '').trim();
+        if (k) selectedKeys.add(k);
+      });
+    }
   }
+
+  function applyFolderWideSelectionKeys(keys) {
+    const list = Array.isArray(keys) ? keys : [];
+    selectedKeys.clear();
+    list.forEach((raw) => {
+      const k = String(raw || '').trim();
+      if (k) selectedKeys.add(k);
+    });
+    if (typeof window.__setBulkFolderWideKeys === 'function') {
+      window.__setBulkFolderWideKeys(list);
+    } else {
+      window.__bulkFolderWideKeys = list.length ? new Set(list) : null;
+    }
+    syncBulkRowHighlights();
+    syncSelectAllLeadCheckbox();
+    updateBulkActionBar();
+    if (typeof window.__syncSelectAllFolderBtn === 'function') {
+      window.__syncSelectAllFolderBtn();
+    }
+  }
+  window.__applyFolderWideSelectionKeys = applyFolderWideSelectionKeys;
 
   /** Same selection source as bulk SMS/voicemail — includes paged/hidden checked rows and selectedKeys fallback. */
   function getSelectedLeadCheckboxesForBulkActions() {
@@ -19451,6 +19595,12 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__bindLeadsTableBulkSelection = bindLeadsTableBulkSelection;
 
   function getBulkSelectionCount() {
+    const folderWide =
+      typeof window.__getBulkFolderWideKeys === 'function'
+        ? window.__getBulkFolderWideKeys()
+        : window.__bulkFolderWideKeys;
+    if (folderWide && folderWide.size) return folderWide.size;
+    if (selectedKeys.size > 0) return selectedKeys.size;
     const tables = [
       getActiveLeadsTable(),
       document.getElementById('prospectLeadsTable'),
@@ -19463,9 +19613,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const n = countCheckedLeadBoxes(table);
       if (n > 0) return n;
     }
-    const global = countCheckedLeadBoxes(document);
-    if (global > 0) return global;
-    return selectedKeys.size;
+    return countCheckedLeadBoxes(document);
   }
 
   function setPageLeadSelection(checked, tableEl) {
@@ -20040,10 +20188,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cancelSelectionBtn) {
     cancelSelectionBtn.addEventListener('click', () => {
       selectedKeys.clear();
+      if (typeof window.__clearBulkFolderWideKeys === 'function') {
+        window.__clearBulkFolderWideKeys();
+      } else {
+        window.__bulkFolderWideKeys = null;
+      }
       if (typeof window.__resetBulkSelectAnchor === 'function') {
         window.__resetBulkSelectAnchor();
       }
       setPageLeadSelection(false);
+      if (typeof window.__syncSelectAllFolderBtn === 'function') {
+        window.__syncSelectAllFolderBtn();
+      }
     });
   }
 
