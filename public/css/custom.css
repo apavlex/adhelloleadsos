@@ -359,6 +359,7 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
     }
 
     body.app-with-sidebar .app-shell-content {
+        /* Always column 3 — when context width is 0 the empty middle column collapses. */
         grid-column: 3;
         grid-row: 1;
         min-width: 0;
@@ -367,10 +368,6 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
         display: flex;
         flex-direction: column;
         min-height: 100dvh;
-    }
-
-    body.app-with-sidebar:not(.has-context-sidebar) .app-shell-content {
-        grid-column: 2;
     }
 
     body.app-with-sidebar .app-shell-content > main {
@@ -398,10 +395,6 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
         margin: 0;
         padding: 0;
         pointer-events: none;
-    }
-
-    body.app-with-sidebar:not(.has-context-sidebar) > :not(#appSidebar):not(#appContextSidebar):not(.app-shell-content):not(.app-body-portal) {
-        grid-column: 2;
     }
 
     body.app-with-sidebar > :not(#appSidebar):not(#appContextSidebar):not(.app-shell-content):not(.app-body-portal) * {
