@@ -28,4 +28,17 @@ describe('contextSidebar EJS locals', () => {
       assert.doesNotMatch(src, /\bvar\s+contextSidebar\b/, `${rel} should not use var contextSidebar`);
     }
   });
+
+  it('pipeline second menu keeps refine without Cadences / Working queue jump links', () => {
+    const src = fs.readFileSync(path.join(views, 'prospecting.ejs'), 'utf8');
+    const pipelineBlock = src.match(/if \(activeTab === 'pipeline'\) \{[\s\S]*?else if \(activeTab === 'queue'\)/);
+    assert.ok(pipelineBlock, 'expected pipeline contextSidebar block');
+    assert.match(pipelineBlock[0], /links:\s*\[\]/);
+    assert.match(pipelineBlock[0], /refine:\s*'pipeline'/);
+    assert.doesNotMatch(pipelineBlock[0], /label:\s*'Cadences'/);
+    assert.doesNotMatch(pipelineBlock[0], /label:\s*'Working queue'/);
+    assert.doesNotMatch(pipelineBlock[0], /label:\s*'Folders'/);
+    assert.doesNotMatch(pipelineBlock[0], /label:\s*'Find more leads'/);
+    assert.doesNotMatch(pipelineBlock[0], /label:\s*'Team & assign'/);
+  });
 });

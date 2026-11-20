@@ -16,7 +16,8 @@
 <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
 <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
 <% const _bookmarkedOnly = _lf.bookmarked === '1' || _lf.bookmarked === 'true' || _lf.bookmarked === 'yes'; %>
-<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || _lf.tagKey || _lf.workedBy || _activeCategory || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '') || (_lf.maxReviews != null && String(_lf.maxReviews) !== '') || _bookmarkedOnly); %>
+<% /* Always open on the second menu — this panel is the primary place for filters. */ %>
+<% const _advOpen = true; %>
 <% const _reach = _lf.reach ? String(_lf.reach) : ''; %>
 <% const _workedBy = _lf.workedBy ? String(_lf.workedBy).toLowerCase() : ''; %>
 <% const _teamMembers = typeof teamMembers !== 'undefined' && Array.isArray(teamMembers) ? teamMembers : []; %>
