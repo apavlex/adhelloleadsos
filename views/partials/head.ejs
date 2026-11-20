@@ -245,6 +245,10 @@
 <script src="/js/sortable-loader.js?v=<%= _av %>" defer></script>
 <script src="/js/opportunities-board.js?v=<%= _av %>" defer></script>
 <% } %>
+<% if (_np === 'today') { %>
+<link rel="stylesheet" href="/css/today-dashboard-layout.css?v=<%= _av %>" />
+<script src="/js/today-dashboard-layout.js?v=<%= _av %>" defer></script>
+<% } %>
 <% if (_needReviews) { %>
 <script src="/js/review-stars.js?v=<%= _av %>" defer></script>
 <script src="/js/review-freshness.js?v=<%= _av %>" defer></script>
