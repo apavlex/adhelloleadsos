@@ -1,24 +1,30 @@
 <%#
   Instantly-style secondary left panel.
-  Pages MUST set locals.contextSidebar (not a bare `var`) so this include can see it.
+  Pages SHOULD set locals.contextSidebar (not a bare `var`) so page links/refine render.
   Shape: { title, subtitle?, links?, refine? }
   refine: 'pipeline' | 'leads' | 'outreach' | false
+
+  Always rendered so Settings / Leads / Add New can open into this second bar
+  instead of floating popups when the primary nav is the icon rail.
 %>
 <% const _ctx =
   (typeof locals !== 'undefined' && locals.contextSidebar) ||
   (typeof contextSidebar !== 'undefined' && contextSidebar) ||
   null; %>
-<% if (_ctx) { %>
-<aside id="appContextSidebar" class="app-context-sidebar ghl-sidebar flex-col shrink-0 overflow-hidden" aria-label="<%= _ctx.title || 'Page menu' %>">
+<% const _hasPageCtx = !!_ctx; %>
+<aside
+  id="appContextSidebar"
+  class="app-context-sidebar ghl-sidebar flex-col shrink-0 overflow-hidden<%= _hasPageCtx ? '' : ' app-context-sidebar--nav-only' %>"
+  aria-label="<%= (_ctx && _ctx.title) || 'Page menu' %>"
+  data-has-page-context="<%= _hasPageCtx ? '1' : '0' %>"
+>
   <div class="app-context-sidebar-inner flex flex-col h-full min-h-0">
     <header class="app-context-header shrink-0 px-4 pt-4 pb-3 border-b border-[#E5E7EB] dark:border-white/10">
       <div class="flex items-start justify-between gap-2">
         <div class="min-w-0">
-          <p class="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] dark:text-slate-500 truncate"><%= _ctx.eyebrow || 'Menu' %></p>
-          <h2 class="font-display font-bold text-base text-[#111827] dark:text-white truncate leading-tight mt-0.5"><%= _ctx.title || 'Page' %></h2>
-          <% if (_ctx.subtitle) { %>
-          <p class="text-[11px] text-[#6B7280] dark:text-slate-400 mt-1 leading-snug"><%= _ctx.subtitle %></p>
-          <% } %>
+          <p id="contextSidebarEyebrow" class="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] dark:text-slate-500 truncate"><%= (_ctx && _ctx.eyebrow) || 'Menu' %></p>
+          <h2 id="contextSidebarTitle" class="font-display font-bold text-base text-[#111827] dark:text-white truncate leading-tight mt-0.5"><%= (_ctx && _ctx.title) || 'Page' %></h2>
+          <p id="contextSidebarSubtitle" class="text-[11px] text-[#6B7280] dark:text-slate-400 mt-1 leading-snug<%= (_ctx && _ctx.subtitle) ? '' : ' hidden' %>"><%= (_ctx && _ctx.subtitle) || '' %></p>
         </div>
         <button type="button" id="contextSidebarCloseBtn" class="md:hidden shrink-0 flex h-8 w-8 items-center justify-center rounded-lg text-[#6B7280] hover:bg-[#F3F4F6] dark:hover:bg-white/10" aria-label="Close menu">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -26,32 +32,37 @@
       </div>
     </header>
 
-    <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-3 space-y-4">
-      <% if (Array.isArray(_ctx.links) && _ctx.links.length) { %>
-      <nav class="app-context-nav space-y-0.5" aria-label="<%= _ctx.title || 'Page' %> links">
-        <% _ctx.links.forEach(function (link) {
-          if (!link || !link.href) return;
-          var on = !!link.active;
-        %>
-        <a href="<%= link.href %>" class="app-context-link<%= on ? ' is-active' : '' %>"<%= on ? ' aria-current="page"' : '' %><%= link.external ? ' target="_blank" rel="noopener noreferrer"' : '' %>>
-          <span class="truncate"><%= link.label %></span>
-        </a>
-        <% }); %>
-      </nav>
-      <% } %>
+    <div id="contextSidebarPagePanel" class="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-3 space-y-4<%= _hasPageCtx ? '' : ' hidden' %>" data-context-page-panel>
+      <% if (_ctx) { %>
+        <% if (Array.isArray(_ctx.links) && _ctx.links.length) { %>
+        <nav class="app-context-nav space-y-0.5" aria-label="<%= _ctx.title || 'Page' %> links">
+          <% _ctx.links.forEach(function (link) {
+            if (!link || !link.href) return;
+            var on = !!link.active;
+          %>
+          <a href="<%= link.href %>" class="app-context-link<%= on ? ' is-active' : '' %>"<%= on ? ' aria-current="page"' : '' %><%= link.external ? ' target="_blank" rel="noopener noreferrer"' : '' %>>
+            <span class="truncate"><%= link.label %></span>
+          </a>
+          <% }); %>
+        </nav>
+        <% } %>
 
-      <% if (_ctx.refine === 'pipeline') { %>
-        <%- include('context_refine_pipeline') %>
-      <% } else if (_ctx.refine === 'leads') { %>
-        <%- include('context_refine_leads') %>
-      <% } else if (_ctx.refine === 'outreach') { %>
-        <%- include('context_refine_outreach') %>
-      <% } %>
+        <% if (_ctx.refine === 'pipeline') { %>
+          <%- include('context_refine_pipeline') %>
+        <% } else if (_ctx.refine === 'leads') { %>
+          <%- include('context_refine_leads') %>
+        <% } else if (_ctx.refine === 'outreach') { %>
+          <%- include('context_refine_outreach') %>
+        <% } %>
 
-      <% if (_ctx.extraHtml) { %>
-        <%- _ctx.extraHtml %>
+        <% if (_ctx.extraHtml) { %>
+          <%- _ctx.extraHtml %>
+        <% } %>
       <% } %>
+    </div>
+
+    <div id="contextSidebarNavPanel" class="hidden flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 py-3" data-context-nav-panel aria-label="Navigation submenu">
+      <nav id="contextSidebarNavLinks" class="app-context-nav space-y-0.5" aria-label="Submenu links"></nav>
     </div>
   </div>
 </aside>
-<% } %>

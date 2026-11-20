@@ -5,7 +5,15 @@
   if (!body || !document.getElementById('appSidebar')) return;
 
   function hasContextSidebar() {
-    return body.classList.contains('has-context-sidebar') && !!document.getElementById('appContextSidebar');
+    return !!document.getElementById('appContextSidebar') && (
+      body.classList.contains('has-context-sidebar') ||
+      body.classList.contains('nav-submenu-open')
+    );
+  }
+
+  function hasPageContextSidebar() {
+    var el = document.getElementById('appContextSidebar');
+    return !!(el && el.getAttribute('data-has-page-context') === '1');
   }
 
   function getState() {
@@ -54,7 +62,7 @@
 
   // When a page context menu is present, force icon-rail on load even if the
   // user last left the primary nav expanded on a single-sidebar page.
-  if (hasContextSidebar()) {
+  if (hasPageContextSidebar()) {
     var initial = getState();
     applyState(initial === 'hidden' ? 'hidden' : 'collapsed');
   } else {
@@ -64,16 +72,202 @@
   var settingsToggle = document.getElementById('sidebarSettingsToggle');
   var settingsMenu = document.getElementById('sidebarSettingsMenu');
   var settingsBlock = document.querySelector('.sidebar-settings-block');
+  var contextSidebar = document.getElementById('appContextSidebar');
+  var contextPagePanel = document.getElementById('contextSidebarPagePanel');
+  var contextNavPanel = document.getElementById('contextSidebarNavPanel');
+  var contextNavLinks = document.getElementById('contextSidebarNavLinks');
+  var contextTitle = document.getElementById('contextSidebarTitle');
+  var contextEyebrow = document.getElementById('contextSidebarEyebrow');
+  var contextSubtitle = document.getElementById('contextSidebarSubtitle');
+  var pageContextMeta = null;
+  var activeNavSubmenu = null;
+
+  function capturePageContextMeta() {
+    if (pageContextMeta) return pageContextMeta;
+    pageContextMeta = {
+      title: contextTitle ? String(contextTitle.textContent || '').trim() : 'Page',
+      eyebrow: contextEyebrow ? String(contextEyebrow.textContent || '').trim() : 'Menu',
+      subtitle: contextSubtitle ? String(contextSubtitle.textContent || '').trim() : '',
+      subtitleHidden: !!(contextSubtitle && contextSubtitle.classList.contains('hidden')),
+      hasPage: !!(contextSidebar && contextSidebar.getAttribute('data-has-page-context') === '1'),
+    };
+    return pageContextMeta;
+  }
+
+  function restorePageContextHeader() {
+    var meta = capturePageContextMeta();
+    if (contextTitle) contextTitle.textContent = meta.title || 'Page';
+    if (contextEyebrow) contextEyebrow.textContent = meta.eyebrow || 'Menu';
+    if (contextSubtitle) {
+      contextSubtitle.textContent = meta.subtitle || '';
+      contextSubtitle.classList.toggle('hidden', meta.subtitleHidden || !meta.subtitle);
+    }
+  }
+
+  function setContextHeader(opts) {
+    opts = opts || {};
+    if (contextEyebrow) contextEyebrow.textContent = opts.eyebrow || 'Menu';
+    if (contextTitle) contextTitle.textContent = opts.title || 'Menu';
+    if (contextSubtitle) {
+      var sub = String(opts.subtitle || '').trim();
+      contextSubtitle.textContent = sub;
+      contextSubtitle.classList.toggle('hidden', !sub);
+    }
+  }
+
+  function ensureIconRailForSubmenu() {
+    if (getState() === 'expanded') applyState('collapsed');
+  }
+
+  function clearNavSubmenuLinks() {
+    if (contextNavLinks) contextNavLinks.innerHTML = '';
+  }
+
+  function appendContextNavLink(item) {
+    if (!contextNavLinks || !item) return;
+    var label = String(item.label || '').trim();
+    if (!label) return;
+    var href = String(item.href || '').trim();
+    var el;
+    if (item.buttonId || item.action === 'button') {
+      el = document.createElement('button');
+      el.type = 'button';
+      if (item.buttonId) el.id = item.buttonId;
+      if (item.attrs) {
+        Object.keys(item.attrs).forEach(function (k) {
+          el.setAttribute(k, item.attrs[k]);
+        });
+      }
+    } else {
+      el = document.createElement('a');
+      el.href = href || '#';
+      if (item.external) {
+        el.target = '_blank';
+        el.rel = 'noopener noreferrer';
+      }
+    }
+    el.className = 'app-context-link' + (item.active ? ' is-active' : '');
+    if (item.active) el.setAttribute('aria-current', 'page');
+    if (item.title) el.title = item.title;
+    var span = document.createElement('span');
+    span.className = 'truncate';
+    span.textContent = label;
+    el.appendChild(span);
+    contextNavLinks.appendChild(el);
+  }
+
+  function collectLinksFromNav(navEl) {
+    if (!navEl) return [];
+    var out = [];
+    var nodes = navEl.querySelectorAll('a.sidebar-nav-link, a.sidebar-nav-sub, button.sidebar-nav-link, button.sidebar-new-item');
+    for (var i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      var labelEl = node.querySelector('span') || node;
+      var label = String(labelEl.textContent || '').trim();
+      if (!label) continue;
+      var item = {
+        label: label,
+        title: node.getAttribute('title') || label,
+        active: node.classList.contains('active') || node.getAttribute('aria-current') === 'page',
+      };
+      if (node.tagName === 'A') {
+        item.href = node.getAttribute('href') || '#';
+      } else {
+        item.action = 'button';
+        if (node.id) item.buttonId = node.id + '__ctx';
+        item.attrs = {};
+        Array.prototype.forEach.call(node.attributes, function (attr) {
+          if (!attr || !attr.name) return;
+          if (attr.name === 'id' || attr.name === 'class' || attr.name === 'type') return;
+          item.attrs[attr.name] = attr.value;
+        });
+        item._source = node;
+      }
+      out.push(item);
+    }
+    return out;
+  }
+
+  function wireClonedButtons(items) {
+    (items || []).forEach(function (item) {
+      if (!item || !item._source || !item.buttonId) return;
+      var clone = document.getElementById(item.buttonId);
+      if (!clone) return;
+      clone.addEventListener('click', function (e) {
+        e.preventDefault();
+        closeNavSubmenu();
+        try {
+          item._source.click();
+        } catch (_) {}
+      });
+    });
+  }
+
+  function openNavSubmenu(kind, opts) {
+    opts = opts || {};
+    if (!contextSidebar || !contextNavPanel) return false;
+    capturePageContextMeta();
+    ensureIconRailForSubmenu();
+    clearNavSubmenuLinks();
+    var items = Array.isArray(opts.items) ? opts.items : [];
+    items.forEach(appendContextNavLink);
+    wireClonedButtons(items);
+    setContextHeader({
+      eyebrow: opts.eyebrow || 'Menu',
+      title: opts.title || 'Menu',
+      subtitle: opts.subtitle || '',
+    });
+    activeNavSubmenu = kind || 'menu';
+    body.classList.add('nav-submenu-open');
+    body.classList.toggle('sidebar-settings-open', kind === 'settings');
+    if (settingsToggle) {
+      settingsToggle.setAttribute('aria-expanded', kind === 'settings' ? 'true' : 'false');
+      settingsToggle.classList.toggle('active', kind === 'settings');
+    }
+    if (settingsMenu) settingsMenu.classList.add('hidden');
+    setContextSidebarOpen(true);
+    return true;
+  }
+
+  function closeNavSubmenu() {
+    if (!body.classList.contains('nav-submenu-open') && !activeNavSubmenu) {
+      body.classList.remove('sidebar-settings-open');
+      if (settingsToggle) {
+        settingsToggle.setAttribute('aria-expanded', 'false');
+        settingsToggle.classList.remove('active');
+      }
+      return;
+    }
+    activeNavSubmenu = null;
+    body.classList.remove('nav-submenu-open', 'sidebar-settings-open');
+    clearNavSubmenuLinks();
+    restorePageContextHeader();
+    if (settingsToggle) {
+      settingsToggle.setAttribute('aria-expanded', 'false');
+      settingsToggle.classList.remove('active');
+    }
+    if (settingsMenu) settingsMenu.classList.add('hidden');
+    var meta = capturePageContextMeta();
+    if (!meta.hasPage) setContextSidebarOpen(false);
+  }
 
   function isSettingsOpen() {
-    return !!(settingsMenu && !settingsMenu.classList.contains('hidden'));
+    return activeNavSubmenu === 'settings' || body.classList.contains('sidebar-settings-open');
   }
 
   function setSettingsOpen(open, persist) {
-    if (!settingsMenu || !settingsToggle) return;
-    settingsMenu.classList.toggle('hidden', !open);
-    settingsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-    body.classList.toggle('sidebar-settings-open', open);
+    if (!settingsToggle) return;
+    if (open) {
+      var items = collectLinksFromNav(settingsMenu);
+      openNavSubmenu('settings', {
+        eyebrow: 'Settings',
+        title: 'Settings',
+        subtitle: 'Workspace tools and setup',
+        items: items,
+      });
+    } else if (activeNavSubmenu === 'settings') {
+      closeNavSubmenu();
+    }
     if (persist !== false) {
       try {
         localStorage.setItem(SETTINGS_KEY, open ? 'open' : 'closed');
@@ -88,7 +282,12 @@
         startOpen = localStorage.getItem(SETTINGS_KEY) === 'open';
       } catch (e) {}
     }
-    setSettingsOpen(!!startOpen, false);
+    // Only auto-open Settings into the second bar when the page is already a settings route.
+    if (startOpen && settingsBlock && settingsBlock.getAttribute('data-start-open') === '1') {
+      setSettingsOpen(true, false);
+    } else {
+      setSettingsOpen(false, false);
+    }
 
     settingsToggle.addEventListener('click', function (e) {
       e.preventDefault();
@@ -99,6 +298,7 @@
     document.addEventListener('click', function (e) {
       if (!isSettingsOpen()) return;
       if (e.target.closest('.sidebar-settings-block')) return;
+      if (e.target.closest('#appContextSidebar')) return;
       setSettingsOpen(false);
     });
   }
@@ -133,7 +333,8 @@
   if (contextCloseBtn) {
     contextCloseBtn.addEventListener('click', function (e) {
       e.preventDefault();
-      setContextSidebarOpen(false);
+      if (activeNavSubmenu) closeNavSubmenu();
+      else setContextSidebarOpen(false);
     });
   }
 
@@ -145,21 +346,23 @@
       setContextSidebarOpen(true);
       return;
     }
-    if (!body.classList.contains('context-sidebar-open')) return;
+    if (!body.classList.contains('context-sidebar-open') && !activeNavSubmenu) return;
     if (e.target.closest('#appContextSidebar')) return;
+    if (e.target.closest('#appSidebar')) return;
     if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) {
-      setContextSidebarOpen(false);
+      if (activeNavSubmenu) closeNavSubmenu();
+      else setContextSidebarOpen(false);
     }
   }, true);
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (body.classList.contains('context-sidebar-open')) {
-      setContextSidebarOpen(false);
+    if (activeNavSubmenu) {
+      closeNavSubmenu();
       return;
     }
-    if (isSettingsOpen()) {
-      setSettingsOpen(false);
+    if (body.classList.contains('context-sidebar-open')) {
+      setContextSidebarOpen(false);
       return;
     }
     var state = getState();
@@ -171,15 +374,58 @@
     else if (state === 'collapsed') applyState('hidden');
   });
 
-  var leadsSummary = document.querySelector('.sidebar-leads-summary');
+  function openLeadsSubmenu() {
+    var leadsNav = document.querySelector('#appSidebar .sidebar-leads-sub');
+    var items = collectLinksFromNav(leadsNav);
+    if (!items.length) return false;
+    return openNavSubmenu('leads', {
+      eyebrow: 'Sales',
+      title: 'Leads',
+      subtitle: 'Find, queue, pipeline, folders',
+      items: items,
+    });
+  }
+
+  function openAddNewSubmenu(wrap) {
+    var menu = wrap && wrap.querySelector ? wrap.querySelector('.sidebar-new-menu') : null;
+    var items = collectLinksFromNav(menu);
+    if (!items.length) return false;
+    return openNavSubmenu('add-new', {
+      eyebrow: 'Quick actions',
+      title: 'Add New',
+      subtitle: 'Opportunity, send lead, referral',
+      items: items,
+    });
+  }
+
+  var leadsSummary = document.querySelector('#appSidebar .sidebar-leads-summary');
   if (leadsSummary) {
     leadsSummary.addEventListener('click', function (e) {
       if (!body.classList.contains('sidebar-collapsed')) return;
       e.preventDefault();
-      var active = document.querySelector('.sidebar-leads-sub .sidebar-nav-link.active');
-      window.location.href = (active && active.getAttribute('href')) || '/pipeline';
+      e.stopPropagation();
+      if (activeNavSubmenu === 'leads') closeNavSubmenu();
+      else openLeadsSubmenu();
     });
   }
+
+  document.addEventListener(
+    'click',
+    function (e) {
+      var toggle = e.target && e.target.closest && e.target.closest('#appSidebar [data-sidebar-new-toggle]');
+      if (!toggle) return;
+      if (!body.classList.contains('sidebar-collapsed')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var wrap = toggle.closest('[data-sidebar-new]');
+      if (activeNavSubmenu === 'add-new') closeNavSubmenu();
+      else openAddNewSubmenu(wrap);
+    },
+    true
+  );
+
+  window.__adhelloOpenNavSubmenu = openNavSubmenu;
+  window.__adhelloCloseNavSubmenu = closeNavSubmenu;
 
   function bindWsSwitcher(btnId, menuId, wrapId) {
     var wsb = document.getElementById(btnId);

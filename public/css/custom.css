@@ -300,7 +300,8 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
         transition: grid-template-columns 0.22s ease;
     }
 
-    body.app-with-sidebar.has-context-sidebar {
+    body.app-with-sidebar.has-context-sidebar,
+    body.app-with-sidebar.nav-submenu-open {
         --app-context-width: 18rem;
     }
 
@@ -354,8 +355,20 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
         border-right-color: rgba(255, 255, 255, 0.1);
     }
 
-    body.app-with-sidebar.has-context-sidebar #appContextSidebar {
+    body.app-with-sidebar.has-context-sidebar #appContextSidebar,
+    body.app-with-sidebar.nav-submenu-open #appContextSidebar {
         display: flex !important;
+    }
+
+    /* Nav flyouts (Settings / Leads / Add New) occupy the second bar */
+    body.nav-submenu-open #contextSidebarPagePanel {
+        display: none !important;
+    }
+    body.nav-submenu-open #contextSidebarNavPanel {
+        display: block !important;
+    }
+    body:not(.nav-submenu-open) #contextSidebarNavPanel {
+        display: none !important;
     }
 
     body.app-with-sidebar .app-shell-content {
@@ -499,11 +512,13 @@ html.dark [class~="dark:bg-white"][class~="dark:text-brand-dark"] svg,
             box-shadow: 12px 0 40px rgba(0,0,0,0.18);
         }
         html.dark #appContextSidebar { background: #0f172a; border-right-color: rgba(255,255,255,0.1); }
-        body.context-sidebar-open #appContextSidebar {
+        body.context-sidebar-open #appContextSidebar,
+        body.nav-submenu-open #appContextSidebar {
             display: flex !important;
             flex-direction: column;
         }
-        body.context-sidebar-open::after {
+        body.context-sidebar-open::after,
+        body.nav-submenu-open::after {
             content: '';
             position: fixed;
             inset: 0;
@@ -1197,24 +1212,15 @@ body.sidebar-settings-open .sidebar-settings-toggle {
         padding-right: 0.5rem;
     }
 
-    body.app-with-sidebar.sidebar-collapsed .sidebar-settings-menu:not(.hidden) {
-        position: absolute;
-        bottom: calc(100% + 0.25rem);
-        left: 0.25rem;
-        right: 0.25rem;
-        min-width: 11.5rem;
-        z-index: 130;
-        margin-bottom: 0;
-        padding: 0.375rem;
-        border-radius: 0.75rem;
-        border: 1px solid rgba(226, 232, 240, 0.8);
-        background: rgba(255, 255, 255, 0.98);
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+    /* Settings / nav submenus open in the second bar — never as a floating card. */
+    body.app-with-sidebar.sidebar-collapsed .sidebar-settings-menu {
+        display: none !important;
     }
-
-    .dark body.app-with-sidebar.sidebar-collapsed .sidebar-settings-menu:not(.hidden) {
-        border-color: rgba(255, 255, 255, 0.12);
-        background: rgba(15, 23, 42, 0.98);
+    body.app-with-sidebar.sidebar-collapsed .sidebar-leads-sub {
+        display: none !important;
+    }
+    body.app-with-sidebar.sidebar-collapsed .sidebar-new-menu {
+        display: none !important;
     }
 }
 
