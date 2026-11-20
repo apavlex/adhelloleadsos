@@ -8,7 +8,6 @@ const { assertPavlexAuth } = require('../services/pavlex/pavlexAuth');
 const { pinPavlexWorkspace } = require('../services/pavlex/pavlexWorkspaceScope');
 const pavlexConversations = require('../services/pavlex/pavlexConversations');
 const {
-  normalizeEmployeeId,
   listEmployees,
   DEFAULT_EMPLOYEE_ID,
   resolveEmployeeId,
