@@ -1,6 +1,6 @@
 /**
- * Pipeline table row actions — row click opens Money mode, Call (softphone), SMS (GoHighLevel composer).
- * The » button still opens the company profile.
+ * Pipeline table row actions — company title opens Money mode; Call / SMS on their buttons.
+ * The » (view-detail) button opens the right-hand lead panel via app.js selectRow.
  * Delegated from document so rows re-rendered by filters / paging keep working.
  */
 (function () {
@@ -89,38 +89,42 @@
   }
 
   var MONEY_MODE_KEY_CAP = 80;
-  var ROW_CLICK_IGNORE =
-    'input, button, a, select, textarea, label, form, [contenteditable="true"], .bookmark-btn, .view-detail-btn, ' +
-    '.lead-category-input, .plc-col-resize, .js-pipeline-columns-wrap';
 
   /** Money mode queue = visible rows, starting at the clicked lead, so Next walks down the table. */
   function moneyModeUrlForRow(row) {
     var key = rowKey(row);
-    var table = row.closest('table');
-    var keys = [];
-    var rows = table ? table.querySelectorAll('tbody tr.result-row') : [];
-    Array.prototype.forEach.call(rows, function (r) {
-      if (r.classList.contains('pipeline-row-page-hidden') || !r.getClientRects().length) return;
-      var k = rowKey(r);
-      if (k && keys.indexOf(k) === -1) keys.push(k);
-    });
-    var start = keys.indexOf(key);
-    if (start > 0) keys = keys.slice(start).concat(keys.slice(0, start));
-    if (start === -1) keys.unshift(key);
-    keys = keys.slice(0, MONEY_MODE_KEY_CAP);
+    if (!key) return '';
+    if (typeof window.__adhelloMoneyModeLeadUrl === 'function') {
+      var table = row.closest('table');
+      var keys = [];
+      var rows = table ? table.querySelectorAll('tbody tr.result-row') : [];
+      Array.prototype.forEach.call(rows, function (r) {
+        if (r.classList.contains('pipeline-row-page-hidden') || !r.getClientRects().length) return;
+        var k = rowKey(r);
+        if (k && keys.indexOf(k) === -1) keys.push(k);
+      });
+      var start = keys.indexOf(key);
+      if (start > 0) keys = keys.slice(start).concat(keys.slice(0, start));
+      if (start === -1) keys.unshift(key);
+      keys = keys.slice(0, MONEY_MODE_KEY_CAP);
+      return window.__adhelloMoneyModeLeadUrl(key, keys);
+    }
     var params = new URLSearchParams();
     params.set('lead', key);
-    if (keys.length > 1) params.set('keys', keys.join(','));
     params.set('from', 'pipeline');
     params.set('back', window.location.pathname + window.location.search);
     return '/focus?' + params.toString();
   }
 
-  function isMoneyModeRowClick(e, row) {
+  /** Only the company title opens Money Mode — not the rest of the row / » details. */
+  function isMoneyModeTitleClick(e) {
+    if (!e.target || !e.target.closest) return false;
+    var title = e.target.closest('.company-title-text, .js-money-mode-title');
+    if (!title) return false;
+    var row = title.closest('tr.result-row');
     if (!row || !row.closest('#prospectLeadsTable')) return false;
     if (row.classList.contains('result-row--panel-source')) return false;
     if (e.shiftKey || e.altKey || e.button > 0) return false;
-    if (e.target.closest(ROW_CLICK_IGNORE)) return false;
     var sel = window.getSelection && window.getSelection();
     if (sel && String(sel.toString() || '').trim()) return false;
     return !!rowKey(row);
@@ -140,11 +144,13 @@
         else smsRow(btnRow);
         return;
       }
+      if (!isMoneyModeTitleClick(e)) return;
       var row = e.target.closest('tr.result-row');
-      if (!isMoneyModeRowClick(e, row)) return;
+      if (!row) return;
       e.preventDefault();
       e.stopPropagation();
       var url = moneyModeUrlForRow(row);
+      if (!url) return;
       if (e.metaKey || e.ctrlKey) {
         window.open(url, '_blank', 'noopener');
         return;
