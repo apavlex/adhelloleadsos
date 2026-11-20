@@ -18,13 +18,17 @@ async function pavlexChatWithCrmTools({
   mcpConfig = null,
   maxTokens = 1200,
   temperature = 0.7,
+  preferredOpenRouterModels = [],
+  preferredXaiModels = [],
+  integrationEnv = null,
 }) {
   const ctx = {
     workspaceId: req.workspaceId,
     userEmail: userEmail(req),
   };
 
-  const toolLlmReady = hasPavlexToolLlm();
+  const llmOpts = { preferredOpenRouterModels, preferredXaiModels, integrationEnv };
+  const toolLlmReady = hasPavlexToolLlm(llmOpts);
   const crmRequired = isCrmIntent(message);
   const hasCtx = Boolean(ctx.workspaceId && ctx.userEmail);
   const failures = [];
@@ -65,6 +69,9 @@ async function pavlexChatWithCrmTools({
       history,
       ctx,
       requireTools: crmRequired,
+      preferredOpenRouterModels,
+      preferredXaiModels,
+      integrationEnv,
     });
 
     if (inlineOut.content && !inlineOut.error) {
@@ -94,6 +101,9 @@ async function pavlexChatWithCrmTools({
     message,
     history,
     ctx: hasCtx ? ctx : null,
+    preferredOpenRouterModels,
+    preferredXaiModels,
+    integrationEnv,
   });
   if (generalOut.content && !generalOut.error) {
     if (!crmRequired || (generalOut.toolsUsed && generalOut.toolsUsed.length)) {

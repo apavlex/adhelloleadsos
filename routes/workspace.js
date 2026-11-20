@@ -381,6 +381,7 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     mcpManifestUrl: base ? `${base}/ceo/mcp/manifest.json` : '',
     openrouterConfigured: false,
     openrouterModelStack: { configured: false, summary: 'Not configured', steps: [] },
+    xaiConfigured: false,
     integrationMasks: {},
     integrationsReady: workspaceIntegrations.isEncryptionAvailable(),
     integrationsMessage: null,
@@ -487,6 +488,7 @@ async function loadWorkspacePageLocals(req, opts = {}) {
   const mcpAgentTokens = listAgentMcpTokens(ws, { email: workspaceService.userEmail(req), canManage: req.canManageWorkspace });
   const openrouterConfigured = isOpenRouterConfigured(resolvedEnv);
   const openrouterModelStack = describeOpenRouterModelStack(resolvedEnv);
+  const xaiConfigured = Boolean(String((resolvedEnv && resolvedEnv.XAI_API_KEY) || '').trim());
   return {
     ...light,
     apiIngestKeyConfigured,
@@ -508,6 +510,7 @@ async function loadWorkspacePageLocals(req, opts = {}) {
     mcpOAuthClients,
     openrouterConfigured,
     openrouterModelStack,
+    xaiConfigured,
     integrationMasks,
     integrationsMessage,
     persistenceDeploymentHint,

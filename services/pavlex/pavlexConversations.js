@@ -6,6 +6,7 @@
 const crypto = require('crypto');
 const dbService = require('../database');
 const { pavlexChatChannel } = require('./pavlexWorkspaceScope');
+const { normalizeEmployeeId, DEFAULT_EMPLOYEE_ID } = require('./pavlexEmployees');
 
 const DEFAULT_TITLE = 'New chat';
 const TITLE_MAX = 60;
@@ -107,6 +108,7 @@ function publicShape(c) {
     messageCount: c.messageCount || 0,
     lastPreview: c.lastPreview || '',
     pinned: c.pinned === true,
+    employeeId: normalizeEmployeeId(c.employeeId || DEFAULT_EMPLOYEE_ID),
   };
 }
 
@@ -160,7 +162,7 @@ function getConversation(workspaceId, email, id) {
 /**
  * @param {string} workspaceId
  * @param {string} email
- * @param {{ title?: string }} [opts]
+ * @param {{ title?: string, employeeId?: string }} [opts]
  */
 function createConversation(workspaceId, email, opts = {}) {
   const { wid, em } = scopeOrThrow(workspaceId, email);
@@ -175,6 +177,7 @@ function createConversation(workspaceId, email, opts = {}) {
     messageCount: 0,
     lastPreview: '',
     pinned: false,
+    employeeId: normalizeEmployeeId(opts.employeeId),
   };
   const items = enforceCap(wid, em, [conv, ...readList(wid, em)]);
   writeList(wid, em, items);

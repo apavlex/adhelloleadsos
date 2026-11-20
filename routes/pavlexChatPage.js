@@ -5,16 +5,22 @@ const express = require('express');
 const { assertPavlexAuth } = require('../services/pavlex/pavlexAuth');
 const { pinPavlexWorkspace } = require('../services/pavlex/pavlexWorkspaceScope');
 const conversations = require('../services/pavlex/pavlexConversations');
+const { listEmployees, DEFAULT_EMPLOYEE_ID, normalizeEmployeeId } = require('../services/pavlex/pavlexEmployees');
 
 const pageRouter = express.Router();
 const apiRouter = express.Router();
 
 pageRouter.get('/', (req, res) => {
   const initialConversationId = conversations.isValidConversationId(req.query.c) ? String(req.query.c) : '';
+  const workspaceId =
+    (req.workspace && req.workspace.id) || req.workspaceId || req.query.workspaceId || '';
+  const employees = listEmployees(workspaceId);
   res.render('chat', {
-    title: 'Alex | Agency OS',
+    title: 'Team chat | Agency OS',
     activePage: 'chat',
     initialConversationId,
+    chatEmployees: employees,
+    defaultChatEmployeeId: DEFAULT_EMPLOYEE_ID,
   });
 });
 
@@ -50,7 +56,10 @@ apiRouter.get('/conversations', async (req, res, next) => {
 apiRouter.post('/conversations', express.json({ limit: '16kb' }), async (req, res, next) => {
   try {
     const { wid, email } = await scope(req);
-    const conversation = conversations.createConversation(wid, email, { title: req.body.title });
+    const conversation = conversations.createConversation(wid, email, {
+      title: req.body.title,
+      employeeId: normalizeEmployeeId(req.body.employeeId),
+    });
     res.status(201).json({ success: true, conversation });
   } catch (err) {
     sendError(res, next, err);

@@ -108,16 +108,24 @@
 
     <div id="aiPanel-grok" role="tabpanel" aria-labelledby="aiTab-grok" data-ai-panel="grok" class="space-y-5 hidden">
       <div class="space-y-3">
+        <p class="text-sm font-bold text-brand-dark dark:text-white">In-app Grokbots + take the chat with you</p>
+        <ol class="space-y-3 text-sm text-brand-dark dark:text-slate-100">
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">1</span><span>Add a personal xAI key under <a class="underline" href="/workspace/integrations#xai-integration">Integrations → xAI / Grok</a> so in-app Grokbot specialists call your Grok account.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">2</span><span>On <a class="underline" href="/chat">/chat</a>, pick Grokbot (or a custom specialist from <code class="<%= _aiCode %>">chat-employees/</code> / <strong>+ Bot</strong>), then click <strong>Continue in Grok</strong> to copy a handoff with MCP access + recent chat context.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span>Paste that into the Grok app. AdHello stays available over MCP, so the bot can keep working after you close the browser.</span></li>
+        </ol>
+      </div>
+      <div class="space-y-3">
         <p class="text-sm font-bold text-brand-dark dark:text-white">In the Grok app</p>
         <ol class="space-y-3 text-sm text-brand-dark dark:text-slate-100">
           <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">1</span><span>Open Grok's connectors or MCP settings and add a custom server with the connector URL above.</span></li>
           <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">2</span><span>If it offers OAuth sign-in, sign in to AdHello and click <strong>Allow</strong>. If it asks for a Client ID, create one under <a class="underline" href="#client-ids">Client IDs</a>. If it only takes a header or token, create an <a class="underline" href="#agent-tokens">agent token</a> named <strong>Grok</strong>.</span></li>
-          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span>No MCP settings yet? Create an agent token named <strong>Grok</strong>, click <strong>Copy setup message</strong> and paste it into the chat.</span></li>
+          <li class="<%= _aiStep %>"><span class="<%= _aiNum %>">3</span><span>No MCP settings yet? Create an agent token named <strong>Grok</strong>, click <strong>Copy setup message</strong> and paste it into the chat — or use <strong>Continue in Grok</strong> from the chat page.</span></li>
         </ol>
       </div>
       <div class="space-y-2 pt-3 border-t border-brand-border/30 dark:border-white/10">
         <p class="text-sm font-bold text-brand-dark dark:text-white">With the xAI API</p>
-        <p class="text-sm text-brand-dark dark:text-slate-100">Add a remote MCP tool with the server URL set to the connector URL and the authorization set to an agent token.</p>
+        <p class="text-sm text-brand-dark dark:text-slate-100">Paste your key under Integrations for in-app Grokbots. For standalone agents, also add a remote MCP tool with the connector URL and an agent token.</p>
       </div>
       <div class="space-y-2 pt-3 border-t border-brand-border/30 dark:border-white/10">
         <p class="text-sm font-bold text-brand-dark dark:text-white">Automate review texts from your phone</p>

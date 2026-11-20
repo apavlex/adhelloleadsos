@@ -11,6 +11,7 @@ const {
   describePageForSession,
   formatFolderCatalog,
 } = require('./pavlexPageContext');
+const { getEmployee, DEFAULT_EMPLOYEE_ID } = require('./pavlexEmployees');
 
 const CHAT_PAGE_FORMAT = `
 CHAT PAGE FORMATTING (markdown is rendered):
@@ -102,17 +103,25 @@ async function loadFolderCatalog(workspaceId) {
 async function buildPavlexContext(
   req,
   auth,
-  { platform = 'global', message = '', page = '', pageTitle = '', ui = null } = {},
+  {
+    platform = 'global',
+    message = '',
+    page = '',
+    pageTitle = '',
+    ui = null,
+    employeeId = DEFAULT_EMPLOYEE_ID,
+  } = {},
 ) {
   const mcpConfig = await loadWorkspaceMcpConfig(req);
   const memoryCtx = readMemoryFile(MEMORY_FILE);
   const userCtx = readMemoryFile(USER_FILE);
+  const employee = getEmployee(employeeId, auth.workspaceId);
 
   const platformLabels = {
     assistant: 'Agency OS floating chat',
     automate: 'Automate Command Center (CEO dashboard)',
     global: 'Agency OS (site-wide Alex chat)',
-    chat: 'Agency OS Alex chat page',
+    chat: 'Agency OS team chat page',
   };
   const platformLabel = platformLabels[platform] || platformLabels.global;
   const pageInfo = describePageForSession(page, pageTitle, ui);
@@ -123,7 +132,7 @@ async function buildPavlexContext(
   const workspaceName = String((req.workspace && req.workspace.name) || '').trim();
   const businessProfile = describeBusinessProfile(req.workspace);
 
-  const instructions = `You are Alex, the AI receptionist and sales assistant. You have access to this user's CRM via MCP tools. Your name is Alex; if memory or earlier messages call you Pavlex, that was your old name — always introduce yourself as Alex.
+  const instructions = `${employee.identityPrompt}
 
 Use CRM / platform tools whenever the user asks about: leads, folders, finding new leads / referral partners, bookmarks, tags, GHL sync, scripts, contacts, pipeline, prospecting stages, status, enrichment, tasks (including assigning them to teammates), follow-ups, daily suggestions, referral network, trades pool jobs, team field work, appointment packages / marketplace, Marketing Studio / direct mail, Social Posts, Facebook Groups, SOPs, SEO / Local Rank / Maps / GBP / keyword gaps / backlinks / business review replies / search volume / category keyword research (DataForSEO), messaging (SMS/email), Ops agents (Prospect SDR, Opportunity SDR, Dispatcher, Network Coach, Ops bot), counts, search, or updates.
 
@@ -137,6 +146,7 @@ ${memoryCtx}
 
 SESSION:
 - Platform: ${platformLabel}
+- Chat employee: ${employee.name} (${employee.id}) — ${employee.title}
 ${pageInfo.text}
 - User: ${auth.email}
 - Now: ${nowInTimezone(req.workspace && req.workspace.timezone)}
@@ -169,6 +179,9 @@ ${platform === 'assistant' || platform === 'global' ? '- Plain text only. No mar
     platform,
     pageInfo,
     folderCount: folders.length,
+    employeeId: employee.id,
+    preferredOpenRouterModels: [...(employee.preferredOpenRouterModels || [])],
+    preferredXaiModels: [...(employee.preferredXaiModels || [])],
   };
 }
 

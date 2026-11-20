@@ -942,12 +942,53 @@
                 <option value="qwen/qwen3-coder:free">Qwen3 Coder (free)</option>
                 <option value="deepseek/deepseek-v4-flash">DeepSeek V4 Flash (paid)</option>
                 <option value="deepseek/deepseek-v4-flash:floor">DeepSeek V4 Flash :floor (cheapest provider)</option>
+                <option value="x-ai/grok-4">Grok 4 (xAI via OpenRouter — used by Grokbot)</option>
+                <option value="x-ai/grok-4-fast">Grok 4 Fast</option>
               </datalist>
               <% if (masks.openrouterModel) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="openrouterModel_clear" value="1" /> Remove</label><% } %>
               <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Overrides the server default model chain for this workspace only. Paid models (e.g. Flash) need OpenRouter credits — leave blank to stay on free models.</p>
             </div>
           </div>
           <%- include('../../partials/integration_test_row', { provider: 'openrouter' }) %>
+        </section>
+
+        <section id="xai-integration" class="rounded-2xl border border-sky-400/30 dark:border-sky-400/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">xAI / Grok (personal)</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                Personal Grok API for in-app <strong class="text-brand-dark dark:text-white">Grokbot</strong> specialists.
+                When set, Grok-family chat employees call <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">api.x.ai</code> first, then OpenRouter Grok models.
+                Get a key at
+                <a href="https://console.x.ai" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">console.x.ai</a>.
+                To keep working after you close AdHello, connect Grok to the <a href="/workspace/ai-apps#grok" class="underline font-semibold">AI Connector</a> (MCP) and use <strong>Continue in Grok</strong> on the chat page.
+              </p>
+            </div>
+            <% if (typeof xaiConfigured !== 'undefined' && xaiConfigured) { %>
+            <%- include('../../partials/integration_provider_status_pill', { label: 'xAI / Grok', connected: true }) %>
+            <% } else { %>
+            <%- include('../../partials/integration_provider_status_pill', { label: 'xAI / Grok', connected: false }) %>
+            <% } %>
+          </header>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+              <% if (masks.xaiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.xaiApiKey %></p><% } %>
+              <input type="password" name="xaiApiKey" autocomplete="off" placeholder="xai-… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.xaiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="xaiApiKey_clear" value="1" /> Remove saved key</label><% } %>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Model <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+              <% if (masks.xaiModel) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.xaiModel %></p><% } %>
+              <input type="text" name="xaiModel" autocomplete="off" list="xaiModelPresets" placeholder="Blank = grok-4" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-mono text-[13px]" />
+              <datalist id="xaiModelPresets">
+                <option value="grok-4">Grok 4</option>
+                <option value="grok-3-mini">Grok 3 Mini</option>
+              </datalist>
+              <% if (masks.xaiModel) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="xaiModel_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'xai' }) %>
         </section>
 
         <section id="mcp-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
