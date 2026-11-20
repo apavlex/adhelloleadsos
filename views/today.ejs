@@ -977,49 +977,7 @@
       <% } %>
     </div>
 
-    <div id="todayWeekReviewSlot">
-    <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
-    <% if (_wr) { %>
-    <% const _wrLeads = Array.isArray(_wr.topLeads) ? _wr.topLeads.slice(0, 5) : []; %>
-    <div id="weekReviewCard" class="today-viz today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm">
-      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">This week&apos;s review</p>
-          <p class="text-sm text-brand-muted">Cadence performance and who engaged most.</p>
-        </div>
-        <span class="today-viz-icon !mb-0 !w-10 !h-10" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l3-3 3 2 5-6"/></svg>
-        </span>
-      </div>
-      <div class="space-y-5 max-w-3xl">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Best-performing cadence</p>
-          <p class="font-display font-bold text-brand-dark dark:text-white"><%= _wr.cadence && _wr.cadence.label ? _wr.cadence.label : '—' %><% if (_wr.cadence && _wr.cadence.count) { %> <span class="text-brand-muted font-sans font-semibold text-sm">(<%= _wr.cadence.count %> touches logged)</span><% } %></p>
-        </div>
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Top leads by engagement</p>
-          <ol class="list-decimal list-inside space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
-            <% if (_wrLeads.length) { %>
-              <% _wrLeads.forEach(function (L) { %>
-              <li><a href="/focus?lead=<%= encodeURIComponent(String(L.key || '').replace(/^lead:/i, '')) %>" class="font-semibold hover:text-brand-yellow"><%= L.title %></a> <span class="text-brand-muted">· <%= L.touches %> events</span></li>
-              <% }); %>
-            <% } else { %>
-              <li class="text-brand-muted">No activity this week yet — log touches from Focus or the pipeline.</li>
-            <% } %>
-          </ol>
-        </div>
-        <div class="rounded-2xl border border-brand-yellow/30 bg-brand-yellow/10 dark:bg-brand-yellow/5 px-4 py-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-1">Suggested experiment</p>
-          <p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed"><%= _wr.experiment || '' %></p>
-        </div>
-      </div>
-    </div>
-    <% } %>
-    </div>
-
-    <%- include('/partials/today_touches_hub') %>
-
-    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Tasks">
+    <section id="todayDueTasks" class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Tasks">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Tasks</p>
@@ -1063,6 +1021,48 @@
       </div>
       <% } %>
     </section>
+
+    <div id="todayWeekReviewSlot">
+    <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
+    <% if (_wr) { %>
+    <% const _wrLeads = Array.isArray(_wr.topLeads) ? _wr.topLeads.slice(0, 5) : []; %>
+    <div id="weekReviewCard" class="today-viz today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">This week&apos;s review</p>
+          <p class="text-sm text-brand-muted">Cadence performance and who engaged most.</p>
+        </div>
+        <span class="today-viz-icon !mb-0 !w-10 !h-10" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 15l3-3 3 2 5-6"/></svg>
+        </span>
+      </div>
+      <div class="space-y-5 max-w-3xl">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Best-performing cadence</p>
+          <p class="font-display font-bold text-brand-dark dark:text-white"><%= _wr.cadence && _wr.cadence.label ? _wr.cadence.label : '—' %><% if (_wr.cadence && _wr.cadence.count) { %> <span class="text-brand-muted font-sans font-semibold text-sm">(<%= _wr.cadence.count %> touches logged)</span><% } %></p>
+        </div>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Top leads by engagement</p>
+          <ol class="list-decimal list-inside space-y-1.5 text-sm text-brand-dark dark:text-slate-200">
+            <% if (_wrLeads.length) { %>
+              <% _wrLeads.forEach(function (L) { %>
+              <li><a href="/focus?lead=<%= encodeURIComponent(String(L.key || '').replace(/^lead:/i, '')) %>" class="font-semibold hover:text-brand-yellow"><%= L.title %></a> <span class="text-brand-muted">· <%= L.touches %> events</span></li>
+              <% }); %>
+            <% } else { %>
+              <li class="text-brand-muted">No activity this week yet — log touches from Focus or the pipeline.</li>
+            <% } %>
+          </ol>
+        </div>
+        <div class="rounded-2xl border border-brand-yellow/30 bg-brand-yellow/10 dark:bg-brand-yellow/5 px-4 py-3">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-1">Suggested experiment</p>
+          <p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed"><%= _wr.experiment || '' %></p>
+        </div>
+      </div>
+    </div>
+    <% } %>
+    </div>
+
+    <%- include('/partials/today_touches_hub') %>
 
     <% const _callWarm = typeof callWarmQueue !== 'undefined' && callWarmQueue ? callWarmQueue : []; %>
     <% if (false && _callWarm.length) { %>
