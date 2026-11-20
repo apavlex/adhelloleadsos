@@ -912,6 +912,22 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     if (id.mc) lead.mcNumber = id.mc;
     if (id.dot) lead.dotNumber = id.dot;
     if (r.county && !isSlashPlaceholder(r.county)) lead.county = String(r.county).trim();
+    const power = firstNonEmpty(r, ['power', 'power_units']);
+    const drivers = firstNonEmpty(r, ['driver', 'drivers', 'driver_count']);
+    const cargo = firstNonEmpty(r, ['cargo', 'cargo_type']);
+    const fleet = firstNonEmpty(r, ['fleet_operations', 'fleet']);
+    const insurer = firstNonEmpty(r, ['ins_co', 'insurance_company', 'insurer']);
+    const cover = firstNonEmpty(r, ['cover', 'coverage', 'insurance_coverage']);
+    const policy = firstNonEmpty(r, ['policy_no', 'policy_number', 'policy']);
+    const eff = firstNonEmpty(r, ['effdate', 'effective_date', 'insurance_effective']);
+    if (power && !isSlashPlaceholder(power)) lead.powerUnits = power;
+    if (drivers && !isSlashPlaceholder(drivers)) lead.driverCount = drivers;
+    if (cargo && !isSlashPlaceholder(cargo)) lead.cargo = cargo;
+    if (fleet && !isSlashPlaceholder(fleet)) lead.fleetOperations = fleet;
+    if (insurer && !isSlashPlaceholder(insurer)) lead.insuranceCompany = insurer;
+    if (cover && !isSlashPlaceholder(cover)) lead.insuranceCoverage = cover;
+    if (policy && !isSlashPlaceholder(policy)) lead.insurancePolicyNo = policy;
+    if (eff && !isSlashPlaceholder(eff)) lead.insuranceEffectiveDate = eff;
     const coverage = fmcsaCoverageLine(r);
     if (coverage) lead.carrierCoverage = coverage;
   }
@@ -979,7 +995,25 @@ function mergeCarrierDuplicates(leads) {
       out.push(lead);
       continue;
     }
-    ['email', 'phone', 'contactName', 'decisionMakerName', 'city', 'state', 'zip', 'address'].forEach((field) => {
+    [
+      'email',
+      'phone',
+      'contactName',
+      'decisionMakerName',
+      'city',
+      'state',
+      'zip',
+      'address',
+      'powerUnits',
+      'driverCount',
+      'cargo',
+      'fleetOperations',
+      'insuranceCompany',
+      'insuranceCoverage',
+      'insurancePolicyNo',
+      'insuranceEffectiveDate',
+      'carrierCoverage',
+    ].forEach((field) => {
       const current = prev[field];
       const next = lead[field];
       if ((!current || current === 'N/A') && next && next !== 'N/A') prev[field] = next;

@@ -99,9 +99,14 @@ describe('csvLeadImport parse', () => {
     assert.equal(ade.categoryName, 'Motor carrier');
     assert.equal(ade.mcNumber, '1079735');
     assert.equal(ade.dotNumber, '3368666');
+    assert.equal(ade.driverCount, '1');
+    assert.equal(ade.powerUnits, 'A');
+    assert.equal(ade.insuranceCompany, 'PROGRESSIVE COUNTY MUTUAL');
+    assert.equal(ade.insuranceCoverage, 'BI&PD');
     assert.match(ade.updates[0].message, /WHARTON/);
     const edward = leads[1];
     assert.equal(edward.mcNumber, '697761');
+    assert.equal(edward.driverCount, '4');
     assert.match(edward.updates[0].message, /BI&PD/);
     assert.match(edward.updates[0].message, /Cargo/);
     assert.equal(leads[2].categoryName, 'Freight forwarder');

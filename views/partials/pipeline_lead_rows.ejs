@@ -1,4 +1,8 @@
 <%
+    var resolveCarrierSellingPoints =
+      typeof resolveCarrierSellingPoints === 'function'
+        ? resolveCarrierSellingPoints
+        : require('../../services/carrierSellingPoints').resolveCarrierSellingPoints;
     var labelReviewFreshnessServer =
       typeof labelReviewFreshness === 'function' ? labelReviewFreshness : null;
     function googleMapsSocialHrefForLead(lead) {
@@ -528,6 +532,18 @@
                       <span class="lead-row-engagement-pill shrink-0 px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 bg-emerald-500/15 dark:bg-emerald-950/40 border-emerald-500/35" title="<%= plcEscAttr(_engAt ? ('Engaged: ' + wsDateTime(_engAt)) : _engLabel) %>"><%= _engLabel %></span>
                       <% } %>
                     </div>
+                    <% 
+                      var _carrierPts = resolveCarrierSellingPoints(lead);
+                      var _carrierChips = _carrierPts && Array.isArray(_carrierPts.chips) ? _carrierPts.chips.slice(0, 5) : [];
+                      var _carrierTitle = _carrierPts && _carrierPts.summaryLine ? _carrierPts.summaryLine : '';
+                    %>
+                    <% if (_carrierChips.length) { %>
+                    <div class="mt-1 flex flex-wrap items-center gap-1 max-w-[20rem]" title="<%= plcEscAttr(_carrierTitle) %>">
+                      <% _carrierChips.forEach(function (chip) { %>
+                        <span class="inline-flex px-1.5 py-0.5 rounded-md border border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-200 text-[8px] font-black uppercase tracking-wider"><%= chip %></span>
+                      <% }); %>
+                    </div>
+                    <% } %>
                     <div class="mt-1">
                       <div class="lead-row-address-wrap">
                         <span class="lead-row-address lead-row-address--compact text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= plcEscAttr(_listAddrTitle) %>"><%= _listStreet || '—' %></span>
