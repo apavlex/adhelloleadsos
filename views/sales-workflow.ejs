@@ -5,7 +5,8 @@
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%
-    var contextSidebar = {
+    // Must set locals.* — EJS includes do not see parent `var`.
+    locals.contextSidebar = {
       eyebrow: 'Sales engine',
       title: 'Lead pipeline',
       links: [

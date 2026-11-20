@@ -5,7 +5,10 @@
 <% const _wsAccent = typeof workspaceAccent !== 'undefined' && workspaceAccent ? workspaceAccent : '#CA8A04'; %>
 <% const _wsCount = _wsList.length; %>
 <% const _wsSubLabel = _wsCount > 1 ? (_wsCount + ' workspaces') : 'Agency OS'; %>
-<% const _hasContextSidebar = typeof contextSidebar !== 'undefined' && !!contextSidebar; %>
+<% const _hasContextSidebar = !!(
+  (typeof locals !== 'undefined' && locals.contextSidebar) ||
+  (typeof contextSidebar !== 'undefined' && contextSidebar)
+); %>
 <script>
 (function () {
   var b = document.body;

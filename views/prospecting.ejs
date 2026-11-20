@@ -9,9 +9,10 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
   <%
-    var contextSidebar = null;
+    // Must set locals.* — EJS includes (navbar / app_context_sidebar) do not see parent `var`.
+    locals.contextSidebar = null;
     if (activeTab === 'pipeline') {
-      contextSidebar = {
+      locals.contextSidebar = {
         eyebrow: 'Pipeline',
         title: 'Leads & Referrals',
         subtitle: 'Search, refine, and jump to related tools',
@@ -26,7 +27,7 @@
         refine: 'pipeline'
       };
     } else if (activeTab === 'queue') {
-      contextSidebar = {
+      locals.contextSidebar = {
         eyebrow: 'Leads',
         title: 'Working queue',
         links: [
@@ -37,7 +38,7 @@
         ]
       };
     } else if (activeTab === 'folders') {
-      contextSidebar = {
+      locals.contextSidebar = {
         eyebrow: 'Leads',
         title: 'Folders',
         links: [
