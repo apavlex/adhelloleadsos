@@ -63,6 +63,22 @@ describe('pavlexCrmDirect', () => {
     assert.equal(m.kind, 'delete_empty_confirm');
   });
 
+  it('matches delete leads/contacts with no email', () => {
+    assert.equal(
+      matchDirectCrmQuery('remove all contacts that dont have an email').kind,
+      'delete_no_email_preview',
+    );
+    assert.equal(
+      matchDirectCrmQuery("delete leads that don't have an email").kind,
+      'delete_no_email_preview',
+    );
+    assert.equal(matchDirectCrmQuery('delete leads with no email').kind, 'delete_no_email_preview');
+    assert.equal(
+      matchDirectCrmQuery('confirm delete leads with no email').kind,
+      'delete_no_email_confirm',
+    );
+  });
+
   it('matches delete one folder by name', () => {
     const m = matchDirectCrmQuery('delete the Electrical folder');
     assert.equal(m.tool, 'manage_folder');

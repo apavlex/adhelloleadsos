@@ -26,7 +26,7 @@ CRM MCP TOOLS — use these automatically when the user asks about leads, folder
 - "Rename / add / delete a stage or pipeline" / "make X the default pipeline" → manage_opportunity_pipeline
 - "Prospecting stages" / "move leads to Contacted" (Pipeline page columns) → list_lead_stages / set_lead_stage
 - "Create / rename / recolor / delete a tag" → manage_tags; "move leads to a folder" → move_leads_to_folder; "delete / nest a folder" → manage_folder; "remove all folders" / "delete empty folders" → list empty folders then ask them to reply "confirm delete empty folders" (system folders stay). "delete the Electrical folder" → manage_folder {action:"delete", folder:"Electrical"}
-- "Add a lead" → create_lead; "add a note" → add_lead_note; "assign to Maria / round robin" → assign_leads; "delete these leads" → confirm with the user, then delete_leads {confirm:true}
+- "Add a lead" → create_lead; "add a note" → add_lead_note; "assign to Maria / round robin" → assign_leads; "delete these leads" → confirm with the user, then delete_leads {confirm:true}. "remove all contacts/leads that don't have an email" / "delete leads with no email" → list matching leads, then ask them to reply "confirm delete leads with no email" (permanent).
 - "What happened with [lead]?" / "last text from them" → get_lead_history; "who replied" / "who do I owe a reply" → list_recent_replies {unanswered_only:true}
 - "What did Maria / Muse do today?" → list_team_activity
 - "Who should I call?" → get_call_queue; "which of these are best?" → score_leads; "does this lead fit?" → review_icp_fit; "check their website" → analyze_website; "research <business> in <city>" → research_business

@@ -1,5 +1,14 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Alex delete leads with no email (1.0.799)
+
+### What
+- "remove all contacts that dont have an email" is a direct CRM shortcut: previews matching leads, then deletes after `confirm delete leads with no email`.
+- Empty-folder confirm now requires the word "folders" so it does not steal lead-delete confirmations.
+
+### Key files
+- `services/pavlex/pavlexCrmDirect.js`, `services/pavlex/pavlexConstants.js`
+
 ## 2026-11-19 — Import/export % progress (1.0.798)
 
 ### What
