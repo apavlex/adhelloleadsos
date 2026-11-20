@@ -4,9 +4,13 @@
  */
 
 const { scoreLeadRecord } = require('./opportunityScore');
-const { scoreLocalProspect, prospectTierSortRank } = require('./localProspectScore');
+const {
+  scoreLocalProspect,
+  prospectTierSortRank,
+  daysUntilLicenseExpiry,
+} = require('./localProspectScore');
 const { isLeadDeferredForRetry } = require('./dialRetryPrefs');
-const { resolveRoiProfileFromOptions } = require('./workspaceRoiProfile');
+const { resolveRoiProfileFromOptions, ROI_PROFILES } = require('./workspaceRoiProfile');
 const { latestActivityTimestampMs } = require('./leadActivityWindow');
 
 function isOverdueCadence(l) {
@@ -63,14 +67,23 @@ function partnerReviewSortKey(l) {
  * Precomputed sort tuple — scored once per lead (not once per comparator call).
  * @returns {{ bucket: number, a: number, b: number, c: number }}
  */
+function licenseExpirySortKey(l) {
+  const days = daysUntilLicenseExpiry(l);
+  // Sooner first: unknown goes last.
+  return days == null || !Number.isFinite(days) ? Number.POSITIVE_INFINITY : days;
+}
+
 function sortKey(l, opts = {}) {
   const queueMode = opts.queueMode || 'continue_list';
   const scoreOpts = scoreOptsFromQueueOpts(opts);
-  const partnerFit = resolveRoiProfileFromOptions(scoreOpts) === 'partner_fit';
+  const profile = resolveRoiProfileFromOptions(scoreOpts);
+  const partnerFit = profile === ROI_PROFILES.PARTNER_FIT;
+  const licenseRenewal = profile === ROI_PROFILES.LICENSE_RENEWAL;
   const last = lastActivityMs(l);
   const due = l.sequenceState && l.sequenceState.nextDueAt ? Date.parse(l.sequenceState.nextDueAt) : 0;
   const retryAt = l.nextActionAt ? Date.parse(l.nextActionAt) : Infinity;
   const reviewKey = partnerFit ? partnerReviewSortKey(l) : 0;
+  const expiryKey = licenseRenewal ? licenseExpirySortKey(l) : 0;
 
   if (isLeadDeferredForRetry(l, queueMode)) {
     return { bucket: 6, a: retryAt, b: last, c: 0 };
@@ -81,8 +94,8 @@ function sortKey(l, opts = {}) {
     return {
       bucket: 0,
       a: due,
-      b: partnerFit ? -reviewKey : -score,
-      c: partnerFit ? -score : lpRank,
+      b: partnerFit ? -reviewKey : licenseRenewal ? expiryKey : -score,
+      c: partnerFit || licenseRenewal ? -score : lpRank,
     };
   }
 
@@ -94,8 +107,8 @@ function sortKey(l, opts = {}) {
   if (stage2AgingOver3Days(l)) {
     return {
       bucket: 1,
-      a: partnerFit ? -reviewKey : 0,
-      b: partnerFit ? -scoreLeadRecord(l, scoreOpts).score : last,
+      a: partnerFit ? -reviewKey : licenseRenewal ? expiryKey : 0,
+      b: partnerFit || licenseRenewal ? -scoreLeadRecord(l, scoreOpts).score : last,
       c: lpRank,
     };
   }
@@ -104,9 +117,9 @@ function sortKey(l, opts = {}) {
   if (tier === 'high') {
     return {
       bucket: 2,
-      a: partnerFit ? -reviewKey : 0,
+      a: partnerFit ? -reviewKey : licenseRenewal ? expiryKey : 0,
       b: -score,
-      c: partnerFit ? -reviewKey : lpRank,
+      c: partnerFit ? -reviewKey : licenseRenewal ? expiryKey : lpRank,
     };
   }
   const ps = parseInt(l.pipelineStage, 10);
@@ -114,15 +127,15 @@ function sortKey(l, opts = {}) {
   if (n === 1) {
     return {
       bucket: 3,
-      a: partnerFit ? -reviewKey : 0,
-      b: partnerFit ? -score : last,
+      a: partnerFit ? -reviewKey : licenseRenewal ? expiryKey : 0,
+      b: partnerFit || licenseRenewal ? -score : last,
       c: lpRank,
     };
   }
   return {
     bucket: 4,
-    a: partnerFit ? -reviewKey : 0,
-    b: partnerFit ? -score : last,
+    a: partnerFit ? -reviewKey : licenseRenewal ? expiryKey : 0,
+    b: partnerFit || licenseRenewal ? -score : last,
     c: lpRank,
   };
 }

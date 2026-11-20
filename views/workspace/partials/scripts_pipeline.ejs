@@ -3,12 +3,16 @@
   var btn = document.getElementById('wsPipelineSettingsSave');
   var msg = document.getElementById('wsPipelineSettingsMsg');
   var input = document.getElementById('wsLowReviewsThreshold');
-  if (!btn || !input) return;
+  if (!btn) return;
   btn.addEventListener('click', function () {
+    var roiEl = document.querySelector('input[name="wsRoiProfile"]:checked');
+    var body = {};
+    if (input) body.lowReviewsThreshold = input.value;
+    if (roiEl) body.roiProfile = roiEl.value;
     fetch('/workspace/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ lowReviewsThreshold: input.value }),
+      body: JSON.stringify(body),
     })
       .then(function (r) {
         return r.json();
@@ -16,7 +20,10 @@
       .then(function (data) {
         if (msg) {
           msg.classList.remove('hidden');
-          msg.textContent = data && data.success ? 'Saved. Reload the pipeline to refresh tags.' : (data && data.error) || 'Save failed';
+          msg.textContent =
+            data && data.success
+              ? 'Saved. Reload Today / Money Mode / pipeline to refresh scores.'
+              : (data && data.error) || 'Save failed';
           msg.className =
             'text-sm ' +
             (data && data.success ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');

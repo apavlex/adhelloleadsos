@@ -131,7 +131,12 @@ function computeLeadSignalTags(lead, options) {
   push(PROSPECT_TAG_BY_TIER[localProspect.prospectTier]);
   push(WEBSITE_TAG_BY_STATUS[localProspect.websiteStatus]);
 
-  computeProspectGapLabels(lead, { lowReviewsThreshold, maxLabels: 6 }).forEach((label) => {
+  computeProspectGapLabels(lead, {
+    lowReviewsThreshold,
+    roiProfile: options && options.roiProfile,
+    workspace: options && options.workspace,
+    maxLabels: 6,
+  }).forEach((label) => {
     const tag = GAP_TAG_BY_LABEL[label];
     if (!tag) return;
     // Never claim "low reviews" for a lead that was simply never enriched.

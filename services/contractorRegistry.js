@@ -39,9 +39,24 @@ const OR_SELECT = [
   'lic_exp_date',
   'rmi_name',
   'bond_amount',
+  'bond_exp_date',
   'ins_amount',
+  'ins_exp_date',
+  'ins_company',
   'address',
 ].join(',');
+
+/** Oregon CCB uses MM/DD/YYYY; store ISO dates when we can so scoring is timezone-stable. */
+function normalizeRegistryDate(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mdy) {
+    return `${mdy[3]}-${mdy[1].padStart(2, '0')}-${mdy[2].padStart(2, '0')}`;
+  }
+  return s.slice(0, 10);
+}
 
 const WA_WHERE = "statuscode='A' AND (zip like '986%' OR zip like '985%')";
 const OR_WHERE = "county_name in('Multnomah','Washington','Clackamas')";
@@ -174,7 +189,7 @@ function normalizeWa(rows) {
       zip: String(row.zip || '').slice(0, 5),
       phone: cleanPhone(row.phonenumber),
       principal: titleCase(row.primaryprincipalname),
-      license_expires: String(row.licenseexpirationdate || '').slice(0, 10),
+      license_expires: normalizeRegistryDate(row.licenseexpirationdate),
       ubi: String(row.ubi || '').trim(),
       specialty_raw: String(row.specialtycode1desc || '').trim(),
     });
@@ -199,9 +214,12 @@ function normalizeOr(rows) {
       zip: String(row.zip_code || '').slice(0, 5),
       phone: cleanPhone(row.phone_number),
       principal: titleCase(row.rmi_name),
-      license_expires: String(row.lic_exp_date || '').trim(),
+      license_expires: normalizeRegistryDate(row.lic_exp_date),
       bond_amount: row.bond_amount,
+      bond_expires: normalizeRegistryDate(row.bond_exp_date),
       insurance_amount: row.ins_amount,
+      insurance_expires: normalizeRegistryDate(row.ins_exp_date),
+      insurance_company: String(row.ins_company || '').trim() || undefined,
       address: String(row.address || '').trim(),
       endorsement_raw: String(row.endorsement_text || '').trim(),
     });
@@ -333,11 +351,13 @@ function recordToLead(rec) {
   const phoneMatch = row.google_match_confidence === 'phone';
   const notes = [
     row.license_number ? `License ${row.license_number}` : '',
-    row.license_expires ? `Expires ${row.license_expires}` : '',
+    row.license_expires ? `CCB expires ${row.license_expires}` : '',
+    row.insurance_expires ? `COI expires ${row.insurance_expires}` : '',
     row.specialty_raw || row.endorsement_raw || '',
     row.ubi ? `UBI ${row.ubi}` : '',
     row.bond_amount != null && row.bond_amount !== '' ? `Bond ${row.bond_amount}` : '',
     row.insurance_amount != null && row.insurance_amount !== '' ? `Insurance ${row.insurance_amount}` : '',
+    row.insurance_company ? `Carrier ${row.insurance_company}` : '',
     row.google_match_confidence ? `Google match: ${row.google_match_confidence}` : '',
     !phoneMatch && row.google_website ? `Website ${row.google_website}` : '',
   ]
@@ -359,6 +379,9 @@ function recordToLead(rec) {
     contractorRegistry: row.source || undefined,
     contractorLicenseNumber: row.license_number || undefined,
     contractorLicenseExpires: row.license_expires || undefined,
+    contractorCoiExpires: row.insurance_expires || undefined,
+    contractorBondExpires: row.bond_expires || undefined,
+    contractorInsuranceCompany: row.insurance_company || undefined,
     contractorTrade: row.trade || undefined,
     notes: notes || undefined,
     pipelineStage: 1,

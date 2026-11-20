@@ -82,4 +82,33 @@ describe('localProspectScore', () => {
     });
     assert.equal(ws.status, 'weak_site');
   });
+
+  it('license_renewal: soonest of CCB vs COI wins (COI sooner → Hot)', () => {
+    const lead = {
+      title: 'Rain Roofing',
+      phone: '503-555-0199',
+      email: 'ops@rain.example',
+      contractorLicenseExpires: '2028-12-01',
+      contractorCoiExpires: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+    };
+    const r = scoreLocalProspect(lead, { roiProfile: 'license_renewal' });
+    assert.equal(r.prospectTier, 'Hot');
+    assert.equal(r.expiryKind, 'coi');
+    assert.match(r.websiteStatusLabel, /COI/i);
+  });
+
+  it('license_renewal: parses Oregon MM/DD/YYYY CCB dates', () => {
+    const in30 = new Date(Date.now() + 30 * 86400000);
+    const mm = String(in30.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(in30.getUTCDate()).padStart(2, '0');
+    const yyyy = in30.getUTCFullYear();
+    const lead = {
+      title: 'OR CCB Co',
+      phone: '503-555-0111',
+      contractorLicenseExpires: `${mm}/${dd}/${yyyy}`,
+    };
+    const r = scoreLocalProspect(lead, { roiProfile: 'license_renewal' });
+    assert.equal(r.prospectTier, 'Hot');
+    assert.equal(r.expiryKind, 'ccb');
+  });
 });

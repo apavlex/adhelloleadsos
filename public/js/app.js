@@ -997,7 +997,129 @@ document.addEventListener('DOMContentLoaded', () => {
           element.textContent = rating > 0 ? `${Number(rating).toFixed(1)} ★` : '—';
         };
 
+  function getWorkspaceRoiProfile() {
+    const raw =
+      (window.WORKSPACE_PROSPECTING && window.WORKSPACE_PROSPECTING.roiProfile) ||
+      (window.WORKSPACE_PROSPECTING && window.WORKSPACE_PROSPECTING.workspaceGoal) ||
+      '';
+    const v = String(raw || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, '_');
+    if (v === 'partner_fit' || v === 'partner' || v === 'reviews') return 'partner_fit';
+    if (
+      v === 'license_renewal' ||
+      v === 'license' ||
+      v === 'ccb' ||
+      v === 'coi' ||
+      v === 'homeelk' ||
+      v === 'ccb_coi'
+    ) {
+      return 'license_renewal';
+    }
+    return 'agency_gap';
+  }
+
+  function parseFlexibleDateMsClient(raw) {
+    const s = String(raw || '').trim();
+    if (!s || s === 'N/A') return NaN;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return Date.parse(s.slice(0, 10) + 'T12:00:00.000Z');
+    const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (mdy) {
+      return Date.parse(
+        mdy[3] + '-' + mdy[1].padStart(2, '0') + '-' + mdy[2].padStart(2, '0') + 'T12:00:00.000Z',
+      );
+    }
+    const ms = Date.parse(s);
+    return Number.isFinite(ms) ? ms : NaN;
+  }
+
+  function firstExpiryMsClient(candidates) {
+    for (let i = 0; i < candidates.length; i += 1) {
+      const ms = parseFlexibleDateMsClient(candidates[i]);
+      if (Number.isFinite(ms)) return ms;
+    }
+    return NaN;
+  }
+
+  /** Soonest of CCB license vs COI for HomeElk-style scoring. */
+  function resolveComplianceExpiryClient(lead) {
+    const now = Date.now();
+    const ccbMs = firstExpiryMsClient([
+      lead.contractorLicenseExpires,
+      lead.ccbExpires,
+      lead.licenseExpires,
+      lead.license_expires,
+      lead.lic_exp_date,
+    ]);
+    const coiMs = firstExpiryMsClient([
+      lead.contractorCoiExpires,
+      lead.contractorInsuranceExpires,
+      lead.coiExpires,
+      lead.insuranceExpires,
+      lead.insurance_expires,
+      lead.ins_exp_date,
+    ]);
+    const ccbDays = Number.isFinite(ccbMs) ? Math.floor((ccbMs - now) / 86400000) : null;
+    const coiDays = Number.isFinite(coiMs) ? Math.floor((coiMs - now) / 86400000) : null;
+    if (ccbDays == null && coiDays == null) return { days: null, kind: null };
+    if (ccbDays == null) return { days: coiDays, kind: 'coi' };
+    if (coiDays == null) return { days: ccbDays, kind: 'ccb' };
+    if (coiDays < ccbDays) return { days: coiDays, kind: 'coi' };
+    return { days: ccbDays, kind: 'ccb' };
+  }
+
+  function scoreLicenseRenewalClient(lead) {
+    let score = 0;
+    const resolved = resolveComplianceExpiryClient(lead);
+    const days = resolved.days;
+    const who = resolved.kind === 'coi' ? 'COI' : resolved.kind === 'ccb' ? 'CCB' : 'CCB/COI';
+    const phone = lead.phone && lead.phone !== 'N/A';
+    const email = lead.email && lead.email !== 'N/A';
+    const licenseNo = String(lead.contractorLicenseNumber || lead.licenseNumber || '').trim();
+
+    if (days == null || !Number.isFinite(days)) {
+      if (licenseNo && licenseNo !== 'N/A') score += 1.5;
+    } else if (days < 0) {
+      score += Math.abs(days) <= 90 ? 5 : 3.5;
+    } else if (days <= 30) score += 4.5;
+    else if (days <= 60) score += 3.75;
+    else if (days <= 90) score += 2.75;
+    else if (days <= 180) score += 1.75;
+    else if (days <= 365) score += 0.75;
+
+    if (licenseNo && licenseNo !== 'N/A') score += 0.5;
+    if (phone && email) score += 0.75;
+    else if (phone || email) score += 0.4;
+    void who;
+    return Math.min(10, Math.max(0, score));
+  }
+
+  function scorePartnerFitClient(lead) {
+    let score = 0;
+    const reviews = parseInt(lead.reviews || lead.reviewsCount, 10) || 0;
+    const rating = parseFloat(lead.rating || lead.totalScore) || 0;
+    const website = lead.website && lead.website !== 'N/A';
+    const phone = lead.phone && lead.phone !== 'N/A';
+    const email = lead.email && lead.email !== 'N/A';
+    if (reviews >= 100) score += 3.5;
+    else if (reviews >= 50) score += 3;
+    else if (reviews >= 25) score += 2.5;
+    else if (reviews >= 10) score += 1.75;
+    else if (reviews >= 5) score += 1;
+    if (rating >= 4.5) score += 1.5;
+    else if (rating >= 4.2) score += 1;
+    if (website) score += 1.5;
+    if (phone && email) score += 0.75;
+    else if (phone || email) score += 0.4;
+    return Math.min(10, Math.max(0, score));
+  }
+
   const calculateOpportunityScore = (lead) => {
+    const profile = getWorkspaceRoiProfile();
+    if (profile === 'license_renewal') return scoreLicenseRenewalClient(lead || {});
+    if (profile === 'partner_fit') return scorePartnerFitClient(lead || {});
+
     let score = 0;
     const website = lead.website && lead.website !== 'N/A';
     const reviews = parseInt(lead.reviews || lead.reviewsCount) || 0;
@@ -1058,12 +1180,27 @@ document.addEventListener('DOMContentLoaded', () => {
   function computeProspectGapLabelsClient(lead, maxLabels) {
     const cap = Math.min(6, Math.max(1, Number(maxLabels) || 4));
     const threshold = getLowReviewsThreshold();
+    const profile = getWorkspaceRoiProfile();
     const out = [];
     const push = (label) => {
       if (out.length >= cap) return;
       if (label && !out.includes(label)) out.push(label);
     };
     if (!lead || typeof lead !== 'object') return out;
+
+    if (profile === 'license_renewal') {
+      const resolved = resolveComplianceExpiryClient(lead);
+      if (resolved.days == null) push('NO CCB/COI DATE');
+      else {
+        const who = resolved.kind === 'coi' ? 'COI' : 'CCB';
+        const days = resolved.days;
+        if (days < 0) push((who + ' EXPIRED').toUpperCase());
+        else if (days <= 60) push((who + ' EXPIRES IN ' + days + 'D').toUpperCase());
+        else if (days <= 180) push((who + ' EXPIRES IN ' + Math.round(days / 30) + ' MO').toUpperCase());
+        else push((who + ' EXPIRES LATER').toUpperCase());
+      }
+      return out.slice(0, cap);
+    }
 
     const website = lead.website && String(lead.website).trim() && lead.website !== 'N/A';
     const reviews = parseInt(lead.reviews || lead.reviewsCount, 10) || 0;
@@ -1080,7 +1217,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else {
       if (isOutdated || noMobile) push('BAD SITE');
       if (!hasFB && !hasIG) push('WEAK SOCIAL');
-      if (noSchema || (aeoScore > 0 && aeoScore < 3)) push('SEO GAPS');
+      if (profile !== 'partner_fit' && (noSchema || (aeoScore > 0 && aeoScore < 3))) push('SEO GAPS');
     }
     if (reviews <= threshold) push('LOW REVIEWS');
 

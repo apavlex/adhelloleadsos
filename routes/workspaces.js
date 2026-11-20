@@ -102,11 +102,13 @@ router.get('/new', async (req, res, next) => {
     const w = getWizard(req);
     const errQ = typeof req.query.error === 'string' ? req.query.error.trim() : '';
 
+    const { GOAL_CATALOG } = require('../services/workspaceRoiProfile');
     res.render('workspaces-wizard', {
       title: 'New workspace | Agency OS',
       activePage: 'workspace',
       PALETTE,
       PRESET_LIST,
+      GOAL_CATALOG,
       wizard: w,
       error: errQ || null,
     });
@@ -554,6 +556,21 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
       const scriptPresetKey = workspaceScriptBootstrap.resolveScriptPresetKeyForCreate(w, doc);
       workspaceScriptBootstrap.seedWorkspaceScriptsOnCreate(doc, { presetKey: scriptPresetKey });
       workspaceScriptBootstrap.applySalesIntakeToFirstOffer(doc, w.salesIntake);
+
+      const {
+        normalizeRoiProfile,
+        defaultRoiProfileForPreset,
+        inferRoiProfile,
+      } = require('../services/workspaceRoiProfile');
+      const pickedGoal =
+        normalizeRoiProfile(req.body.roiProfile) ||
+        normalizeRoiProfile(w.roiProfile) ||
+        defaultRoiProfileForPreset(w.presetKey || scriptPresetKey) ||
+        inferRoiProfile(doc);
+      doc.prospecting = {
+        ...(doc.prospecting && typeof doc.prospecting === 'object' ? doc.prospecting : {}),
+        roiProfile: pickedGoal,
+      };
 
       await dbService.saveWorkspace(newId, doc);
       await dbService.saveWorkspaceSlug(slug, newId);

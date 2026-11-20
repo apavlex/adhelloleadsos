@@ -9,6 +9,8 @@ const {
   normalizeLowReviewsThreshold,
   getLowReviewsThresholdFromWorkspace,
 } = require('./prospectGapLabels');
+const { scoreLeadRecord } = require('./opportunityScore');
+const { normalizeRoiProfile, resolveRoiProfileFromOptions } = require('./workspaceRoiProfile');
 
 function esc(v) {
   return String(v == null ? '' : v)
@@ -93,8 +95,16 @@ function calculateClientOpportunityScore(lead, options) {
 }
 
 function getUnifiedClientScore(lead, options) {
-  const aiGap = getAiAuditGap10(lead);
-  if (aiGap != null) return aiGap;
+  const profile = resolveRoiProfileFromOptions(options);
+  // AI website-gap audit only applies to agency_gap workspaces.
+  if (profile === 'agency_gap') {
+    const aiGap = getAiAuditGap10(lead);
+    if (aiGap != null) return aiGap;
+  }
+  if (profile === 'partner_fit' || profile === 'license_renewal' || normalizeRoiProfile(options && options.roiProfile)) {
+    const scored = scoreLeadRecord(lead || {}, options);
+    return Math.round(scored.score * 10) / 10;
+  }
   return calculateClientOpportunityScore(lead || {}, options);
 }
 
@@ -114,6 +124,12 @@ function gapBadgeClass(label) {
   }
   if (key === 'SEO GAPS') {
     return 'bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20';
+  }
+  if (key.includes('CCB') || key.includes('COI') || key.includes('EXPIRED') || key.includes('EXPIRES')) {
+    return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-500/10 dark:text-orange-300 dark:border-orange-500/20';
+  }
+  if (key === 'NO CCB/COI DATE') {
+    return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5';
   }
   return 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5';
 }
@@ -138,13 +154,15 @@ function buildPipelineOpportunityBadge(lead, options) {
     options && options.lowReviewsThreshold != null
       ? normalizeLowReviewsThreshold(options.lowReviewsThreshold)
       : getLowReviewsThresholdFromWorkspace(options && options.workspace);
-  const scoreOpts = { ...(options || {}), lowReviewsThreshold: threshold };
+  const roiProfile = resolveRoiProfileFromOptions(options);
+  const scoreOpts = { ...(options || {}), lowReviewsThreshold: threshold, roiProfile };
   const score = getUnifiedClientScore(lead, scoreOpts);
   const gapLabels = computeProspectGapLabels(lead, {
     lowReviewsThreshold: threshold,
+    roiProfile,
     maxLabels: (options && options.maxLabels) || 3,
   });
-  const label = `${Math.round(score)}/10`;
+  const label = `${Number(score).toFixed(Number(score) % 1 ? 1 : 0)}/10`;
   const gapHtml = gapLabels
     .map(
       (tag) =>

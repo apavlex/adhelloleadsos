@@ -1783,10 +1783,14 @@ router.post('/settings', express.json(), async (req, res) => {
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPoolSenderOfferKey') ||
         Object.prototype.hasOwnProperty.call(req.body, 'prospectingAutoPool') ||
         Object.prototype.hasOwnProperty.call(req.body, 'lowReviewsThreshold') ||
-        Object.prototype.hasOwnProperty.call(req.body, 'prospectingLowReviewsThreshold'))
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingLowReviewsThreshold') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'roiProfile') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'workspaceGoal') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingRoiProfile'))
     ) {
       const { normalizeAutoPoolSettings } = require('../services/prospectingAutoPool');
       const { normalizeLowReviewsThreshold } = require('../services/prospectGapLabels');
+      const { normalizeRoiProfile } = require('../services/workspaceRoiProfile');
       const prospecting =
         ws.prospecting && typeof ws.prospecting === 'object' ? { ...ws.prospecting } : {};
       const prev = normalizeAutoPoolSettings(prospecting.autoPool);
@@ -1858,6 +1862,20 @@ router.post('/settings', express.json(), async (req, res) => {
             ? req.body.lowReviewsThreshold
             : req.body.prospectingLowReviewsThreshold;
         prospecting.lowReviewsThreshold = normalizeLowReviewsThreshold(raw);
+      }
+      if (
+        Object.prototype.hasOwnProperty.call(req.body, 'roiProfile') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'workspaceGoal') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'prospectingRoiProfile')
+      ) {
+        const raw =
+          req.body.roiProfile != null
+            ? req.body.roiProfile
+            : req.body.workspaceGoal != null
+              ? req.body.workspaceGoal
+              : req.body.prospectingRoiProfile;
+        const normalized = normalizeRoiProfile(raw);
+        if (normalized) prospecting.roiProfile = normalized;
       }
       ws.prospecting = prospecting;
       if (prospecting.autoPool && prospecting.autoPool.enabled && !prev.enabled) {
@@ -2742,6 +2760,14 @@ router.get('/:section', async (req, res, next) => {
       inviteEmailed: section === 'team' && String((req.query && req.query.emailed) || '') === '1',
       inviteEmailError: section === 'team' ? String((req.query && req.query.email_error) || '').slice(0, 300) : '',
     };
+    if (section === 'pipeline') {
+      const {
+        GOAL_CATALOG,
+        resolveRoiProfile,
+      } = require('../services/workspaceRoiProfile');
+      renderLocals.workspaceGoalCatalog = GOAL_CATALOG;
+      renderLocals.workspaceRoiProfile = resolveRoiProfile(ws);
+    }
     if (section === 'team') {
       renderLocals.roleAccess = {
         matrix: rolePermissions.resolve(ws),

@@ -1,6 +1,15 @@
 /**
- * Prospect gap labels for pipeline Opportunity column (bad site, low reviews, weak social, SEO gaps).
+ * Prospect gap labels for pipeline Opportunity column.
+ * Agency: bad site / low reviews / weak social / SEO gaps.
+ * HomeElk (license_renewal): CCB / COI expiry tags drive the Opportunity column instead.
  */
+
+const {
+  normalizeRoiProfile,
+  resolveRoiProfileFromOptions,
+  ROI_PROFILES,
+} = require('./workspaceRoiProfile');
+const { resolveComplianceExpiry, formatLicenseStatusLabel } = require('./localProspectScore');
 
 const DEFAULT_LOW_REVIEWS_THRESHOLD = 30;
 
@@ -18,8 +27,10 @@ function getLowReviewsThresholdFromWorkspace(ws) {
 
 function normalizeProspectingSettings(raw) {
   const s = raw && typeof raw === 'object' ? raw : {};
+  const roiProfile = normalizeRoiProfile(s.roiProfile) || '';
   return {
     lowReviewsThreshold: normalizeLowReviewsThreshold(s.lowReviewsThreshold),
+    roiProfile,
   };
 }
 
@@ -43,12 +54,13 @@ function boolGapFalse(lead, key) {
 
 /**
  * @param {object} lead — row dataset or saved lead
- * @param {{ lowReviewsThreshold?: number, maxLabels?: number }} [options]
+ * @param {{ lowReviewsThreshold?: number, maxLabels?: number, roiProfile?: string }} [options]
  * @returns {string[]}
  */
 function computeProspectGapLabels(lead, options) {
   const cap = Math.min(6, Math.max(1, Number(options && options.maxLabels) || 4));
   const threshold = normalizeLowReviewsThreshold(options && options.lowReviewsThreshold);
+  const roiProfile = resolveRoiProfileFromOptions(options);
   const out = [];
   const push = (label) => {
     if (out.length >= cap) return;
@@ -56,6 +68,24 @@ function computeProspectGapLabels(lead, options) {
   };
 
   if (!lead || typeof lead !== 'object') return out;
+
+  if (roiProfile === ROI_PROFILES.LICENSE_RENEWAL) {
+    const resolved = resolveComplianceExpiry(lead);
+    if (resolved.days == null) {
+      push('NO CCB/COI DATE');
+    } else {
+      const label = formatLicenseStatusLabel(resolved.days, resolved.kind).toUpperCase();
+      push(label);
+      if (resolved.ccbDays != null && resolved.coiDays != null && resolved.ccbDays !== resolved.coiDays) {
+        const otherKind = resolved.kind === 'coi' ? 'ccb' : 'coi';
+        const otherDays = otherKind === 'coi' ? resolved.coiDays : resolved.ccbDays;
+        if (otherDays != null && otherDays <= 180) {
+          push(formatLicenseStatusLabel(otherDays, otherKind).toUpperCase());
+        }
+      }
+    }
+    return out.slice(0, cap);
+  }
 
   const website = lead.website && String(lead.website).trim() && lead.website !== 'N/A';
   const reviews = parseReviews(lead);
@@ -65,6 +95,14 @@ function computeProspectGapLabels(lead, options) {
   const noMobile = boolGapFalse(lead, 'isMobileFriendly');
   const noSchema = boolGapFalse(lead, 'hasSchemaMarkup');
   const aeoScore = parseInt(lead.aeoScore, 10) || 0;
+
+  if (roiProfile === ROI_PROFILES.PARTNER_FIT) {
+    if (!website) push('NO WEBSITE');
+    else if (isOutdated || noMobile) push('BAD SITE');
+    if (isLowReviews(reviews, threshold)) push('LOW REVIEWS');
+    if (!hasFB && !hasIG) push('WEAK SOCIAL');
+    return out.slice(0, cap);
+  }
 
   if (!website) push('NO WEBSITE');
   else {
