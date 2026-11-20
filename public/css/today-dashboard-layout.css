@@ -1,0 +1,171 @@
+/* Today dashboard customize panel */
+.today-dash-section--hidden {
+  display: none !important;
+}
+
+.today-dash-customize {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 4.5rem 1rem 1.5rem;
+  box-sizing: border-box;
+}
+.today-dash-customize[hidden] {
+  display: none !important;
+}
+.today-dash-customize__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+.today-dash-customize__panel {
+  position: relative;
+  z-index: 1;
+  width: min(28rem, calc(100vw - 2rem));
+  background: #fff;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  border-radius: 1.5rem;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  padding: 1.35rem 1.35rem 1.2rem;
+  color: #111827;
+}
+html.dark .today-dash-customize__panel {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+}
+.today-dash-customize__eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+.today-dash-customize__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.today-dash-customize__hint {
+  margin: 0.55rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #64748b;
+}
+html.dark .today-dash-customize__hint {
+  color: #94a3b8;
+}
+.today-dash-customize__list {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  max-height: min(22rem, 48vh);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.today-dash-customize__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  border-radius: 0.9rem;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+}
+html.dark .today-dash-customize__row {
+  background: #1e293b;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.today-dash-customize__check {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.today-dash-customize__check input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--workspace-accent, var(--brand-yellow, #0f2747));
+  flex-shrink: 0;
+}
+.today-dash-customize__move {
+  display: inline-flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+.today-dash-customize__move button {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: rgba(250, 247, 237, 0.7);
+  font-weight: 800;
+  cursor: pointer;
+  color: inherit;
+}
+html.dark .today-dash-customize__move button {
+  background: rgba(15, 23, 42, 0.8);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+.today-dash-customize__move button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.today-dash-customize__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1.15rem;
+}
+.today-dash-customize__actions-right {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.today-dash-customize__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.55rem;
+  padding: 0.55rem 1.15rem;
+  border-radius: 999px;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.today-dash-customize__btn--ghost {
+  background: #fff;
+  border-color: rgba(17, 24, 39, 0.14);
+  color: #111827;
+}
+html.dark .today-dash-customize__btn--ghost {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f8fafc;
+}
+.today-dash-customize__btn--primary {
+  background: #0f2747;
+  color: #fff;
+}
+html.dark .today-dash-customize__btn--primary {
+  background: var(--workspace-accent, var(--brand-yellow, #ffd644));
+  color: var(--brand-on-accent, #111827);
+}

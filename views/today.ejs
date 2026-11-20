@@ -18,9 +18,12 @@
     </div>
     <% } %>
     <% const _ta = typeof workspaceAccent !== 'undefined' && workspaceAccent ? workspaceAccent : ''; %>
-    <p class="mb-6 md:mb-8 text-sm md:text-base text-brand-dark dark:text-white font-semibold border-b-2 pb-2 self-start" <% if (_ta) { %>style="border-color: <%= _ta %>"<% } %>>
-      <span id="todayDaypart"><%= typeof greetingWord !== 'undefined' ? greetingWord : 'Hello' %></span>, <%= typeof firstName !== 'undefined' ? firstName : 'there' %> — <span id="todayDateLabel"><%= typeof dateLabel !== 'undefined' ? dateLabel : '' %></span>
-    </p>
+    <div class="mb-6 md:mb-8 flex flex-wrap items-end justify-between gap-3 border-b-2 pb-2" <% if (_ta) { %>style="border-color: <%= _ta %>"<% } %>>
+      <p class="text-sm md:text-base text-brand-dark dark:text-white font-semibold self-start min-w-0">
+        <span id="todayDaypart"><%= typeof greetingWord !== 'undefined' ? greetingWord : 'Hello' %></span>, <%= typeof firstName !== 'undefined' ? firstName : 'there' %> — <span id="todayDateLabel"><%= typeof dateLabel !== 'undefined' ? dateLabel : '' %></span>
+      </p>
+      <button type="button" id="todayDashCustomizeBtn" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 hover:border-brand-yellow/50" title="Hide or rearrange Today sections">Customize dashboard</button>
+    </div>
     <script>
     (function () {
       function greetingWordLocal() {
@@ -275,7 +278,7 @@
     <% const _fwHome = typeof fieldWorkHome !== 'undefined' && fieldWorkHome ? fieldWorkHome : null; %>
     <% const _fwSrc = _fwHome && Array.isArray(_fwHome.sources) ? _fwHome.sources : []; %>
     <% if (!empty) { %>
-    <section id="todayMainTabs" class="today-viz today-viz-hero today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 p-6 md:p-8 shadow-sm" aria-label="Today main">
+    <section id="todayMainTabs" data-today-section="hero" data-today-section-label="Follow-ups &amp; next 30" class="today-viz today-viz-hero today-viz-reveal mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 p-6 md:p-8 shadow-sm" aria-label="Today main">
       <div class="today-viz-grid" aria-hidden="true"></div>
       <div class="relative z-[1]">
         <% if (_hasAgentOps) { %>
@@ -841,14 +844,14 @@
       </div>
     </section>
 
-    <div id="todaySourcesSlot">
+    <div id="todaySourcesSlot" data-today-section="sources" data-today-section-label="Active numbers">
       <%- include('partials/today_active_numbers', { leadRows: _srcList, teamRows: _fwSrc }) %>
     </div>
 
     <% const _bmRaw = typeof bookmarkSessions !== 'undefined' && bookmarkSessions ? bookmarkSessions : null; %>
     <% const _bm = { total: (_bmRaw && _bmRaw.total) || 0, callable: (_bmRaw && _bmRaw.callable) || 0, href: (_bmRaw && _bmRaw.href) || '/focus', folders: Array.isArray(_bmRaw && _bmRaw.folders) ? _bmRaw.folders : [] }; %>
     <% const _rw2 = typeof recentlyWorked !== 'undefined' && recentlyWorked ? recentlyWorked : { total: 0, items: [], href: '/focus', sinceDays: 14 }; %>
-    <details class="today-resume today-viz today-viz-reveal today-viz-reveal-delay-1 mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
+    <details data-today-section="resume" data-today-section-label="Bookmarks &amp; recent" class="today-resume today-viz today-viz-reveal today-viz-reveal-delay-1 mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm">
       <summary class="flex items-center gap-4 p-6 md:p-8 rounded-[2rem] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow">
         <div class="min-w-0 flex-1">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Or pick up where you left off</p>
@@ -920,7 +923,7 @@
       </div>
     </details>
 
-    <section aria-labelledby="actions-heading" class="mb-8 md:mb-10">
+    <section data-today-section="actions" data-today-section-label="Quick actions" aria-labelledby="actions-heading" class="mb-8 md:mb-10">
       <h2 id="actions-heading" class="sr-only">Quick actions</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
         <a href="/leads/find" class="today-viz-action today-viz-reveal today-viz-reveal-delay-1 group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
@@ -966,7 +969,7 @@
     </section>
     <% } %>
 
-    <div id="todayOppBoardSlot">
+    <div id="todayOppBoardSlot" data-today-section="pipeline" data-today-section-label="Marketing Pipeline">
       <% if (typeof opportunityBoard !== 'undefined' && opportunityBoard) { %>
       <%- include('/partials/opportunity_board') %>
       <% } else if (typeof todayExtrasDeferred !== 'undefined' && todayExtrasDeferred) { %>
@@ -977,7 +980,7 @@
       <% } %>
     </div>
 
-    <section id="todayDueTasks" class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Tasks">
+    <section id="todayDueTasks" data-today-section="dueTasks" data-today-section-label="Due &amp; overdue" class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Tasks">
       <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Tasks</p>
@@ -1022,7 +1025,7 @@
       <% } %>
     </section>
 
-    <div id="todayWeekReviewSlot">
+    <div id="todayWeekReviewSlot" data-today-section="weekReview" data-today-section-label="This week&apos;s review">
     <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
     <% if (_wr) { %>
     <% const _wrLeads = Array.isArray(_wr.topLeads) ? _wr.topLeads.slice(0, 5) : []; %>
@@ -1160,7 +1163,7 @@
         <button type="submit" class="text-sm font-bold text-brand-yellow hover:underline">Load sample data</button>
       </form>
     </section>
-    <div id="todaySourcesSlot">
+    <div id="todaySourcesSlot" data-today-section="sources" data-today-section-label="Active numbers">
       <%- include('partials/today_active_numbers', { leadRows: _srcList, teamRows: _fwSrc }) %>
     </div>
     <% } %>
@@ -1459,6 +1462,9 @@
               '<p class="font-display font-bold text-base md:text-lg leading-snug">“' + esc(data.entrepreneurQuote.text) + '”</p>' +
               '<footer class="mt-3 text-sm font-bold text-brand-muted dark:text-slate-400">— ' + esc(data.entrepreneurQuote.author) + '</footer></blockquote>';
           }
+        }
+        if (typeof window.__adhelloApplyTodayDashLayout === 'function') {
+          window.__adhelloApplyTodayDashLayout();
         }
       })
       .catch(function () {
