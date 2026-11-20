@@ -25,7 +25,7 @@ describe('bulk bar Share/Delete + select-all', () => {
     assert.match(secondaryChunk, /id="cancelSelectionBtn"/);
     assert.match(secondaryChunk, /id="bulkShareWorkspaceBtn"/);
     assert.match(secondaryChunk, /id="bulkDeleteBtn"/);
-    assert.match(secondaryChunk, /id="bulkSelectAllFolderBtn"/);
+    assert.doesNotMatch(secondaryChunk, /id="bulkSelectAllFolderBtn"/);
 
     const cancelIdx = secondaryChunk.indexOf('id="cancelSelectionBtn"');
     const shareIdx = secondaryChunk.indexOf('id="bulkShareWorkspaceBtn"');
@@ -33,6 +33,19 @@ describe('bulk bar Share/Delete + select-all', () => {
     assert.ok(cancelIdx >= 0);
     assert.ok(shareIdx > cancelIdx, 'Share should sit with/after Cancel');
     assert.ok(deleteIdx > cancelIdx, 'Delete should sit with/after Cancel');
+  });
+
+  it('places Select all next to the Selected count', () => {
+    const html = fs.readFileSync(bulkBarPath, 'utf8');
+    const countIdx = html.indexOf('bulk-bar-count');
+    const folderStripIdx = html.indexOf('bulk-bar-folder-strip');
+    assert.ok(countIdx > 0);
+    assert.ok(folderStripIdx > countIdx);
+    const countChunk = html.slice(countIdx, folderStripIdx);
+    const selectedIdx = countChunk.indexOf('bulk-bar-selected-label');
+    const selectAllIdx = countChunk.indexOf('id="bulkSelectAllFolderBtn"');
+    assert.ok(selectedIdx >= 0);
+    assert.ok(selectAllIdx > selectedIdx, 'Select all should sit after Selected label');
   });
 
   it('exposes a one-click Select all control on the pipeline paging bar', () => {
