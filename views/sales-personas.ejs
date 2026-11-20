@@ -6,7 +6,8 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <% const _tab = typeof activeScriptsTab !== 'undefined' ? activeScriptsTab : 'arms-reach'; %>
   <%
-    var contextSidebar = {
+    // Must set locals.* — EJS includes do not see parent `var`.
+    locals.contextSidebar = {
       eyebrow: 'Sales engine',
       title: 'Sales scripts',
       links: [

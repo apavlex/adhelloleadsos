@@ -9,7 +9,8 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
   <%
-    var contextSidebar = {
+    // Must set locals.* — EJS includes do not see parent `var`.
+    locals.contextSidebar = {
       eyebrow: 'Outreach',
       title: 'Outreach Hub',
       links: [

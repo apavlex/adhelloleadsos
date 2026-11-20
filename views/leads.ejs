@@ -12,7 +12,8 @@
   <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
   <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
   <%
-    var contextSidebar = {
+    // Must set locals.* — EJS includes do not see parent `var`.
+    locals.contextSidebar = {
       eyebrow: 'Lead management',
       title: 'Leads pipeline',
       subtitle: 'Search, refine, and related tools',

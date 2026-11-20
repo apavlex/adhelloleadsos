@@ -1,9 +1,13 @@
 <%#
   Instantly-style secondary left panel.
-  Pages set locals.contextSidebar = { title, subtitle?, links?, refine? }
+  Pages MUST set locals.contextSidebar (not a bare `var`) so this include can see it.
+  Shape: { title, subtitle?, links?, refine? }
   refine: 'pipeline' | 'leads' | 'outreach' | false
 %>
-<% const _ctx = typeof contextSidebar !== 'undefined' && contextSidebar ? contextSidebar : null; %>
+<% const _ctx =
+  (typeof locals !== 'undefined' && locals.contextSidebar) ||
+  (typeof contextSidebar !== 'undefined' && contextSidebar) ||
+  null; %>
 <% if (_ctx) { %>
 <aside id="appContextSidebar" class="app-context-sidebar ghl-sidebar flex-col shrink-0 overflow-hidden" aria-label="<%= _ctx.title || 'Page menu' %>">
   <div class="app-context-sidebar-inner flex flex-col h-full min-h-0">

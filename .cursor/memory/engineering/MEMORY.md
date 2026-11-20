@@ -1,5 +1,17 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Dual sidebar locals fix (1.0.807)
+
+### What
+- Dual sidebar never appeared: pages set `var contextSidebar = …` but EJS includes only see `locals`.
+- Pipeline / leads / outreach / sales now set `locals.contextSidebar` so the 2nd menu + Search & Refine render.
+- Regression test documents the `var` trap.
+
+### Key files
+- `views/prospecting.ejs`, `views/leads.ejs`, `views/outreach.ejs`, `views/sales-*.ejs`
+- `views/partials/navbar.ejs`, `views/partials/app_context_sidebar.ejs`
+- `tests/contextSidebarLocals.test.js`
+
 ## 2026-11-19 — Fix crushed layout without context sidebar (1.0.806)
 
 ### What
