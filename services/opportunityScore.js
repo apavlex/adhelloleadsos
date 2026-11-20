@@ -3,10 +3,15 @@
  * Higher score = better prospect for the workspace ROI profile:
  * - agency_gap: more website / SEO gaps (AdHello)
  * - partner_fit: stronger local partner signals — site, reviews, referrals (Flooring, etc.)
+ * - license_renewal: sooner CCB license or COI expiry (HomeElk, insurance / compliance)
  * Merges Local Client Prospector–style Hot/Warm/Low/Skip via {@link scoreLocalProspect}.
  */
 
-const { scoreLocalProspect, classifyWebsiteStatus } = require('./localProspectScore');
+const {
+  scoreLocalProspect,
+  classifyWebsiteStatus,
+  resolveComplianceExpiry,
+} = require('./localProspectScore');
 const { getLowReviewsThresholdFromWorkspace, isLowReviews } = require('./prospectGapLabels');
 const { resolveRoiProfileFromOptions, ROI_PROFILES } = require('./workspaceRoiProfile');
 const { isReferralLead } = require('./todayPriorityLeads');
@@ -260,16 +265,103 @@ function scoreAgencyGapRecord(lead, options) {
 }
 
 /**
+ * HomeElk / compliance — reward soonest CCB license or COI expiry.
+ * Opp score rises as CCB/COI gets closer (opposite of agency “website gap” scoring).
+ */
+function scoreLicenseRenewalRecord(lead, options) {
+  const reasons = [];
+  let score = 0;
+  const resolved = resolveComplianceExpiry(lead);
+  const days = resolved.days;
+  const kind = resolved.kind;
+  const who = kind === 'coi' ? 'COI' : kind === 'ccb' ? 'CCB' : 'CCB/COI';
+  const phone = lead.phone && lead.phone !== 'N/A';
+  const email = lead.email && lead.email !== 'N/A';
+  const licenseNo = String(
+    lead.contractorLicenseNumber || lead.licenseNumber || lead.license_number || '',
+  ).trim();
+
+  if (days == null || !Number.isFinite(days)) {
+    if (licenseNo && licenseNo !== 'N/A') {
+      score += 1.5;
+      reasons.push('CCB number on file — enrich CCB/COI expiry to unlock renewals score');
+    } else {
+      reasons.push('No CCB or COI expiry on file — import WA L&I / Oregon CCB');
+    }
+  } else if (days < 0) {
+    const ago = Math.abs(days);
+    if (ago <= 90) {
+      score += 5;
+      reasons.push(`${who} expired ${ago} day${ago === 1 ? '' : 's'} ago — urgent renewal`);
+    } else {
+      score += 3.5;
+      reasons.push(`${who} expired — still a renewals / compliance conversation`);
+    }
+  } else if (days <= 30) {
+    score += 4.5;
+    reasons.push(`${who} expires in ${days} day${days === 1 ? '' : 's'} — hottest renewals window`);
+  } else if (days <= 60) {
+    score += 3.75;
+    reasons.push(`${who} expires in ${days} days — call before they shop elsewhere`);
+  } else if (days <= 90) {
+    score += 2.75;
+    reasons.push(`${who} expires in ~${Math.round(days / 30)} months — start the renewal thread`);
+  } else if (days <= 180) {
+    score += 1.75;
+    reasons.push(`${who} inside a 6-month renewal window`);
+  } else if (days <= 365) {
+    score += 0.75;
+    reasons.push(`${who} within a year — light nurture`);
+  } else {
+    reasons.push(`${who} expiry is far out — lower opportunity for this workspace goal`);
+  }
+
+  // Both dates on file → slightly sharper score (can pitch whichever is sooner).
+  if (resolved.ccbDays != null && resolved.coiDays != null) {
+    score += 0.35;
+  }
+
+  if (licenseNo && licenseNo !== 'N/A') {
+    score += 0.5;
+  }
+
+  if (phone && email) {
+    score += 0.75;
+    reasons.push('Phone + email on file');
+  } else if (phone || email) {
+    score += 0.4;
+  }
+
+  // Mild review signal only as a tie-breaker — not the HomeElk goal.
+  const reviews = parseInt(lead.reviewsCount != null ? lead.reviewsCount : lead.reviews, 10) || 0;
+  if (reviews >= 25) score += 0.25;
+
+  void options;
+  const expirySortKey =
+    days == null || !Number.isFinite(days) ? Number.POSITIVE_INFINITY : days;
+
+  return {
+    score: Math.min(10, Math.max(0, score)),
+    reasons,
+    expirySortKey,
+  };
+}
+
+/**
  * @param {object} lead — saved lead from DB
  * @param {{ lowReviewsThreshold?: number, workspace?: object, roiProfile?: string }} [options]
  * @returns {{ score: number, tier: 'high'|'medium'|'low', reasons: string[], localProspect: object, roiProfile: string }}
  */
 function scoreLeadRecord(lead, options) {
   const roiProfile = resolveRoiProfileFromOptions(options);
-  const base =
-    roiProfile === ROI_PROFILES.PARTNER_FIT
-      ? scorePartnerFitRecord(lead, options)
-      : scoreAgencyGapRecord(lead, options);
+  let base;
+  if (roiProfile === ROI_PROFILES.PARTNER_FIT) {
+    base = scorePartnerFitRecord(lead, options);
+  } else if (roiProfile === ROI_PROFILES.LICENSE_RENEWAL) {
+    base = scoreLicenseRenewalRecord(lead, options);
+  } else {
+    base = scoreAgencyGapRecord(lead, options);
+  }
 
   let score = base.score;
   const reasons = base.reasons;

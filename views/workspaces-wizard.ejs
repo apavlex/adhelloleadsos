@@ -337,10 +337,28 @@
 
     <% if (step === 4) { %>
     <% const si = w.salesIntake && typeof w.salesIntake === 'object' ? w.salesIntake : {}; %>
+    <% const _wizGoals = typeof GOAL_CATALOG !== 'undefined' && Array.isArray(GOAL_CATALOG) ? GOAL_CATALOG : []; %>
+    <% const _wizDefaultGoal = w.roiProfile || (String(w.name || '').toLowerCase().includes('homeelk') || String(w.presetKey || '') === 'contractors' ? 'license_renewal' : (w.presetKey === 'agency' ? 'agency_gap' : (w.presetKey === 'retail_install' || w.presetKey === 'local_service' ? 'partner_fit' : 'agency_gap'))); %>
     <form method="post" action="/workspaces/new" id="wizardSalesForm" class="max-w-2xl space-y-6 brand-card p-8 dark:bg-slate-900 dark:border-white/10">
       <input type="hidden" name="action" value="create" />
       <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Business profile &amp; scripts</h2>
       <p class="text-sm text-brand-muted">Tell us about your business so we seed the right offers and a starter cold-call script. You can edit everything later under Sales scripts.</p>
+
+      <% if (_wizGoals.length) { %>
+      <fieldset class="space-y-3">
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">What makes a lead hot?</legend>
+        <p class="text-xs text-brand-muted mb-2">Sets Opportunity score, Today’s queue, and Money Mode for this workspace. Change anytime under Workspace → Pipeline.</p>
+        <% _wizGoals.forEach(function (g) { %>
+        <label class="flex gap-3 items-start cursor-pointer rounded-2xl border border-brand-border dark:border-white/10 p-4 has-[:checked]:border-brand-yellow has-[:checked]:bg-brand-yellow/5">
+          <input type="radio" name="roiProfile" value="<%= g.id %>" class="mt-1" <%= _wizDefaultGoal === g.id ? 'checked' : '' %> />
+          <span>
+            <strong class="text-brand-dark dark:text-white"><%= g.label %></strong>
+            <span class="block text-xs text-brand-muted mt-0.5"><%= g.bestFor %></span>
+          </span>
+        </label>
+        <% }); %>
+      </fieldset>
+      <% } %>
 
       <div class="grid sm:grid-cols-2 gap-4">
         <div>

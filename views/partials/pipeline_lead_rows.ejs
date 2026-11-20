@@ -327,13 +327,16 @@
               var _oppThreshold = (typeof workspaceProspecting !== 'undefined' && workspaceProspecting && workspaceProspecting.lowReviewsThreshold != null)
                 ? workspaceProspecting.lowReviewsThreshold
                 : 30;
+              var _oppRoi = (typeof workspaceProspecting !== 'undefined' && workspaceProspecting && workspaceProspecting.roiProfile)
+                ? workspaceProspecting.roiProfile
+                : '';
               var _oppBuilt = typeof buildPipelineOpportunityBadge === 'function'
-                ? buildPipelineOpportunityBadge(lead, { lowReviewsThreshold: _oppThreshold, maxLabels: 3 })
+                ? buildPipelineOpportunityBadge(lead, { lowReviewsThreshold: _oppThreshold, roiProfile: _oppRoi, maxLabels: 3 })
                 : null;
               var _oppHtml = _oppBuilt && _oppBuilt.html
                 ? _oppBuilt.html
                 : (typeof renderPipelineOpportunityBadge === 'function'
-                  ? renderPipelineOpportunityBadge(lead, { lowReviewsThreshold: _oppThreshold, maxLabels: 3 })
+                  ? renderPipelineOpportunityBadge(lead, { lowReviewsThreshold: _oppThreshold, roiProfile: _oppRoi, maxLabels: 3 })
                   : '');
               var _oppScore = _oppBuilt && _oppBuilt.score != null ? _oppBuilt.score : '';
               var _oppGapLabels = _oppBuilt && Array.isArray(_oppBuilt.gapLabels) ? _oppBuilt.gapLabels.join('|') : '';

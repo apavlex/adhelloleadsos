@@ -1,5 +1,16 @@
 # Engineering memory — AdHello Leads OS
 
+## 2026-11-19 — Per-workspace goals / CCB+COI scoring (1.0.805)
+
+### What
+- Workspace goal (`prospecting.roiProfile`) is set in Workspace → Pipeline and on create-workspace step 4.
+- Goals: `agency_gap` (no website / SEO — AdHello), `partner_fit` (reviews — flooring), `license_renewal` (CCB & COI expiry — HomeElk).
+- Opportunity score, Today queue, Money Mode, and pipeline badges follow the goal. HomeElk uses soonest of CCB license vs COI.
+- Oregon CCB import now stores `ins_exp_date` as `contractorCoiExpires`.
+
+### Key files
+- `services/workspaceRoiProfile.js`, `services/localProspectScore.js`, `services/opportunityScore.js`, `services/focusQueue.js`, `services/contractorRegistry.js`, `services/prospectGapLabels.js`, `views/workspace/sections/pipeline.ejs`, `views/workspaces-wizard.ejs`
+
 ## 2026-11-19 — Dual sidebar menus (1.0.804)
 
 ### What
@@ -12,6 +23,7 @@
 - `views/partials/app_context_sidebar.ejs`, `context_refine_*.ejs`
 - `public/css/custom.css`, `public/js/sidebarShell.js`, `views/partials/navbar.ejs`
 - `views/prospecting.ejs`, `views/partials/prospecting_board.ejs`, `views/leads.ejs`, `views/outreach.ejs`, `views/sales-*.ejs`
+
 
 ## 2026-11-19 — Select-all performance (1.0.802)
 

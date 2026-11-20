@@ -189,6 +189,40 @@ test('recordToLead keeps a phone-matched website and keys dedupe on the license'
   });
   assert.equal(nameOnly.website, undefined);
   assert.match(nameOnly.notes, /maybe\.example/);
+
+  const withCoi = recordToLead({
+    business_name: 'RAIN ROOFING',
+    license_number: '999',
+    trade: 'roofers',
+    state: 'OR',
+    source: 'OR_CCB',
+    license_expires: '2027-05-14',
+    insurance_expires: '2026-12-01',
+    insurance_company: 'SCOTTSDALE INSURANCE CO',
+  });
+  assert.equal(withCoi.contractorLicenseExpires, '2027-05-14');
+  assert.equal(withCoi.contractorCoiExpires, '2026-12-01');
+  assert.match(withCoi.notes, /COI expires 2026-12-01/);
+});
+
+test('normalizeOr maps CCB lic_exp_date and COI ins_exp_date', () => {
+  const rows = normalizeOr([
+    {
+      full_name: 'RAIN ROOFING',
+      endorsement_text: 'ROOFING',
+      city: 'PORTLAND',
+      zip_code: '97201',
+      phone_number: '5035550199',
+      license_number: '999',
+      lic_exp_date: '05/14/2027',
+      ins_exp_date: '12/01/2026',
+      ins_amount: '1000000',
+      ins_company: 'SCOTTSDALE INSURANCE CO',
+    },
+  ]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].license_expires, '2027-05-14');
+  assert.equal(rows[0].insurance_expires, '2026-12-01');
 });
 
 test('collectContractorRecords pages both registries, skips non-trades, and enriches a phone match', async () => {

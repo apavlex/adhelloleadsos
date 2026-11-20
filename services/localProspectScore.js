@@ -5,6 +5,7 @@
  * Profile-aware via options.roiProfile / options.workspace:
  * - agency_gap (default): no site + contact = Hot (website-selling offer)
  * - partner_fit: real site + reviews / referral signals = Hot (flooring & local partners)
+ * - license_renewal: soon-expiring / expired license or insurance = Hot
  */
 
 const { resolveRoiProfileFromOptions, ROI_PROFILES } = require('./workspaceRoiProfile');
@@ -311,6 +312,193 @@ function scoreAgencyGapProspect(lead, websiteStatus) {
 }
 
 /**
+ * Parse YYYY-MM-DD, ISO, or Oregon CCB-style MM/DD/YYYY into epoch ms (noon UTC).
+ */
+function parseFlexibleDateMs(raw) {
+  const s = String(raw || '').trim();
+  if (!s || s === 'N/A') return NaN;
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+    return Date.parse(`${s.slice(0, 10)}T12:00:00.000Z`);
+  }
+  const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (mdy) {
+    const mm = mdy[1].padStart(2, '0');
+    const dd = mdy[2].padStart(2, '0');
+    return Date.parse(`${mdy[3]}-${mm}-${dd}T12:00:00.000Z`);
+  }
+  const ms = Date.parse(s);
+  return Number.isFinite(ms) ? ms : NaN;
+}
+
+/** CCB / contractor license expiry fields (WA L&I + Oregon CCB lic_exp_date). */
+function ccbExpiryRawCandidates(lead) {
+  if (!lead || typeof lead !== 'object') return [];
+  return [
+    lead.contractorLicenseExpires,
+    lead.ccbExpires,
+    lead.ccb_expires,
+    lead.licenseExpires,
+    lead.license_expires,
+    lead.licenseExpirationDate,
+    lead.licenseexpirationdate,
+    lead.lic_exp_date,
+  ];
+}
+
+/** COI / liability insurance expiry (Oregon CCB ins_exp_date + CRM aliases). */
+function coiExpiryRawCandidates(lead) {
+  if (!lead || typeof lead !== 'object') return [];
+  return [
+    lead.contractorCoiExpires,
+    lead.contractorInsuranceExpires,
+    lead.coiExpires,
+    lead.coi_expires,
+    lead.insuranceExpires,
+    lead.insurance_expires,
+    lead.ins_exp_date,
+    lead.insExpDate,
+    lead.policyExpires,
+    lead.policy_expires,
+  ];
+}
+
+function firstParsedExpiry(candidates) {
+  for (const raw of candidates) {
+    const ms = parseFlexibleDateMs(raw);
+    if (Number.isFinite(ms)) return ms;
+  }
+  return NaN;
+}
+
+/**
+ * HomeElk / contractor renewals: soonest of CCB license vs COI.
+ * @returns {{ days: number|null, kind: 'ccb'|'coi'|null, ms: number, ccbDays: number|null, coiDays: number|null }}
+ */
+function resolveComplianceExpiry(lead, nowMs = Date.now()) {
+  const ccbMs = firstParsedExpiry(ccbExpiryRawCandidates(lead));
+  const coiMs = firstParsedExpiry(coiExpiryRawCandidates(lead));
+  const ccbDays = Number.isFinite(ccbMs) ? Math.floor((ccbMs - nowMs) / 86400000) : null;
+  const coiDays = Number.isFinite(coiMs) ? Math.floor((coiMs - nowMs) / 86400000) : null;
+
+  if (ccbDays == null && coiDays == null) {
+    return { days: null, kind: null, ms: NaN, ccbDays: null, coiDays: null };
+  }
+  if (ccbDays == null) {
+    return { days: coiDays, kind: 'coi', ms: coiMs, ccbDays: null, coiDays };
+  }
+  if (coiDays == null) {
+    return { days: ccbDays, kind: 'ccb', ms: ccbMs, ccbDays, coiDays: null };
+  }
+  if (coiDays < ccbDays) {
+    return { days: coiDays, kind: 'coi', ms: coiMs, ccbDays, coiDays };
+  }
+  return { days: ccbDays, kind: 'ccb', ms: ccbMs, ccbDays, coiDays };
+}
+
+/** @deprecated Prefer resolveComplianceExpiry — kept for opportunityScore callers. */
+function parseLicenseExpiryMs(lead) {
+  const resolved = resolveComplianceExpiry(lead);
+  return Number.isFinite(resolved.ms) ? resolved.ms : NaN;
+}
+
+function hasLicenseNumber(lead) {
+  const n = String(
+    (lead && (lead.contractorLicenseNumber || lead.licenseNumber || lead.license_number)) || '',
+  ).trim();
+  return !!(n && n !== 'N/A');
+}
+
+/**
+ * Days until soonest CCB/COI expiry (negative = already expired). Null when unknown.
+ */
+function daysUntilLicenseExpiry(lead, nowMs = Date.now()) {
+  return resolveComplianceExpiry(lead, nowMs).days;
+}
+
+function kindLabel(kind) {
+  if (kind === 'coi') return 'COI';
+  if (kind === 'ccb') return 'CCB';
+  return 'License';
+}
+
+function formatLicenseStatusLabel(days, kind = null) {
+  const who = kindLabel(kind);
+  if (days == null || !Number.isFinite(days)) return 'No CCB/COI expiry on file';
+  if (days < 0) {
+    const ago = Math.abs(days);
+    if (ago === 0) return `${who} expired today`;
+    if (ago === 1) return `${who} expired yesterday`;
+    if (ago < 60) return `${who} expired ${ago}d ago`;
+    return `${who} expired`;
+  }
+  if (days === 0) return `${who} expires today`;
+  if (days === 1) return `${who} expires tomorrow`;
+  if (days <= 60) return `${who} expires in ${days}d`;
+  if (days <= 180) return `${who} expires in ${Math.round(days / 30)} mo`;
+  const ms = Date.now() + days * 86400000;
+  try {
+    return `${who} expires ${new Date(ms).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })}`;
+  } catch {
+    return `${who} expires in ${days}d`;
+  }
+}
+
+/**
+ * HomeElk / insurance / licensed trades: soonest CCB or COI expiry + contact = Hot.
+ */
+function scoreLicenseRenewalProspect(lead) {
+  const contact = hasContact(lead);
+  const resolved = resolveComplianceExpiry(lead);
+  const days = resolved.days;
+  const kind = resolved.kind;
+  const who = kindLabel(kind);
+  const reasons = [];
+  let prospectTier = 'Low';
+  const statusLabel = formatLicenseStatusLabel(days, kind);
+
+  if (days == null) {
+    prospectTier = contact && hasLicenseNumber(lead) ? 'Warm' : 'Low';
+    reasons.push(
+      hasLicenseNumber(lead)
+        ? 'CCB license on file but no CCB/COI expiry — enrich from registry'
+        : 'No CCB or COI expiry on file — import WA L&I / Oregon CCB or enrich',
+    );
+  } else if (days <= 60) {
+    if (contact) {
+      prospectTier = 'Hot';
+      reasons.push(
+        days < 0
+          ? `${who} already expired — strongest renewals / compliance hook`
+          : `${who} expires in ${days} day${days === 1 ? '' : 's'} — call now`,
+      );
+    } else {
+      prospectTier = 'Low';
+      reasons.push(`${who} expiry is soon — add phone or email before outreach`);
+    }
+  } else if (days <= 180) {
+    prospectTier = contact ? 'Warm' : 'Low';
+    reasons.push(
+      contact
+        ? `${who} renewal window in ~${Math.round(days / 30)} months — nurture now`
+        : `${who} upcoming — add contact details`,
+    );
+  } else {
+    prospectTier = 'Low';
+    reasons.push(`${who} expiry is far out — lower priority for this workspace`);
+  }
+
+  return {
+    prospectTier,
+    reasons,
+    statusLabel,
+    daysUntilExpiry: days,
+    expiryKind: kind,
+    ccbDays: resolved.ccbDays,
+    coiDays: resolved.coiDays,
+  };
+}
+
+/**
  * @param {object} lead — saved or enriched Maps row
  * @param {{ roiProfile?: string, workspace?: object }} [options]
  * @returns {{
@@ -340,21 +528,34 @@ function scoreLocalProspect(lead, options) {
 
   const ws = classifyWebsiteStatus(lead);
   const conf = classifyConfidence(lead, ws.status);
-  const tiered =
-    roiProfile === ROI_PROFILES.PARTNER_FIT
-      ? scorePartnerFitProspect(lead, ws.status)
-      : scoreAgencyGapProspect(lead, ws.status);
+  let tiered;
+  if (roiProfile === ROI_PROFILES.PARTNER_FIT) {
+    tiered = scorePartnerFitProspect(lead, ws.status);
+  } else if (roiProfile === ROI_PROFILES.LICENSE_RENEWAL) {
+    tiered = scoreLicenseRenewalProspect(lead);
+  } else {
+    tiered = scoreAgencyGapProspect(lead, ws.status);
+  }
 
   const why = tiered.reasons[0] || '';
+  const websiteStatusLabel =
+    roiProfile === ROI_PROFILES.LICENSE_RENEWAL && tiered.statusLabel
+      ? tiered.statusLabel
+      : ws.label;
 
   return {
     prospectTier: tiered.prospectTier,
     websiteStatus: ws.status,
-    websiteStatusLabel: ws.label,
+    websiteStatusLabel,
     confidence: conf,
     reasons: tiered.reasons.slice(0, 5),
     why,
     roiProfile,
+    daysUntilExpiry:
+      roiProfile === ROI_PROFILES.LICENSE_RENEWAL && tiered.daysUntilExpiry != null
+        ? tiered.daysUntilExpiry
+        : null,
+    expiryKind: roiProfile === ROI_PROFILES.LICENSE_RENEWAL ? tiered.expiryKind || null : null,
   };
 }
 
@@ -370,4 +571,10 @@ module.exports = {
   prospectTierSortRank,
   classifyWebsiteStatus,
   shouldSkipProspect,
+  parseFlexibleDateMs,
+  parseLicenseExpiryMs,
+  daysUntilLicenseExpiry,
+  resolveComplianceExpiry,
+  formatLicenseStatusLabel,
+  scoreLicenseRenewalProspect,
 };
