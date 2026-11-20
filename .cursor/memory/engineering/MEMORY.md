@@ -1,6 +1,6 @@
 # Engineering memory — AdHello Leads OS
 
-## 2026-11-19 — Dual sidebar menus (1.0.803)
+## 2026-11-19 — Dual sidebar menus (1.0.804)
 
 ### What
 - Instantly-style 2nd left panel (`#appContextSidebar`) for page menus + Search & Refine.
