@@ -19297,8 +19297,30 @@ document.addEventListener('DOMContentLoaded', () => {
     ).filter((cb) => cb.checked).length;
   }
 
+  function getFolderWideSelectionSet() {
+    if (typeof window.__getBulkFolderWideKeys === 'function') {
+      return window.__getBulkFolderWideKeys();
+    }
+    return window.__bulkFolderWideKeys || null;
+  }
+
+  function isHeavyFolderWideSelection() {
+    if (typeof window.__bulkFolderWideIsHeavy === 'function') {
+      return !!window.__bulkFolderWideIsHeavy();
+    }
+    const fw = getFolderWideSelectionSet();
+    const at = Number(window.__BULK_SELECTION_HEAVY_AT) || 80;
+    return !!(fw && fw.size >= at);
+  }
+
   /** All checked row boxes in the pipeline/results table (includes rows hidden by paging). */
   function syncSelectedKeysFromDom() {
+    const folderWide = getFolderWideSelectionSet();
+    // Large select-all: keep the in-memory key set — do not rebuild from thousands of checkboxes.
+    if (folderWide && folderWide.size) {
+      selectedKeys = new Set(folderWide);
+      return;
+    }
     selectedKeys.clear();
     const tables = [
       getActiveLeadsTable(),
@@ -19315,21 +19337,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (key !== '') selectedKeys.add(key);
       });
     });
-    const folderWide =
-      typeof window.__getBulkFolderWideKeys === 'function'
-        ? window.__getBulkFolderWideKeys()
-        : window.__bulkFolderWideKeys;
-    if (folderWide && typeof folderWide.forEach === 'function') {
-      folderWide.forEach((key) => {
-        const k = String(key || '').trim();
-        if (k) selectedKeys.add(k);
-      });
-    }
   }
 
-  function applyFolderWideSelectionKeys(keys) {
+  function applyFolderWideSelectionKeys(keys, opts) {
     const list = Array.isArray(keys) ? keys : [];
-    selectedKeys.clear();
+    const light = !!(opts && opts.light);
+    selectedKeys = new Set();
     list.forEach((raw) => {
       const k = String(raw || '').trim();
       if (k) selectedKeys.add(k);
@@ -19339,9 +19352,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       window.__bulkFolderWideKeys = list.length ? new Set(list) : null;
     }
-    syncBulkRowHighlights();
-    syncSelectAllLeadCheckbox();
-    updateBulkActionBar();
+    if (!light) {
+      if (typeof window.__markVisibleRowsForFolderWideSelection === 'function') {
+        window.__markVisibleRowsForFolderWideSelection();
+      } else {
+        syncBulkRowHighlights();
+      }
+      syncSelectAllLeadCheckbox();
+    }
+    updateBulkActionBar({ light: true });
     if (typeof window.__syncSelectAllFolderBtn === 'function') {
       window.__syncSelectAllFolderBtn();
     }
@@ -19386,6 +19405,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Canonical selected lead keys for bulk bar actions (tags, folders, SMS, etc.). */
   function getSelectedLeadKeysForBulk() {
+    const folderWide = getFolderWideSelectionSet();
+    if (folderWide && folderWide.size) {
+      selectedKeys = new Set(folderWide);
+      return Array.from(folderWide);
+    }
     syncSelectedKeysFromDom();
     if (selectedKeys.size > 0) return [...selectedKeys];
     const keys = [];
@@ -19425,6 +19449,18 @@ document.addEventListener('DOMContentLoaded', () => {
       seen.add(row);
       rows.push(row);
     };
+    // Heavy select-all: only return currently painted rows — never querySelector × N keys.
+    if (isHeavyFolderWideSelection()) {
+      getVisibleResultRowsInTable(getActiveLeadsTable()).forEach((row) => {
+        const cb = row.querySelector('.lead-checkbox, .row-checkbox');
+        if (cb && cb.checked) addRow(row);
+      });
+      if (rows.length) return rows;
+      getSelectedLeadCheckboxesForBulkActions().forEach((cb) => {
+        addRow(cb.closest('.result-row') || cb.closest('tr'));
+      });
+      return rows;
+    }
     getSelectedLeadKeysForBulk().forEach((key) => {
       const row = findLeadRowForBulkKey(key);
       if (row) addRow(row);
@@ -19729,9 +19765,17 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__rebuildBulkFolderSelect = rebuildBulkFolderSelect;
   window.__refreshBulkFolderSelectOptions = refreshBulkFolderSelectOptions;
 
-  const updateBulkActionBar = () => {
+  const updateBulkActionBar = (opts) => {
+    const light = !!(opts && opts.light) || isHeavyFolderWideSelection();
     syncSelectedKeysFromDom();
-    syncBulkRowHighlights();
+    if (!light) syncBulkRowHighlights();
+    else {
+      // Visible page only — keep highlights cheap after select-all.
+      const table = getActiveLeadsTable();
+      if (table && getFolderWideSelectionSet() && getFolderWideSelectionSet().size) {
+        table.classList.add('bulk-folder-wide-selected', 'bulk-select-all-active');
+      }
+    }
     const count = getBulkSelectionCount();
     if (count === 0) showBulkOpenGhlLink(false);
     const hasSelection = count > 0;
@@ -19759,7 +19803,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (typeof window.__adhelloSyncSoftphoneQueueFromSelection === 'function') {
+    // Softphone queue rebuild is O(selected rows) — skip on large select-all.
+    if (!light && typeof window.__adhelloSyncSoftphoneQueueFromSelection === 'function') {
       window.__adhelloSyncSoftphoneQueueFromSelection();
     }
 
@@ -19787,18 +19832,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const createSubaccountBtn =
       bulkCreateSubaccountBtn || document.getElementById('bulkCreateSubaccountBtn');
     if (focusBtn || directMailBtn || pushGhlBtn || createSubaccountBtn) {
-      const keys =
-        hasSelection && typeof window.__collectFocusSelectionKeys === 'function'
-          ? window.__collectFocusSelectionKeys()
-          : hasSelection
-            ? getSelectedLeadKeysForBulk()
-                .map((k) => String(k || '').trim().replace(/^lead:/i, ''))
-                .filter(Boolean)
-            : [];
+      let keys = [];
+      if (hasSelection) {
+        if (light) {
+          // Cap keys used for Call href / sessionStorage — full set stays in folderWideKeys.
+          const all = getSelectedLeadKeysForBulk();
+          keys = all
+            .slice(0, 40)
+            .map((k) => String(k || '').trim().replace(/^lead:/i, ''))
+            .filter(Boolean);
+        } else if (typeof window.__collectFocusSelectionKeys === 'function') {
+          keys = window.__collectFocusSelectionKeys();
+        } else {
+          keys = getSelectedLeadKeysForBulk()
+            .map((k) => String(k || '').trim().replace(/^lead:/i, ''))
+            .filter(Boolean);
+        }
+      }
       const selectedRows = hasSelection ? getSelectedLeadRowsForBulk() : [];
-      const anyPhone = selectedRows.some(rowHasUsablePhone);
+      const anyPhone = light
+        ? hasSelection
+        : selectedRows.some(rowHasUsablePhone);
       if (typeof window.__persistFocusSelectionKeys === 'function') {
-        window.__persistFocusSelectionKeys(keys);
+        window.__persistFocusSelectionKeys(
+          light ? getSelectedLeadKeysForBulk() : keys.length ? keys : getSelectedLeadKeysForBulk(),
+        );
       }
       const syncPrimaryBtn = (btn, href, enabled, titleEnabled, titleDisabled) => {
         if (!btn) return;
@@ -19818,6 +19876,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         btn.setAttribute('title', enabled ? titleEnabled : titleDisabled);
       };
+      const outreachCount = count > 0 ? count : keys.length;
       syncPrimaryBtn(
         focusBtn,
         typeof window.__buildFocusSelectionUrl === 'function'
@@ -19826,12 +19885,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ? `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}&channel=call`
             : '/focus?channel=call',
         hasSelection && anyPhone,
-        keys.length
-          ? `Call and log ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
+        outreachCount
+          ? `Call and log ${outreachCount} selected lead${outreachCount === 1 ? '' : 's'}`
           : 'Select leads with phone numbers to call',
         'Selected leads have no phone number',
       );
-      const outreachCount = keys.length > 0 ? keys.length : count;
       syncPrimaryBtn(
         directMailBtn,
         null,
@@ -19842,13 +19900,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'Select at least one lead',
       );
       const emailBtn = document.getElementById('bulkEmailBtn');
-      const anyEmail = selectedRows.some(rowHasUsableEmail);
+      const anyEmail = light ? hasSelection : selectedRows.some(rowHasUsableEmail);
       syncPrimaryBtn(
         emailBtn,
         null,
         hasSelection && anyEmail,
-        keys.length
-          ? `Send a personalized follow-up email to ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
+        outreachCount
+          ? `Send a personalized follow-up email to ${outreachCount} selected lead${outreachCount === 1 ? '' : 's'}`
           : 'Select leads with email addresses',
         'Selected leads have no email address',
       );

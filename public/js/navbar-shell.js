@@ -6195,6 +6195,10 @@ function readJsonReply(r) {
     if (softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call') {
       return !!softphoneQueueSource;
     }
+    // Large select-all keeps keys in memory only — rebuilding a 1k+ dial queue freezes the tab.
+    if (typeof window.__bulkFolderWideIsHeavy === 'function' && window.__bulkFolderWideIsHeavy()) {
+      return !!softphoneQueueSource;
+    }
     var selected = selectedLeadsDialQueue();
     var prevQ = softphoneSession.focusDialQueue || [];
     var prevItem = prevQ[softphoneSession.focusDialIndex || 0];

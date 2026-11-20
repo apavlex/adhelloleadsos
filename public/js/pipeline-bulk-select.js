@@ -27,9 +27,15 @@
 
   /** Keys selected beyond the loaded page (Select all in list / folder). */
   let folderWideKeys = null;
+  /** Above this, skip per-row DOM / URL / softphone work that freezes the tab. */
+  const BULK_SELECTION_HEAVY_AT = 80;
 
   function getFolderWideKeys() {
     return folderWideKeys;
+  }
+
+  function folderWideIsHeavy() {
+    return !!(folderWideKeys && folderWideKeys.size >= BULK_SELECTION_HEAVY_AT);
   }
 
   function setFolderWideKeys(keys) {
@@ -41,12 +47,16 @@
     });
     folderWideKeys = next.size ? next : null;
     window.__bulkFolderWideKeys = folderWideKeys;
+    const table = document.getElementById('prospectLeadsTable');
+    if (table) table.classList.toggle('bulk-folder-wide-selected', !!folderWideKeys);
     return folderWideKeys;
   }
 
   function clearFolderWideKeys() {
     folderWideKeys = null;
     window.__bulkFolderWideKeys = null;
+    const table = document.getElementById('prospectLeadsTable');
+    if (table) table.classList.remove('bulk-folder-wide-selected');
   }
 
   function countCheckedGlobally() {
@@ -316,6 +326,11 @@
   }
 
   function collectSelectedLeadKeysEarly() {
+    // Folder-wide select-all already holds the full key set — do not re-scan the DOM
+    // or fan out into getSelectedLeadKeysForBulk (that path is O(n) querySelector).
+    if (folderWideKeys && folderWideKeys.size) {
+      return Array.from(folderWideKeys);
+    }
     const out = [];
     const seen = new Set();
     const add = (raw) => {
@@ -324,9 +339,6 @@
       seen.add(k);
       out.push(k);
     };
-    if (folderWideKeys && folderWideKeys.size) {
-      folderWideKeys.forEach(add);
-    }
     if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
       window.__getSelectedLeadKeysForBulk().forEach(add);
     }
@@ -337,22 +349,31 @@
     return out;
   }
 
-  function checkAllLoadedPipelineRows() {
+  /** Only paint the current page — never walk thousands of loaded/hidden rows. */
+  function markVisibleRowsForFolderWideSelection() {
     const table = document.getElementById('prospectLeadsTable');
     if (!table) return 0;
     let n = 0;
-    table.querySelectorAll('tbody tr.result-row').forEach((tr) => {
-      const cb = tr.querySelector('input.lead-checkbox, input.row-checkbox');
-      if (!cb) return;
-      setCheckboxChecked(cb, true);
-      n += 1;
-    });
+    table
+      .querySelectorAll('tbody tr.result-row:not(.pipeline-row-page-hidden)')
+      .forEach((tr) => {
+        const cb = tr.querySelector('input.lead-checkbox, input.row-checkbox');
+        if (!cb) return;
+        setCheckboxChecked(cb, true);
+        n += 1;
+      });
     const header = table.querySelector('thead input[data-select-all-leads]');
     if (header) {
       header.checked = true;
       header.indeterminate = false;
     }
+    table.classList.add('bulk-folder-wide-selected', 'bulk-select-all-active');
     return n;
+  }
+
+  /** @deprecated use markVisibleRowsForFolderWideSelection */
+  function checkAllLoadedPipelineRows() {
+    return markVisibleRowsForFolderWideSelection();
   }
 
   async function fetchFolderSelectionKeys(folderKey) {
@@ -455,11 +476,9 @@
         keys = result.keys;
         capped = result.capped;
       } else {
-        await loadRemainingPipelineRowsForSelection((p) => {
-          const loaded = p && p.loaded != null ? p.loaded : 0;
-          const total = p && p.total != null ? p.total : 0;
-          setBusyLabel(total > 0 ? `Loading ${loaded}/${total}…` : `Loading ${loaded}…`);
-        });
+        // Prefer keys already loaded in the table; never HTML-hydrate thousands of rows
+        // just to select them (that freezes the tab). Remaining keys stay unloadable
+        // until the user Loads more — folder views use the lead-keys API instead.
         const table = document.getElementById('prospectLeadsTable');
         if (table) {
           table.querySelectorAll('tbody tr.result-row').forEach((tr) => {
@@ -467,17 +486,39 @@
             if (k) keys.push(k);
           });
         }
+        const meta =
+          window.__PIPELINE_ROWS_META && typeof window.__PIPELINE_ROWS_META === 'object'
+            ? window.__PIPELINE_ROWS_META
+            : null;
+        const total = meta ? parseInt(meta.total, 10) || 0 : 0;
+        if (meta && meta.hasMore && total > keys.length && total <= 400) {
+          // Small lists only: finish loading so Select all can cover everything.
+          await loadRemainingPipelineRowsForSelection((p) => {
+            const loaded = p && p.loaded != null ? p.loaded : 0;
+            const t = p && p.total != null ? p.total : 0;
+            setBusyLabel(t > 0 ? `Loading ${loaded}/${t}…` : `Loading ${loaded}…`);
+          });
+          keys = [];
+          if (table) {
+            table.querySelectorAll('tbody tr.result-row').forEach((tr) => {
+              const k = String(tr.getAttribute('data-lead-key') || tr.dataset.leadKey || '').trim();
+              if (k) keys.push(k);
+            });
+          }
+        } else if (meta && meta.hasMore && total > keys.length) {
+          setBusyLabel(`Selecting ${keys.length} loaded…`);
+        }
       }
       if (!keys.length) {
         throw new Error('No leads to select in this list.');
       }
       setFolderWideKeys(keys);
-      checkAllLoadedPipelineRows();
+      // Yield so the "Selecting…" label paints before any DOM work.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      markVisibleRowsForFolderWideSelection();
       showBulkActionBar(keys.length);
       if (typeof window.__applyFolderWideSelectionKeys === 'function') {
-        window.__applyFolderWideSelectionKeys(keys);
-      } else if (typeof window.__syncBulkSelectionFromDom === 'function') {
-        window.__syncBulkSelectionFromDom();
+        window.__applyFolderWideSelectionKeys(keys, { light: true });
       } else if (typeof window.__updateBulkActionBar === 'function') {
         window.__updateBulkActionBar();
       }
@@ -512,23 +553,46 @@
   window.__getBulkFolderWideKeys = getFolderWideKeys;
   window.__setBulkFolderWideKeys = setFolderWideKeys;
   window.__clearBulkFolderWideKeys = clearFolderWideKeys;
+  window.__bulkFolderWideIsHeavy = folderWideIsHeavy;
+  window.__BULK_SELECTION_HEAVY_AT = BULK_SELECTION_HEAVY_AT;
   window.__selectAllInCurrentList = selectAllInCurrentList;
   window.__syncSelectAllFolderBtn = syncSelectAllFolderBtn;
+  window.__markVisibleRowsForFolderWideSelection = markVisibleRowsForFolderWideSelection;
 
   function collectFocusSelectionKeys() {
     return collectSelectedLeadKeysEarly().map(normalizeFocusLeadKey).filter(Boolean);
   }
 
+  /** Cap keys written into URLs / sessionStorage so large select-all stays snappy. */
+  const FOCUS_URL_KEY_CAP = 40;
+  const FOCUS_STORAGE_KEY_CAP = 250;
+
   function persistFocusSelectionKeys(keys) {
     try {
-      const norm = (keys || []).map(normalizeFocusLeadKey).filter(Boolean);
-      if (norm.length) {
-        sessionStorage.setItem('adhello_focus_selected_keys', JSON.stringify(norm));
-      } else {
+      const raw = Array.isArray(keys) ? keys : [];
+      if (!raw.length) {
         sessionStorage.removeItem('adhello_focus_selected_keys');
+        sessionStorage.removeItem('adhello_focus_selected_meta');
+        return;
+      }
+      // Slice first so we never normalize thousands of keys on select-all.
+      const slice = raw.length > FOCUS_STORAGE_KEY_CAP ? raw.slice(0, FOCUS_STORAGE_KEY_CAP) : raw;
+      const capped = slice.map(normalizeFocusLeadKey).filter(Boolean);
+      sessionStorage.setItem('adhello_focus_selected_keys', JSON.stringify(capped));
+      if (folderWideKeys && folderWideKeys.size) {
+        sessionStorage.setItem(
+          'adhello_focus_selected_meta',
+          JSON.stringify({
+            folderKey: activePipelineFolderKey() || '',
+            total: folderWideKeys.size,
+            capped: capped.length < folderWideKeys.size,
+          }),
+        );
+      } else {
+        sessionStorage.removeItem('adhello_focus_selected_meta');
       }
     } catch (_) {
-      /* ignore */
+      /* ignore quota / private mode */
     }
   }
 
@@ -539,9 +603,17 @@
     const params = new URLSearchParams();
     if (norm.length) {
       params.set('lead', norm[0]);
-      params.set('keys', norm.join(','));
+      // Never stuff thousands of keys into the href — Call still works via sessionStorage.
+      const forUrl = norm.length > FOCUS_URL_KEY_CAP ? norm.slice(0, FOCUS_URL_KEY_CAP) : norm;
+      params.set('keys', forUrl.join(','));
+      if (norm.length > FOCUS_URL_KEY_CAP) params.set('keysCapped', '1');
     }
     if (ch) params.set('channel', ch);
+    const folderKey = activePipelineFolderKey();
+    if (folderWideKeys && folderWideKeys.size && folderKey) {
+      params.set('folderKey', folderKey);
+      params.set('selectAll', '1');
+    }
     const qs = params.toString();
     return qs ? `${url}?${qs}` : url;
   }
@@ -549,11 +621,12 @@
   function persistDirectMailSelectionKeys(keys) {
     try {
       const norm = (keys || []).map(normalizeFocusLeadKey).filter(Boolean);
-      if (norm.length) {
-        sessionStorage.setItem('adhello_dm_selected_keys', JSON.stringify(norm));
-      } else {
+      if (!norm.length) {
         sessionStorage.removeItem('adhello_dm_selected_keys');
+        return;
       }
+      const capped = norm.length > FOCUS_STORAGE_KEY_CAP ? norm.slice(0, FOCUS_STORAGE_KEY_CAP) : norm;
+      sessionStorage.setItem('adhello_dm_selected_keys', JSON.stringify(capped));
     } catch (_) {
       /* ignore */
     }
@@ -562,7 +635,8 @@
   function buildDirectMailSelectionUrl(keys) {
     const norm = (keys || []).map(normalizeFocusLeadKey).filter(Boolean);
     if (!norm.length) return '/direct-mail';
-    return `/direct-mail?keys=${encodeURIComponent(norm.join(','))}`;
+    const forUrl = norm.length > FOCUS_URL_KEY_CAP ? norm.slice(0, FOCUS_URL_KEY_CAP) : norm;
+    return `/direct-mail?keys=${encodeURIComponent(forUrl.join(','))}`;
   }
 
   window.__normalizeFocusLeadKey = normalizeFocusLeadKey;
