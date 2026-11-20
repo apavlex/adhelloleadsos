@@ -1,0 +1,80 @@
+<% const _lfs = typeof leadsFilterSuffix !== 'undefined' ? leadsFilterSuffix : ''; %>
+<% const _lf = typeof leadListFilters !== 'undefined' && leadListFilters ? leadListFilters : {}; %>
+<% const _stOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
+<% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
+<% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
+<% const _leadCount = typeof leads !== 'undefined' && Array.isArray(leads) ? leads.length : 0; %>
+
+<section class="app-context-refine" aria-label="Search and refine">
+  <div class="flex items-center justify-between gap-2 mb-2 px-1">
+    <p class="text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] dark:text-slate-500">Search &amp; refine</p>
+    <% if (_hasActiveFilters) { %>
+    <span class="rounded-full bg-brand-yellow/25 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow">Active</span>
+    <% } %>
+  </div>
+  <p class="text-[10px] font-semibold text-[#6B7280] dark:text-slate-400 px-1 mb-3 tabular-nums"><%= _leadCount %> lead<%= _leadCount === 1 ? '' : 's' %> in view</p>
+
+  <% if (typeof leadSourceCounts !== 'undefined' && leadSourceCounts) { %>
+  <div class="flex flex-col gap-1 mb-3" role="tablist" aria-label="Filter by lead source">
+    <a href="/leads?source=all<%- _lfs.replace(/&/g, '&amp;') %>" class="app-context-chip<%= (typeof sourceFilter === 'undefined' || sourceFilter === 'all') ? ' is-active' : '' %>">All (<%= leadSourceCounts.all %>)</a>
+    <a href="/leads?source=cold<%- _lfs.replace(/&/g, '&amp;') %>" class="app-context-chip<%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'cold') ? ' is-active' : '' %>">Cold (<%= leadSourceCounts.cold %>)</a>
+    <a href="/leads?source=inbound<%- _lfs.replace(/&/g, '&amp;') %>" class="app-context-chip<%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'inbound') ? ' is-active is-warm' : '' %>">Warm inbound (<%= leadSourceCounts.inbound %>)</a>
+  </div>
+  <% } %>
+
+  <form method="get" action="/leads" class="space-y-3">
+    <input type="hidden" name="source" value="<%= _src %>" />
+    <div>
+      <label class="app-context-label">Search</label>
+      <input type="search" name="q" value="<%= _lf.q || '' %>" autocomplete="off" class="app-context-input" placeholder="Company, email, phone…" />
+    </div>
+    <div>
+      <label class="app-context-label">Origin</label>
+      <select name="origin" class="app-context-input">
+        <option value=""<%= !_lf.origin ? ' selected' : '' %>>All origins</option>
+        <option value="search"<%= _lf.origin === 'search' ? ' selected' : '' %>>Searched / maps</option>
+        <option value="csv"<%= _lf.origin === 'csv' ? ' selected' : '' %>>CSV import</option>
+        <option value="manual"<%= _lf.origin === 'manual' ? ' selected' : '' %>>Manual / offline</option>
+        <option value="warm"<%= _lf.origin === 'warm' ? ' selected' : '' %>>Warm (inbound)</option>
+      </select>
+    </div>
+    <div>
+      <label class="app-context-label">Added from</label>
+      <input type="date" name="addedFrom" value="<%= _lf.addedFrom || '' %>" class="app-context-input" />
+    </div>
+    <div>
+      <label class="app-context-label">Added to</label>
+      <input type="date" name="addedTo" value="<%= _lf.addedTo || '' %>" class="app-context-input" />
+    </div>
+    <div>
+      <label class="app-context-label">Pipeline stage</label>
+      <select name="stage" class="app-context-input">
+        <option value=""<%= !_lf.stage ? ' selected' : '' %>>All stages</option>
+        <% for (let i = 1; i <= 10; i += 1) { %>
+        <option value="<%= i %>"<%= String(_lf.stage) === String(i) ? ' selected' : '' %>><%= i %></option>
+        <% } %>
+      </select>
+    </div>
+    <div>
+      <label class="app-context-label">Status</label>
+      <select name="status" class="app-context-input">
+        <option value=""<%= !_lf.status ? ' selected' : '' %>>Any status</option>
+        <% _stOpts.forEach(function (st) { %>
+        <option value="<%= st %>"<%= _lf.status === st ? ' selected' : '' %>><%= st %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div>
+      <label class="app-context-label">Min rating</label>
+      <input type="number" name="minRating" min="0" max="5" step="0.1" value="<%= _lf.minRating || '' %>" placeholder="0" class="app-context-input" />
+    </div>
+    <div>
+      <label class="app-context-label">Min reviews</label>
+      <input type="number" name="minReviews" min="0" step="1" value="<%= _lf.minReviews || '' %>" placeholder="0" class="app-context-input" />
+    </div>
+    <div class="flex flex-wrap gap-2 pt-1">
+      <button type="submit" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest">Apply</button>
+      <a href="/leads?source=<%= _src %>" class="inline-flex items-center justify-center rounded-full border border-[#E5E7EB] dark:border-white/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Clear</a>
+    </div>
+  </form>
+</section>

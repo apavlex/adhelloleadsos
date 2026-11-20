@@ -5,20 +5,29 @@
 <% const _wsAccent = typeof workspaceAccent !== 'undefined' && workspaceAccent ? workspaceAccent : '#CA8A04'; %>
 <% const _wsCount = _wsList.length; %>
 <% const _wsSubLabel = _wsCount > 1 ? (_wsCount + ' workspaces') : 'Agency OS'; %>
+<% const _hasContextSidebar = typeof contextSidebar !== 'undefined' && !!contextSidebar; %>
 <script>
 (function () {
   var b = document.body;
   if (!b) return;
   b.classList.add('app-with-sidebar');
+  <% if (_hasContextSidebar) { %>b.classList.add('has-context-sidebar');<% } %>
   try {
     var s = localStorage.getItem('adhello-sidebar');
-    if (s === 'collapsed') b.classList.add('sidebar-collapsed');
+    // Instantly-style: when a page context menu is open, prefer the icon rail
+    // so labels live in the 2nd panel. Users can still expand the primary nav.
+    if (<%= _hasContextSidebar ? 'true' : 'false' %> && s !== 'expanded' && s !== 'hidden') {
+      b.classList.add('sidebar-collapsed');
+    } else if (s === 'collapsed') b.classList.add('sidebar-collapsed');
     else if (s === 'hidden') b.classList.add('sidebar-hidden');
-  } catch (e) {}
+  } catch (e) {
+    <% if (_hasContextSidebar) { %>b.classList.add('sidebar-collapsed');<% } %>
+  }
 })();
 </script>
 <%- include('/partials/app_sidebar') %>
-<script src="/js/sidebarShell.js?v=sidebar13" defer></script>
+<%- include('/partials/app_context_sidebar') %>
+<script src="/js/sidebarShell.js?v=sidebar14" defer></script>
 <% if (typeof user !== 'undefined' && user) { %><script src="/js/alex-voice-input.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>" defer></script><% } %>
 <script src="/js/app-nav-search.js?v=navsearch7" defer></script>
 <div class="app-shell-content min-w-0 w-full flex flex-col">

@@ -6,14 +6,30 @@
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <% const _lfs = typeof leadsFilterSuffix !== 'undefined' ? leadsFilterSuffix : ''; %>
+  <% const _lf = typeof leadListFilters !== 'undefined' && leadListFilters ? leadListFilters : {}; %>
+  <% const _stOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
+  <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
+  <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
+  <%
+    var contextSidebar = {
+      eyebrow: 'Lead management',
+      title: 'Leads pipeline',
+      subtitle: 'Search, refine, and related tools',
+      links: [
+        { href: '/outreach', label: 'Cadences' },
+        { href: '/prospecting?tab=pipeline', label: 'Prospecting pipeline' },
+        { href: '/leads/find', label: 'Find more leads' }
+      ].concat(typeof canManageWorkspace !== 'undefined' && canManageWorkspace
+        ? [{ href: '/workspace/team', label: 'Team & assign' }]
+        : []),
+      refine: 'leads'
+    };
+  %>
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-8">
-    <% const _lfs = typeof leadsFilterSuffix !== 'undefined' ? leadsFilterSuffix : ''; %>
-    <% const _lf = typeof leadListFilters !== 'undefined' && leadListFilters ? leadListFilters : {}; %>
-    <% const _stOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
-    <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
-    <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
+
     <% if (typeof importError !== 'undefined' && importError) { %>
       <div class="mb-8 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-6 py-4">
         <p class="text-sm font-semibold text-rose-900 dark:text-rose-100">Import failed: <%= importError %></p>
@@ -55,19 +71,9 @@
         <p class="text-sm font-bold text-brand-muted dark:text-slate-400 mt-2 tabular-nums">
           In view · <%= leads.length %> · Workspace · <%= _wsAll %>
         </p>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-3 flex flex-wrap gap-x-4 gap-y-2">
-          <a href="/outreach" class="text-brand-yellow hover:underline">Cadences</a>
-          <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-          <a href="/workspace/team" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
-          <% } %>
-        </p>
-        <% if (typeof leadSourceCounts !== 'undefined' && leadSourceCounts) { %>
-        <div class="flex flex-wrap gap-2 mt-4" role="tablist" aria-label="Filter by lead source">
-          <a href="/leads?source=all<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter === 'undefined' || sourceFilter === 'all') ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">All (<%= leadSourceCounts.all %>)</a>
-          <a href="/leads?source=cold<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'cold') ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">Cold (<%= leadSourceCounts.cold %>)</a>
-          <a href="/leads?source=inbound<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'inbound') ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">Warm inbound (<%= leadSourceCounts.inbound %>)</a>
+        <div class="mt-3 flex flex-wrap items-center gap-2 md:hidden">
+          <button type="button" class="js-open-context-sidebar btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Menu &amp; refine</button>
         </div>
-        <% } %>
       </div>
       <div class="flex flex-col sm:flex-row items-center gap-4">
         <!-- View Toggle -->
@@ -122,7 +128,7 @@
       </div>
     </div>
 
-    <details class="brand-card dark:bg-slate-900 dark:border-white/10 mb-8 -mt-4 group overflow-hidden" <%= _hasActiveFilters ? 'open' : '' %>>
+    <details class="brand-card js-center-page-refine dark:bg-slate-900 dark:border-white/10 mb-8 -mt-4 group overflow-hidden" <%= _hasActiveFilters ? 'open' : '' %>>
       <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 md:px-6 md:py-5 [&::-webkit-details-marker]:hidden">
         <div class="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Search &amp; refine</span>

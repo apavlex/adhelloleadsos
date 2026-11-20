@@ -6,7 +6,7 @@
 <% const _can = typeof navCan === 'function' ? navCan : function () { return true; }; %>
   <nav class="<%= _isMobileNav ? 'px-1 pb-2' : 'flex-1 px-2 pb-2' %> sidebar-primary-nav" aria-label="<%= _isMobileNav ? 'Mobile primary' : 'Primary' %>">
     <div class="sidebar-nav-group">
-      <p class="sidebar-nav-group-label sr-only">Quick actions</p>
+      <p class="sidebar-nav-group-label">Quick actions</p>
       <div class="sidebar-nav-group-items">
         <% if (user) { %>
         <div class="sidebar-new" data-sidebar-new>
