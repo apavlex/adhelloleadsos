@@ -156,6 +156,10 @@ app.set('view options', { root: path.join(__dirname, 'views') });
 app.locals.labelReviewFreshness = require('./services/reviewFreshness').labelReviewFreshness;
 app.locals.resolveCarrierSellingPoints =
   require('./services/carrierSellingPoints').resolveCarrierSellingPoints;
+app.locals.resolveGoogleMapsSearchHref =
+  require('./services/googleMapsSearchHref').resolveGoogleMapsSearchHref;
+app.locals.buildGoogleMapsSearchQuery =
+  require('./services/googleMapsSearchHref').buildGoogleMapsSearchQuery;
 Object.assign(app.locals, require('./services/workspaceTimezone').viewDateFormatters(null));
 
 const { wantsJsonResponse } = require('./lib/httpRequest');

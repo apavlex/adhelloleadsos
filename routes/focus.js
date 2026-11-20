@@ -30,6 +30,7 @@ const { isAgencySalesWorkspace } = require('../services/leadPanelWorkspace');
 const { roiScoreOptionsFromWorkspace } = require('../services/workspaceRoiProfile');
 const { createConfiguredAuditLinkResolver } = require('../services/infoPack');
 const { partnerRecord } = require('../services/referralNetwork');
+const { resolveCarrierSellingPoints } = require('../services/carrierSellingPoints');
 
 /** First N leads in HTML so Focus paints before the full early-stage queue hydrates. */
 const FOCUS_SSR_CHUNK = 20;
@@ -144,6 +145,7 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     limit: 8,
     viewerEmail: (opts && opts.viewerEmail) || '',
   });
+  const carrier = resolveCarrierSellingPoints(l);
 
   return {
     key: shortLeadKey(l),
@@ -175,6 +177,8 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     tags: dbService.normalizeTagKeys(l.tags),
     city: l.city || '',
     state: l.state || '',
+    zip: String(l.zip || l.postalCode || '').trim(),
+    postalCode: String(l.postalCode || l.zip || '').trim(),
     address: l.address && l.address !== 'N/A' ? l.address : '',
     latitude: l.latitude != null && l.latitude !== '' ? Number(l.latitude) : null,
     longitude: l.longitude != null && l.longitude !== '' ? Number(l.longitude) : null,
@@ -191,6 +195,23 @@ function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys, opts) {
     whyReasons,
     whyTier,
     customScripts: publicCustomScripts(l),
+    // Carrier / FMCSA selling points — needed on first paint (panel hydrate is too late).
+    mcNumber: carrier.mcNumber || '',
+    dotNumber: carrier.dotNumber || '',
+    powerUnits: carrier.powerUnits || '',
+    driverCount: carrier.driverCount || '',
+    cargo: carrier.cargo || '',
+    fleetOperations: carrier.fleetOperations || '',
+    insuranceCompany: carrier.insuranceCompany || '',
+    insuranceCoverage: carrier.insuranceCoverage || '',
+    insurancePolicyNo: carrier.insurancePolicyNo || '',
+    insuranceEffectiveDate: carrier.insuranceEffectiveDate || '',
+    carrierCoverage: carrier.carrierCoverage || '',
+    carrierChips: Array.isArray(carrier.chips) ? carrier.chips.slice(0, 8) : [],
+    importFields:
+      l.importFields && typeof l.importFields === 'object' && !Array.isArray(l.importFields)
+        ? l.importFields
+        : undefined,
   };
 }
 

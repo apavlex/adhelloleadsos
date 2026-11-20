@@ -303,22 +303,22 @@
     const title = String((ds && ds.title) || '').trim();
     const address = String((ds && ds.address) || '').trim();
     const city = String((ds && ds.city) || '').trim();
-    if (address && address !== 'N/A') {
-      return (
-        'https://www.google.com/maps/search/?api=1&query=' +
-        encodeURIComponent((address + ' ' + title).trim())
-      );
+    const state = String((ds && ds.state) || '').trim();
+    const zipRaw = String((ds && ds.zip) || '').trim();
+    const zipMatch = (zipRaw || address).match(/\b(\d{5})(?:-\d{4})?\b/);
+    const zip = zipMatch ? zipMatch[1] : '';
+    const parts = [];
+    if (title) parts.push(title);
+    if (zip) {
+      parts.push(zip);
+    } else {
+      if (city && city !== 'N/A') parts.push(city);
+      if (state && state !== 'N/A') parts.push(state);
     }
-    if (title && city) {
-      return (
-        'https://www.google.com/maps/search/?api=1&query=' +
-        encodeURIComponent((title + ' ' + city).trim())
-      );
-    }
-    if (title) {
-      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(title);
-    }
-    return '';
+    if (!parts.length) return '';
+    return (
+      'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parts.join(' '))
+    );
   }
 
   function buildKanbanSocialsHtml(row, leadKey) {

@@ -76,3 +76,33 @@ test('leadToFocusPayload uses partner-fit why chips for non-agency (not website-
   assert.equal(retail.businessNeeds.rationale, '');
   assert.equal(retail.hasAiWebsiteAnalysis, false);
 });
+
+test('leadToFocusPayload includes FMCSA carrier chips for Money Mode first paint', () => {
+  const payload = leadToFocusPayload(
+    {
+      title: 'ALP TRANSPORTATION LLC',
+      phone: '2145550100',
+      importFields: {
+        mc_no: '1161446',
+        dot_no: '3509949',
+        power: 'E',
+        driver: '10',
+        ins_co: 'UNITED STATES FIRE INSURANCE C',
+        cover: 'BI&PD',
+      },
+    },
+    [],
+    {},
+    [],
+    { isAgency: false },
+  );
+  assert.equal(payload.mcNumber, '1161446');
+  assert.equal(payload.dotNumber, '3509949');
+  assert.equal(payload.driverCount, '10');
+  assert.equal(payload.powerUnits, 'E');
+  assert.equal(payload.insuranceCompany, 'UNITED STATES FIRE INSURANCE C');
+  assert.ok(Array.isArray(payload.carrierChips));
+  assert.ok(payload.carrierChips.some((c) => /MC 1161446/i.test(c)));
+  assert.ok(payload.carrierChips.some((c) => /10 driver/i.test(c)));
+  assert.ok(payload.importFields && payload.importFields.mc_no === '1161446');
+});

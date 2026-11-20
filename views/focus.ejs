@@ -156,6 +156,7 @@
         <div class="min-w-0">
           <h2 id="focus-company" class="font-display font-black text-2xl text-brand-dark dark:text-white truncate">—</h2>
           <p id="focus-contact" class="text-sm font-semibold text-brand-muted dark:text-slate-400 mt-1">—</p>
+          <div id="focus-carrier-chips" class="hidden mt-2 flex flex-wrap items-center gap-1 max-w-xl" aria-label="Carrier selling points"></div>
           <div id="focus-team-badges" class="hidden flex flex-wrap items-center gap-1.5 mt-2" aria-label="Team attribution"></div>
         </div>
         <div class="flex items-center gap-2 shrink-0">
@@ -866,6 +867,7 @@
     var elBizReviews = document.getElementById('focus-biz-reviews');
     var elBizReviewStars = document.getElementById('focus-biz-review-stars');
     var elCarrierWrap = document.getElementById('focus-carrier-selling-wrap');
+    var elCarrierChips = document.getElementById('focus-carrier-chips');
     var elCarrierMc = document.getElementById('focus-carrier-mc');
     var elCarrierDot = document.getElementById('focus-carrier-dot');
     var elCarrierDrivers = document.getElementById('focus-carrier-drivers');
@@ -1797,7 +1799,7 @@
       return 'https://' + s.replace(/^\/\//, '');
     }
 
-    /** Same rules as pipeline `googleMapsSocialHrefForLead` (views/partials/leads_pipeline_core.ejs). */
+    /** Name first + ZIP (preferred) so street matches don't drop the business name. */
     function googleMapsSocialHrefFromLead(lead) {
       var raw = lead.url && lead.url !== 'N/A' ? String(lead.url).trim() : '';
       function isGmListing(absUrl) {
@@ -1819,16 +1821,20 @@
       var title = String(lead.title || '').trim();
       var address = String(lead.address || '').trim();
       var city = String(lead.city || '').trim();
-      if (address && address !== 'N/A') {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((address + ' ' + title).trim());
+      var state = String(lead.state || '').trim();
+      var zipRaw = String(lead.zip || lead.postalCode || '').trim();
+      var zipMatch = (zipRaw || address).match(/\b(\d{5})(?:-\d{4})?\b/);
+      var zip = zipMatch ? zipMatch[1] : '';
+      var parts = [];
+      if (title) parts.push(title);
+      if (zip) {
+        parts.push(zip);
+      } else {
+        if (city && city !== 'N/A') parts.push(city);
+        if (state && state !== 'N/A') parts.push(state);
       }
-      if (title && city) {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((title + ' ' + city).trim());
-      }
-      if (title) {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(title);
-      }
-      return '';
+      if (!parts.length) return '';
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parts.join(' '));
     }
 
     var FOCUS_SVG_GOOGLE_MAPS =
@@ -4384,20 +4390,57 @@
       };
     }
 
+    function buildFocusCarrierChips(pts, lead) {
+      if (lead && Array.isArray(lead.carrierChips) && lead.carrierChips.length) {
+        return lead.carrierChips
+          .map(function (c) { return String(c || '').trim(); })
+          .filter(Boolean)
+          .slice(0, 8);
+      }
+      var chips = [];
+      if (pts.mc) chips.push('MC ' + pts.mc);
+      if (pts.dot) chips.push('DOT ' + pts.dot);
+      if (pts.drivers) {
+        chips.push(pts.drivers + ' driver' + (String(pts.drivers) === '1' ? '' : 's'));
+      }
+      if (pts.power) chips.push('Power ' + pts.power);
+      if (pts.insurer) chips.push(pts.insurer);
+      if (pts.cover) chips.push(pts.cover);
+      if (pts.cargo) chips.push('Cargo ' + pts.cargo);
+      return chips.slice(0, 8);
+    }
+
     function renderCarrierSellingPoints(lead) {
-      if (!elCarrierWrap) return;
       var pts = resolveFocusCarrierPoints(lead);
       var hasAny = !!(pts.mc || pts.dot || pts.drivers || pts.power || pts.insurer || pts.cover || pts.policy || pts.eff || pts.cargo);
-      elCarrierWrap.classList.toggle('hidden', !hasAny);
-      if (elCarrierMc) elCarrierMc.textContent = pts.mc || '—';
-      if (elCarrierDot) elCarrierDot.textContent = pts.dot || '—';
-      if (elCarrierDrivers) elCarrierDrivers.textContent = pts.drivers || '—';
-      if (elCarrierPower) elCarrierPower.textContent = pts.power || '—';
-      if (elCarrierInsurer) elCarrierInsurer.textContent = pts.insurer || '—';
-      if (elCarrierCover) elCarrierCover.textContent = pts.cover || '—';
-      if (elCarrierPolicy) elCarrierPolicy.textContent = pts.policy || '—';
-      if (elCarrierEff) elCarrierEff.textContent = pts.eff || '—';
-      if (elCarrierCargo) elCarrierCargo.textContent = pts.cargo || '—';
+      var chips = buildFocusCarrierChips(pts, lead);
+      if (elCarrierWrap) {
+        elCarrierWrap.classList.toggle('hidden', !hasAny);
+        if (elCarrierMc) elCarrierMc.textContent = pts.mc || '—';
+        if (elCarrierDot) elCarrierDot.textContent = pts.dot || '—';
+        if (elCarrierDrivers) elCarrierDrivers.textContent = pts.drivers || '—';
+        if (elCarrierPower) elCarrierPower.textContent = pts.power || '—';
+        if (elCarrierInsurer) elCarrierInsurer.textContent = pts.insurer || '—';
+        if (elCarrierCover) elCarrierCover.textContent = pts.cover || '—';
+        if (elCarrierPolicy) elCarrierPolicy.textContent = pts.policy || '—';
+        if (elCarrierEff) elCarrierEff.textContent = pts.eff || '—';
+        if (elCarrierCargo) elCarrierCargo.textContent = pts.cargo || '—';
+      }
+      if (elCarrierChips) {
+        elCarrierChips.innerHTML = '';
+        if (chips.length) {
+          chips.forEach(function (chip) {
+            var span = document.createElement('span');
+            span.className =
+              'inline-flex px-1.5 py-0.5 rounded-md border border-sky-500/30 bg-sky-500/10 text-sky-900 dark:text-sky-200 text-[8px] font-black uppercase tracking-wider';
+            span.textContent = chip;
+            elCarrierChips.appendChild(span);
+          });
+          elCarrierChips.classList.remove('hidden');
+        } else {
+          elCarrierChips.classList.add('hidden');
+        }
+      }
     }
 
     function renderBusinessInfo(lead) {

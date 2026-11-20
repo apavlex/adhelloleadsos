@@ -7,35 +7,27 @@
         : function () { return { chips: [], summaryLine: '', hasAny: false }; };
     var labelReviewFreshnessServer =
       typeof labelReviewFreshness === 'function' ? labelReviewFreshness : null;
+    /* Prefer app.locals.resolveGoogleMapsSearchHref — name + ZIP (city/state fallback). */
     function googleMapsSocialHrefForLead(lead) {
-      var raw = (lead.url && lead.url !== 'N/A') ? String(lead.url).trim() : '';
-      function isGmListing(absUrl) {
-        try {
-          var u = new URL(absUrl);
-          var h = u.hostname.replace(/^www\./i, '').toLowerCase();
-          if (h === 'maps.app.goo.gl') return true;
-          if (h === 'goo.gl' && u.pathname.includes('maps')) return true;
-          if (h.endsWith('google.com') || h.endsWith('google.co.uk')) {
-            if (u.pathname.includes('/maps/')) return true;
-            if (u.search.includes('cid=') || u.search.includes('q=place_id:')) return true;
-          }
-          return false;
-        } catch (e) { return false; }
+      if (typeof resolveGoogleMapsSearchHref === 'function') {
+        return resolveGoogleMapsSearchHref(lead) || '';
       }
-      if (raw && /^https?:\/\//i.test(raw) && isGmListing(raw)) return raw;
       var title = String(lead.title || '').trim();
       var address = String(lead.address || '').trim();
       var city = String(lead.city || '').trim();
-      if (address && address !== 'N/A') {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((address + ' ' + title).trim());
+      var state = String(lead.state || '').trim();
+      var zipRaw = String(lead.zip || lead.postalCode || '').trim();
+      var zipMatch = (zipRaw || address).match(/\b(\d{5})(?:-\d{4})?\b/);
+      var zip = zipMatch ? zipMatch[1] : '';
+      var parts = [];
+      if (title) parts.push(title);
+      if (zip) parts.push(zip);
+      else {
+        if (city && city !== 'N/A') parts.push(city);
+        if (state && state !== 'N/A') parts.push(state);
       }
-      if (title && city) {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((title + ' ' + city).trim());
-      }
-      if (title) {
-        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(title);
-      }
-      return '';
+      if (!parts.length) return '';
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(parts.join(' '));
     }
     /* Callers print these with EJS escaped output, which already HTML-escapes — escaping here too corrupts attribute values. */
     function plcEscAttr(v) {
