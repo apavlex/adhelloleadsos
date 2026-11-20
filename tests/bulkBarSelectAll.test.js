@@ -69,6 +69,9 @@ describe('bulk bar Share/Delete + select-all', () => {
     assert.match(js, /purpose=select/);
     assert.match(js, /folderWideKeys/);
     assert.match(js, /pipelineTableSelectAllBtn/);
+    assert.match(js, /fetchPipelineListSelectionKeys/);
+    assert.match(js, /\/prospecting\/lead-keys\.json/);
+    assert.match(js, /__bulkFolderWidePainting/);
   });
 
   it('keeps large select-all off the per-row DOM / softphone hot path', () => {
@@ -82,5 +85,18 @@ describe('bulk bar Share/Delete + select-all', () => {
     assert.match(app, /isHeavyFolderWideSelection/);
     assert.match(app, /updateBulkActionBar = \(opts\)/);
     assert.match(nav, /__bulkFolderWideIsHeavy/);
+  });
+
+  it('exposes pipeline lead-keys JSON matching table-rows filters', () => {
+    const route = fs.readFileSync(path.join(__dirname, '../routes/prospecting.js'), 'utf8');
+    assert.match(route, /resolvePipelineListLeads/);
+    assert.match(route, /router\.get\('\/lead-keys\.json'/);
+    assert.match(route, /purpose:\s*'select'/);
+  });
+
+  it('includes folder descendants when selecting via folders lead-keys', () => {
+    const route = fs.readFileSync(foldersRoutePath, 'utf8');
+    assert.match(route, /folderKeysIncludingDescendants/);
+    assert.match(route, /buildFolderTree/);
   });
 });

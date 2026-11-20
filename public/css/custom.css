@@ -1563,53 +1563,71 @@ table {
 }
 
 .result-row:hover {
-    background-color: var(--brand-cream) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 8%, #fff) !important;
     transform: scale(1.002);
 }
 
-/* Bulk checkbox selection (search results, pipeline, inbound) */
+/* Bulk checkbox selection — white + workspace brand accent (no cream/yellow wash). */
 .result-row.bulk-selected {
-    background-color: rgba(253, 224, 71, 0.14) !important;
-    box-shadow: inset 4px 0 0 var(--brand-yellow);
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 10%, #fff) !important;
+    box-shadow: inset 4px 0 0 var(--workspace-accent, var(--brand-yellow));
 }
 
 .result-row.bulk-selected > td {
-    background-color: rgba(253, 224, 71, 0.14) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 10%, #fff) !important;
 }
 
 .result-row.bulk-selected:hover {
-    background-color: rgba(253, 224, 71, 0.22) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 16%, #fff) !important;
 }
 
 .result-row.bulk-selected:hover > td {
-    background-color: rgba(253, 224, 71, 0.22) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 16%, #fff) !important;
 }
 
 tbody.bulk-select-all-active .result-row.bulk-selected,
 table.bulk-select-all-active .result-row.bulk-selected {
-    background-color: rgba(253, 224, 71, 0.1) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 8%, #fff) !important;
+}
+
+tbody.bulk-select-all-active .result-row.bulk-selected > td,
+table.bulk-select-all-active .result-row.bulk-selected > td {
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 8%, #fff) !important;
+}
+
+html.dark .result-row:hover {
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #0f172a) !important;
 }
 
 html.dark .result-row.bulk-selected {
-    background-color: rgba(253, 224, 71, 0.12) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a) !important;
 }
 
 html.dark .result-row.bulk-selected > td {
-    background-color: rgba(253, 224, 71, 0.12) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a) !important;
 }
 
 html.dark tbody.bulk-select-all-active .result-row.bulk-selected,
 html.dark table.bulk-select-all-active .result-row.bulk-selected {
-    background-color: rgba(253, 224, 71, 0.08) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #0f172a) !important;
+}
+
+html.dark tbody.bulk-select-all-active .result-row.bulk-selected > td,
+html.dark table.bulk-select-all-active .result-row.bulk-selected > td {
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #0f172a) !important;
 }
 
 .result-row.selected {
-    background-color: var(--brand-cream) !important;
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 8%, #fff) !important;
     position: relative;
 }
 
+html.dark .result-row.selected {
+    background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 14%, #0f172a) !important;
+}
+
 .result-row.selected.bulk-selected {
-    box-shadow: inset 4px 0 0 var(--brand-yellow);
+    box-shadow: inset 4px 0 0 var(--workspace-accent, var(--brand-yellow));
 }
 
 .result-row.selected::after {
@@ -1619,9 +1637,9 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     top: 10%;
     bottom: 10%;
     width: 4px;
-    background: var(--brand-yellow);
+    background: var(--workspace-accent, var(--brand-yellow));
     border-radius: 0 4px 4px 0;
-    box-shadow: 2px 0 10px rgba(253, 224, 71, 0.4);
+    box-shadow: 2px 0 10px color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 35%, transparent);
 }
 
 .max-wide {
@@ -3221,20 +3239,31 @@ html.dark #pipelineColumnsPopover {
   box-sizing: border-box;
 }
 
+/* White rows + soft brand zebra (no cream/yellow wash). */
 .prospect-leads-table tbody tr:nth-child(odd) td {
-  background-color: rgba(250, 247, 237, 0.45);
+  background-color: #ffffff;
 }
 
 .prospect-leads-table tbody tr:nth-child(even) td {
-  background-color: var(--brand-card-bg);
+  background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 4%, #ffffff);
 }
 
 .dark .prospect-leads-table tbody tr:nth-child(odd) td {
-  background-color: rgba(30, 41, 59, 0.55);
+  background-color: var(--brand-card-bg);
 }
 
 .dark .prospect-leads-table tbody tr:nth-child(even) td {
-  background-color: var(--brand-card-bg);
+  background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 10%, #0f172a);
+}
+
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td,
+.prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td {
+  background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 10%, #fff);
+}
+
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(odd) td,
+.dark .prospect-leads-table tbody tr.result-row.bulk-selected:nth-child(even) td {
+  background-color: color-mix(in srgb, var(--workspace-accent, var(--brand-yellow)) 18%, #0f172a);
 }
 
 .prospect-leads-table--comfortable tbody td {

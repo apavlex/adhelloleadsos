@@ -20,6 +20,7 @@ const { optimizeFolderGhlWorkflowPrompt } = require('../services/ghlWorkflowCoac
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const teamActivity = require('../services/teamActivity');
 const leadWorkspaceShare = require('../services/leadWorkspaceShare');
+const { buildFolderTree, folderKeysIncludingDescendants } = require('../services/folderTree');
 
 async function folderLabel(workspaceId, folderKey) {
   if (!folderKey) return 'Unfiled';
@@ -84,8 +85,12 @@ router.get('/lead-keys.json', async (req, res, next) => {
       : leadWorkspaceShare.MAX_LEADS;
     let keys;
     if (forSelection) {
-      // Same visibility as the pipeline table (assigned-only SDRs, etc.).
-      const leads = await dbService.listLeadsByFolderKeys(req.workspaceId, [folderKey]);
+      // Same scope as the pipeline table: folder + descendants, then request visibility.
+      const folders = await dbService.listFolders(req.workspaceId);
+      const folderTree = buildFolderTree(Array.isArray(folders) ? folders : []);
+      const scoped =
+        folderKeysIncludingDescendants(folderTree, folderKey) || new Set([folderKey]);
+      const leads = await dbService.listLeadsByFolderKeys(req.workspaceId, scoped);
       const visible = filterLeadsForRequest(req, Array.isArray(leads) ? leads : []);
       keys = [
         ...new Set(

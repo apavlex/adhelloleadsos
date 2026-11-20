@@ -393,6 +393,42 @@
     };
   }
 
+  /** Keys for the current pipeline list (same filters as Load more / table total). */
+  async function fetchPipelineListSelectionKeys() {
+    const meta =
+      window.__PIPELINE_ROWS_META && typeof window.__PIPELINE_ROWS_META === 'object'
+        ? window.__PIPELINE_ROWS_META
+        : null;
+    let qs = meta && meta.query != null ? String(meta.query) : '';
+    if (!qs) {
+      try {
+        qs = String(window.location.search || '').replace(/^\?/, '');
+      } catch (_) {
+        qs = '';
+      }
+    }
+    const params = new URLSearchParams(qs);
+    const folderKey = activePipelineFolderKey();
+    if (folderKey && !String(params.get('folderKey') || '').trim()) {
+      params.set('folderKey', folderKey);
+    }
+    params.set('purpose', 'select');
+    const res = await fetch('/prospecting/lead-keys.json?' + params.toString(), {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not load list leads.');
+    }
+    return {
+      keys: Array.isArray(data.leadKeys) ? data.leadKeys : [],
+      capped: !!data.capped,
+      maxLeads: data.maxLeads,
+      total: data.total != null ? data.total : undefined,
+    };
+  }
+
   async function loadRemainingPipelineRowsForSelection(onProgress) {
     const meta =
       window.__PIPELINE_ROWS_META && typeof window.__PIPELINE_ROWS_META === 'object'
@@ -471,14 +507,25 @@
     try {
       let keys = [];
       let capped = false;
-      if (folderKey) {
-        const result = await fetchFolderSelectionKeys(folderKey);
+      const listTotal = pipelineListTotal();
+      // Always prefer the pipeline keys API — matches table filters + descendants.
+      // Folder endpoint is a fallback when the pipeline route is unavailable.
+      try {
+        setBusyLabel(listTotal > 1 ? `Selecting ${listTotal}…` : 'Selecting…');
+        const result = await fetchPipelineListSelectionKeys();
         keys = result.keys;
         capped = result.capped;
-      } else {
-        // Prefer keys already loaded in the table; never HTML-hydrate thousands of rows
-        // just to select them (that freezes the tab). Remaining keys stay unloadable
-        // until the user Loads more — folder views use the lead-keys API instead.
+      } catch (pipelineErr) {
+        if (folderKey) {
+          const result = await fetchFolderSelectionKeys(folderKey);
+          keys = result.keys;
+          capped = result.capped;
+        } else {
+          throw pipelineErr;
+        }
+      }
+      // Tiny lists only: if API returned nothing but rows are already painted, use DOM.
+      if (!keys.length) {
         const table = document.getElementById('prospectLeadsTable');
         if (table) {
           table.querySelectorAll('tbody tr.result-row').forEach((tr) => {
@@ -486,41 +533,30 @@
             if (k) keys.push(k);
           });
         }
-        const meta =
-          window.__PIPELINE_ROWS_META && typeof window.__PIPELINE_ROWS_META === 'object'
-            ? window.__PIPELINE_ROWS_META
-            : null;
-        const total = meta ? parseInt(meta.total, 10) || 0 : 0;
-        if (meta && meta.hasMore && total > keys.length && total <= 400) {
-          // Small lists only: finish loading so Select all can cover everything.
-          await loadRemainingPipelineRowsForSelection((p) => {
-            const loaded = p && p.loaded != null ? p.loaded : 0;
-            const t = p && p.total != null ? p.total : 0;
-            setBusyLabel(t > 0 ? `Loading ${loaded}/${t}…` : `Loading ${loaded}…`);
-          });
-          keys = [];
-          if (table) {
-            table.querySelectorAll('tbody tr.result-row').forEach((tr) => {
-              const k = String(tr.getAttribute('data-lead-key') || tr.dataset.leadKey || '').trim();
-              if (k) keys.push(k);
-            });
-          }
-        } else if (meta && meta.hasMore && total > keys.length) {
-          setBusyLabel(`Selecting ${keys.length} loaded…`);
-        }
       }
       if (!keys.length) {
         throw new Error('No leads to select in this list.');
       }
-      setFolderWideKeys(keys);
-      // Yield so the "Selecting…" label paints before any DOM work.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      markVisibleRowsForFolderWideSelection();
-      showBulkActionBar(keys.length);
-      if (typeof window.__applyFolderWideSelectionKeys === 'function') {
-        window.__applyFolderWideSelectionKeys(keys, { light: true });
-      } else if (typeof window.__updateBulkActionBar === 'function') {
-        window.__updateBulkActionBar();
+      // Never silently keep a page-only selection when the list total is larger.
+      if (listTotal > keys.length + 5) {
+        throw new Error(
+          `Could only load ${keys.length} of ${listTotal} leads for Select all. Try again.`,
+        );
+      }
+      window.__bulkFolderWidePainting = true;
+      try {
+        setFolderWideKeys(keys);
+        // Yield so the "Selecting…" label paints before any DOM work.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        markVisibleRowsForFolderWideSelection();
+        showBulkActionBar(keys.length);
+        if (typeof window.__applyFolderWideSelectionKeys === 'function') {
+          window.__applyFolderWideSelectionKeys(keys, { light: true });
+        } else if (typeof window.__updateBulkActionBar === 'function') {
+          window.__updateBulkActionBar();
+        }
+      } finally {
+        window.__bulkFolderWidePainting = false;
       }
       syncSelectAllFolderBtn();
       const msg = capped
@@ -541,6 +577,7 @@
       if (typeof window.showAppToast === 'function') window.showAppToast(fail, { variant: 'error' });
       else window.alert(fail);
     } finally {
+      window.__bulkFolderWidePainting = false;
       buttons.forEach((btn, i) => {
         btn.removeAttribute('aria-busy');
         btn.disabled = false;
@@ -1083,7 +1120,9 @@
       const t = e.target;
       if (!t || t.tagName !== 'INPUT') return;
       if (!t.classList.contains('lead-checkbox') && !t.classList.contains('row-checkbox')) return;
-      if (!window.__bulkSelectRangeSync) setBulkSelectAnchor(table, t);
+      // Programmatic Select-all paint must not collapse folder-wide keys back to the page.
+      if (window.__bulkFolderWidePainting || window.__bulkSelectRangeSync) return;
+      setBulkSelectAnchor(table, t);
       // Editing one row exits "select all in list" and keeps only checked DOM rows.
       if (folderWideKeys && folderWideKeys.size) {
         clearFolderWideKeys();
@@ -1179,7 +1218,7 @@
         const t = e.target;
         if (!t || !t.matches) return;
         if (!t.matches('input.lead-checkbox, input.row-checkbox')) return;
-        if (window.__bulkSelectRangeSync) return;
+        if (window.__bulkSelectRangeSync || window.__bulkFolderWidePainting) return;
         scheduleSyncBulkBarFromDom();
       },
       true,
@@ -1192,7 +1231,7 @@
           e.target && e.target.closest
             ? e.target.closest('input.lead-checkbox, input.row-checkbox')
             : null;
-        if (!cb || window.__bulkSelectRangeSync) return;
+        if (!cb || window.__bulkSelectRangeSync || window.__bulkFolderWidePainting) return;
         scheduleSyncBulkBarFromDom();
       },
       true,
