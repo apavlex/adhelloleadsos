@@ -32,6 +32,10 @@ const {
   enrichTasksWithLeadsForToday,
   followUpTasksNeedingAttention,
 } = require('../services/todayDeferred');
+const {
+  loadTodayDashboardPrefs,
+  saveTodayDashboardPrefs,
+} = require('../services/todayDashboardPrefs');
 
 function firstNameFromUser(user) {
   const raw =
@@ -198,6 +202,13 @@ router.get('/', async (req, res, next) => {
       active: false,
     }));
 
+    let todayDashboardPrefs = null;
+    try {
+      todayDashboardPrefs = await loadTodayDashboardPrefs(userEmail(req));
+    } catch (_) {
+      todayDashboardPrefs = null;
+    }
+
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -247,7 +258,33 @@ router.get('/', async (req, res, next) => {
       actionPlanMonthNav,
       agentOpsDash,
       todayExtrasDeferred: true,
+      todayDashboardPrefs,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** GET JSON: account Today dashboard layout (order + hidden sections). */
+router.get('/dashboard-layout.json', async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) return res.status(401).json({ success: false, error: 'Sign in to load dashboard layout.' });
+    const prefs = await loadTodayDashboardPrefs(email);
+    res.json({ success: true, prefs: prefs || null });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: save Today dashboard layout to the account (syncs desktop ↔ mobile). */
+router.post('/dashboard-layout', express.json({ limit: '32kb' }), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) return res.status(401).json({ success: false, error: 'Sign in to save dashboard layout.' });
+    const prefs = await saveTodayDashboardPrefs(email, req.body || {});
+    if (!prefs) return res.status(400).json({ success: false, error: 'Invalid dashboard layout.' });
+    res.json({ success: true, prefs });
   } catch (e) {
     next(e);
   }

@@ -246,6 +246,9 @@
 <script src="/js/opportunities-board.js?v=<%= _av %>" defer></script>
 <% } %>
 <% if (_np === 'today') { %>
+<% if (typeof todayDashboardPrefs !== 'undefined' && todayDashboardPrefs) { %>
+<script>window.__SERVER_TODAY_DASH_LAYOUT = <%- JSON.stringify(todayDashboardPrefs).replace(/</g, '\\u003c') %>;</script>
+<% } %>
 <link rel="stylesheet" href="/css/today-dashboard-layout.css?v=<%= _av %>" />
 <script src="/js/today-dashboard-layout.js?v=<%= _av %>" defer></script>
 <% } %>
