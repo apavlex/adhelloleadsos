@@ -139,16 +139,51 @@
     }
 
     function actionButtonsHtml(f, isSystemRoot) {
-      var html = '<div class="folder-lite-actions flex items-center gap-1 shrink-0">';
-      html += '<button type="button" class="folder-lite-share js-folder-share px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors" data-folder-key="' + esc(f.key) + '" data-folder-name="' + esc(f.name || 'Folder') + '" title="Copy all leads in this folder into another workspace">Share</button>';
+      var openHref = '/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(f.key);
+      var name = f.name || 'Folder';
+      var moreItems = '';
+      moreItems += '<button type="button" class="folder-lite-share js-folder-share folder-lite-more-btn text-sky-700 dark:text-sky-300" data-folder-key="' + esc(f.key) + '" data-folder-name="' + esc(name) + '" title="Copy all leads in this folder into another workspace">Share</button>';
       if (!isSystemRoot && !f.isPipelineDefault) {
-        html += '<button type="button" class="folder-lite-rename px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="' + esc(f.key) + '">Rename</button>';
+        moreItems += '<button type="button" class="folder-lite-rename folder-lite-more-btn text-brand-muted hover:text-brand-dark dark:hover:text-white" data-folder-key="' + esc(f.key) + '">Rename</button>';
         if (!f.isTradeFolder) {
-          html += '<button type="button" class="folder-lite-move px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/70 dark:hover:bg-white/10 transition-colors" data-folder-key="' + esc(f.key) + '">Move</button>';
+          moreItems += '<button type="button" class="folder-lite-move folder-lite-more-btn text-brand-muted hover:text-brand-dark dark:hover:text-white" data-folder-key="' + esc(f.key) + '">Move</button>';
         }
-        html += '<button type="button" class="folder-lite-delete px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-red-600/90 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors" data-folder-key="' + esc(f.key) + '" title="Delete this folder (leads stay, unassigned)">Delete</button>';
+        moreItems += '<button type="button" class="folder-lite-delete folder-lite-more-btn text-red-600/90 dark:text-red-400" data-folder-key="' + esc(f.key) + '" title="Delete this folder (leads stay, unassigned)">Delete</button>';
       }
+
+      var html = '<div class="folder-lite-actions-wrap flex flex-col items-stretch sm:items-end gap-2 shrink-0 w-full sm:w-auto">';
+      /* Mobile: Open + More pull-down — keeps long names from overlapping action links */
+      html += '<div class="folder-lite-phonebar flex sm:hidden items-center gap-2 w-full">';
+      html += '<a href="' + openHref + '" class="js-folder-row-cta flex-1 text-center px-3 py-2.5 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[11px] font-black uppercase tracking-widest shadow-sm">Open →</a>';
+      html += '<button type="button" class="folder-lite-more-toggle inline-flex items-center justify-center gap-1 px-3 py-2.5 rounded-xl border border-brand-border dark:border-white/20 text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white shrink-0" aria-expanded="false" aria-label="More actions for ' + esc(name) + '">More<svg class="folder-lite-more-chevron w-3.5 h-3.5 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>';
       html += '</div>';
+      html += '<div class="folder-lite-more flex flex-wrap items-center justify-start sm:justify-end gap-1">';
+      html += moreItems;
+      html += '<a href="' + openHref + '" class="js-folder-row-cta hidden sm:inline-flex px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Open →</a>';
+      html += '</div></div>';
+      return html;
+    }
+
+    function folderRowShell(f, opts) {
+      opts = opts || {};
+      var openHref = '/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(f.key);
+      var depth = opts.depth || 0;
+      var pad = depth <= 0 ? '' : (depth === 1 ? 'pl-8' : (depth === 2 ? 'pl-12' : 'pl-16'));
+      var py = depth <= 0 ? 'py-4' : 'py-3.5';
+      var titleClass = depth <= 0
+        ? 'font-display font-bold text-brand-dark dark:text-white'
+        : 'font-semibold text-brand-dark dark:text-white';
+      var title = depth <= 0
+        ? esc(f.name || 'Folder')
+        : '<span class="text-brand-muted/50 mr-1" aria-hidden="true">↳</span>' + esc(f.name || 'Folder');
+      var countPad = depth === 1 ? ' pl-4' : '';
+      var html = '<li class="folder-lite-row list-none"' + rowMetaAttrs(f) + ' data-folder-search="' + esc((f.name + ' ' + (f.jobType || '') + ' ' + (f.tradeSlug || '')).toLowerCase()) + '">';
+      html += '<div class="folder-lite-row-inner flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 px-4 sm:px-6 ' + py + ' ' + pad + ' hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">';
+      html += '<a href="' + openHref + '" class="folder-lite-name min-w-0 w-full sm:flex-1 sm:pr-2">';
+      html += '<span class="' + titleClass + ' break-words">' + title + '</span>';
+      html += '<span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest text-brand-muted mt-0.5' + countPad + '">…</span></a>';
+      html += actionButtonsHtml(f, !!opts.isSystemRoot);
+      html += '</div></li>';
       return html;
     }
 
@@ -170,30 +205,12 @@
         html += '<span class="text-brand-muted text-xs font-bold" aria-hidden="true">▾</span></summary>';
         html += '<ul class="m-0 p-0 list-none divide-y divide-brand-border/20 dark:divide-white/5">';
         if (rootFolder && rootFolder.key) {
-          html += '<li class="folder-lite-row list-none"' + rowMetaAttrs(Object.assign({}, rootFolder, { isPipelineDefault: true })) + ' data-folder-search="' + esc((rootFolder.name + ' ' + (rootFolder.jobType || '')).toLowerCase()) + '">';
-          html += '<div class="flex items-center justify-between gap-3 px-6 py-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">';
-          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(rootFolder.key) + '" class="min-w-0 flex-1">';
-          html += '<span class="font-display font-bold text-brand-dark dark:text-white">' + esc(rootFolder.name || 'Folder') + '</span>';
-          html += '<span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest text-brand-muted mt-0.5">…</span></a>';
-          html += '<div class="flex items-center gap-2 shrink-0">';
-          html += actionButtonsHtml(Object.assign({}, rootFolder, { isPipelineDefault: true }), true);
-          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(rootFolder.key) + '" class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted">Open →</a>';
-          html += '</div></div></li>';
+          html += folderRowShell(Object.assign({}, rootFolder, { isPipelineDefault: true }), { depth: 0, isSystemRoot: true });
         }
         childRows.forEach(function (row) {
           var f = row.folder || {};
           if (!f.key) return;
-          var depth = row.depth || 1;
-          var pad = depth <= 1 ? 'pl-8' : (depth === 2 ? 'pl-12' : 'pl-16');
-          html += '<li class="folder-lite-row list-none"' + rowMetaAttrs(f) + ' data-folder-search="' + esc((f.name + ' ' + (f.jobType || '') + ' ' + (f.tradeSlug || '')).toLowerCase()) + '">';
-          html += '<div class="flex items-center justify-between gap-3 px-6 py-3.5 ' + pad + ' hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors">';
-          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(f.key) + '" class="min-w-0 flex-1">';
-          html += '<span class="font-semibold text-brand-dark dark:text-white"><span class="text-brand-muted/50 mr-1" aria-hidden="true">↳</span>' + esc(f.name || 'Folder') + '</span>';
-          html += '<span class="js-folder-row-count block text-[10px] font-black uppercase tracking-widest text-brand-muted mt-0.5' + (depth <= 1 ? ' pl-4' : '') + '">…</span></a>';
-          html += '<div class="flex items-center gap-2 shrink-0">';
-          html += actionButtonsHtml(f, false);
-          html += '<a href="/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(f.key) + '" class="js-folder-row-cta text-[10px] font-black uppercase tracking-widest text-brand-muted">Open →</a>';
-          html += '</div></div></li>';
+          html += folderRowShell(f, { depth: row.depth || 1, isSystemRoot: false });
         });
         html += '</ul></details>';
       });
@@ -225,17 +242,17 @@
         var key = row.getAttribute('data-folder-key') || '';
         var n = key && counts[key] != null ? Number(counts[key]) || 0 : 0;
         var countEl = row.querySelector('.js-folder-row-count');
-        var cta = row.querySelector('.js-folder-row-cta');
         if (countEl) {
           countEl.textContent = n + ' lead' + (n === 1 ? '' : 's');
           countEl.classList.toggle('text-brand-dark', !!n);
           countEl.classList.toggle('dark:text-white', !!n);
           countEl.classList.toggle('text-brand-muted', !n);
         }
-        if (cta) {
-          var isRoot = !!row.querySelector('.font-display');
-          cta.textContent = n ? (isRoot ? 'Open leads →' : 'Open →') : (isRoot ? 'Open →' : 'Empty');
-        }
+        var isRoot = !!row.querySelector('.font-display');
+        var openLabel = n ? (isRoot ? 'Open leads →' : 'Open →') : (isRoot ? 'Open →' : 'Empty');
+        row.querySelectorAll('.js-folder-row-cta').forEach(function (cta) {
+          cta.textContent = openLabel;
+        });
       });
       root.setAttribute('data-folder-counts-pending', '0');
     }
@@ -386,8 +403,35 @@
       runHydrate();
     }
 
+    function closeAllLiteMore(exceptRow) {
+      if (!root) return;
+      root.querySelectorAll('.folder-lite-row.is-more-open').forEach(function (other) {
+        if (exceptRow && other === exceptRow) return;
+        other.classList.remove('is-more-open');
+        var t = other.querySelector('.folder-lite-more-toggle');
+        if (t) t.setAttribute('aria-expanded', 'false');
+      });
+    }
+
     function bindRowActions() {
       if (!root) return;
+      root.querySelectorAll('.folder-lite-more-toggle').forEach(function (btn) {
+        btn.onclick = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var row = btn.closest('.folder-lite-row');
+          if (!row) return;
+          var open = !row.classList.contains('is-more-open');
+          closeAllLiteMore(row);
+          row.classList.toggle('is-more-open', open);
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+      });
+      root.querySelectorAll('.folder-lite-more-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          closeAllLiteMore();
+        });
+      });
       root.querySelectorAll('.folder-lite-rename').forEach(function (btn) {
         btn.onclick = function (e) {
           e.preventDefault();
@@ -593,6 +637,12 @@
         runHydrate();
       });
     }
+
+    document.addEventListener('click', function (e) {
+      if (!root) return;
+      if (e.target && e.target.closest && e.target.closest('.folder-lite-row')) return;
+      closeAllLiteMore();
+    });
 
     bindSearch();
     bindModals();
