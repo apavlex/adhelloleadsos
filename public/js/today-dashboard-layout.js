@@ -1,10 +1,12 @@
 /**
- * Today dashboard customize — hide sections and rearrange order (localStorage).
+ * Today dashboard customize — hide sections and rearrange order.
+ * Persists to the account (server) so desktop ↔ mobile stay in sync; localStorage is a cache.
  */
 (function () {
   'use strict';
 
   var STORAGE_KEY = 'adhello-today-dash-layout';
+  var SYNC_URL = '/today/dashboard-layout';
   var DEFAULT_ORDER = [
     'hero',
     'sources',
@@ -20,37 +22,102 @@
     return Array.prototype.slice.call(document.querySelectorAll('[data-today-section]'));
   }
 
-  function loadPrefs() {
+  function normalizePrefs(raw) {
+    var order = Array.isArray(raw && raw.order)
+      ? raw.order.map(String).filter(Boolean)
+      : DEFAULT_ORDER.slice();
+    var hidden =
+      raw && raw.hidden && typeof raw.hidden === 'object' && !Array.isArray(raw.hidden)
+        ? raw.hidden
+        : {};
+    var updatedAt = Number(raw && raw.updatedAt) || 0;
+    return { order: order, hidden: hidden, updatedAt: updatedAt };
+  }
+
+  function readLocalPrefs() {
     try {
       var raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { order: DEFAULT_ORDER.slice(), hidden: {} };
-      var parsed = JSON.parse(raw);
-      var order = Array.isArray(parsed.order)
-        ? parsed.order.map(String).filter(Boolean)
-        : DEFAULT_ORDER.slice();
-      var hidden =
-        parsed.hidden && typeof parsed.hidden === 'object' && !Array.isArray(parsed.hidden)
-          ? parsed.hidden
-          : {};
-      return { order: order, hidden: hidden };
+      if (!raw) return null;
+      return normalizePrefs(JSON.parse(raw));
     } catch (_) {
-      return { order: DEFAULT_ORDER.slice(), hidden: {} };
+      return null;
     }
   }
 
-  function savePrefs(prefs) {
+  function writeLocalPrefs(prefs) {
     try {
       localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
           order: prefs.order || DEFAULT_ORDER.slice(),
           hidden: prefs.hidden || {},
-          updatedAt: Date.now(),
+          updatedAt: prefs.updatedAt || Date.now(),
         }),
       );
     } catch (_) {
       /* ignore quota */
     }
+  }
+
+  function pushToServer(prefs) {
+    try {
+      fetch(SYNC_URL, {
+        method: 'POST',
+        credentials: 'same-origin',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          order: prefs.order || DEFAULT_ORDER.slice(),
+          hidden: prefs.hidden || {},
+          updatedAt: prefs.updatedAt || Date.now(),
+        }),
+      }).catch(function () {});
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  /**
+   * Prefer the newer of server seed vs this browser's cache.
+   * Migrates a desktop-only localStorage layout up to the account on first sync.
+   */
+  function resolvePrefs() {
+    var local = readLocalPrefs();
+    var server = null;
+    try {
+      if (window.__SERVER_TODAY_DASH_LAYOUT) {
+        server = normalizePrefs(window.__SERVER_TODAY_DASH_LAYOUT);
+      }
+    } catch (_) {
+      server = null;
+    }
+    var localTs = local && local.updatedAt ? local.updatedAt : 0;
+    var serverTs = server && server.updatedAt ? server.updatedAt : 0;
+
+    if (server && serverTs >= localTs) {
+      writeLocalPrefs(server);
+      return server;
+    }
+    if (local) {
+      if (!server || localTs > serverTs) pushToServer(local);
+      return local;
+    }
+    return { order: DEFAULT_ORDER.slice(), hidden: {}, updatedAt: 0 };
+  }
+
+  function loadPrefs() {
+    return resolvePrefs();
+  }
+
+  function savePrefs(prefs) {
+    var next = normalizePrefs({
+      order: prefs.order || DEFAULT_ORDER.slice(),
+      hidden: prefs.hidden || {},
+      updatedAt: Date.now(),
+    });
+    writeLocalPrefs(next);
+    pushToServer(next);
+    return next;
   }
 
   function mergeOrder(prefsOrder, presentIds) {
@@ -115,7 +182,7 @@
       '<div class="today-dash-customize__panel" role="dialog" aria-modal="true" aria-labelledby="todayDashCustomizeTitle">' +
       '<p class="today-dash-customize__eyebrow">Today</p>' +
       '<h2 id="todayDashCustomizeTitle" class="today-dash-customize__title">Customize dashboard</h2>' +
-      '<p class="today-dash-customize__hint">Hide sections or move them up and down. Saved on this browser.</p>' +
+      '<p class="today-dash-customize__hint">Hide sections or move them up and down. Saved to your account — works on phone and desktop.</p>' +
       '<ul id="todayDashCustomizeList" class="today-dash-customize__list"></ul>' +
       '<div class="today-dash-customize__actions">' +
       '<button type="button" class="today-dash-customize__btn today-dash-customize__btn--ghost" data-today-dash-reset="1">Reset</button>' +
@@ -224,16 +291,14 @@
       }
       var save = e.target && e.target.closest ? e.target.closest('[data-today-dash-save]') : null;
       if (save) {
-        var prefs = readPanelPrefs();
-        savePrefs(prefs);
+        var prefs = savePrefs(readPanelPrefs());
         applyLayout(prefs);
         closePanel();
         return;
       }
       var reset = e.target && e.target.closest ? e.target.closest('[data-today-dash-reset]') : null;
       if (reset) {
-        var cleared = { order: DEFAULT_ORDER.slice(), hidden: {} };
-        savePrefs(cleared);
+        var cleared = savePrefs({ order: DEFAULT_ORDER.slice(), hidden: {} });
         applyLayout(cleared);
         openPanel();
         return;

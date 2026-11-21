@@ -30,4 +30,17 @@ describe('Today dashboard customize', () => {
     assert.match(js, /data-today-dash-save/);
     assert.match(css, /\.today-dash-section--hidden/);
   });
+
+  it('syncs layout to the account so mobile matches desktop', () => {
+    assert.match(head, /__SERVER_TODAY_DASH_LAYOUT/);
+    assert.match(js, /\/today\/dashboard-layout/);
+    assert.match(js, /__SERVER_TODAY_DASH_LAYOUT/);
+    assert.match(js, /works on phone and desktop/);
+    const todayRoute = require('fs').readFileSync(
+      require('path').join(__dirname, '../routes/today.js'),
+      'utf8',
+    );
+    assert.match(todayRoute, /dashboard-layout\.json/);
+    assert.match(todayRoute, /saveTodayDashboardPrefs/);
+  });
 });
