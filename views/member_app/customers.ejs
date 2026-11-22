@@ -21,7 +21,7 @@
           <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
           <p class="ma-hint ma-cust-tools__lead">Upload a list or add customers manually. CRM sync unlocks with a monthly workspace plan.</p>
           <% } else { %>
-          <p class="ma-hint ma-cust-tools__lead">Uses your workspace’s CRM connection (Workspace → Integrations). Sync imports homeowners; contacts tagged <strong>Referral partner</strong> or <strong>GB: Referral Network</strong> stay out of this list.</p>
+          <p class="ma-hint ma-cust-tools__lead">Two-way sync with <a href="<%= base %>/crm">your GHL sub-account</a> when linked (otherwise the workspace CRM). Imports homeowners; contacts tagged <strong>Referral partner</strong> or <strong>GB: Referral Network</strong> stay out of this list.</p>
           <% } %>
           <div class="ma-settings-list">
             <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
@@ -34,12 +34,20 @@
               <span class="ma-settings-row__upgrade">Upgrade</span>
             </a>
             <% } else { %>
+            <a class="ma-settings-row" href="<%= base %>/crm">
+              <span class="ma-settings-row__icon"><%- icons.settings %></span>
+              <span class="ma-settings-row__text">
+                <strong>CRM settings</strong>
+                <span>Link your GHL sub-account</span>
+              </span>
+              <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
+            </a>
             <form method="post" action="<%= base %>/customers/sync-ghl" class="ma-cust-tools__form">
               <button type="submit" class="ma-settings-row">
                 <span class="ma-settings-row__icon"><%- icons.download %></span>
                 <span class="ma-settings-row__text">
-                  <strong>Sync from CRM</strong>
-                  <span>Same CRM location as your workspace</span>
+                  <strong>Sync both ways</strong>
+                  <span>Pull from GHL + push Reviews leads</span>
                 </span>
                 <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
               </button>
