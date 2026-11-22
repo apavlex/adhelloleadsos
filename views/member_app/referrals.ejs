@@ -440,7 +440,10 @@
             </div>
           </a>
           <div class="ma-actions">
-            <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
+            <% if (lead.phone) { %>
+            <a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="sms:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>"><%- icons.sms %> SMS</a>
+            <% } %>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.href %>">Open</a>
             <% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.quoteHref || (base + '/quote?customer=' + encodeURIComponent(lead.id)) %>">Quote</a>
@@ -449,19 +452,6 @@
               <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Remove</button>
             </form>
           </div>
-          <details style="margin-top:8px">
-            <summary class="ma-card__meta" style="cursor:pointer;font-weight:700"><%- icons.calendar %> Schedule visit</summary>
-            <form method="post" action="<%= base %>/leads/contact/<%= encodeURIComponent(lead.id) %>/schedule" class="ma-inline" style="margin-top:8px;flex-wrap:wrap;gap:8px">
-              <input class="ma-input" type="date" name="date" value="<%= _today %>" required aria-label="Date">
-              <input class="ma-input" type="time" name="time" aria-label="Time">
-              <select class="ma-select" name="durationMins" aria-label="Duration">
-                <% _durations.forEach(function (d) { %>
-                <option value="<%= d.value %>" <%= d.value === 60 ? 'selected' : '' %>><%= d.label %></option>
-                <% }); %>
-              </select>
-              <button type="submit" class="ma-btn ma-btn--sm">Schedule</button>
-            </form>
-          </details>
         </article>
         <% }); %>
       </section>

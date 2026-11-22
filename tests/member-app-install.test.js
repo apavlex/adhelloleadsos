@@ -410,7 +410,10 @@ describe('member app install modal and tab bar', () => {
     assert.doesNotMatch(tabbar, /id:\s*'send',\s*label:\s*'Referrals'/);
     assert.match(page, /pageTitle:\s*_isScheduleHead \? 'Calendar' : 'Leads'|pageTitle:\s*'Leads'/);
     assert.match(page, /view === 'calendar'|view === 'timeline'/);
-    assert.match(page, /Schedule on calendar|Schedule visit/);
+    assert.match(page, /Schedule on calendar/);
+    assert.doesNotMatch(page, /Schedule visit/);
+    assert.match(page, /href="sms:/);
+    assert.match(page, /icons\.sms|SMS/);
     assert.match(page, /Timeline/);
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_lead_request_callout/);
