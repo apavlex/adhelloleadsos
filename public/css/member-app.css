@@ -3590,22 +3590,25 @@ a.ma-refdash__who {
 }
 .ma-create-project__summary {
   list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
+  padding: 0;
   cursor: pointer;
   font-size: 14px;
 }
 .ma-create-project__summary::-webkit-details-marker { display: none; }
-.ma-create-project__summary > svg,
-.ma-create-project__summary > .ma-icon {
+.ma-create-project__summary-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+.ma-create-project__summary-inner > svg,
+.ma-create-project__summary-inner > .ma-icon {
   flex-shrink: 0;
   width: 22px;
   height: 22px;
   color: var(--acc, #2563eb);
 }
-.ma-create-project__summary span {
+.ma-create-project__summary-inner > span {
   display: flex;
   flex-direction: column;
   gap: 2px;

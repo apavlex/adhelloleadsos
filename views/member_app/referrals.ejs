@@ -81,10 +81,13 @@
     <% if (!_locked) { %>
     <details class="ma-card ma-create-project" id="maCreateProject" <%= _scheduleView ? 'open' : '' %>>
       <summary class="ma-create-project__summary">
-        <%- icons.plus %>
-        <span>
-          <strong>Create project</strong>
-          <em>New name or pick from your customers</em>
+        <%# Inner wrap: Safari can blank flex layouts applied directly on <summary>. %>
+        <span class="ma-create-project__summary-inner">
+          <%- icons.plus %>
+          <span>
+            <strong>Create project</strong>
+            <em>New name or pick from your customers</em>
+          </span>
         </span>
       </summary>
       <form method="post" action="<%= base %>/customers/jobs/new" class="ma-create-project__form" autocomplete="off">
