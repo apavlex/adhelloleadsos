@@ -70,10 +70,20 @@ describe('directory profile lead intake', () => {
     assert.match(detail.lead_form_url, new RegExp(listing.slug));
     assert.match(detail.review_page_url, /\/rv\/2-brothers-contracting-llc/);
     assert.equal(detail.business.review_page_url, detail.review_page_url);
+    assert.equal(detail.reviews_linked, true);
+    assert.equal(detail.business.reviews_linked, true);
+    assert.match(detail.reviews_app_url, /\/m\//);
+    assert.equal(detail.business.reviews_app_url, detail.reviews_app_url);
     assert.ok(Array.isArray(detail.review_links));
     assert.ok(detail.review_links.some((l) => l.key === 'google'));
     assert.ok(detail.local_business_schema.sameAs.some((u) => /\/rv\//.test(u)));
-    assert.match(detail.seo_note, /review_page_url|Leave a review/i);
+    assert.match(detail.seo_note, /review_page_url|Leave a review|reviews_app_url/i);
+
+    const feed = await directoryPublic.getPublicFeed(token);
+    const feedBiz = feed.businesses.find((b) => b.slug === listing.slug);
+    assert.ok(feedBiz);
+    assert.equal(feedBiz.reviews_linked, true);
+    assert.match(feedBiz.reviews_app_url, /\/m\//);
   });
 
   it('powered-by footer uses Directory site host (homeelk.com)', async () => {
@@ -213,6 +223,8 @@ describe('directory profile lead intake', () => {
     assert.match(prompt, /lead_form_url/);
     assert.match(prompt, /review_page_url/);
     assert.match(prompt, /Leave a review/i);
+    assert.match(prompt, /reviews_app_url/);
+    assert.match(prompt, /Open Reviews app/i);
     assert.match(prompt, /\/leads/);
     assert.match(prompt, /Reviews app/i);
     assert.match(prompt, /app_url/);

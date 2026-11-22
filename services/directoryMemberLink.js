@@ -6,7 +6,8 @@ const networkStore = require('./networkStore');
 const memberAppointmentLink = require('./memberAppointmentLink');
 const appointmentPackages = require('./appointmentPackages');
 const reviewPage = require('./reviewPage');
-const { getReviewPageUrl } = require('../lib/publicBaseUrl');
+const { createMemberPortalToken } = require('./networkLinkSign');
+const { getReviewPageUrl, getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 function clean(v, max = 500) {
   return String(v == null ? '' : v)
@@ -131,8 +132,8 @@ async function reviewFieldsByListingId(workspaceId, listings) {
     if (!member) {
       member = active.find((m) => namesMatch(m.companyName, listing.name)) || null;
     }
-    const pack = publicReviewFields(member);
-    if (pack.review_page_url) out.set(listing.id, pack);
+    const pack = publicReviewFields(member, network);
+    if (pack.review_page_url || pack.reviews_app_url) out.set(listing.id, pack);
   }
   return out;
 }
@@ -147,20 +148,40 @@ function memberPickerLabel(member) {
 }
 
 /**
- * Public fields for Directory / HomeElk: Reviews page + platform links from the app.
+ * Unique Reviews-app login URL for a linked member (HomeElk biz dashboard).
+ * Uses the same signed /m/ portal token as SMS “Text app link”.
  */
-function publicReviewFields(member) {
+function reviewsAppUrlForMember(network, member) {
+  if (!network || !member || !network.id || !member.id) return '';
+  try {
+    const token = createMemberPortalToken({
+      networkId: network.id,
+      memberId: member.id,
+    });
+    return `${getReviewPublicBaseUrl()}/m/${encodeURIComponent(token)}`;
+  } catch (_) {
+    return '';
+  }
+}
+
+/**
+ * Public fields for Directory / HomeElk: Reviews page + platform links + app login.
+ */
+function publicReviewFields(member, network) {
   const m = member && typeof member === 'object' ? member : null;
   const slug = clean(m && m.reviewSlug, 80);
   const pageUrl = slug ? getReviewPageUrl(slug) : '';
-  if (!pageUrl) {
-    return {
-      review_page_url: '',
-      review_slug: '',
-      review_links: [],
-      review_link_count: 0,
-    };
-  }
+  const reviews_app_url = reviewsAppUrlForMember(network, m);
+  const reviews_linked = !!(m && m.id && reviews_app_url);
+  const empty = {
+    review_page_url: '',
+    review_slug: '',
+    review_links: [],
+    review_link_count: 0,
+    reviews_app_url,
+    reviews_linked,
+  };
+  if (!pageUrl) return empty;
   const destinations = reviewPage.reviewDestinations(m.reviewLinks, slug);
   const review_links = destinations.map((d) => ({
     key: d.key,
@@ -172,13 +193,15 @@ function publicReviewFields(member) {
     review_slug: slug,
     review_links,
     review_link_count: review_links.length,
+    reviews_app_url,
+    reviews_linked,
   };
 }
 
 async function publicReviewFieldsForListing(workspaceId, listing) {
   const linked = await resolveMemberForListing(workspaceId, listing);
   return {
-    ...publicReviewFields(linked && linked.member),
+    ...publicReviewFields(linked && linked.member, linked && linked.network),
     matched: !!(linked && linked.member),
     match: (linked && linked.match) || '',
   };
@@ -227,6 +250,7 @@ module.exports = {
   publicReviewFieldsForListing,
   reviewFieldsByListingId,
   memberPickerLabel,
+  reviewsAppUrlForMember,
   poweredByForWorkspace,
   poweredByForNetwork,
 };
