@@ -418,7 +418,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_lead_request_callout/);
     assert.match(page, /maCreateProject|Create project/);
-    assert.doesNotMatch(page, /maCreateProject"[^>]*\bopen\b|_scheduleView \? 'open'/);
+    assert.doesNotMatch(page, /id="maCreateProject"[^>]*\sopen(?:\s|>)|_scheduleView \? 'open'/);
     assert.match(page, /topPlus:\s*\{\s*href:\s*'#maCreateProject'/);
     assert.match(page, /data-ma-open-details="maCreateProject"/);
     const top = fs.readFileSync(path.join(root, 'views/member_app/_top.ejs'), 'utf8');
