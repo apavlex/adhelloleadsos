@@ -213,6 +213,7 @@ const OK_MESSAGES = {
   job_photo: 'Photo saved.',
   job_photo_deleted: 'Photo removed.',
   job_photo_note: 'Photo note saved.',
+  timeline: 'Project timeline updated.',
   moved: 'Job updated.',
   converted: 'Added to your customers.',
   already: 'That referral is already in your customers.',
@@ -2730,9 +2731,12 @@ async function renderJobPage(req, res, ctx, { job, formValues, flash, status, in
       label: mate ? mate.label : 'Teammate',
     };
   });
+  const { presentTimeline } = require('../services/projectTimeline');
+  const timeline = presented && presented.timeline ? presentTimeline(presented.timeline) : null;
   return render(res, 'job', ctx, {
     active: 'customers',
     job: presented,
+    timeline,
     customer: job ? customersById[job.customerId] || null : null,
     customers,
     teammates,
@@ -3033,6 +3037,40 @@ function wantsJson(req) {
   const accept = String(req.get('accept') || '');
   return req.get('x-requested-with') === 'fetch' || /application\/json/i.test(accept);
 }
+
+router.post('/m/:token/customers/jobs/:id/timeline/seed', form, withMember(async (req, res, ctx) => {
+  const result = await work.seedJobTimeline(ctx.network.id, ctx.bookMemberId, req.params.id, {
+    template: String((req.body && req.body.template) || 'kitchen_remodel'),
+  });
+  if (!result.ok) {
+    return res.redirect(303, `${ctx.base}/customers/jobs/${req.params.id}?err=${encodeURIComponent(result.error || 'timeline')}`);
+  }
+  return res.redirect(303, `${ctx.base}/customers/jobs/${req.params.id}?ok=timeline`);
+}));
+
+router.post('/m/:token/customers/jobs/:id/timeline/clear', form, withMember(async (req, res, ctx) => {
+  const result = await work.clearJobTimeline(ctx.network.id, ctx.bookMemberId, req.params.id);
+  if (!result.ok) {
+    return res.redirect(303, `${ctx.base}/customers/jobs/${req.params.id}?err=${encodeURIComponent(result.error || 'timeline')}`);
+  }
+  return res.redirect(303, `${ctx.base}/customers/jobs/${req.params.id}?ok=timeline`);
+}));
+
+router.post('/m/:token/customers/jobs/:id/timeline/steps/:stepId', form, withMember(async (req, res, ctx) => {
+  const doneRaw = String((req.body && req.body.done) || '');
+  const done = doneRaw === '1' || doneRaw === 'true';
+  const result = await work.toggleJobTimelineStep(
+    ctx.network.id,
+    ctx.bookMemberId,
+    req.params.id,
+    req.params.stepId,
+    done,
+  );
+  if (!result.ok) {
+    return res.redirect(303, `${ctx.base}/customers/jobs/${req.params.id}?err=${encodeURIComponent(result.error || 'timeline')}`);
+  }
+  return res.redirect(303, `${ctx.base}/customers/jobs/${req.params.id}#maJobTimeline`);
+}));
 
 router.post('/m/:token/customers/jobs/:id/status', form, withMember(async (req, res, ctx) => {
   const back = safeReturn(ctx, req.body && req.body.back, `${ctx.base}/customers/jobs/${encodeURIComponent(req.params.id)}`);

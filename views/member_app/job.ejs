@@ -38,6 +38,10 @@
     <% } %>
     <% } %>
 
+    <% if (job) { %>
+    <%- include('_job_timeline', { job: job, timeline: typeof timeline !== 'undefined' ? timeline : null, base: base }) %>
+    <% } %>
+
     <section class="ma-section">
       <form method="post" action="<%= base %>/customers/jobs/<%= job ? job.id : 'new' %>" class="ma-card" autocomplete="off">
         <div class="ma-field">
