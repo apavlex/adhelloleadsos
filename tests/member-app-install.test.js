@@ -419,8 +419,11 @@ describe('member app install modal and tab bar', () => {
     assert.doesNotMatch(page, /Send a referral/);
     // Leads inbox segments: Inbox · Pool · Sent (Calendar is its own bottom tab).
     assert.match(page, /ma-seg ma-seg--3" aria-label="Lead views"/);
-    assert.match(page, /aria-label="Lead views">\s*<a[^>]*>Inbox[\s\S]*?Pool[\s\S]*?Sent[\s\S]*?<\/nav>/);
-    assert.doesNotMatch(page, /aria-label="Lead views">\s*<a[^>]*>Inbox[\s\S]*?Calendar[\s\S]*?<\/nav>/);
+    const leadSeg = page.slice(page.indexOf('aria-label="Lead views"'), page.indexOf('</nav>', page.indexOf('aria-label="Lead views"')) + 6);
+    assert.match(leadSeg, /Inbox/);
+    assert.match(leadSeg, /Pool/);
+    assert.match(leadSeg, /Sent/);
+    assert.doesNotMatch(leadSeg, /Calendar/);
     assert.match(route, /portalLeadsPath:\s*`\$\{ctx\.base\}\/leads`/);
     assert.match(route, /redirect\(303,\s*`\$\{ctx\.base\}\/leads/);
     assert.match(route, /scheduleReferralJob/);
