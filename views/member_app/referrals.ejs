@@ -79,7 +79,7 @@
     <% if (!_locked) { %><%- include('_flash') %><% } %>
 
     <% if (!_locked) { %>
-    <details class="ma-card ma-create-project" id="maCreateProject" <%= _scheduleView ? 'open' : '' %>>
+    <details class="ma-card ma-create-project" id="maCreateProject">
       <summary class="ma-create-project__summary">
         <%# Inner wrap: Safari can blank flex layouts applied directly on <summary>. %>
         <span class="ma-create-project__summary-inner">

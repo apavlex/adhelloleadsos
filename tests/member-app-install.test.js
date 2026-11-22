@@ -418,6 +418,7 @@ describe('member app install modal and tab bar', () => {
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_lead_request_callout/);
     assert.match(page, /maCreateProject|Create project/);
+    assert.doesNotMatch(page, /maCreateProject"[^>]*\bopen\b|_scheduleView \? 'open'/);
     assert.match(page, /ma-create-project__summary-inner/);
     assert.match(page, /data-ma-customer-pick/);
     assert.match(page, /data-ma-new-value="new"/);
