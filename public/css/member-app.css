@@ -3573,3 +3573,53 @@ a.ma-refdash__who {
 .ma-agenda__day .ma-section__head {
   margin-bottom: 8px;
 }
+
+/* Create project (Leads / Calendar) */
+.ma-create-project {
+  margin: 12px 0 14px;
+  padding: 0;
+  overflow: hidden;
+}
+.ma-create-project__summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.ma-create-project__summary::-webkit-details-marker { display: none; }
+.ma-create-project__summary > svg,
+.ma-create-project__summary > .ma-icon {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  color: var(--acc, #2563eb);
+}
+.ma-create-project__summary span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ma-create-project__summary strong {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.ma-create-project__summary em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ma-create-project__form {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.ma-create-project[open] .ma-create-project__summary {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}

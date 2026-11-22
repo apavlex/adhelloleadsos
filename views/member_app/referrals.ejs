@@ -37,13 +37,13 @@
       const _selectedLabel = typeof selectedLabel !== 'undefined' ? selectedLabel : 'Today';
       const _scheduleView = view === 'calendar' || view === 'timeline';
       const _canSend = typeof canSendReferral !== 'undefined' && canSendReferral;
+      const _projectCustomers = typeof projectCustomers !== 'undefined' && Array.isArray(projectCustomers) ? projectCustomers : [];
+      const _createDate = _scheduleView && _selected ? _selected : _today;
     %>
     <div class="ma-titlebar">
       <h1 class="ma-page-title"><%= _scheduleView ? 'Calendar' : 'Leads' %></h1>
-      <% if (_canSend) { %>
-      <a class="ma-iconbtn ma-iconbtn--fill" href="<%= base %>/send" aria-label="Send a referral"><%- icons.send %></a>
-      <% } else if (_scheduleView) { %>
-      <a class="ma-iconbtn ma-iconbtn--fill" href="<%= base %>/customers/jobs/new<%= _selected ? ('?date=' + _selected) : '' %>" aria-label="Schedule work"><%- icons.plus %></a>
+      <% if (!_locked) { %>
+      <a class="ma-iconbtn ma-iconbtn--fill" href="#maCreateProject" aria-label="Create project"><%- icons.plus %></a>
       <% } %>
     </div>
     <% if (_locked) { %>
@@ -66,7 +66,7 @@
       <a href="<%= _hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>><%- icons.calendar %><span>Calendar</span></a>
       <a href="<%= _hrefFor({ view: 'timeline' }) %>" class="<%= view === 'timeline' ? 'is-on' : '' %>" <%= view === 'timeline' ? 'aria-current=page' : '' %>><%- icons.pending %><span>Timeline</span></a>
     </nav>
-    <p class="ma-hint" style="margin:8px 0 0"><a href="<%= _hrefFor({}) %>">← Back to Leads inbox</a><% if (_canSend) { %> · <a href="<%= base %>/send">Send a referral</a><% } %></p>
+    <p class="ma-hint" style="margin:8px 0 0"><a href="<%= _hrefFor({}) %>">← Back to Leads inbox</a></p>
     <% } else { %>
     <nav class="ma-seg ma-seg--4" aria-label="Lead views">
       <a href="<%= _hrefFor({}) %>" class="<%= view === 'received' ? 'is-on' : '' %>" <%= view === 'received' ? 'aria-current=page' : '' %>>Inbox (<%= _inboxCount %>)</a>
@@ -78,7 +78,64 @@
 
     <% if (!_locked) { %><%- include('_flash') %><% } %>
 
-    <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'leads', base: base, icons: icons }) %>
+    <% if (!_locked) { %>
+    <details class="ma-card ma-create-project" id="maCreateProject" <%= _scheduleView ? 'open' : '' %>>
+      <summary class="ma-create-project__summary">
+        <%- icons.plus %>
+        <span>
+          <strong>Create project</strong>
+          <em>New name or pick from your customers</em>
+        </span>
+      </summary>
+      <form method="post" action="<%= base %>/customers/jobs/new" class="ma-create-project__form" autocomplete="off">
+        <input type="hidden" name="status" value="scheduled">
+        <div class="ma-field">
+          <label class="ma-label" for="lpCustomer">Customer</label>
+          <select id="lpCustomer" name="customerId" class="ma-select" required data-ma-newcust>
+            <option value="" selected disabled>Pick a customer…</option>
+            <% _projectCustomers.forEach(function (c) { %>
+            <option value="<%= c.id %>"><%= c.name %><%= c.phone ? ' · ' + c.phone : '' %></option>
+            <% }); %>
+            <option value="new">+ New name</option>
+          </select>
+        </div>
+        <div class="ma-grid2 ma-newcust" id="maNewCustomer" hidden>
+          <div class="ma-field">
+            <label class="ma-label" for="lpNewName">New name</label>
+            <input id="lpNewName" name="newCustomerName" class="ma-input" maxlength="120" autocapitalize="words" placeholder="Customer name">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="lpNewPhone">Phone</label>
+            <input id="lpNewPhone" name="newCustomerPhone" type="tel" inputmode="tel" maxlength="40" class="ma-input" placeholder="Optional">
+          </div>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="lpTitle">Project</label>
+          <input id="lpTitle" name="title" class="ma-input" maxlength="120" required placeholder="e.g. Kitchen floor install">
+        </div>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="lpDate">Date</label>
+            <input id="lpDate" name="date" type="date" class="ma-input" value="<%= _createDate || '' %>" min="2000-01-01" max="2100-12-31">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="lpTime">Start time</label>
+            <input id="lpTime" name="time" type="time" class="ma-input" step="900">
+          </div>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="lpDuration">Duration</label>
+          <select id="lpDuration" name="durationMins" class="ma-select">
+            <option value="">Not set</option>
+            <% _durations.forEach(function (d) { %>
+            <option value="<%= d.value %>" <%= Number(d.value) === 60 ? 'selected' : '' %>><%= d.label %></option>
+            <% }); %>
+          </select>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> Create project</button>
+      </form>
+    </details>
+    <% } %>
 
     <% if (view === 'calendar') { %>
       <% if (_grid) { %>
@@ -519,6 +576,8 @@
       </article>
       <% }); %>
     <% } %>
+
+    <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'leads', base: base, icons: icons }) %>
   </main>
   <%- include('_tabbar') %>
   <% if (!_locked) { %>

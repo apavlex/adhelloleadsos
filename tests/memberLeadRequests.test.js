@@ -103,6 +103,8 @@ describe('memberLeadRequests', () => {
     assert.doesNotMatch(home, /Claim pool/);
     assert.doesNotMatch(home, /leads\?view=pool/);
     assert.match(referrals, /_lead_request_callout/);
+    // Request leads sits at the bottom — after Create project / inbox content.
+    assert.ok(referrals.indexOf('maCreateProject') < referrals.lastIndexOf('_lead_request_callout'));
     assert.match(referrals, /Website &amp; agency/);
     assert.match(callout, /Need more leads/);
     assert.match(callout, /Request leads/);
