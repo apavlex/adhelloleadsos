@@ -553,6 +553,43 @@ describe('member customer GHL sync', () => {
     mock.restoreAll();
   });
 
+  it('shows workspace GHL as already connected without a member Location ID', () => {
+    const viaWorkspace = memberCustomerGhl.memberCrmStatus(
+      { id: MEM, ghlLocationId: '', ghlSyncEnabled: true },
+      { GHL_API_KEY: 'agency-key', GHL_LOCATION_ID: 'ws_loc_homeelk' },
+    );
+    assert.equal(viaWorkspace.viaWorkspace, true);
+    assert.equal(viaWorkspace.source, 'workspace');
+    assert.equal(viaWorkspace.linked, true);
+    assert.equal(viaWorkspace.connected, true);
+    assert.equal(viaWorkspace.ready, true);
+    assert.equal(viaWorkspace.locationId, 'ws_loc_homeelk');
+    assert.equal(viaWorkspace.memberLocationId, '');
+
+    const ownSub = memberCustomerGhl.memberCrmStatus(
+      { id: MEM, ghlLocationId: 'sub_99', ghlSyncEnabled: true },
+      { GHL_API_KEY: 'agency-key', GHL_LOCATION_ID: 'ws_loc_homeelk' },
+    );
+    assert.equal(ownSub.source, 'subaccount');
+    assert.equal(ownSub.viaWorkspace, false);
+    assert.equal(ownSub.locationId, 'sub_99');
+
+    const keyOnly = memberCustomerGhl.memberCrmStatus(
+      { id: MEM, ghlLocationId: '' },
+      { GHL_API_KEY: 'agency-key', GHL_LOCATION_ID: '' },
+    );
+    assert.equal(keyOnly.linked, false);
+    assert.equal(keyOnly.ready, false);
+    assert.equal(keyOnly.workspaceReady, true);
+
+    const boolLegacy = memberCustomerGhl.memberCrmStatus(
+      { id: MEM, ghlLocationId: 'sub_1' },
+      true,
+    );
+    assert.equal(boolLegacy.linked, true);
+    assert.equal(boolLegacy.ready, true);
+  });
+
   it('saves and clears member CRM settings', async () => {
     const networkStore = require('../services/networkStore');
     const network = await networkStore.getOrCreateNetworkForWorkspace(NET.ownerWorkspaceId, {
@@ -589,8 +626,10 @@ describe('member customer GHL sync', () => {
     assert.match(routes, /saveMemberCrmSettings/);
     assert.match(routes, /provisionGhlSubaccount/);
     assert.match(profile, /\/crm/);
-    assert.match(profile, /GHL sub-account/);
+    assert.match(profile, /CRM \/ GHL/);
     assert.match(crm, /Two-way sync/);
     assert.match(crm, /ghlLocationId/);
+    assert.match(crm, /Already connected/);
+    assert.match(crm, /workspace GHL/);
   });
 });

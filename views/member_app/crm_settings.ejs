@@ -10,13 +10,15 @@
       topSettings: { href: base + '/crm', label: 'CRM settings', on: true }
     }) %>
     <h1 class="ma-page-title">CRM settings</h1>
-    <p class="ma-page-sub">Connect your GHL sub-account so directory &amp; website leads sync both ways with this Reviews app.</p>
+    <p class="ma-page-sub">Go High Level stays in sync with this Reviews app — workspace connection and customer sync share the same CRM.</p>
 
     <%- include('_flash') %>
 
     <% const _crm = typeof crm !== 'undefined' && crm ? crm : {}; %>
     <% const _locked = typeof crmSyncLocked !== 'undefined' && crmSyncLocked; %>
     <% const _canProvision = typeof canProvisionSubaccount !== 'undefined' && canProvisionSubaccount; %>
+    <% const _viaWs = !!_crm.viaWorkspace; %>
+    <% const _ownSub = _crm.source === 'subaccount'; %>
 
     <section class="ma-card">
       <h2 style="font-size:16px;margin:0 0 6px">Connection</h2>
@@ -24,14 +26,20 @@
       <p class="ma-flash ma-flash--err" style="margin-top:0">CRM sync unlocks on the monthly plan.</p>
       <a class="ma-btn ma-btn--block" href="<%= typeof upgradeHref !== 'undefined' && upgradeHref ? upgradeHref : '/signup' %>">Upgrade to connect</a>
       <% } else if (!_crm.workspaceReady) { %>
-      <p class="ma-hint" style="margin-top:0">Your agency still needs to connect Go High Level in Workspace → Integrations (API key). Once that’s on, paste your sub-account Location ID here.</p>
-      <% } else if (_crm.linked) { %>
+      <p class="ma-hint" style="margin-top:0">Your agency still needs to connect Go High Level in Workspace → Integrations (API key + Location ID). Once that’s on, this Reviews app uses it automatically — no second connect.</p>
+      <% } else if (_viaWs) { %>
+      <p class="ma-flash ma-flash--ok" style="margin-top:0">Already connected — using your workspace GHL. No need to connect again.<% if (_crm.locationId) { %> · <code style="font-size:11px"><%= _crm.locationId %></code><% } %></p>
+      <p class="ma-hint">Reviews customers and the workspace CRM share this location. Sync below pulls and pushes contacts on the same connection.</p>
+      <% if (_crm.url) { %>
+      <a class="ma-btn ma-btn--soft ma-btn--block" href="<%= _crm.url %>" target="_blank" rel="noopener">Open GHL</a>
+      <% } %>
+      <% } else if (_ownSub) { %>
       <p class="ma-flash ma-flash--ok" style="margin-top:0">Linked to your GHL sub-account<% if (_crm.locationId) { %> · <code style="font-size:11px"><%= _crm.locationId %></code><% } %></p>
       <% if (_crm.url) { %>
       <a class="ma-btn ma-btn--soft ma-btn--block" href="<%= _crm.url %>" target="_blank" rel="noopener">Open GHL sub-account</a>
       <% } %>
       <% } else { %>
-      <p class="ma-hint" style="margin-top:0">Not linked yet. Paste your GHL Location ID so HomeElk / directory form leads and customers sync into <em>your</em> sub-account — not the agency CRM.</p>
+      <p class="ma-hint" style="margin-top:0">Workspace API key is on, but no Location ID yet. Add one in Workspace → Integrations, or paste a sub-account Location ID below.</p>
       <% } %>
       <% if (_crm.error) { %>
       <p class="ma-flash ma-flash--err"><%= _crm.error %></p>
@@ -40,28 +48,31 @@
 
     <% if (!_locked) { %>
     <section class="ma-card">
-      <h2 style="font-size:16px;margin:0 0 6px">Link sub-account</h2>
+      <h2 style="font-size:16px;margin:0 0 6px"><%= _viaWs ? 'Optional: different sub-account' : 'Link sub-account' %></h2>
+      <% if (_viaWs) { %>
+      <p class="ma-hint" style="margin-top:0">Only needed if this business should sync to a <em>different</em> GHL location than the workspace CRM.</p>
+      <% } %>
       <form method="post" action="<%= base %>/crm" autocomplete="off" data-ma-loading="Saving…">
         <div class="ma-field">
           <label class="ma-label" for="maGhlLocationId">GHL Location ID</label>
-          <input id="maGhlLocationId" name="ghlLocationId" class="ma-input" value="<%= _crm.locationId || '' %>" placeholder="e.g. abc123XYZ" maxlength="80" autocomplete="off">
+          <input id="maGhlLocationId" name="ghlLocationId" class="ma-input" value="<%= _ownSub ? (_crm.memberLocationId || _crm.locationId || '') : '' %>" placeholder="<%= _viaWs ? 'Leave blank to keep workspace CRM' : 'e.g. abc123XYZ' %>" maxlength="80" autocomplete="off">
           <p class="ma-hint">Find it in GHL → Settings → Business Profile, or ask your agency.</p>
         </div>
         <div class="ma-field">
           <label class="ma-label" for="maGhlSubUrl">Dashboard URL <span class="ma-hint" style="display:inline">(optional)</span></label>
-          <input id="maGhlSubUrl" name="ghlSubaccountUrl" type="url" inputmode="url" class="ma-input" value="<%= _crm.url || '' %>" placeholder="https://…">
+          <input id="maGhlSubUrl" name="ghlSubaccountUrl" type="url" inputmode="url" class="ma-input" value="<%= _ownSub ? (_crm.url || '') : '' %>" placeholder="https://…">
         </div>
         <label class="ma-check" style="display:flex;align-items:flex-start;gap:10px;margin:12px 0 16px">
           <input type="checkbox" name="ghlSyncEnabled" value="1" <%= _crm.syncEnabled !== false ? 'checked' : '' %> style="margin-top:3px">
           <span>
             <strong style="display:block;font-size:14px">Two-way sync</strong>
-            <span class="ma-hint" style="margin:0">Pull contacts from this sub-account and push Reviews leads (including directory profile forms) back to GHL.</span>
+            <span class="ma-hint" style="margin:0">Pull contacts from GHL and push Reviews leads (including directory profile forms) back — same API as the workspace CRM.</span>
           </span>
         </label>
         <button type="submit" class="ma-btn ma-btn--block">Save CRM settings</button>
       </form>
-      <% if (_crm.linked) { %>
-      <form method="post" action="<%= base %>/crm" style="margin-top:8px" data-ma-confirm="Unlink this GHL sub-account? Leads stay in Reviews; new forms won’t sync to GHL until you link again.">
+      <% if (_ownSub) { %>
+      <form method="post" action="<%= base %>/crm" style="margin-top:8px" data-ma-confirm="Unlink this GHL sub-account? You’ll fall back to the workspace CRM when it’s connected.">
         <input type="hidden" name="unlink" value="1">
         <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Unlink sub-account</button>
       </form>
@@ -80,10 +91,10 @@
 
     <section class="ma-card">
       <h2 style="font-size:16px;margin:0 0 6px">Sync now</h2>
-      <p class="ma-hint" style="margin-top:0">Two-way: import homeowners from GHL, then push Reviews customers that aren’t linked yet. Referral partners are skipped.</p>
+      <p class="ma-hint" style="margin-top:0"><%= _viaWs ? 'Uses the same workspace GHL connection as Agency OS — import homeowners, then push Reviews customers that aren’t linked yet.' : 'Two-way: import homeowners from GHL, then push Reviews customers that aren’t linked yet.' %> Referral partners are skipped.</p>
       <form method="post" action="<%= base %>/customers/sync-ghl" data-ma-loading="Syncing…">
         <input type="hidden" name="next" value="crm">
-        <button type="submit" class="ma-btn ma-btn--block" <%= _crm.workspaceReady && _crm.syncEnabled !== false ? '' : 'disabled' %>><%- icons.download %> Sync customers both ways</button>
+        <button type="submit" class="ma-btn ma-btn--block" <%= _crm.ready ? '' : 'disabled' %>><%- icons.download %> Sync customers both ways</button>
       </form>
       <p class="ma-hint" style="margin-top:10px">You can also sync from <a href="<%= base %>/customers">Customers</a>.</p>
     </section>

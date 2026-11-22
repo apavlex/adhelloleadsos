@@ -1062,6 +1062,7 @@ async function renderProfile(req, res, ctx, flash, formValues, status) {
   const workspaceBrand = await ownerWorkspaceBrandForProfile({ ...ctx, member });
   const vcard = businessVcard.vcardFromMember(member);
   const vcardPhone = businessVcard.usablePhone(fv.phone || member.phone);
+  const crm = await loadMemberCrmStatus(ctx.network, member);
   return render(res, 'profile', { ...ctx, member }, {
     active: 'profile',
     formValues: fv,
@@ -1070,21 +1071,26 @@ async function renderProfile(req, res, ctx, flash, formValues, status) {
     canEditWorkspaceBrand: !!workspaceBrand,
     vcardUrl: vcard ? vcard.url : '',
     vcardHasPhone: !!vcardPhone,
+    crm,
   }, status);
 }
 
 router.get('/m/:token/profile', withMember(async (req, res, ctx) => renderProfile(req, res, ctx)));
 
+async function loadMemberCrmStatus(network, member) {
+  let env = null;
+  try {
+    env = await memberCustomerGhl.integrationForNetwork(network);
+  } catch (_) {
+    env = null;
+  }
+  if (env) return memberCustomerGhl.memberCrmStatus(member, env);
+  return memberCustomerGhl.memberCrmStatus(member, false);
+}
+
 async function renderCrmSettings(req, res, ctx, flash, status) {
   const locked = freeAppSignup.isAppFreeMember(ctx.member);
-  let workspaceReady = false;
-  try {
-    const env = await memberCustomerGhl.integrationForNetwork(ctx.network);
-    workspaceReady = !!(env && env.GHL_API_KEY && env.GHL_API_KEY !== 'trial-disabled' && env.GHL_API_KEY !== 'demo-disabled');
-  } catch (_) {
-    workspaceReady = false;
-  }
-  const crm = memberCustomerGhl.memberCrmStatus(ctx.member, workspaceReady);
+  const crm = await loadMemberCrmStatus(ctx.network, ctx.member);
   let canProvision = false;
   try {
     const networkMembers = require('../services/networkMembers');
@@ -1961,6 +1967,7 @@ async function renderCustomers(req, res, ctx, flash, status) {
   const { customers, jobs, customersById } = await loadWork(ctx);
   const pendingRefs = await pendingReferralsFor(ctx, jobs);
   const present = (j) => presentJob(j, customersById, ctx.base, today);
+  const crm = await loadMemberCrmStatus(ctx.network, ctx.member);
   const extra = {
     active: 'customers',
     view,
@@ -1971,6 +1978,7 @@ async function renderCustomers(req, res, ctx, flash, status) {
     customerCount: customers.length,
     crmSyncLocked: freeAppSignup.isAppFreeMember(ctx.member),
     upgradeHref: '/signup',
+    crm,
   };
 
   if (view === 'list') {
