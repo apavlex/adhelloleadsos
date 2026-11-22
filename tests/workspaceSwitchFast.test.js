@@ -68,7 +68,7 @@ test('workspace switch warms leads and skips chrome extras', () => {
   assert.match(shell, /getAttribute\('action'\) !== '\/workspaces\/switch'/);
 
   const nav = fs.readFileSync(path.join(__dirname, '../views/partials/navbar.ejs'), 'utf8');
-  assert.match(nav, /sidebarShell\.js\?v=sidebar13/);
+  assert.match(nav, /sidebarShell\.js\?v=sidebar17/);
 
   // 1.0.748+: never await switcher build on nav/inbox hops (747's 400ms race re-froze hydrate).
   assert.doesNotMatch(mw, /Promise\.race/);
