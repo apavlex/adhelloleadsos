@@ -68,6 +68,7 @@
     </nav>
     <p class="ma-hint" style="margin:8px 0 0"><a href="<%= _hrefFor({}) %>">← Back to Leads inbox</a></p>
     <% } else { %>
+    <%- include('_leads_section_tabs', { leadsSection: 'leads', base: base }) %>
     <nav class="ma-seg ma-seg--3" aria-label="Lead views">
       <a href="<%= _hrefFor({}) %>" class="<%= view === 'received' ? 'is-on' : '' %>" <%= view === 'received' ? 'aria-current=page' : '' %>>Inbox (<%= _inboxCount %>)</a>
       <a href="<%= _hrefFor({ view: 'pool' }) %>" class="<%= view === 'pool' ? 'is-on' : '' %>" <%= view === 'pool' ? 'aria-current=page' : '' %>>Pool (<%= pool.length %>)</a>

@@ -417,13 +417,21 @@ describe('member app install modal and tab bar', () => {
     assert.match(page, /maCreateProject|Create project/);
     assert.match(page, /Pick a customer|New name/);
     assert.doesNotMatch(page, /Send a referral/);
-    // Leads inbox segments: Inbox · Pool · Sent (Calendar is its own bottom tab).
+    // Top: Leads | Referrals; inbox: Inbox · Pool · Sent (Calendar is its own bottom tab).
+    assert.match(page, /_leads_section_tabs|aria-label="Leads or referrals"/);
     assert.match(page, /ma-seg ma-seg--3" aria-label="Lead views"/);
     const leadSeg = page.slice(page.indexOf('aria-label="Lead views"'), page.indexOf('</nav>', page.indexOf('aria-label="Lead views"')) + 6);
     assert.match(leadSeg, /Inbox/);
     assert.match(leadSeg, /Pool/);
     assert.match(leadSeg, /Sent/);
     assert.doesNotMatch(leadSeg, /Calendar/);
+    const send = fs.readFileSync(path.join(root, 'views/member_app/send.ejs'), 'utf8');
+    const sectionTabs = fs.readFileSync(path.join(root, 'views/member_app/_leads_section_tabs.ejs'), 'utf8');
+    assert.match(sectionTabs, />Leads</);
+    assert.match(sectionTabs, />Referrals</);
+    assert.match(send, /_leads_section_tabs/);
+    assert.match(send, /topTitle:\s*'Leads'/);
+    assert.match(route, /active:\s*'referrals'/);
     assert.match(route, /portalLeadsPath:\s*`\$\{ctx\.base\}\/leads`/);
     assert.match(route, /redirect\(303,\s*`\$\{ctx\.base\}\/leads/);
     assert.match(route, /scheduleReferralJob/);

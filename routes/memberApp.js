@@ -1864,10 +1864,11 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
   const rawView = String(q.view || '').trim();
   const sendView = normalizeSendView(rawView);
   const pickCustomerId = String(q.customer || '').trim();
-  const [directory, customers, advocates] = await Promise.all([
+  const [directory, customers, advocates, leadRequest] = await Promise.all([
     directoryFor(ctx.network, ctx.member),
     work.listCustomers(ctx.network.id, ctx.bookMemberId),
     customerReferralLinks.listForMember(ctx.network.id, ctx.member.id, { limit: 250 }),
+    memberLeadRequests.leadRequestState(ctx),
   ]);
   const referralDash = customerReferralLinks.buildDashboard(advocates);
   let pickedAdvocate = null;
@@ -1933,6 +1934,8 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
     || okKey === 'reward_saved'
     || Boolean(resolvedFlash && resolvedFlash.error && String(q.setup || '') === '1');
   return render(res, 'send', ctx, {
+    // Keep bottom Leads tab highlighted while on Referrals (/send).
+    active: 'referrals',
     directory,
     flash: resolvedFlash,
     formValues: formValues || {},
@@ -1960,6 +1963,7 @@ async function renderSend(req, res, ctx, flash, formValues, status) {
     referralShareScript: customerReferralLinks.shareScriptFromMember(ctx.member),
     referralShareDefaultScript: customerReferralLinks.DEFAULT_SHARE_SCRIPT,
     setupFormAction: `${ctx.base}/send/setup`,
+    leadRequest,
   }, status);
 }
 
