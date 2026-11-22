@@ -209,6 +209,7 @@ describe('public business directory', () => {
       businessName: 'Flooring Quote',
       feedUrl: 'https://leads.example.com/api/public/directory/tok/feed.json',
       detailUrlTemplate: 'https://leads.example.com/api/public/directory/tok/businesses/{slug}.json',
+      leadFormUrlTemplate: 'https://leads.example.com/api/public/directory/tok/businesses/{slug}/leads',
     });
     assert.match(prompt, /flooringquote\.com\/directory/);
     assert.match(prompt, /Flooring Quote/);
@@ -216,6 +217,9 @@ describe('public business directory', () => {
     assert.match(prompt, /\{slug\}/);
     assert.match(prompt, /item_list_schema/);
     assert.match(prompt, /local_business_schema/);
+    assert.match(prompt, /lead_form_url/);
+    assert.match(prompt, /\/leads/);
+    assert.match(prompt, /Reviews app/i);
     assert.match(prompt, /review_sentiment/);
     assert.match(prompt, /reviews\[\]\.text|reviews:\s*\[\{\s*text/);
     assert.match(prompt, /do not use AdHello branding/i);
@@ -265,6 +269,7 @@ describe('public business directory', () => {
     ejsCompileOrThrow(view);
     assert.match(view, /showReviews/);
     assert.match(view, /reviewSentiment/);
+    assert.match(view, /dirLeadFormUrl/);
     assert.match(view, /js-dir-open/);
     assert.match(view, /dirEditDrawer/);
     assert.match(view, /dirEditForm/);
@@ -275,6 +280,9 @@ describe('public business directory', () => {
     assert.match(routes, /updateListing/);
     assert.match(routes, /\/listings\/:id\.json/);
     assert.match(routes, /router\.post\('\/listings\/:id'/);
+    assert.match(routes, /leadFormUrlTemplate/);
+    const publicRoutes = fs.readFileSync(path.join(root, 'routes/directoryPublic.js'), 'utf8');
+    assert.match(publicRoutes, /businesses\/:slug\/leads/);
     assert.ok(moreIdx >= 0);
     assert.ok(bar.indexOf('id="bulkAddDirectoryBtn"', moreIdx) > moreIdx);
     assert.match(bar, /\/directory\/listings\/bulk/);

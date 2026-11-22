@@ -306,6 +306,9 @@ async function pageLocals(req, { shell = false } = {}) {
       detailUrlTemplate: token
         ? `${origin}/api/public/directory/${encodeURIComponent(token)}/businesses/{slug}.json`
         : '',
+      leadFormUrlTemplate: token
+        ? `${origin}/api/public/directory/${encodeURIComponent(token)}/businesses/{slug}/leads`
+        : '',
       workspaceName: (ws && ws.name) || 'Your workspace',
       inboxPending: true,
     };
@@ -326,6 +329,9 @@ async function pageLocals(req, { shell = false } = {}) {
   const detailUrlTemplate = token
     ? `${origin}/api/public/directory/${encodeURIComponent(token)}/businesses/{slug}.json`
     : '';
+  const leadFormUrlTemplate = token
+    ? `${origin}/api/public/directory/${encodeURIComponent(token)}/businesses/{slug}/leads`
+    : '';
   // Light list: skip re-normalize/toPublicReview* on every hydrate — that sync
   // work blocked the event loop and starved Reviews/Q&A inbox.json.
   const listings = directoryStore
@@ -340,6 +346,7 @@ async function pageLocals(req, { shell = false } = {}) {
     summary,
     feedUrl,
     detailUrlTemplate,
+    leadFormUrlTemplate,
     workspaceName: (ws && ws.name) || 'Your workspace',
     inboxPending: false,
   };
@@ -416,6 +423,7 @@ router.get('/page-prompt.txt', async (req, res, next) => {
       pageTitle: locals.settings.pageTitle || 'Local Business Directory',
       feedUrl: locals.feedUrl,
       detailUrlTemplate: locals.detailUrlTemplate,
+      leadFormUrlTemplate: locals.leadFormUrlTemplate,
     });
     res.type('text/plain').send(prompt);
   } catch (e) {
@@ -434,6 +442,7 @@ router.get('/inbox.json', async (req, res, next) => {
       listings: locals.listings,
       feedUrl: locals.feedUrl,
       detailUrlTemplate: locals.detailUrlTemplate,
+      leadFormUrlTemplate: locals.leadFormUrlTemplate,
     });
   } catch (e) {
     if (isSqliteBusyError(e)) {

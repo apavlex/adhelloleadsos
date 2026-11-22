@@ -195,6 +195,8 @@ function normalizeMember(raw) {
     ghlSubaccountUrl: cleanText(m.ghlSubaccountUrl, 400),
     ghlError: cleanText(m.ghlError, 300),
     ghlAttemptedAt: m.ghlAttemptedAt || '',
+    /** When false, skip Reviews ↔ GHL contact sync for this member (forms stay in-app only). */
+    ghlSyncEnabled: m.ghlSyncEnabled !== false,
     reviewSlug: cleanSlug(m.reviewSlug),
     reviewLinks: normalizeReviewLinks(m.reviewLinks),
     /** Member-editable AI/GHL review-request SMS script ({{name}}, {{company}}, {{review_link}}). */

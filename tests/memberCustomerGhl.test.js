@@ -521,4 +521,76 @@ describe('member customer GHL sync', () => {
     assert.equal(recovered.formAnswers.some((a) => a.q === 'Company'), false);
     mock.restoreAll();
   });
+
+  it('routes sync to the member GHL sub-account when linked', async () => {
+    mock.method(workspaceIntegrations, 'getResolvedIntegrationEnv', async () => ({
+      GHL_API_KEY: 'agency-key',
+      GHL_LOCATION_ID: 'agency_loc',
+    }));
+    const env = await memberCustomerGhl.integrationForMember(NET, {
+      id: MEM,
+      ghlLocationId: 'sub_loc_99',
+      ghlSyncEnabled: true,
+    });
+    assert.equal(env.GHL_API_KEY, 'agency-key');
+    assert.equal(env.GHL_LOCATION_ID, 'sub_loc_99');
+    assert.equal(env._ghlTarget, 'subaccount');
+
+    const disabled = await memberCustomerGhl.integrationForMember(NET, {
+      id: MEM,
+      ghlLocationId: 'sub_loc_99',
+      ghlSyncEnabled: false,
+    });
+    assert.equal(disabled._ghlTarget, 'disabled');
+    assert.equal(disabled.GHL_LOCATION_ID, '');
+
+    const fallback = await memberCustomerGhl.integrationForMember(NET, {
+      id: MEM,
+      ghlLocationId: '',
+    });
+    assert.equal(fallback.GHL_LOCATION_ID, 'agency_loc');
+    assert.equal(fallback._ghlTarget, 'workspace');
+    mock.restoreAll();
+  });
+
+  it('saves and clears member CRM settings', async () => {
+    const networkStore = require('../services/networkStore');
+    const network = await networkStore.getOrCreateNetworkForWorkspace(NET.ownerWorkspaceId, {
+      name: 'GHL CRM test net',
+      ownerEmail: 'owner@example.com',
+    });
+    const member = await networkStore.saveMember(network.id, {
+      id: 'mem_crm_settings',
+      companyName: 'CRM Settings Co',
+      status: 'active',
+    });
+    const saved = await memberCustomerGhl.saveMemberCrmSettings(network, member, {
+      ghlLocationId: 'loc_homeelk_1',
+      ghlSyncEnabled: true,
+    });
+    assert.equal(saved.ok, true);
+    assert.equal(saved.member.ghlLocationId, 'loc_homeelk_1');
+    assert.equal(saved.member.ghlSyncEnabled, true);
+    assert.match(saved.member.ghlSubaccountUrl || '', /loc_homeelk_1/);
+
+    const cleared = await memberCustomerGhl.saveMemberCrmSettings(network, saved.member, {
+      unlink: true,
+    });
+    assert.equal(cleared.member.ghlLocationId, '');
+    assert.equal(cleared.member.ghlSubaccountUrl, '');
+  });
+
+  it('wires Reviews CRM settings routes and profile link', () => {
+    const root = path.join(__dirname, '..');
+    const routes = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
+    const profile = fs.readFileSync(path.join(root, 'views/member_app/profile.ejs'), 'utf8');
+    const crm = fs.readFileSync(path.join(root, 'views/member_app/crm_settings.ejs'), 'utf8');
+    assert.match(routes, /\/m\/:token\/crm/);
+    assert.match(routes, /saveMemberCrmSettings/);
+    assert.match(routes, /provisionGhlSubaccount/);
+    assert.match(profile, /\/crm/);
+    assert.match(profile, /GHL sub-account/);
+    assert.match(crm, /Two-way sync/);
+    assert.match(crm, /ghlLocationId/);
+  });
 });

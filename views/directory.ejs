@@ -13,6 +13,7 @@
     <% const _listings = Array.isArray(listings) ? listings : []; %>
     <% const _feedUrl = typeof feedUrl !== 'undefined' ? feedUrl : ''; %>
     <% const _detailUrl = typeof detailUrlTemplate !== 'undefined' ? detailUrlTemplate : ''; %>
+    <% const _leadFormUrl = typeof leadFormUrlTemplate !== 'undefined' ? leadFormUrlTemplate : ''; %>
     <% const _flash = typeof flash !== 'undefined' ? flash : null; %>
     <% const _promptUrl = typeof pageBuilderPromptUrl !== 'undefined' ? String(pageBuilderPromptUrl || '') : '/directory/page-prompt.txt'; %>
 
@@ -50,7 +51,7 @@
 
     <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm p-5 sm:p-6 mb-6" aria-labelledby="dirConnectTitle">
       <h2 id="dirConnectTitle" class="font-display font-bold text-lg mb-1">Connect your site / custom domain</h2>
-      <p class="text-xs text-brand-muted mb-4">Set the live directory URL for <em>this</em> workspace (e.g. <code class="text-[10px]">https://flooringquote.com/directory</code>), save to mint a publish token, then paste the page-builder prompt into that brand’s AI Studio project — not AdHello.io.</p>
+      <p class="text-xs text-brand-muted mb-4">Set the live directory URL for <em>this</em> workspace (e.g. <code class="text-[10px]">https://homeelk.com/pros</code>), save to mint a publish token, then paste the page-builder prompt into that brand’s AI Studio project — not AdHello.io. Profile lead forms POST into Reviews so the business gets an app notification.</p>
 
       <form id="dirSettingsForm" class="grid gap-3 sm:grid-cols-2">
         <label class="block">
@@ -91,7 +92,11 @@
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Public detail feed</p>
           <code id="dirDetailUrl" class="block text-[11px] break-all"><%= _detailUrl %></code>
         </div>
-        <p class="text-xs text-brand-muted leading-relaxed">SEO tip: AI Studio should SSR the feed into HTML and inject <code class="text-[10px]">item_list_schema</code> / <code class="text-[10px]">local_business_schema</code> as JSON-LD. Enable Advanced SEO Support on the published project.</p>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Profile lead form (POST)</p>
+          <code id="dirLeadFormUrl" class="block text-[11px] break-all"><%= _leadFormUrl %></code>
+        </div>
+        <p class="text-xs text-brand-muted leading-relaxed">SEO tip: AI Studio should SSR the feed into HTML and inject <code class="text-[10px]">item_list_schema</code> / <code class="text-[10px]">local_business_schema</code> as JSON-LD. Profile forms POST to the lead URL above — that notifies the linked Reviews app (inbox + push).</p>
       </div>
 
       <details class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/10 dark:bg-slate-950/30 p-4" data-prompt-url="<%= _promptUrl %>">
@@ -706,10 +711,13 @@
       var feedWrap = document.getElementById('dirFeedUrls');
       var feedUrlEl = document.getElementById('dirFeedUrl');
       var detailUrlEl = document.getElementById('dirDetailUrl');
+      var leadFormUrlEl = document.getElementById('dirLeadFormUrl');
       var feedUrl = (data && data.feedUrl) || '';
       var detailUrl = (data && data.detailUrlTemplate) || '';
+      var leadFormUrl = (data && data.leadFormUrlTemplate) || '';
       if (feedUrlEl) feedUrlEl.textContent = feedUrl;
       if (detailUrlEl) detailUrlEl.textContent = detailUrl;
+      if (leadFormUrlEl) leadFormUrlEl.textContent = leadFormUrl;
       if (feedWrap) feedWrap.classList.toggle('hidden', !feedUrl);
 
       var settings = (data && data.settings) || {};

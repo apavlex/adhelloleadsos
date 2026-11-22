@@ -6,6 +6,7 @@
  *
  *   /m/:token            Home
  *   /m/:token/profile    profile photo + contact + settings hub
+ *   /m/:token/crm        GHL sub-account link + two-way customer sync
  *   /m/:token/review     QR / share + send review requests
  *   /m/:token/review/ai  ChatGPT / Muse / Grok + GHL review automation
  *   /m/:token/review/settings  review links + default preview image
@@ -217,6 +218,9 @@ const OK_MESSAGES = {
   already: 'That referral is already in your customers.',
   customers_imported: 'Customer list imported.',
   customers_synced: 'Customers synced with your CRM.',
+  crm_saved: 'CRM settings saved.',
+  crm_unlinked: 'GHL sub-account unlinked.',
+  crm_provisioned: 'GHL sub-account linked.',
   crm_sync_upgrade: 'CRM sync is on the monthly plan. Upgrade to activate it.',
   referrals_upgrade: 'Referrals are on the monthly plan. Upgrade to start getting referrals for your business.',
   review_send_upgrade: 'Texting and emailing review requests (plus automated ~48h follow-up) needs a GHL CRM account on the monthly plan. Use Share or QR for free, or upgrade to send via GHL CRM.',
@@ -1070,6 +1074,83 @@ async function renderProfile(req, res, ctx, flash, formValues, status) {
 }
 
 router.get('/m/:token/profile', withMember(async (req, res, ctx) => renderProfile(req, res, ctx)));
+
+async function renderCrmSettings(req, res, ctx, flash, status) {
+  const locked = freeAppSignup.isAppFreeMember(ctx.member);
+  let workspaceReady = false;
+  try {
+    const env = await memberCustomerGhl.integrationForNetwork(ctx.network);
+    workspaceReady = !!(env && env.GHL_API_KEY && env.GHL_API_KEY !== 'trial-disabled' && env.GHL_API_KEY !== 'demo-disabled');
+  } catch (_) {
+    workspaceReady = false;
+  }
+  const crm = memberCustomerGhl.memberCrmStatus(ctx.member, workspaceReady);
+  let canProvision = false;
+  try {
+    const networkMembers = require('../services/networkMembers');
+    canProvision = !locked && !!(await networkMembers.ghlSubaccountsAllowed(ctx.network));
+  } catch (_) {
+    canProvision = false;
+  }
+  return render(res, 'crm_settings', ctx, {
+    active: 'profile',
+    flash: flash || flashFromQuery(req),
+    crm,
+    crmSyncLocked: locked,
+    upgradeHref: '/signup',
+    canProvisionSubaccount: canProvision,
+  }, status);
+}
+
+router.get('/m/:token/crm', withMember(async (req, res, ctx) => renderCrmSettings(req, res, ctx)));
+
+router.post('/m/:token/crm', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/crm?ok=crm_sync_upgrade`);
+  }
+  const body = req.body || {};
+  if (body.unlink === '1' || body.unlink === 'on') {
+    const out = await memberCustomerGhl.saveMemberCrmSettings(ctx.network, ctx.member, { unlink: true });
+    if (!out.ok) {
+      return renderCrmSettings(req, res, ctx, { error: out.error || 'Could not unlink.' }, 400);
+    }
+    ctx.member = out.member;
+    return res.redirect(303, `${ctx.base}/crm?ok=crm_unlinked`);
+  }
+  const out = await memberCustomerGhl.saveMemberCrmSettings(ctx.network, ctx.member, {
+    ghlLocationId: body.ghlLocationId,
+    ghlSubaccountUrl: body.ghlSubaccountUrl,
+    ghlSyncEnabled: body.ghlSyncEnabled === '1' || body.ghlSyncEnabled === 'on' || body.ghlSyncEnabled === true,
+  });
+  if (!out.ok) {
+    return renderCrmSettings(req, res, ctx, { error: out.error || 'Could not save.' }, 400);
+  }
+  ctx.member = out.member;
+  return res.redirect(303, `${ctx.base}/crm?ok=crm_saved`);
+}));
+
+router.post('/m/:token/crm/provision', form, withMember(async (req, res, ctx) => {
+  if (freeAppSignup.isAppFreeMember(ctx.member)) {
+    return res.redirect(303, `${ctx.base}/crm?ok=crm_sync_upgrade`);
+  }
+  const networkMembers = require('../services/networkMembers');
+  if (!(await networkMembers.ghlSubaccountsAllowed(ctx.network))) {
+    return renderCrmSettings(req, res, ctx, {
+      error: 'This workspace does not create GHL sub-accounts. Paste a Location ID instead.',
+    }, 403);
+  }
+  const result = await networkMembers.provisionGhlSubaccount(ctx.network, ctx.member);
+  if (result && result.member) ctx.member = result.member;
+  if (!result || !result.ok) {
+    return renderCrmSettings(req, res, ctx, {
+      error: (result && result.error) || 'Could not create a GHL sub-account.',
+    }, 400);
+  }
+  await memberCustomerGhl.saveMemberCrmSettings(ctx.network, ctx.member, {
+    ghlSyncEnabled: true,
+  }).catch(() => null);
+  return res.redirect(303, `${ctx.base}/crm?ok=crm_provisioned&detail=${encodeURIComponent(networkMembers.ghlNotice(result).trim())}`);
+}));
 
 router.post('/m/:token/profile', form, withMember(async (req, res, ctx) => {
   const body = req.body || {};
@@ -2146,8 +2227,10 @@ router.post('/m/:token/customers/import', (req, res, next) => {
 }));
 
 router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ctx) => {
+  const backCrm = String((req.body && req.body.next) || '') === 'crm';
+  const backBase = backCrm ? `${ctx.base}/crm` : `${ctx.base}/customers`;
   if (freeAppSignup.isAppFreeMember(ctx.member)) {
-    return res.redirect(303, `${ctx.base}/customers?ok=crm_sync_upgrade`);
+    return res.redirect(303, `${backBase}?ok=crm_sync_upgrade`);
   }
   const wid = ctx.network && ctx.network.ownerWorkspaceId;
   if (wid) {
@@ -2155,15 +2238,15 @@ router.post('/m/:token/customers/sync-ghl', form, withMember(async (req, res, ct
       const ws = await dbService.getWorkspace(wid);
       if (ws && ws.isDemo) {
         ctx = await maybeEnsureDemoOwnerReviewApp(ctx);
-        return res.redirect(303, `${ctx.base}/customers?ok=customers_synced&detail=${encodeURIComponent('(demo sample data)')}`);
+        return res.redirect(303, `${backBase}?ok=customers_synced&detail=${encodeURIComponent('(demo sample data)')}`);
       }
     } catch (_) { /* ignore */ }
   }
   const out = await memberCustomerGhl.syncCustomersWithGhl(ctx.network, ctx.bookMemberId, { maxPages: 5, pushLimit: 100 });
   if (!out.ok) {
-    return res.redirect(303, `${ctx.base}/customers?errmsg=${encodeURIComponent(out.error || 'CRM sync failed.')}`);
+    return res.redirect(303, `${backBase}?errmsg=${encodeURIComponent(out.error || 'CRM sync failed.')}`);
   }
-  return res.redirect(303, `${ctx.base}/customers?ok=customers_synced&detail=${encodeURIComponent(`(${out.summary})`)}`);
+  return res.redirect(303, `${backBase}?ok=customers_synced&detail=${encodeURIComponent(`(${out.summary})`)}`);
 }));
 
 async function customerPageData(req, ctx, id, { refreshTags = false, loadGhlActivity = false } = {}) {

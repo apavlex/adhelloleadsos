@@ -1,5 +1,7 @@
 /**
- * Sync member-app customers with GHL CRM contacts (owner workspace location).
+ * Sync member-app customers with GHL CRM contacts.
+ * Prefer each Reviews member's GHL sub-account (member.ghlLocationId) when set;
+ * otherwise fall back to the agency workspace location.
  * Separate from CRM prospect lead sync — these are review/customer contacts only.
  * Tags: 2-way with the workspace tag catalog; only active tags are shown/synced.
  */
@@ -10,6 +12,8 @@ const dbService = require('./database');
 const ghlProspectSync = require('./ghlProspectSync');
 const { tagsToAdd, tagKey } = require('./ghlSyncHelpers');
 const work = require('./memberWork');
+const networkStore = require('./networkStore');
+const { ghlLocationDashboardUrl } = require('./websiteBuildLinks');
 
 function contactDisplayName(contact) {
   const fromParts = [contact.firstName, contact.lastName].filter(Boolean).join(' ').trim();
@@ -41,7 +45,66 @@ function contactToFields(contact) {
 }
 
 async function integrationForNetwork(network) {
-  return workspaceIntegrations.getResolvedIntegrationEnv(network.ownerWorkspaceId);
+  return workspaceIntegrations.getResolvedIntegrationEnv(network && network.ownerWorkspaceId);
+}
+
+async function loadMember(network, memberOrId) {
+  if (!network || !network.id) return null;
+  if (memberOrId && typeof memberOrId === 'object' && memberOrId.id) return memberOrId;
+  const id = String(memberOrId || '').trim();
+  if (!id) return null;
+  try {
+    return await networkStore.getMember(network.id, id);
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Agency API key + this member's GHL location (sub-account) when linked.
+ * Falls back to the workspace location when the member has no sub-account yet
+ * (typical for the network owner).
+ */
+async function integrationForMember(network, memberOrId) {
+  const base = await integrationForNetwork(network);
+  const member = await loadMember(network, memberOrId);
+  if (!member) return { ...base, _ghlTarget: 'workspace' };
+  if (member.ghlSyncEnabled === false) {
+    return { ...base, GHL_LOCATION_ID: '', _ghlTarget: 'disabled' };
+  }
+  const loc = String(member.ghlLocationId || '').trim();
+  if (loc) {
+    return { ...base, GHL_LOCATION_ID: loc, _ghlTarget: 'subaccount', _ghlLocationId: loc };
+  }
+  return { ...base, _ghlTarget: 'workspace' };
+}
+
+function ghlTargetLabel(integrationEnv) {
+  const t = integrationEnv && integrationEnv._ghlTarget;
+  if (t === 'subaccount') return 'your GHL sub-account';
+  if (t === 'disabled') return 'CRM sync (turned off)';
+  return 'your workspace CRM';
+}
+
+function memberCrmStatus(member, workspaceEnvConfigured) {
+  const m = member && typeof member === 'object' ? member : {};
+  const locationId = String(m.ghlLocationId || '').trim();
+  const syncEnabled = m.ghlSyncEnabled !== false;
+  const url =
+    String(m.ghlSubaccountUrl || '').trim() ||
+    (locationId
+      ? ghlLocationDashboardUrl({ locationId })
+      : '');
+  return {
+    linked: !!locationId,
+    locationId,
+    url,
+    syncEnabled,
+    workspaceReady: !!workspaceEnvConfigured,
+    ready: !!workspaceEnvConfigured && syncEnabled && !!locationId,
+    error: String(m.ghlError || '').trim(),
+    attemptedAt: String(m.ghlAttemptedAt || '').trim(),
+  };
 }
 
 function isActiveTag(tag) {
@@ -163,7 +226,6 @@ async function stampWebsiteFormLead(network, memberId, customer) {
           const again = await work.setCustomerLeadFlag(network.id, memberId, next.id, true);
           if (again.ok && again.customer) next = again.customer;
         }
-        await pushCustomerTagsToGhl(network, next).catch(() => null);
       }
     }
   } else if (next.source !== 'website_form' && next.source !== 'referral' && next.source !== 'agency') {
@@ -188,6 +250,20 @@ async function stampWebsiteFormLead(network, memberId, customer) {
       },
     );
     if (saved.ok && saved.customer) next = saved.customer;
+  }
+
+  // Push into this Reviews member's GHL sub-account (or workspace CRM fallback).
+  if (next && (next.phone || next.email)) {
+    try {
+      if (next.ghlContactId) {
+        await pushCustomerTagsToGhl(network, next, null, memberId);
+      } else {
+        const pushed = await pushCustomerToGhl(network, memberId, next);
+        if (pushed && pushed.ok && pushed.customer) next = pushed.customer;
+      }
+    } catch (err) {
+      console.warn('[memberCustomerGhl] website-form GHL push failed:', err && err.message);
+    }
   }
 
   return { ok: true, customer: next };
@@ -239,8 +315,8 @@ async function availableCustomerTags(workspaceId, customer) {
  * Push local customer tags to GHL. Only manages active catalog tag names
  * (won't strip unrelated GHL tags or inactive catalog names).
  */
-async function pushCustomerTagsToGhl(network, customer, integrationEnv) {
-  const env = integrationEnv || (await integrationForNetwork(network));
+async function pushCustomerTagsToGhl(network, customer, integrationEnv, memberId) {
+  const env = integrationEnv || (await integrationForMember(network, memberId || null));
   if (!ghlClient.isConfigured(env)) {
     return { ok: false, error: 'GHL CRM is not configured.' };
   }
@@ -280,7 +356,7 @@ async function pushCustomerTagsToGhl(network, customer, integrationEnv) {
  */
 async function pullCustomerTagsFromGhl(network, memberId, customer) {
   if (!customer || !customer.id) return { ok: false, error: 'Customer not found.' };
-  const integrationEnv = await integrationForNetwork(network);
+  const integrationEnv = await integrationForMember(network, memberId);
   if (!ghlClient.isConfigured(integrationEnv)) {
     return { ok: false, error: 'GHL CRM is not configured.' };
   }
@@ -305,11 +381,17 @@ async function pullCustomerTagsFromGhl(network, memberId, customer) {
  * Pull GHL contacts into the member customer list (create/update by id/phone/email).
  */
 async function pullCustomersFromGhl(network, memberId, { maxPages = 5 } = {}) {
-  const integrationEnv = await integrationForNetwork(network);
+  const integrationEnv = await integrationForMember(network, memberId);
   if (!ghlClient.isConfigured(integrationEnv)) {
+    const target = ghlTargetLabel(integrationEnv);
     return {
       ok: false,
-      error: 'GHL CRM isn’t connected. Ask your agency to connect GHL CRM in Workspace → Integrations.',
+      error:
+        integrationEnv._ghlTarget === 'disabled'
+          ? 'CRM sync is turned off in CRM settings.'
+          : integrationEnv._ghlTarget === 'workspace'
+            ? 'GHL CRM isn’t connected. Link your sub-account in CRM settings, or ask your agency to connect GHL in Workspace → Integrations.'
+            : `GHL CRM isn’t connected for ${target}.`,
     };
   }
 
@@ -401,9 +483,15 @@ async function pullCustomersFromGhl(network, memberId, { maxPages = 5 } = {}) {
  * Push one customer to GHL and persist the contact id on the local record.
  */
 async function pushCustomerToGhl(network, memberId, customer) {
-  const integrationEnv = await integrationForNetwork(network);
+  const integrationEnv = await integrationForMember(network, memberId);
   if (!ghlClient.isConfigured(integrationEnv)) {
-    return { ok: false, error: 'GHL CRM is not configured.' };
+    return {
+      ok: false,
+      error:
+        integrationEnv._ghlTarget === 'disabled'
+          ? 'CRM sync is turned off in CRM settings.'
+          : 'GHL CRM is not configured.',
+    };
   }
   if (!customer || (!customer.phone && !customer.email)) {
     return { ok: false, error: 'Need a phone or email to sync with GHL.' };
@@ -546,7 +634,7 @@ async function setCustomerTag(network, memberId, customerId, tagKey, { add, tagN
   // Local save wins first — GHL catch-up runs in the background so the
   // member app can feel instant when tapping suggestion chips.
   if (saved.customer.ghlContactId) {
-    pushCustomerTagsToGhl(network, saved.customer).catch(() => null);
+    pushCustomerTagsToGhl(network, saved.customer, null, memberId).catch(() => null);
   } else if (saved.customer.phone || saved.customer.email) {
     pushCustomerToGhl(network, memberId, saved.customer).catch(() => null);
   }
@@ -557,9 +645,17 @@ async function setCustomerTag(network, memberId, customerId, tagKey, { add, tagN
  * Push customers that are missing a GHL contact id (e.g. after CSV import or new adds).
  */
 async function pushCustomersMissingGhl(network, memberId, customers, { limit = 100 } = {}) {
-  const integrationEnv = await integrationForNetwork(network);
+  const integrationEnv = await integrationForMember(network, memberId);
   if (!ghlClient.isConfigured(integrationEnv)) {
-    return { ok: false, error: 'GHL CRM is not configured.', pushed: 0, failed: 0 };
+    return {
+      ok: false,
+      error:
+        integrationEnv._ghlTarget === 'disabled'
+          ? 'CRM sync is turned off in CRM settings.'
+          : 'GHL CRM is not configured.',
+      pushed: 0,
+      failed: 0,
+    };
   }
   const list = (Array.isArray(customers) ? customers : []).filter(
     (c) => c && !c.ghlContactId && !c.isReferralPartner && (c.phone || c.email),
@@ -577,9 +673,11 @@ async function pushCustomersMissingGhl(network, memberId, customers, { limit = 1
 }
 
 /**
- * Full sync: pull from GHL, then push local customers that aren't linked yet.
+ * Full two-way sync: pull from this member's GHL sub-account (or workspace),
+ * then push local customers that aren't linked yet.
  */
 async function syncCustomersWithGhl(network, memberId, opts = {}) {
+  const integrationEnv = await integrationForMember(network, memberId);
   const pull = await pullCustomersFromGhl(network, memberId, opts);
   if (!pull.ok) return pull;
   const locals = await work.listCustomers(network.id, memberId);
@@ -588,7 +686,7 @@ async function syncCustomersWithGhl(network, memberId, opts = {}) {
   });
   // CRM pull creates contacts as customers — re-flag callers/texters as leads.
   try {
-    const member = { id: memberId, status: 'active' };
+    const member = (await loadMember(network, memberId)) || { id: memberId, status: 'active' };
     const memberGhlAlerts = require('./memberGhlAlerts');
     await memberGhlAlerts.repairCallSmsContactLeads(network, member, {
       days: opts.repairDays || 90,
@@ -600,12 +698,48 @@ async function syncCustomersWithGhl(network, memberId, opts = {}) {
   const partnerNote = pull.skippedPartners
     ? ` Skipped ${pull.skippedPartners} referral partner${pull.skippedPartners === 1 ? '' : 's'}.`
     : '';
+  const where = ghlTargetLabel(integrationEnv);
   return {
     ok: true,
     pull,
     push,
-    summary: `Synced ${pull.created + pull.updated} from GHL CRM (${pull.created} new). Pushed ${push.pushed || 0} local customers.${partnerNote}`,
+    target: integrationEnv._ghlTarget || 'workspace',
+    locationId: integrationEnv._ghlLocationId || integrationEnv.GHL_LOCATION_ID || '',
+    summary: `Two-way sync with ${where}: ${pull.created + pull.updated} pulled (${pull.created} new), ${push.pushed || 0} pushed.${partnerNote}`,
   };
+}
+
+/**
+ * Save / clear this Reviews member's GHL sub-account link + sync toggle.
+ */
+async function saveMemberCrmSettings(network, member, patch = {}) {
+  if (!network || !member || !member.id) return { ok: false, error: 'Member required.' };
+  const next = { ...member };
+  if (patch.clear === true || patch.unlink === true) {
+    next.ghlLocationId = '';
+    next.ghlSubaccountUrl = '';
+    next.ghlError = '';
+  } else {
+    if (patch.ghlLocationId != null) {
+      const loc = String(patch.ghlLocationId || '')
+        .replace(/\s+/g, '')
+        .slice(0, 80);
+      next.ghlLocationId = loc;
+      if (!loc) next.ghlSubaccountUrl = '';
+    }
+    if (patch.ghlSubaccountUrl != null) {
+      next.ghlSubaccountUrl = String(patch.ghlSubaccountUrl || '').trim().slice(0, 400);
+    } else if (next.ghlLocationId && !next.ghlSubaccountUrl) {
+      next.ghlSubaccountUrl = ghlLocationDashboardUrl({ locationId: next.ghlLocationId }) || '';
+    }
+    if (patch.ghlSyncEnabled != null) {
+      next.ghlSyncEnabled = patch.ghlSyncEnabled !== false && patch.ghlSyncEnabled !== '0';
+    }
+    if (next.ghlLocationId) next.ghlError = '';
+  }
+  next.ghlAttemptedAt = new Date().toISOString();
+  const saved = await networkStore.saveMember(network.id, next);
+  return { ok: true, member: saved };
 }
 
 async function saveCustomerFormAnswers(network, memberId, customer, answers, addressOverride) {
@@ -694,7 +828,7 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
   // Pull from GHL for website-form contacts, or to replace CRM crumbs with a real submission.
   if (!answers.length && ghlId && (isWebsiteForm || hadCrumbs)) {
     try {
-      const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+      const integrationEnv = await integrationForMember(network, memberId);
       if (ghlClient.isConfigured(integrationEnv)) {
         answers = await fetchContactFormAnswers(ghlId, integrationEnv, {
           email: customer.email,
@@ -733,6 +867,10 @@ async function ensureFormAnswersOnCustomer(network, memberId, customer) {
 
 module.exports = {
   contactToFields,
+  integrationForNetwork,
+  integrationForMember,
+  memberCrmStatus,
+  ghlTargetLabel,
   listActiveWorkspaceTags,
   activeTagKeysFromGhlNames,
   presentCustomerTags,
@@ -752,5 +890,6 @@ module.exports = {
   pullCustomersFromGhl,
   pushCustomerToGhl,
   pushCustomersMissingGhl,
+  saveMemberCrmSettings,
   syncCustomersWithGhl,
 };
