@@ -174,7 +174,6 @@
       <div class="ma-section__head">
         <h2>Network</h2>
       </div>
-      <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'home', base: base, icons: icons }) %>
       <div class="ma-dash-actions">
         <a class="ma-btn ma-btn--soft" href="<%= base %>/leads"><%- icons.leads %> Leads</a>
         <% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
@@ -184,6 +183,8 @@
         <% } %>
       </div>
     </section>
+
+    <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'home', base: base, icons: icons }) %>
   </main>
   <%- include('_tabbar') %>
   <% if (typeof preview !== 'undefined' && preview) { %><template id="maBadgeIcon"><%- icons.building %></template><% } %>
