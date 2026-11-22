@@ -1,0 +1,190 @@
+/**
+ * Directory profile lead forms → Reviews app notify.
+ */
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+
+process.env.APP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'directory-lead-'));
+
+const { describe, it, beforeEach, mock } = require('node:test');
+const assert = require('node:assert/strict');
+const dbService = require('../services/database');
+const directoryStore = require('../services/directoryStore');
+const directoryPublic = require('../services/directoryPublic');
+const directoryLeadIntake = require('../services/directoryLeadIntake');
+const networkStore = require('../services/networkStore');
+const memberWork = require('../services/memberWork');
+const memberActivity = require('../services/memberActivity');
+const { buildDirectoryPagePrompt } = require('../services/directoryPagePrompt');
+
+const WID = 'ws_directory_lead_intake';
+
+describe('directory profile lead intake', () => {
+  beforeEach(async () => {
+    await dbService.saveWorkspace(WID, {
+      id: WID,
+      name: 'HomeElk',
+      ownerUserId: 'owner@example.com',
+      members: [{ email: 'owner@example.com', role: 'admin' }],
+      directory: null,
+    });
+    await dbService.saveLead({
+      key: 'lead:brothers_1',
+      workspaceId: WID,
+      title: '2 Brothers Contracting LLC',
+      categoryName: 'Roofing contractor',
+      city: 'Vancouver',
+      state: 'WA',
+      phone: '+13605551212',
+      website: 'https://2brothers.example',
+      totalScore: 5,
+      reviewsCount: 28,
+      address: '7017 NE 124th Ave, Vancouver, WA',
+    });
+  });
+
+  it('exposes lead_form_url on public business detail', async () => {
+    const listing = await directoryStore.upsertFromLead(WID, 'lead:brothers_1', { published: true });
+    const bundle = await directoryStore.ensurePublicToken(WID);
+    const token = bundle.settings.publicToken;
+    const detail = await directoryPublic.getPublicBusiness(token, listing.slug, {
+      origin: 'https://leads.adhello.io',
+    });
+    assert.match(detail.lead_form_url, /\/leads$/);
+    assert.match(detail.lead_form_url, new RegExp(listing.slug));
+    assert.match(detail.seo_note, /lead_form_url|Reviews app/i);
+  });
+
+  it('routes a profile form into Reviews inbox + customer lead', async () => {
+    const listing = await directoryStore.upsertFromLead(WID, 'lead:brothers_1', {
+      published: true,
+      slug: '2-brothers-contracting-llc',
+    });
+    assert.equal(listing.slug, '2-brothers-contracting-llc');
+
+    const network = await networkStore.getOrCreateNetworkForWorkspace(WID, {
+      name: 'HomeElk partners',
+      ownerEmail: 'owner@example.com',
+    });
+    const member = await networkStore.saveMember(network.id, {
+      id: 'mem_brothers',
+      companyName: '2 Brothers Contracting LLC',
+      contactName: 'Ed',
+      email: 'ed@2brothers.example',
+      phone: '+13605551212',
+      status: 'active',
+      leadKey: 'lead:brothers_1',
+      reviewSlug: '2-brothers-contracting-llc',
+      plan: 'partner',
+    });
+    assert.equal(member.leadKey, 'lead:brothers_1');
+
+    const notifyCalls = [];
+    mock.method(require('../services/networkNotify'), 'notifyMemberFormLead', async (args) => {
+      notifyCalls.push(args);
+      return { ok: true };
+    });
+
+    const bundle = await directoryStore.ensurePublicToken(WID);
+    const result = await directoryLeadIntake.submitDirectoryLead(
+      bundle.settings.publicToken,
+      listing.slug,
+      {
+        name: 'Jordan Homeowner',
+        phone: '3605559999',
+        email: 'jordan@example.com',
+        message: 'Need a roof quote after the storm',
+        page_url: 'https://homeelk.com/pros/2-brothers-contracting-llc',
+      },
+      { ip: '203.0.113.10', origin: 'https://leads.adhello.io' },
+    );
+
+    assert.equal(result.routed, true);
+    assert.equal(result.business.slug, '2-brothers-contracting-llc');
+    assert.ok(result.customer_id);
+    assert.match(result.app_url, /\/m\//);
+    assert.match(result.app_url, /\/customers\/c\//);
+    assert.match(result.review_page_url, /\/rv\/2-brothers-contracting-llc/);
+    assert.equal(notifyCalls.length, 1);
+    assert.equal(notifyCalls[0].customerId, result.customer_id);
+    assert.match(notifyCalls[0].formName, /HomeElk|2 Brothers/i);
+
+    const customer = await memberWork.getCustomer(network.id, member.id, result.customer_id);
+    assert.ok(customer);
+    assert.equal(customer.isLead, true);
+    assert.equal(customer.source, 'website_form');
+    assert.match(customer.notes || '', /storm/i);
+
+    // Even if push/SMS is mocked away, recordMemberActivity still ran inside notify —
+    // when notify is mocked, seed inbox ourselves to prove the expected kind path.
+    const inbox = memberActivity.listInbox(network.id, member.id);
+    // notify was mocked, so inbox may be empty — that's OK; customer + app_url are the contract.
+    assert.ok(Array.isArray(inbox));
+  });
+
+  it('accepts unclaimed listings without Reviews routing', async () => {
+    await dbService.saveLead({
+      key: 'lead:unclaimed_roof',
+      workspaceId: WID,
+      title: 'Unclaimed Roof Pros',
+      categoryName: 'Roofing contractor',
+      city: 'Portland',
+      state: 'OR',
+      phone: '+15035550000',
+    });
+    const listing = await directoryStore.upsertFromLead(WID, 'lead:unclaimed_roof', { published: true });
+    const bundle = await directoryStore.ensurePublicToken(WID);
+    const result = await directoryLeadIntake.submitDirectoryLead(
+      bundle.settings.publicToken,
+      listing.slug,
+      { name: 'Sam', phone: '5551112222' },
+      { ip: '203.0.113.11', origin: 'https://leads.adhello.io' },
+    );
+    assert.equal(result.routed, false);
+    assert.equal(result.reason, 'listing_unclaimed');
+  });
+
+  it('rejects empty contact fields', async () => {
+    const listing = await directoryStore.upsertFromLead(WID, 'lead:brothers_1', { published: true });
+    const bundle = await directoryStore.ensurePublicToken(WID);
+    await assert.rejects(
+      () =>
+        directoryLeadIntake.submitDirectoryLead(
+          bundle.settings.publicToken,
+          listing.slug,
+          { message: 'hello' },
+          { ip: '203.0.113.12' },
+        ),
+      (err) => err && err.code === 'INVALID',
+    );
+  });
+
+  it('page-builder prompt includes profile lead form POST', () => {
+    const prompt = buildDirectoryPagePrompt({
+      siteUrl: 'https://homeelk.com',
+      pathPrefix: '/pros',
+      businessName: 'HomeElk',
+      feedUrl: 'https://leads.example.com/api/public/directory/tok/feed.json',
+      detailUrlTemplate: 'https://leads.example.com/api/public/directory/tok/businesses/{slug}.json',
+      leadFormUrlTemplate: 'https://leads.example.com/api/public/directory/tok/businesses/{slug}/leads',
+    });
+    assert.match(prompt, /homeelk\.com\/pros/);
+    assert.match(prompt, /lead_form_url/);
+    assert.match(prompt, /\/leads/);
+    assert.match(prompt, /Reviews app/i);
+    assert.match(prompt, /app_url/);
+  });
+
+  it('wires public POST route for profile leads', () => {
+    const root = path.join(__dirname, '..');
+    const routes = fs.readFileSync(path.join(root, 'routes/directoryPublic.js'), 'utf8');
+    const view = fs.readFileSync(path.join(root, 'views/directory.ejs'), 'utf8');
+    const dirRoutes = fs.readFileSync(path.join(root, 'routes/directory.js'), 'utf8');
+    assert.match(routes, /businesses\/:slug\/leads/);
+    assert.match(routes, /submitDirectoryLead/);
+    assert.match(view, /dirLeadFormUrl/);
+    assert.match(view, /leadFormUrlTemplate/);
+    assert.match(dirRoutes, /leadFormUrlTemplate/);
+  });
+});

@@ -32,6 +32,7 @@ function buildDirectoryPagePrompt({
   pageTitle,
   feedUrl,
   detailUrlTemplate,
+  leadFormUrlTemplate,
   accentHint,
 } = {}) {
   const site =
@@ -44,6 +45,9 @@ function buildDirectoryPagePrompt({
   const detail =
     clean(detailUrlTemplate, 500) ||
     '[SAVE SETTINGS ON SEO → Directory TO GET DETAIL URL TEMPLATE]';
+  const leadForm =
+    clean(leadFormUrlTemplate, 500) ||
+    '[SAVE SETTINGS ON SEO → Directory TO GET LEAD FORM URL TEMPLATE]';
   const accent =
     clean(accentHint, 80) ||
     'match the existing site; if starting fresh use warm gold / tan on off-white cream (not purple)';
@@ -69,6 +73,7 @@ function buildDirectoryPagePrompt({
    - Plus up to a few reviews[].text quotes from the feed (plain customer quotes only)
    - Keep the same site chrome as the index
    - 404 state when the slug is missing
+   - Lead request form on the profile (required): name, phone, email, short project message. On submit POST JSON to lead_form_url from the detail feed (or ${leadForm} with {slug} replaced). CORS is open. Show a thank-you state on success. Do not invent a third-party form service — this posts into AdHello so the business gets a Reviews-app notification + deep link.
 
 ## Data: Leads OS Directory API (required)
 This site is a frontend only. Content is curated per workspace in Leads OS → SEO → Directory (each workspace has its own directory + publish token).
@@ -86,7 +91,16 @@ This site is a frontend only. Content is curated per workspace in Leads OS → S
    Replace {slug} with the route param.
    Response includes:
    - business: { …same fields including category, description, review_sentiment, reviews… }
+   - lead_form_url: POST endpoint for the profile lead form
    - local_business_schema: LocalBusiness JSON-LD (may include aggregateRating + review[])
+
+3) Profile lead form (per business)
+   POST ${leadForm}
+   Body JSON: { name, phone, email, message, page_url }
+   At least one of name / phone / email is required.
+   Success (201): { success, routed, app_url, review_page_url, message, business }
+   - When routed is true, AdHello notified that business in their Reviews app (inbox + phone push) and app_url opens the lead there.
+   - Show the visitor a thank-you; do not redirect them into the contractor’s private Reviews app.
 
 ## SEO (critical — AI Studio SSR)
 - Use AI Studio SSR / server functions so HTML is rendered on the server (not client-only paint).

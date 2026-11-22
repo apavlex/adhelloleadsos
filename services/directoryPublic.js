@@ -3,6 +3,15 @@
  */
 const directoryStore = require('./directoryStore');
 const { toPublicReviewSummary, toPublicReviewSnippet } = require('./reviewIntel');
+const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
+
+function leadFormUrl(origin, token, slug) {
+  const base = String(origin || '').replace(/\/$/, '');
+  const tok = directoryStore.clean(token, 120);
+  const s = directoryStore.clean(slug, 120);
+  if (!base || !tok || !s) return '';
+  return `${base}/api/public/directory/${encodeURIComponent(tok)}/businesses/${encodeURIComponent(s)}/leads`;
+}
 
 function publicListingView(row, settings = {}) {
   const showPhone = settings.showPhone !== false;
@@ -170,7 +179,7 @@ async function getPublicFeed(token) {
   };
 }
 
-async function getPublicBusiness(token, slug) {
+async function getPublicBusiness(token, slug, { origin } = {}) {
   const resolved = await loadByToken(token);
   if (!resolved) {
     const err = new Error('Invalid or unknown publish token.');
@@ -186,6 +195,8 @@ async function getPublicBusiness(token, slug) {
   }
   const pageUrl = bundle.settings.pageUrl || '';
   const view = publicListingView(row, bundle.settings);
+  const apiOrigin = String(origin || getPublicBaseUrl() || '').replace(/\/$/, '');
+  const formUrl = leadFormUrl(apiOrigin, token, row.slug);
   return {
     page: {
       title: bundle.settings.pageTitle || 'Local Business Directory',
@@ -194,9 +205,10 @@ async function getPublicBusiness(token, slug) {
       path_prefix: bundle.settings.pathPrefix || '/directory',
     },
     business: view,
+    lead_form_url: formUrl,
     local_business_schema: buildLocalBusinessSchema(view, pageUrl),
     seo_note:
-      'Render this business in HTML and inject local_business_schema as JSON-LD on the detail page.',
+      'Render this business in HTML and inject local_business_schema as JSON-LD on the detail page. POST name/phone/email/message to lead_form_url to notify the business in their Reviews app.',
   };
 }
 
@@ -204,6 +216,7 @@ module.exports = {
   publicListingView,
   buildItemListSchema,
   buildLocalBusinessSchema,
+  leadFormUrl,
   getPublicFeed,
   getPublicBusiness,
 };
