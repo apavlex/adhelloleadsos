@@ -94,6 +94,13 @@ describe('customerSearch', () => {
     const referrals = fs.readFileSync(path.join(__dirname, '../views/member_app/referrals.ejs'), 'utf8');
     assert.match(referrals, /data-ma-customer-pick[^>]*data-ma-new-value="new"|data-ma-new-value="new"[^>]*data-ma-customer-pick/);
     assert.match(referrals, /Search or type a new name/);
+    assert.match(app, /data-ma-add-customer-href/);
+    assert.match(app, /Add “|' + esc\(q\) \+ '” as new customer|as new customer/);
+    const job = fs.readFileSync(path.join(__dirname, '../views/member_app/job.ejs'), 'utf8');
+    assert.match(job, /data-ma-customer-pick/);
+    assert.match(job, /data-ma-new-value="new"/);
+    assert.match(job, /data-ma-add-customer-href/);
+    assert.match(job, /Add new customer/);
     assert.match(css, /\.ma-typeahead__list/);
     assert.match(css, /\[data-ma-customer-pick\]\s*\.ma-typeahead__list/);
     assert.match(css, /position:\s*static/);

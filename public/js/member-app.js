@@ -2105,6 +2105,7 @@
       || root.getAttribute('data-ma-saved-only') === '1';
     // Create project / job forms POST customerId=new + newCustomerName.
     var newValue = String(root.getAttribute('data-ma-new-value') || '').trim();
+    var addCustomerHref = String(root.getAttribute('data-ma-add-customer-href') || '').trim();
     if (!input || !hidden || !list || !dataEl) return;
 
     var customers = [];
@@ -2199,20 +2200,27 @@
       var html = '';
       if (!savedOnly) {
         html += '<li class="ma-typeahead__item ma-typeahead__item--new" role="option" data-id="" data-idx="-1">' +
-          (q ? 'Use “' + esc(q) + '” as a new person' : 'Or enter a new person below…') + '</li>';
+          (q ? 'Add “' + esc(q) + '” as new customer' : 'Or add a new customer below…') + '</li>';
       }
       shown.forEach(function (c, i) {
         html += '<li class="ma-typeahead__item" role="option" data-id="' + esc(c.id) + '" data-idx="' + i + '">' +
           esc(labelFor(c)) + '</li>';
       });
       if (!customers.length) {
-        html += '<li class="ma-typeahead__empty" role="presentation">No customers yet — add some under Customers</li>';
+        html += '<li class="ma-typeahead__empty" role="presentation">No customers yet'
+          + (addCustomerHref ? ' — <a href="' + esc(addCustomerHref) + '">add a new customer</a>' : ' — add some under Customers')
+          + '</li>';
       } else if (q && !shown.length) {
-        html += '<li class="ma-typeahead__empty" role="presentation">' +
-          (savedOnly ? 'No matches — try another name or phone' : 'No saved matches — enter them as new below') +
-          '</li>';
+        html += '<li class="ma-typeahead__empty" role="presentation">'
+          + (savedOnly
+            ? 'No matches — try another name or phone'
+            : ('No matches — add as new below'
+              + (addCustomerHref ? ', or <a href="' + esc(addCustomerHref) + '">add a new customer</a>' : '')))
+          + '</li>';
       } else if (!q && savedOnly && !shown.length) {
-        html += '<li class="ma-typeahead__empty" role="presentation">No customers yet</li>';
+        html += '<li class="ma-typeahead__empty" role="presentation">No customers yet'
+          + (addCustomerHref ? ' — <a href="' + esc(addCustomerHref) + '">add a new customer</a>' : '')
+          + '</li>';
       }
       list.innerHTML = html;
       // Always show the panel once the field is active / typed into.

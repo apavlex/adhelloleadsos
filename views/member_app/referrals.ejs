@@ -97,7 +97,7 @@
             return { id: c.id, name: c.name || '', phone: c.phone || '', email: c.email || '' };
           });
         %>
-        <div class="ma-field" data-ma-customer-pick data-ma-new-value="new">
+        <div class="ma-field" data-ma-customer-pick data-ma-new-value="new" data-ma-add-customer-href="<%= base %>/customers/new">
           <input type="hidden" name="customerId" id="lpCustomerId" value="">
           <div data-ma-ask-search>
             <label class="ma-label" for="lpCustomer">Customer</label>
@@ -119,7 +119,7 @@
               >
               <ul id="lpCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
             </div>
-            <p class="ma-hint">Pick a saved customer, or type a new name.</p>
+            <p class="ma-hint">Pick a saved customer, or type a new name. <a href="<%= base %>/customers/new">Add new customer</a></p>
           </div>
           <div class="ma-ask-selected" data-ma-ask-selected hidden>
             <span class="ma-ask-selected__avatar" aria-hidden="true" data-ma-ask-selected-avatar>?</span>
