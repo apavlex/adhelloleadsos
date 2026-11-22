@@ -132,6 +132,8 @@ async function renderPage(res, page, { rating, thanks, error, formValues, imageI
   // HTML meta already sets index,follow; do not override with a noindex response header.
   res.setHeader('Cache-Control', 'public, max-age=120');
   res.removeHeader('X-Robots-Tag');
+  const directoryMemberLink = require('../services/directoryMemberLink');
+  const poweredBy = await directoryMemberLink.poweredByForNetwork(page.network);
   return res.status(status || 200).render('review_public', {
     ...page,
     logoUrl,
@@ -141,8 +143,10 @@ async function renderPage(res, page, { rating, thanks, error, formValues, imageI
     error: error || '',
     formValues: formValues || {},
     icons: ICONS,
+    poweredBy,
     ogTitle: `Review ${page.member.companyName}`,
-    ogDescription: `How was your experience with ${page.member.companyName}? Leave a quick review on AdHello.io.`,
+    ogDescription: `How was your experience with ${page.member.companyName}? Leave a quick review on ${poweredBy.label}.`,
+    ogSiteName: poweredBy.label,
     ogUrl,
     ogImageUrl,
     shareImageId: shareId,

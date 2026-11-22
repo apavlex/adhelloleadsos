@@ -44,8 +44,23 @@ describe('directory profile lead intake', () => {
     });
   });
 
-  it('exposes lead_form_url on public business detail', async () => {
+  it('exposes lead_form_url and review_page_url on public business detail', async () => {
     const listing = await directoryStore.upsertFromLead(WID, 'lead:brothers_1', { published: true });
+    const network = await networkStore.getOrCreateNetworkForWorkspace(WID, {
+      name: 'HomeElk partners',
+      ownerEmail: 'owner@example.com',
+    });
+    await networkStore.saveMember(network.id, {
+      id: 'mem_brothers_detail',
+      companyName: '2 Brothers Contracting LLC',
+      status: 'active',
+      leadKey: 'lead:brothers_1',
+      reviewSlug: '2-brothers-contracting-llc',
+      reviewLinks: {
+        google: 'https://g.page/r/brothers/review',
+        yelp: 'https://yelp.com/biz/2-brothers',
+      },
+    });
     const bundle = await directoryStore.ensurePublicToken(WID);
     const token = bundle.settings.publicToken;
     const detail = await directoryPublic.getPublicBusiness(token, listing.slug, {
@@ -53,7 +68,32 @@ describe('directory profile lead intake', () => {
     });
     assert.match(detail.lead_form_url, /\/leads$/);
     assert.match(detail.lead_form_url, new RegExp(listing.slug));
-    assert.match(detail.seo_note, /lead_form_url|Reviews app/i);
+    assert.match(detail.review_page_url, /\/rv\/2-brothers-contracting-llc/);
+    assert.equal(detail.business.review_page_url, detail.review_page_url);
+    assert.ok(Array.isArray(detail.review_links));
+    assert.ok(detail.review_links.some((l) => l.key === 'google'));
+    assert.ok(detail.local_business_schema.sameAs.some((u) => /\/rv\//.test(u)));
+    assert.match(detail.seo_note, /review_page_url|Leave a review/i);
+  });
+
+  it('powered-by footer uses Directory site host (homeelk.com)', async () => {
+    const directoryMemberLink = require('../services/directoryMemberLink');
+    await directoryStore.save(WID, {
+      settings: {
+        pageUrl: 'https://homeelk.com/pros',
+        pageTitle: 'Pros',
+        businessName: 'HomeElk',
+        pathPrefix: '/pros',
+        publicToken: 'dir_test_powered',
+      },
+      listings: {},
+    });
+    const powered = await directoryMemberLink.poweredByForWorkspace(WID);
+    assert.equal(powered.label, 'homeelk.com');
+    assert.match(powered.href, /homeelk\.com/);
+
+    const unset = await directoryMemberLink.poweredByForWorkspace('ws_missing_dir');
+    assert.equal(unset.label, 'homeelk.com');
   });
 
   it('routes a profile form into Reviews inbox + customer lead', async () => {
@@ -160,7 +200,7 @@ describe('directory profile lead intake', () => {
     );
   });
 
-  it('page-builder prompt includes profile lead form POST', () => {
+  it('page-builder prompt includes profile lead form POST and review page CTA', () => {
     const prompt = buildDirectoryPagePrompt({
       siteUrl: 'https://homeelk.com',
       pathPrefix: '/pros',
@@ -171,20 +211,27 @@ describe('directory profile lead intake', () => {
     });
     assert.match(prompt, /homeelk\.com\/pros/);
     assert.match(prompt, /lead_form_url/);
+    assert.match(prompt, /review_page_url/);
+    assert.match(prompt, /Leave a review/i);
     assert.match(prompt, /\/leads/);
     assert.match(prompt, /Reviews app/i);
     assert.match(prompt, /app_url/);
   });
 
-  it('wires public POST route for profile leads', () => {
+  it('wires public POST route and review footer powered-by homeelk', () => {
     const root = path.join(__dirname, '..');
     const routes = fs.readFileSync(path.join(root, 'routes/directoryPublic.js'), 'utf8');
     const view = fs.readFileSync(path.join(root, 'views/directory.ejs'), 'utf8');
     const dirRoutes = fs.readFileSync(path.join(root, 'routes/directory.js'), 'utf8');
+    const reviewView = fs.readFileSync(path.join(root, 'views/review_public.ejs'), 'utf8');
     assert.match(routes, /businesses\/:slug\/leads/);
     assert.match(routes, /submitDirectoryLead/);
     assert.match(view, /dirLeadFormUrl/);
     assert.match(view, /leadFormUrlTemplate/);
+    assert.match(view, /review_page_url/);
     assert.match(dirRoutes, /leadFormUrlTemplate/);
+    assert.match(reviewView, /poweredBy/);
+    assert.match(reviewView, /homeelk\.com/);
+    assert.doesNotMatch(reviewView, /href="https:\/\/adhello\.io"/);
   });
 });

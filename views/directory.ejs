@@ -96,7 +96,7 @@
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Profile lead form (POST)</p>
           <code id="dirLeadFormUrl" class="block text-[11px] break-all"><%= _leadFormUrl %></code>
         </div>
-        <p class="text-xs text-brand-muted leading-relaxed">SEO tip: AI Studio should SSR the feed into HTML and inject <code class="text-[10px]">item_list_schema</code> / <code class="text-[10px]">local_business_schema</code> as JSON-LD. Profile forms POST to the lead URL above — that notifies the linked Reviews app (inbox + push).</p>
+        <p class="text-xs text-brand-muted leading-relaxed">SEO tip: AI Studio should SSR the feed into HTML and inject <code class="text-[10px]">item_list_schema</code> / <code class="text-[10px]">local_business_schema</code> as JSON-LD. Detail JSON includes <code class="text-[10px]">review_page_url</code> (Leave a review → Reviews app links) and a lead form POST URL for quote requests.</p>
       </div>
 
       <details class="mt-5 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/10 dark:bg-slate-950/30 p-4" data-prompt-url="<%= _promptUrl %>">

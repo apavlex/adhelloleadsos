@@ -218,6 +218,8 @@ describe('public business directory', () => {
     assert.match(prompt, /item_list_schema/);
     assert.match(prompt, /local_business_schema/);
     assert.match(prompt, /lead_form_url/);
+    assert.match(prompt, /review_page_url/);
+    assert.match(prompt, /Leave a review/i);
     assert.match(prompt, /\/leads/);
     assert.match(prompt, /Reviews app/i);
     assert.match(prompt, /review_sentiment/);
