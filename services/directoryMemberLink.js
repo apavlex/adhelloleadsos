@@ -32,7 +32,8 @@ function namesMatch(a, b) {
 }
 
 /**
- * Prefer leadKey → package → company name.
+ * Prefer explicit listing.memberId → leadKey → package → company name.
+ * Persist memberId from Directory so form leads / push hit the right biz app.
  * @returns {Promise<{ network, member, match, package? }|null>}
  */
 async function resolveMemberForListing(workspaceId, listing) {
@@ -40,6 +41,18 @@ async function resolveMemberForListing(workspaceId, listing) {
   if (!wid || !listing) return null;
   const network = await networkStore.getNetworkForWorkspace(wid);
   if (!network) return null;
+
+  const memberId = clean(listing.memberId, 80);
+  if (memberId) {
+    try {
+      const byId = await networkStore.getMember(network.id, memberId);
+      if (byId && byId.status !== 'paused') {
+        return { network, member: byId, match: 'member_id' };
+      }
+    } catch (_) {
+      /* fall through to soft match */
+    }
+  }
 
   const leadKey = clean(listing.leadKey, 200);
   if (leadKey) {
@@ -98,16 +111,23 @@ async function reviewFieldsByListingId(workspaceId, listings) {
   if (!network || !members.length) return out;
 
   const active = members.filter((m) => m && m.status !== 'paused');
+  const byId = new Map();
   const byLead = new Map();
   for (const m of active) {
+    const mid = clean(m.id, 80);
+    if (mid) byId.set(mid, m);
     const key = clean(m.leadKey, 200);
     if (key && !byLead.has(key)) byLead.set(key, m);
   }
 
   for (const listing of rows) {
     if (!listing || !listing.id) continue;
-    const leadKey = clean(listing.leadKey, 200);
-    let member = leadKey ? byLead.get(leadKey) : null;
+    const linkedId = clean(listing.memberId, 80);
+    let member = linkedId ? byId.get(linkedId) : null;
+    if (!member) {
+      const leadKey = clean(listing.leadKey, 200);
+      member = leadKey ? byLead.get(leadKey) : null;
+    }
     if (!member) {
       member = active.find((m) => namesMatch(m.companyName, listing.name)) || null;
     }
@@ -115,6 +135,15 @@ async function reviewFieldsByListingId(workspaceId, listings) {
     if (pack.review_page_url) out.set(listing.id, pack);
   }
   return out;
+}
+
+/** Label for Directory member picker. */
+function memberPickerLabel(member) {
+  if (!member) return '';
+  const company = clean(member.companyName || member.businessName || member.name, 160);
+  const person = clean(member.contactName || member.firstName, 80);
+  if (company && person) return `${company} (${person})`;
+  return company || person || clean(member.id, 80);
 }
 
 /**
@@ -197,6 +226,7 @@ module.exports = {
   publicReviewFields,
   publicReviewFieldsForListing,
   reviewFieldsByListingId,
+  memberPickerLabel,
   poweredByForWorkspace,
   poweredByForNetwork,
 };

@@ -229,9 +229,90 @@ describe('directory profile lead intake', () => {
     assert.match(view, /dirLeadFormUrl/);
     assert.match(view, /leadFormUrlTemplate/);
     assert.match(view, /review_page_url/);
+    assert.match(view, /dirEditMemberId/);
+    assert.match(view, /dirCopyPortal/);
+    assert.match(view, /dirTextPortal/);
     assert.match(dirRoutes, /leadFormUrlTemplate/);
+    assert.match(dirRoutes, /reviews-members\.json/);
+    assert.match(dirRoutes, /send-portal-link/);
     assert.match(reviewView, /poweredBy/);
     assert.match(reviewView, /homeelk\.com/);
     assert.doesNotMatch(reviewView, /href="https:\/\/adhello\.io"/);
+  });
+
+  it('prefers listing.memberId over soft leadKey / name match', async () => {
+    const directoryMemberLink = require('../services/directoryMemberLink');
+    const listing = await directoryStore.upsertFromLead(WID, 'lead:brothers_1', {
+      published: true,
+      slug: '2-brothers-contracting-llc',
+    });
+    const network = await networkStore.getOrCreateNetworkForWorkspace(WID, {
+      name: 'HomeElk partners',
+      ownerEmail: 'owner@example.com',
+    });
+    // Soft-matched member (same leadKey) — resolve without memberId uses this path.
+    await networkStore.saveMember(network.id, {
+      id: 'mem_soft_name',
+      companyName: '2 Brothers Contracting LLC',
+      status: 'active',
+      leadKey: 'lead:brothers_1',
+      reviewSlug: '2-brothers-soft',
+    });
+    const explicit = await networkStore.saveMember(network.id, {
+      id: 'mem_explicit_link',
+      companyName: 'Different Co Name',
+      status: 'active',
+      leadKey: 'lead:other',
+      reviewSlug: 'explicit-linked-biz',
+    });
+    const before = await directoryMemberLink.resolveMemberForListing(WID, listing);
+    assert.ok(before && before.member);
+    assert.notEqual(before.member.id, explicit.id);
+    assert.ok(before.match === 'lead_key' || before.match === 'company_name');
+
+    const linked = await directoryStore.updateListing(WID, listing.id, {
+      memberId: explicit.id,
+    });
+    assert.equal(linked.memberId, explicit.id);
+
+    const after = await directoryMemberLink.resolveMemberForListing(WID, linked);
+    assert.equal(after.match, 'member_id');
+    assert.equal(after.member.id, explicit.id);
+
+    const notifyCalls = [];
+    mock.method(require('../services/networkNotify'), 'notifyMemberFormLead', async (args) => {
+      notifyCalls.push(args);
+      return { ok: true };
+    });
+    const bundle = await directoryStore.ensurePublicToken(WID);
+    const result = await directoryLeadIntake.submitDirectoryLead(
+      bundle.settings.publicToken,
+      linked.slug,
+      {
+        name: 'Pat Homeowner',
+        phone: '3605557777',
+        message: 'Quote please',
+      },
+      { ip: '203.0.113.20', origin: 'https://leads.adhello.io' },
+    );
+    assert.equal(result.routed, true);
+    assert.match(result.review_page_url, /\/rv\/explicit-linked-biz/);
+    const customer = await memberWork.getCustomer(network.id, explicit.id, result.customer_id);
+    assert.ok(customer);
+    assert.equal(notifyCalls.length, 1);
+
+    // Refresh from Pipeline must keep the explicit member link.
+    const refreshed = await directoryStore.upsertFromLead(WID, 'lead:brothers_1', {
+      published: true,
+      slug: linked.slug,
+    });
+    assert.equal(refreshed.memberId, explicit.id);
+  });
+
+  it('clears memberId when Directory save sends empty string', async () => {
+    const listing = await directoryStore.upsertFromLead(WID, 'lead:brothers_1', { published: true });
+    await directoryStore.updateListing(WID, listing.id, { memberId: 'mem_to_clear' });
+    const cleared = await directoryStore.updateListing(WID, listing.id, { memberId: '' });
+    assert.equal(cleared.memberId, '');
   });
 });
