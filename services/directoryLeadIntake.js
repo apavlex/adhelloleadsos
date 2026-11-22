@@ -5,42 +5,19 @@
  */
 const directoryStore = require('./directoryStore');
 const directoryPublic = require('./directoryPublic');
-const networkStore = require('./networkStore');
+const directoryMemberLink = require('./directoryMemberLink');
 const memberWork = require('./memberWork');
-const memberAppointmentLink = require('./memberAppointmentLink');
 const appointmentPackages = require('./appointmentPackages');
 const networkNotify = require('./networkNotify');
 const notificationLog = require('./notificationLog');
 const { getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 const leadFormUrl = directoryPublic.leadFormUrl;
+const { clean, resolveMemberForListing } = directoryMemberLink;
 
 const submitHits = new Map();
 const SUBMIT_WINDOW_MS = 60 * 60 * 1000;
 const SUBMIT_MAX = 8;
-
-function clean(v, max = 500) {
-  return String(v == null ? '' : v)
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, max);
-}
-
-function normName(v) {
-  return clean(v, 160)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function namesMatch(a, b) {
-  const left = normName(a);
-  const right = normName(b);
-  if (!left || !right) return false;
-  return left === right || left.includes(right) || right.includes(left);
-}
 
 function submitAllowed(ip) {
   const key = String(ip || 'unknown');
@@ -63,53 +40,6 @@ async function loadPublishedListing(token, slug) {
   const row = directoryStore.findBySlug(bundle, slug);
   if (!row || row.published !== true) return null;
   return { workspaceId, bundle, listing: row };
-}
-
-/**
- * Prefer leadKey → package → company name. Unclaimed listings return null
- * (site still gets a thank-you; Reviews notify only when a member is linked).
- */
-async function resolveMemberForListing(workspaceId, listing) {
-  const wid = clean(workspaceId, 80);
-  if (!wid || !listing) return null;
-  const network = await networkStore.getNetworkForWorkspace(wid);
-  if (!network) return null;
-
-  const leadKey = clean(listing.leadKey, 200);
-  if (leadKey) {
-    const byLead = await networkStore.findMemberByLeadKey(network.id, leadKey);
-    if (byLead && byLead.status !== 'paused') {
-      return { network, member: byLead, match: 'lead_key' };
-    }
-  }
-
-  try {
-    const packages = await appointmentPackages.listPackages(wid);
-    let pkg = null;
-    if (leadKey) {
-      pkg = packages.find((p) => clean(p.leadKey, 200) === leadKey) || null;
-    }
-    if (!pkg) {
-      pkg =
-        packages.find((p) => namesMatch(p.businessName, listing.name)) || null;
-    }
-    if (pkg) {
-      const linked = await memberAppointmentLink.findMemberForPackage(wid, pkg);
-      if (linked && linked.member && linked.network) {
-        return { network: linked.network, member: linked.member, match: 'package', package: pkg };
-      }
-    }
-  } catch (_) {
-    /* ignore package lookup failures */
-  }
-
-  const members = await networkStore.listMembers(network.id);
-  const hit = members.find(
-    (m) => m && m.status !== 'paused' && namesMatch(m.companyName, listing.name),
-  );
-  if (hit) return { network, member: hit, match: 'company_name' };
-
-  return null;
 }
 
 function siteBrandLabel(bundle, listing) {
@@ -287,17 +217,15 @@ async function submitDirectoryLead(token, slug, input, opts = {}) {
     /* ignore */
   }
 
-  const reviewSlug = clean(member.reviewSlug, 80);
-  const reviewPageUrl = reviewSlug
-    ? networkNotify.reviewPageLink(reviewSlug)
-    : '';
+  const reviewPack = directoryMemberLink.publicReviewFields(member);
 
   return {
     routed: true,
     business: { slug: listing.slug, name: listing.name || '' },
     customer_id: saved.customer.id,
     app_url: appUrl,
-    review_page_url: reviewPageUrl,
+    review_page_url: reviewPack.review_page_url,
+    review_links: reviewPack.review_links,
     lead_form_url: formUrl,
     message: 'Thanks — your request was sent. The business was notified in their Reviews app.',
   };

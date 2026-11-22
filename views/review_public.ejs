@@ -192,7 +192,10 @@
       <% } %>
     <% } %>
 
-    <p class="rv-foot"><%= brand.appName %> member · <a href="https://adhello.io" rel="noopener">AdHello.io</a></p>
+    <% const _powered = typeof poweredBy !== 'undefined' && poweredBy && poweredBy.label
+      ? poweredBy
+      : { label: 'homeelk.com', href: 'https://homeelk.com' }; %>
+    <p class="rv-foot"><%= brand.appName %> member · <a href="<%= _powered.href %>" rel="noopener"><%= _powered.label %></a></p>
   </main>
 </body>
 </html>

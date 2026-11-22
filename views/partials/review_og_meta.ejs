@@ -7,7 +7,7 @@
   const _ogUrl = typeof ogUrl !== 'undefined' ? ogUrl : '';
 %>
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="AdHello.io">
+<meta property="og:site_name" content="<%= typeof ogSiteName !== 'undefined' && ogSiteName ? ogSiteName : (typeof poweredBy !== 'undefined' && poweredBy && poweredBy.label ? poweredBy.label : 'homeelk.com') %>">
 <% if (_ogTitle) { %><meta property="og:title" content="<%= _ogTitle %>"><% } %>
 <% if (_ogDesc) { %><meta property="og:description" content="<%= _ogDesc %>"><% } %>
 <% if (_ogUrl) { %><meta property="og:url" content="<%= _ogUrl %>"><% } %>

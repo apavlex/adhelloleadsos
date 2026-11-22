@@ -2,6 +2,7 @@
  * Public feed + detail helpers for the business directory.
  */
 const directoryStore = require('./directoryStore');
+const directoryMemberLink = require('./directoryMemberLink');
 const { toPublicReviewSummary, toPublicReviewSnippet } = require('./reviewIntel');
 const { getPublicBaseUrl } = require('../lib/publicBaseUrl');
 
@@ -88,12 +89,17 @@ function buildLocalBusinessSchema(row, pageUrl) {
       : row.review_count != null
         ? row.review_count
         : null;
+  const sameAs = [];
+  if (row.website) sameAs.push(String(row.website));
+  const reviewPage =
+    row.review_page_url || row.reviewPageUrl || row.sameAsExtra || '';
+  if (reviewPage && !sameAs.includes(String(reviewPage))) sameAs.push(String(reviewPage));
   const schema = {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
     name: row.name,
     ...(url ? { url } : {}),
-    ...(row.website ? { sameAs: [row.website] } : {}),
+    ...(sameAs.length ? { sameAs } : {}),
     ...(row.phone ? { telephone: row.phone } : {}),
     ...(image ? { image } : {}),
     ...(row.description || row.blurb
@@ -157,10 +163,19 @@ async function getPublicFeed(token) {
     err.code = 'UNAUTHORIZED';
     throw err;
   }
-  const { bundle } = resolved;
+  const { workspaceId, bundle } = resolved;
   const published = directoryStore.listListings(bundle, { published: true });
   const pageUrl = bundle.settings.pageUrl || '';
-  const views = published.map((row) => publicListingView(row, bundle.settings));
+  const reviewById = await directoryMemberLink.reviewFieldsByListingId(workspaceId, published);
+  const views = published.map((row) => {
+    const view = publicListingView(row, bundle.settings);
+    const review = reviewById.get(row.id) || directoryMemberLink.publicReviewFields(null);
+    return {
+      ...view,
+      review_page_url: review.review_page_url || '',
+      review_link_count: review.review_link_count || 0,
+    };
+  });
   return {
     page: {
       title: bundle.settings.pageTitle || 'Local Business Directory',
@@ -175,7 +190,7 @@ async function getPublicFeed(token) {
       draft: directoryStore.inboxSummary(bundle).draft,
     },
     seo_note:
-      'Render these businesses in HTML on your directory index and inject item_list_schema as JSON-LD. Each business detail page should load /businesses/{slug}.json and inject local_business_schema.',
+      'Render these businesses in HTML on your directory index and inject item_list_schema as JSON-LD. Each business detail page should load /businesses/{slug}.json and inject local_business_schema. When review_page_url is set, link “Leave a review” to that Reviews page.',
   };
 }
 
@@ -186,7 +201,7 @@ async function getPublicBusiness(token, slug, { origin } = {}) {
     err.code = 'UNAUTHORIZED';
     throw err;
   }
-  const { bundle } = resolved;
+  const { workspaceId, bundle } = resolved;
   const row = directoryStore.findBySlug(bundle, slug);
   if (!row) {
     const err = new Error('Business not found.');
@@ -197,6 +212,7 @@ async function getPublicBusiness(token, slug, { origin } = {}) {
   const view = publicListingView(row, bundle.settings);
   const apiOrigin = String(origin || getPublicBaseUrl() || '').replace(/\/$/, '');
   const formUrl = leadFormUrl(apiOrigin, token, row.slug);
+  const review = await directoryMemberLink.publicReviewFieldsForListing(workspaceId, row);
   return {
     page: {
       title: bundle.settings.pageTitle || 'Local Business Directory',
@@ -204,11 +220,22 @@ async function getPublicBusiness(token, slug, { origin } = {}) {
       page_url: pageUrl,
       path_prefix: bundle.settings.pathPrefix || '/directory',
     },
-    business: view,
+    business: {
+      ...view,
+      review_page_url: review.review_page_url || '',
+      review_slug: review.review_slug || '',
+      review_links: review.review_links || [],
+      review_link_count: review.review_link_count || 0,
+    },
+    review_page_url: review.review_page_url || '',
+    review_links: review.review_links || [],
     lead_form_url: formUrl,
-    local_business_schema: buildLocalBusinessSchema(view, pageUrl),
+    local_business_schema: buildLocalBusinessSchema(
+      { ...view, review_page_url: review.review_page_url || '' },
+      pageUrl,
+    ),
     seo_note:
-      'Render this business in HTML and inject local_business_schema as JSON-LD on the detail page. POST name/phone/email/message to lead_form_url to notify the business in their Reviews app.',
+      'Render this business in HTML and inject local_business_schema as JSON-LD on the detail page. When review_page_url is set, show a “Leave a review” button that opens the Reviews page (star rating + Google/Yelp links from the Reviews app). POST name/phone/email/message to lead_form_url for quote leads.',
   };
 }
 
