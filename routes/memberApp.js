@@ -1484,7 +1484,7 @@ async function repairWebsiteFormContactLeads(ctx) {
 }
 
 async function renderReferrals(req, res, ctx, flash, status) {
-  const view = ['sent', 'pool', 'calendar'].includes(req.query.view) ? req.query.view : 'received';
+  const view = ['sent', 'pool', 'calendar', 'timeline'].includes(req.query.view) ? req.query.view : 'received';
   const flooring = freeAppSignup.isFlooringOffer(ctx.member);
   const tz = memberTimeZone(req);
   const today = work.todayIn(tz);
@@ -1564,9 +1564,23 @@ async function renderReferrals(req, res, ctx, flash, status) {
   const upcomingLeadJobs = work
     .upcoming(jobs, today, 8)
     .map((j) => presentJob(j, customersById, ctx.base, today));
+  const timelineJobs = work
+    .upcoming(jobs, today, 40)
+    .map((j) => presentJob(j, customersById, ctx.base, today));
+  const timelineDays = [];
+  timelineJobs.forEach((j) => {
+    const key = j.date || '';
+    let day = timelineDays.find((d) => d.date === key);
+    if (!day) {
+      day = { date: key, label: dayLabel(key, today), jobs: [] };
+      timelineDays.push(day);
+    }
+    day.jobs.push(j);
+  });
 
+  const scheduleActive = view === 'calendar' || view === 'timeline';
   return render(res, 'referrals', ctx, {
-    active: 'referrals',
+    active: scheduleActive ? 'calendar' : 'referrals',
     view,
     received,
     sent,
@@ -1590,8 +1604,10 @@ async function renderReferrals(req, res, ctx, flash, status) {
     grid,
     dayJobs,
     upcomingLeadJobs,
+    timelineDays,
     durations: DURATIONS.map((m) => ({ value: m, label: durationLabel(m) })),
     hrefFor: (params) => leadsHref(ctx.base, params),
+    canSendReferral: !referralsLocked && !freeAppSignup.isAppFreeMember(ctx.member),
   }, status);
 }
 

@@ -3563,3 +3563,13 @@ a.ma-refdash__who {
   white-space: nowrap;
   width: 100%;
 }
+
+/* Leads schedule — day-by-day timeline */
+.ma-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ma-agenda__day .ma-section__head {
+  margin-bottom: 8px;
+}

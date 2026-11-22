@@ -182,8 +182,10 @@ describe('customer referral unique links', () => {
     assert.match(js, /savedOnly/);
     assert.match(js, /limit:\s*80/);
     const tabbar = fs.readFileSync(path.join(__dirname, '../views/member_app/_tabbar.ejs'), 'utf8');
-    assert.match(tabbar, /label: 'Referrals'/);
+    // Send referral lives on Leads; bottom tab is Calendar for paid members.
+    assert.match(tabbar, /label: 'Calendar'/);
     assert.doesNotMatch(tabbar, /id: 'send', label: 'Send'/);
+    assert.doesNotMatch(tabbar, /id: 'send', label: 'Referrals'/);
   });
 
   it('fills custom SMS share scripts with placeholders', () => {

@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('_head', { pageTitle: 'Leads' }) %>
+  <% const _isScheduleHead = typeof view !== 'undefined' && (view === 'calendar' || view === 'timeline'); %>
+  <%- include('_head', { pageTitle: _isScheduleHead ? 'Calendar' : 'Leads' }) %>
 </head>
 <body>
   <main class="ma-shell">
-    <%- include('_top', { topTitle: 'Leads' }) %>
-    <h1 class="ma-page-title">Leads</h1>
+    <%- include('_top', { topTitle: _isScheduleHead ? 'Calendar' : 'Leads' }) %>
     <%
       const _locked = typeof referralsLocked !== 'undefined' && referralsLocked;
       const _formLeads = typeof formLeads !== 'undefined' && Array.isArray(formLeads) ? formLeads : [];
@@ -32,9 +32,20 @@
       const _grid = typeof grid !== 'undefined' ? grid : null;
       const _dayJobs = typeof dayJobs !== 'undefined' && Array.isArray(dayJobs) ? dayJobs : [];
       const _upcoming = typeof upcomingLeadJobs !== 'undefined' && Array.isArray(upcomingLeadJobs) ? upcomingLeadJobs : [];
+      const _timelineDays = typeof timelineDays !== 'undefined' && Array.isArray(timelineDays) ? timelineDays : [];
       const _selected = typeof selected !== 'undefined' ? selected : _today;
       const _selectedLabel = typeof selectedLabel !== 'undefined' ? selectedLabel : 'Today';
+      const _scheduleView = view === 'calendar' || view === 'timeline';
+      const _canSend = typeof canSendReferral !== 'undefined' && canSendReferral;
     %>
+    <div class="ma-titlebar">
+      <h1 class="ma-page-title"><%= _scheduleView ? 'Calendar' : 'Leads' %></h1>
+      <% if (_canSend) { %>
+      <a class="ma-iconbtn ma-iconbtn--fill" href="<%= base %>/send" aria-label="Send a referral"><%- icons.send %></a>
+      <% } else if (_scheduleView) { %>
+      <a class="ma-iconbtn ma-iconbtn--fill" href="<%= base %>/customers/jobs/new<%= _selected ? ('?date=' + _selected) : '' %>" aria-label="Schedule work"><%- icons.plus %></a>
+      <% } %>
+    </div>
     <% if (_locked) { %>
     <p class="ma-page-sub">See new project names as they come in — upgrade to unlock contact details, claim jobs, and schedule. Contacts you mark as leads<% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %> or quote requests<% } %> still show below.</p>
     <%- include('_flash') %>
@@ -44,16 +55,26 @@
       upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
       upgradeIcon: 'referrals',
     }) %>
+    <% } else if (_scheduleView) { %>
+    <p class="ma-page-sub">Schedule visits from your leads, then follow the day-by-day timeline.</p>
     <% } else { %>
-    <p class="ma-page-sub">Website forms, contacts you mark as leads, and network referrals — inbox and calendar in one place.</p>
+    <p class="ma-page-sub">Website forms, contacts you mark as leads, and network referrals — schedule them on Calendar.</p>
     <% } %>
 
+    <% if (_scheduleView) { %>
+    <nav class="ma-seg ma-seg--2" aria-label="Schedule views">
+      <a href="<%= _hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>><%- icons.calendar %><span>Calendar</span></a>
+      <a href="<%= _hrefFor({ view: 'timeline' }) %>" class="<%= view === 'timeline' ? 'is-on' : '' %>" <%= view === 'timeline' ? 'aria-current=page' : '' %>><%- icons.pending %><span>Timeline</span></a>
+    </nav>
+    <p class="ma-hint" style="margin:8px 0 0"><a href="<%= _hrefFor({}) %>">← Back to Leads inbox</a><% if (_canSend) { %> · <a href="<%= base %>/send">Send a referral</a><% } %></p>
+    <% } else { %>
     <nav class="ma-seg ma-seg--4" aria-label="Lead views">
       <a href="<%= _hrefFor({}) %>" class="<%= view === 'received' ? 'is-on' : '' %>" <%= view === 'received' ? 'aria-current=page' : '' %>>Inbox (<%= _inboxCount %>)</a>
       <a href="<%= _hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>><%- icons.calendar %><span>Calendar</span></a>
       <a href="<%= _hrefFor({ view: 'pool' }) %>" class="<%= view === 'pool' ? 'is-on' : '' %>" <%= view === 'pool' ? 'aria-current=page' : '' %>>Pool (<%= pool.length %>)</a>
       <a href="<%= _hrefFor({ view: 'sent' }) %>" class="<%= view === 'sent' ? 'is-on' : '' %>" <%= view === 'sent' ? 'aria-current=page' : '' %>>Sent (<%= sent.length %>)</a>
     </nav>
+    <% } %>
 
     <% if (!_locked) { %><%- include('_flash') %><% } %>
 
@@ -99,13 +120,36 @@
       <section class="ma-section">
         <div class="ma-section__head">
           <h2>Coming up</h2>
-          <a href="<%= base %>/customers?view=calendar">Full schedule</a>
+          <a href="<%= _hrefFor({ view: 'timeline' }) %>">Timeline</a>
         </div>
         <div class="ma-list">
           <% _upcoming.forEach(function (j) { %><%- include('_job_row', { j: j }) %><% }); %>
         </div>
       </section>
       <% } %>
+
+    <% } else if (view === 'timeline') { %>
+      <% if (!_timelineDays.length) { %>
+      <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new"><%- icons.calendar %><p>Nothing on your timeline yet. Schedule a lead from Inbox, or tap to add a visit.</p></a>
+      <% } else { %>
+      <div class="ma-agenda" aria-label="Upcoming schedule timeline">
+        <% _timelineDays.forEach(function (day) { %>
+        <section class="ma-agenda__day">
+          <div class="ma-section__head">
+            <h2><%= day.label %></h2>
+            <a href="<%= _hrefFor({ view: 'calendar', m: String(day.date).slice(0, 7), d: day.date }) %>">Month</a>
+          </div>
+          <div class="ma-list">
+            <% day.jobs.forEach(function (j) { %><%- include('_job_row', { j: j }) %><% }); %>
+          </div>
+        </section>
+        <% }); %>
+      </div>
+      <% } %>
+      <p class="ma-hint" style="margin-top:14px">
+        <a href="<%= base %>/customers/jobs/new">+ Schedule work</a>
+        · <a href="<%= _hrefFor({}) %>">Open Leads inbox</a>
+      </p>
 
     <% } else if (view === 'pool') { %>
       <% if (!pool.length) { %>
