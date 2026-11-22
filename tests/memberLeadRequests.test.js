@@ -89,7 +89,7 @@ describe('memberLeadRequests', () => {
     assert.equal(memberLeadRequests.onCooldown({ leadRequestAt: '' }), false);
   });
 
-  it('wires home + Leads & Referrals callout and POST /leads/request', () => {
+  it('wires home + Leads callout and POST /leads/request', () => {
     const home = fs.readFileSync(path.join(__dirname, '../views/member_app/home.ejs'), 'utf8');
     const referrals = fs.readFileSync(path.join(__dirname, '../views/member_app/referrals.ejs'), 'utf8');
     const callout = fs.readFileSync(path.join(__dirname, '../views/member_app/_lead_request_callout.ejs'), 'utf8');
@@ -99,9 +99,9 @@ describe('memberLeadRequests', () => {
     const portal = fs.readFileSync(path.join(__dirname, '../services/contractorPortal.js'), 'utf8');
 
     assert.match(home, /_lead_request_callout/);
-    assert.match(home, /href="<%= base %>\/referrals"/);
+    assert.match(home, /href="<%= base %>\/leads"/);
     assert.doesNotMatch(home, /Claim pool/);
-    assert.doesNotMatch(home, /referrals\?view=pool/);
+    assert.doesNotMatch(home, /leads\?view=pool/);
     assert.match(referrals, /_lead_request_callout/);
     assert.match(referrals, /Website &amp; agency/);
     assert.match(callout, /Need more leads/);
@@ -110,7 +110,7 @@ describe('memberLeadRequests', () => {
     assert.match(callout, /href="\/signup"/);
     assert.match(route, /leads\/request/);
     assert.match(route, /memberLeadRequests\.requestMoreLeads/);
-    assert.match(route, /redirect\(303,\s*`\$\{ctx\.base\}\/referrals/);
+    assert.match(route, /redirect\(303,\s*`\$\{ctx\.base\}\/leads/);
     assert.match(css, /\.ma-leadask/);
     assert.match(notify, /notifyLeadRequest/);
     assert.match(notify, /ready for more work/);

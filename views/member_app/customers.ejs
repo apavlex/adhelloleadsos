@@ -109,7 +109,7 @@
       <% if (typeof leadCount === 'number' && leadCount > 0) { %>
       <p class="ma-hint ma-cust-lead-filter" style="margin:10px 0 0">
         <%= typeof hiddenLeadCount === 'number' ? hiddenLeadCount : leadCount %> lead<%= (typeof hiddenLeadCount === 'number' ? hiddenLeadCount : leadCount) === 1 ? '' : 's' %> in Leads — open there until you mark one as customer.
-        <a class="ma-label-link" href="<%= base %>/referrals">Open Leads</a>
+        <a class="ma-label-link" href="<%= base %>/leads">Open Leads</a>
       </p>
       <% } %>
       <% if (typeof quoteCount === 'number' && quoteCount > 0 && typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
@@ -117,10 +117,10 @@
         <% if (typeof showQuotes !== 'undefined' && showQuotes) { %>
           Showing <%= quoteCount %> quote request<%= quoteCount === 1 ? '' : 's' %> in this list.
           <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined }) %>">Hide quotes</a>
-          · <a class="ma-label-link" href="<%= base %>/referrals">Open quote requests</a>
+          · <a class="ma-label-link" href="<%= base %>/leads">Open quote requests</a>
         <% } else { %>
           <%= quoteCount %> quote request<%= quoteCount === 1 ? '' : 's' %> in Leads.
-          <a class="ma-label-link" href="<%= base %>/referrals">Open Leads</a>
+          <a class="ma-label-link" href="<%= base %>/leads">Open Leads</a>
           · <a class="ma-label-link" href="<%= hrefFor({ q: q || undefined, partners: (typeof showPartners !== 'undefined' && showPartners) ? '1' : undefined, quotes: '1' }) %>">Show here</a>
         <% } %>
       </p>
@@ -131,7 +131,7 @@
         <%- icons.people %>
         <% if (typeof leadCount === 'number' && leadCount > 0) { %>
         <p>No customers in this list — <%= leadCount %> lead<%= leadCount === 1 ? '' : 's' %> <%= leadCount === 1 ? 'is' : 'are' %> in Leads. Mark one as customer to move it here.</p>
-        <a class="ma-btn ma-btn--block" href="<%= base %>/referrals" style="margin-top:12px;max-width:240px"><%- icons.leads %> Open Leads</a>
+        <a class="ma-btn ma-btn--block" href="<%= base %>/leads" style="margin-top:12px;max-width:240px"><%- icons.leads %> Open Leads</a>
         <% } else if (typeof partnerCount === 'number' && partnerCount > 0 && !(typeof showPartners !== 'undefined' && showPartners)) { %>
         <p>No homeowners in this list — <%= partnerCount %> referral partner<%= partnerCount === 1 ? '' : 's' %> <%= partnerCount === 1 ? 'is' : 'are' %> hidden.</p>
         <a class="ma-btn ma-btn--block" href="<%= hrefFor({ partners: '1' }) %>" style="margin-top:12px;max-width:240px">Show partners</a>
@@ -216,7 +216,7 @@
       <section class="ma-section ma-section--first" id="referrals">
         <div class="ma-section__head">
           <h2>Referrals to work</h2>
-          <a href="<%= base %>/referrals">Referrals</a>
+          <a href="<%= base %>/leads">Leads</a>
         </div>
         <div class="ma-list">
           <% pendingRefs.forEach(function (r) { %>

@@ -13,10 +13,10 @@
  *   /m/:token/customers  customers, jobs and schedule
  *   /m/:token/voice/transcribe  field speech-to-text (Reviews + paid apps)
  *   /m/:token/voice/parse-customer  turn spoken blob into customer fields
- *   /m/:token/referrals  website/agency leads + network referrals (Leads & Referrals)
+ *   /m/:token/leads      website/agency + contact + network leads (inbox + calendar)
+ *   /m/:token/referrals  redirects to /leads (legacy alias)
  *   /m/:token/send       send a referral (partners)
  *   /m/:token/join       free-plan upgrade / benefits (replaces Send in the tab bar)
- *   /m/:token/leads      redirects to /referrals (legacy)
  *   /m/:token/packages   request / buy more appointments & lead credits
  *   /m/:token/enroll     invite a business to join
  *   /m/login             text me a new link
@@ -247,10 +247,19 @@ const OK_MESSAGES = {
   lead_referred_pool: 'Sent to the network pool — eligible partners can claim it.',
   cust_ref_rewarded: 'Marked rewarded — that customer earned their referral thank-you.',
   cust_ref_confirmed: 'Referral confirmed — ready to reward the customer who sent them.',
+  scheduled: 'Scheduled on your calendar.',
 };
 
 const MEMBER_ACTIONS = new Set(['accept', 'decline', 'book', 'win', 'lose', 'note', 'claim']);
 const MAX_PENDING_INVITES = 25;
+const DURATIONS = [30, 60, 90, 120, 180, 240, 360, 480, 1440, 2880];
+
+function leadsHref(base, params = {}) {
+  const qs = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v != null && v !== ''),
+  ).toString();
+  return `${base}/leads${qs ? `?${qs}` : ''}`;
+}
 
 function noStore(res) {
   res.setHeader('Cache-Control', 'private, no-store');
@@ -316,7 +325,7 @@ async function attachAppointment(ctx) {
       portalToken,
       /** Standalone contractor portal (appointments packages). Leads show in /m. */
       portalPath,
-      portalLeadsPath: `${ctx.base}/referrals`,
+      portalLeadsPath: `${ctx.base}/leads`,
       portalPackagesPath: `${portalPath}/packages`,
     },
   };
@@ -1335,9 +1344,9 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
     upcoming: work.upcoming(jobs, today, 2).map((j) => presentJob(j, customersById, ctx.base, today)),
     // Leads → customers → referrals (hero shows open jobs as projects).
     tiles: [
-      { key: 'leads', label: 'Leads', value: openLeadCount, href: `${ctx.base}/referrals`, icon: 'leads' },
+      { key: 'leads', label: 'Leads', value: openLeadCount, href: `${ctx.base}/leads`, icon: 'leads' },
       { key: 'customers', label: 'Customers', value: customerBookCount, href: `${ctx.base}/customers`, icon: 'customers' },
-      { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/referrals`, icon: 'pending' },
+      { key: 'pending', label: 'Pending refs', value: stats.open, href: `${ctx.base}/leads`, icon: 'pending' },
       {
         key: 'reviews',
         label: 'Reviews',
@@ -1475,29 +1484,35 @@ async function repairWebsiteFormContactLeads(ctx) {
 }
 
 async function renderReferrals(req, res, ctx, flash, status) {
-  const view = ['sent', 'pool'].includes(req.query.view) ? req.query.view : 'received';
+  const view = ['sent', 'pool', 'calendar'].includes(req.query.view) ? req.query.view : 'received';
   const flooring = freeAppSignup.isFlooringOffer(ctx.member);
+  const tz = memberTimeZone(req);
+  const today = work.todayIn(tz);
   if (view === 'received') {
     // Fire-and-forget: awaiting these repairs locked SQLite and stalled /business-reviews + /seo-qa.
     void repairWebsiteFormContactLeads(ctx).catch(() => null);
     void memberGhlAlerts.repairCallSmsContactLeads(ctx.network, ctx.member).catch(() => null);
   }
-  const [referrals, members, jobs, leadRequest, contactLeadRows, contactQuoteRows] = await Promise.all([
+  const [referrals, members, jobs, leadRequest, contactLeadRows, contactQuoteRows, customers] = await Promise.all([
     store.listReferrals(ctx.network.id),
     store.listMembers(ctx.network.id),
     work.listJobs(ctx.network.id, ctx.bookMemberId),
     memberLeadRequests.leadRequestState(ctx),
     work.listContactLeads(ctx.network.id, ctx.bookMemberId),
     flooring ? work.listContactQuotes(ctx.network.id, ctx.bookMemberId) : Promise.resolve([]),
+    work.listCustomers(ctx.network.id, ctx.bookMemberId),
   ]);
   const membersById = Object.fromEntries(members.map((m) => [m.id, m]));
+  const customersById = Object.fromEntries(customers.map((c) => [c.id, c]));
   const jobByRef = Object.fromEntries(jobs.filter((j) => j.referralId).map((j) => [j.referralId, j]));
   const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member);
   const received = referrals.filter((r) => r.toMemberId === ctx.member.id).slice(0, 60).map((r) =>
     memberLeadRequests.presentReferralTeaser({
       ...presentReceived(r, membersById, ctx.network),
       jobHref: jobByRef[r.id] ? `${ctx.base}/customers/jobs/${jobByRef[r.id].id}` : '',
+      jobDate: jobByRef[r.id] ? jobByRef[r.id].date : '',
       convertible: ['accepted', 'booked', 'won'].includes(r.status),
+      scheduleable: ['sent', 'accepted', 'booked', 'won'].includes(r.status),
     }, { detailsAllowed }));
   const sent = referrals.filter((r) => r.fromMemberId === ctx.member.id).slice(0, 60).map((r) =>
     memberLeadRequests.presentReferralTeaser(
@@ -1537,7 +1552,21 @@ async function renderReferrals(req, res, ctx, flash, status) {
       }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }
+
+  let month = String(req.query.m || today.slice(0, 7));
+  if (!/^\d{4}-\d{2}$/.test(month)) month = today.slice(0, 7);
+  let selected = String(req.query.d || today);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(selected)) selected = today;
+  const grid = work.monthGrid(month, jobs, { today, selected });
+  const dayJobs = jobs
+    .filter((j) => j.date === selected)
+    .map((j) => presentJob(j, customersById, ctx.base, today));
+  const upcomingLeadJobs = work
+    .upcoming(jobs, today, 8)
+    .map((j) => presentJob(j, customersById, ctx.base, today));
+
   return render(res, 'referrals', ctx, {
+    active: 'referrals',
     view,
     received,
     sent,
@@ -1554,14 +1583,30 @@ async function renderReferrals(req, res, ctx, flash, status) {
     referralsLocked,
     leadDetailsLocked: !detailsAllowed,
     upgradeHref: '/signup',
+    today,
+    month,
+    selected,
+    selectedLabel: dayLabel(selected, today),
+    grid,
+    dayJobs,
+    upcomingLeadJobs,
+    durations: DURATIONS.map((m) => ({ value: m, label: durationLabel(m) })),
+    hrefFor: (params) => leadsHref(ctx.base, params),
   }, status);
 }
 
-router.get('/m/:token/referrals', withMember((req, res, ctx) => renderReferrals(req, res, ctx)));
+/** Canonical Leads inbox (website + contact + network) with calendar. */
+router.get('/m/:token/leads', withMember((req, res, ctx) => renderReferrals(req, res, ctx)));
+
+/** Legacy /referrals → /leads (keep old bookmarks working). */
+router.get('/m/:token/referrals', withMember((req, res, ctx) => {
+  const qs = new URLSearchParams(req.query).toString();
+  return res.redirect(303, `${ctx.base}/leads${qs ? `?${qs}` : ''}`);
+}));
 
 router.post('/m/:token/referrals/:id', form, withMember(async (req, res, ctx) => {
   if (!(await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member))) {
-    return res.redirect(303, `${ctx.base}/referrals?ok=referrals_upgrade`);
+    return res.redirect(303, `${ctx.base}/leads?ok=referrals_upgrade`);
   }
   const action = String((req.body && req.body.action) || '').trim();
   if (!MEMBER_ACTIONS.has(action)) return renderReferrals(req, res, ctx, { error: 'Unknown action.' }, 400);
@@ -1574,8 +1619,92 @@ router.post('/m/:token/referrals/:id', form, withMember(async (req, res, ctx) =>
     baseUrl: notify.baseUrlFromReq(req),
   });
   if (!result.ok) return renderReferrals(req, res, ctx, { error: result.error }, 400);
-  const back = action === 'claim' ? `${ctx.base}/referrals?ok=claim` : `${ctx.base}/referrals?ok=${action}#ref-${encodeURIComponent(req.params.id)}`;
+  const back = action === 'claim'
+    ? `${ctx.base}/leads?ok=claim`
+    : `${ctx.base}/leads?ok=${action}#ref-${encodeURIComponent(req.params.id)}`;
   return res.redirect(303, back);
+}));
+
+/** Schedule a network referral onto the calendar (convert + set job date). */
+router.post('/m/:token/leads/from-referral/:id/schedule', form, withMember(async (req, res, ctx) => {
+  const back = `${ctx.base}/leads`;
+  if (!(await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member))) {
+    return res.redirect(303, `${back}?ok=referrals_upgrade`);
+  }
+  let referral = await store.getReferral(ctx.network.id, String(req.params.id || ''));
+  if (!referral || referral.toMemberId !== ctx.member.id) {
+    return renderReferrals(req, res, ctx, { error: 'Referral not found.' }, 404);
+  }
+  if (referral.status === 'sent') {
+    const accepted = await networkReferrals.actOnReferral({
+      network: ctx.network,
+      referralId: referral.id,
+      action: 'accept',
+      opts: { by: ctx.member.companyName },
+      actorMemberId: ctx.member.id,
+      baseUrl: notify.baseUrlFromReq(req),
+    });
+    if (!accepted.ok) return renderReferrals(req, res, ctx, { error: accepted.error }, 400);
+    referral = accepted.referral;
+  }
+  const today = work.todayIn(memberTimeZone(req));
+  const result = await work.scheduleReferralJob(ctx.network.id, ctx.bookMemberId, referral, {
+    tradeLabel: trades.tradeLabel(referral.tradeSlug, ctx.network),
+    today,
+    date: req.body && req.body.date,
+    time: req.body && req.body.time,
+    durationMins: req.body && req.body.durationMins,
+  });
+  if (!result.ok) return renderReferrals(req, res, ctx, { error: result.error }, 400);
+  const date = result.job.date || today;
+  return res.redirect(
+    303,
+    `${ctx.base}/leads?view=calendar&m=${encodeURIComponent(date.slice(0, 7))}&d=${encodeURIComponent(date)}&ok=scheduled`,
+  );
+}));
+
+/** Schedule a contact lead — create/update a job on that customer. */
+router.post('/m/:token/leads/contact/:id/schedule', form, withMember(async (req, res, ctx) => {
+  const back = `${ctx.base}/leads`;
+  const customer = await work.getCustomer(ctx.network.id, ctx.bookMemberId, String(req.params.id || ''));
+  if (!customer) return renderReferrals(req, res, ctx, { error: 'Lead not found.' }, 404);
+  const today = work.todayIn(memberTimeZone(req));
+  const date = work.cleanDate(req.body && req.body.date) || today;
+  const jobs = (await work.listJobs(ctx.network.id, ctx.bookMemberId)).filter((j) => j.customerId === customer.id);
+  const open = jobs.find((j) => work.isOpen(j));
+  let result;
+  if (open) {
+    result = await work.saveJob(
+      ctx.network.id,
+      ctx.bookMemberId,
+      {
+        customerId: customer.id,
+        title: open.title || 'Site visit',
+        status: 'scheduled',
+        value: open.value,
+        date,
+        time: work.cleanTime(req.body && req.body.time) || open.time || '',
+        durationMins: work.cleanDuration(req.body && req.body.durationMins) || open.durationMins || 60,
+        notes: open.notes,
+      },
+      { id: open.id },
+    );
+  } else {
+    result = await work.saveJob(ctx.network.id, ctx.bookMemberId, {
+      customerId: customer.id,
+      title: 'Site visit',
+      status: 'scheduled',
+      date,
+      time: work.cleanTime(req.body && req.body.time) || '',
+      durationMins: work.cleanDuration(req.body && req.body.durationMins) || 60,
+    });
+  }
+  if (!result.ok) return renderReferrals(req, res, ctx, { error: result.error }, 400);
+  await work.setCustomerLeadFlag(ctx.network.id, ctx.bookMemberId, customer.id, false).catch(() => null);
+  return res.redirect(
+    303,
+    `${back}?view=calendar&m=${encodeURIComponent(date.slice(0, 7))}&d=${encodeURIComponent(date)}&ok=scheduled`,
+  );
 }));
 
 // ── Join (free) / Quote (flooring) / Send (partners) ─────────────────────────
@@ -1929,7 +2058,6 @@ router.post('/m/:token/send/referral/:code/:conversionId', form, withMember(asyn
 
 const CUSTOMER_VIEWS = new Set(['list', 'calendar', 'pending']);
 const OPEN_REFERRAL = new Set(['sent', 'accepted', 'booked']);
-const DURATIONS = [30, 60, 90, 120, 180, 240, 360, 480, 1440, 2880];
 
 async function loadWork(ctx) {
   const [customers, jobs] = await Promise.all([
@@ -2018,7 +2146,7 @@ async function renderCustomers(req, res, ctx, flash, status) {
         isPartner,
       };
     });
-    // Leads stay in /referrals until Mark as customer — never mix into this list.
+    // Leads stay in /leads until Mark as customer — never mix into this list.
     const showQuotes = String(req.query.quotes || '') === '1';
     const partnerCount = annotated.filter((c) => c.isPartner).length;
     const leadCount = annotated.filter((c) => c.isLead).length;
@@ -2416,7 +2544,7 @@ router.post('/m/:token/customers/c/:id/mark-lead', form, withMember(async (req, 
   if (stay) {
     return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_lead`);
   }
-  return res.redirect(303, `${ctx.base}/referrals?ok=marked_lead#contact-lead-${encodeURIComponent(req.params.id)}`);
+  return res.redirect(303, `${ctx.base}/leads?ok=marked_lead#contact-lead-${encodeURIComponent(req.params.id)}`);
 }));
 
 /** Flooring: mark contact as a material quote request (hidden from Customers list). */
@@ -2447,7 +2575,7 @@ router.post('/m/:token/customers/c/:id/mark-quote', form, withMember(async (req,
   if (stay) {
     return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_quote`);
   }
-  return res.redirect(303, `${ctx.base}/referrals?ok=marked_quote#contact-quote-${encodeURIComponent(req.params.id)}`);
+  return res.redirect(303, `${ctx.base}/leads?ok=marked_quote#contact-quote-${encodeURIComponent(req.params.id)}`);
 }));
 
 /** Mark lead/quote as customer → back on Customers list. */
@@ -2485,7 +2613,7 @@ router.post('/m/:token/customers/c/:id/mark-customer', form, withMember(async (r
     touchedAction: 'marked_customer',
   });
   if (!result.ok) {
-    return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not mark as customer.')}`);
+    return res.redirect(303, `${ctx.base}/leads?errmsg=${encodeURIComponent(result.error || 'Could not mark as customer.')}`);
   }
   return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=marked_customer`);
 }));
@@ -2504,23 +2632,23 @@ router.post('/m/:token/customers/c/:id/remove-lead', form, withMember(async (req
     touchedAction: 'removed_lead',
   });
   if (!result.ok) {
-    return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent(result.error || 'Could not remove lead.')}`);
+    return res.redirect(303, `${ctx.base}/leads?errmsg=${encodeURIComponent(result.error || 'Could not remove lead.')}`);
   }
   const stay = String((req.body && req.body.stay) || '') === '1';
   if (stay) {
     return res.redirect(303, `${ctx.base}/customers/c/${req.params.id}?ok=removed_lead`);
   }
-  return res.redirect(303, `${ctx.base}/referrals?ok=removed_lead`);
+  return res.redirect(303, `${ctx.base}/leads?ok=removed_lead`);
 }));
 
 /** Delete a lead/contact entirely from the Reviews book (confirm in UI). */
 router.post('/m/:token/customers/c/:id/delete-lead', form, withMember(async (req, res, ctx) => {
   const existing = await work.getCustomer(ctx.network.id, ctx.bookMemberId, req.params.id);
   if (!existing) {
-    return res.redirect(303, `${ctx.base}/referrals?errmsg=${encodeURIComponent('Lead not found.')}`);
+    return res.redirect(303, `${ctx.base}/leads?errmsg=${encodeURIComponent('Lead not found.')}`);
   }
   await work.deleteCustomer(ctx.network.id, ctx.bookMemberId, req.params.id);
-  return res.redirect(303, `${ctx.base}/referrals?ok=lead_deleted`);
+  return res.redirect(303, `${ctx.base}/leads?ok=lead_deleted`);
 }));
 
 /**
@@ -3023,7 +3151,7 @@ router.post('/m/:token/customers/jobs/:id/photos/:photoId/caption', form, withMe
 
 function safeReturn(ctx, value, fallback) {
   const to = String(value || '');
-  const ok = [`${ctx.base}/customers`, `${ctx.base}/referrals`, `${ctx.base}/review`].some((p) => (
+  const ok = [`${ctx.base}/customers`, `${ctx.base}/leads`, `${ctx.base}/referrals`, `${ctx.base}/review`].some((p) => (
     to === p || to.startsWith(`${p}?`) || to.startsWith(`${p}/`)
   ));
   return ok && !/[\r\n]/.test(to) ? to : fallback;
@@ -4245,13 +4373,7 @@ router.post('/m/:token/activity/ghl-done', express.json(), withMember(async (req
   });
 }));
 
-// ── Website / agency leads (actions live here; UI is on Leads & Referrals) ───
-
-/** Legacy /leads URL → unified Leads & Referrals page. */
-router.get('/m/:token/leads', withMember((req, res, ctx) => {
-  const qs = new URLSearchParams(req.query).toString();
-  return res.redirect(303, `${ctx.base}/referrals${qs ? `?${qs}` : ''}`);
-}));
+// ── Website / agency leads (actions live on canonical /leads) ───
 
 /** Freemium: request a lead pack — pings agency admins that this business wants more work. */
 router.post('/m/:token/leads/request', form, withMember(async (req, res, ctx) => {
@@ -4260,7 +4382,7 @@ router.post('/m/:token/leads/request', form, withMember(async (req, res, ctx) =>
   const result = await memberLeadRequests.requestMoreLeads(ctx, { quantity, note });
   const backHome = String((req.body && req.body.back) || '').includes('home');
   if (!result.ok) {
-    const back = backHome ? ctx.base : `${ctx.base}/referrals`;
+    const back = backHome ? ctx.base : `${ctx.base}/leads`;
     const q = result.code === 'subscribe' ? 'err=leads_subscribe'
       : result.code === 'cooldown' ? 'err=leads_cooldown'
         : 'err=leads_request';
@@ -4268,16 +4390,16 @@ router.post('/m/:token/leads/request', form, withMember(async (req, res, ctx) =>
   }
   const back = backHome
     ? `${ctx.base}?ok=leads_requested`
-    : `${ctx.base}/referrals?ok=leads_requested`;
+    : `${ctx.base}/leads?ok=leads_requested`;
   return res.redirect(303, back);
 }));
 
 router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, ctx) => {
   if (!ctx.appointment) {
-    return res.redirect(303, `${ctx.base}/referrals`);
+    return res.redirect(303, `${ctx.base}/leads`);
   }
   if (!(await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member))) {
-    return res.redirect(303, `${ctx.base}/referrals?ok=referrals_upgrade`);
+    return res.redirect(303, `${ctx.base}/leads?ok=referrals_upgrade`);
   }
   const leadId = String(req.params.leadId || '').trim();
   const pkg = ctx.appointment.package;
@@ -4285,12 +4407,12 @@ router.post('/m/:token/leads/:leadId/close', form, withMember(async (req, res, c
     (f.id === leadId ? { ...f, status: 'closed' } : f),
   );
   await appointmentPackages.updatePackage(ctx.appointment.workspaceId, ctx.appointment.packageId, { formLeads });
-  return res.redirect(303, `${ctx.base}/referrals?ok=closed`);
+  return res.redirect(303, `${ctx.base}/leads?ok=closed`);
 }));
 
 /** Website/agency form lead → Customers book, then close the lead. */
 router.post('/m/:token/leads/:leadId/to-customer', form, withMember(async (req, res, ctx) => {
-  const back = `${ctx.base}/referrals`;
+  const back = `${ctx.base}/leads`;
   if (!ctx.appointment) {
     return res.redirect(303, back);
   }
@@ -4338,7 +4460,7 @@ router.post('/m/:token/leads/:leadId/to-customer', form, withMember(async (req, 
  * no copy/paste. Prefills name/phone/email/note from the form lead.
  */
 router.post('/m/:token/leads/:leadId/refer', form, withMember(async (req, res, ctx) => {
-  const back = `${ctx.base}/referrals`;
+  const back = `${ctx.base}/leads`;
   if (!(await memberLeadRequests.planAllowsLeadDetails(ctx.network, ctx.member))) {
     return res.redirect(303, `${back}?ok=referrals_upgrade`);
   }

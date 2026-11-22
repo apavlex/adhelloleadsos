@@ -74,7 +74,9 @@ function presentReferralTeaser(presented, { detailsAllowed } = {}) {
     notes: [],
     actions: [],
     convertible: false,
+    scheduleable: false,
     jobHref: '',
+    jobDate: '',
     detailsLocked: true,
     statusLabel: row.statusLabel || 'Locked',
   };
