@@ -1,7 +1,16 @@
 <%# Reviews-app setup checklist — Home for first-time openers only. Expects `setupChecklist`. %>
 <% const _sc = typeof setupChecklist !== 'undefined' && setupChecklist ? setupChecklist : null; %>
 <% if (_sc && _sc.show && _sc.steps && _sc.steps.length) { %>
-<section class="ma-section ma-onboard" id="maOnboarding" aria-label="Get set up" data-ma-onboard>
+<% const _bd = _sc.brandDefaults || {}; %>
+<% const _presets = Array.isArray(_sc.accentPresets) ? _sc.accentPresets : []; %>
+<section
+  class="ma-section ma-onboard"
+  id="maOnboarding"
+  aria-label="Get set up"
+  data-ma-onboard
+  data-ma-install-locked="<%= _sc.installLocked ? '1' : '0' %>"
+  data-ma-branding-complete="<%= _sc.brandingComplete ? '1' : '0' %>"
+>
   <div class="ma-onboard__card">
     <div class="ma-onboard__head">
       <div class="min-w-0">
@@ -26,21 +35,100 @@
         </div>
         <% if (step.done) { %>
         <a class="ma-onboard__done-label" href="<%= step.href %>" data-ma-onboard-done>Done</a>
+        <% } else if (step.action === 'branding') { %>
+        <button type="button" class="ma-btn ma-btn--soft ma-onboard__cta" data-ma-onboard-action="branding"><%= step.cta %></button>
         <% } else if (step.action === 'notifications') { %>
         <button type="button" class="ma-btn ma-btn--soft ma-onboard__cta" data-ma-onboard-action="notifications"><%= step.cta %></button>
         <% } else if (step.action === 'install') { %>
         <button type="button" class="ma-btn ma-btn--soft ma-onboard__cta" data-ma-install-open data-ma-onboard-action="install"><%= step.cta %></button>
-        <% } else if (step.id === 'banner') { %>
-        <label class="ma-btn ma-btn--soft ma-onboard__cta" for="maOnboardHeroInput"><%= step.cta %></label>
         <% } else { %>
         <a class="ma-btn ma-btn--soft ma-onboard__cta" href="<%= step.href %>"><%= step.cta %></a>
         <% } %>
       </li>
       <% }); %>
     </ol>
-    <form id="maOnboardHeroForm" class="ma-onboard__hero-form" method="post" action="<%= base %>/brand/hero" enctype="multipart/form-data" autocomplete="off" hidden>
-      <input id="maOnboardHeroInput" type="file" name="hero" accept="image/jpeg,image/png,image/webp,image/gif" required>
-    </form>
+  </div>
+
+  <div class="ma-brand-sheet" id="maBrandSheet" hidden role="dialog" aria-modal="true" aria-labelledby="maBrandSheetTitle">
+    <div class="ma-brand-sheet__backdrop" data-ma-brand-close tabindex="-1"></div>
+    <div class="ma-brand-sheet__panel">
+      <button type="button" class="ma-brand-sheet__x" data-ma-brand-close aria-label="Close">×</button>
+      <p class="ma-onboard__eyebrow">Before you save to your phone</p>
+      <h2 id="maBrandSheetTitle" class="ma-brand-sheet__title">Brand your Reviews app</h2>
+      <p class="ma-brand-sheet__lead">Set the name, image, and colors for your Home Screen icon. This is your Reviews app — you do not need Workspace.</p>
+      <form
+        id="maBrandForm"
+        class="ma-brand-sheet__form"
+        method="post"
+        action="<%= base %>/setup/branding"
+        enctype="multipart/form-data"
+        autocomplete="off"
+        data-ma-loading="Saving branding…"
+      >
+        <div class="ma-field">
+          <label class="ma-label" for="maBrandAppName">Brand / app name</label>
+          <input
+            id="maBrandAppName"
+            name="brandAppName"
+            class="ma-input"
+            maxlength="60"
+            required
+            autocapitalize="words"
+            value="<%= _bd.appName || '' %>"
+            placeholder="Your business name"
+          >
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="maBrandLogo">Logo or photo (Home Screen icon)</label>
+          <input
+            id="maBrandLogo"
+            name="logo"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*"
+            class="ma-input"
+          >
+          <p class="ma-hint" style="margin:6px 0 0">Square logo works best. You can skip if you already uploaded a profile photo.</p>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="maBrandHero">Banner image (Home screen)</label>
+          <input
+            id="maBrandHero"
+            name="hero"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/*"
+            class="ma-input"
+          >
+          <p class="ma-hint" style="margin:6px 0 0">Van, job site, or storefront photo.</p>
+        </div>
+        <fieldset class="ma-field ma-brand-colors">
+          <legend class="ma-label">Brand color</legend>
+          <div class="ma-brand-swatches" role="listbox" aria-label="Accent colors">
+            <% _presets.forEach(function (hex) { %>
+            <button
+              type="button"
+              class="ma-brand-swatch<%= String(_bd.accent || '').toLowerCase() === String(hex).toLowerCase() ? ' is-on' : '' %>"
+              style="--swatch:<%= hex %>"
+              data-ma-brand-swatch="<%= hex %>"
+              aria-label="<%= hex %>"
+            ></button>
+            <% }); %>
+          </div>
+          <div class="ma-brand-custom">
+            <label class="ma-label" for="maBrandAccent">Custom</label>
+            <input
+              id="maBrandAccent"
+              name="brandAccent"
+              type="color"
+              class="ma-brand-color-input"
+              value="<%= _bd.accent || '#FFDB3A' %>"
+            >
+          </div>
+        </fieldset>
+        <p id="maBrandErr" class="ma-flash ma-flash--err" hidden style="margin:0"></p>
+        <button type="submit" class="ma-btn ma-btn--block">Save branding</button>
+        <button type="button" class="ma-btn ma-btn--ghost ma-btn--block" data-ma-brand-close style="margin-top:8px">Cancel</button>
+      </form>
+    </div>
   </div>
 </section>
 <script>
@@ -50,6 +138,10 @@
   root.setAttribute('data-ma-onboard-ready', '1');
   var base = <%- JSON.stringify(typeof base !== 'undefined' ? base : '') %>;
   var total = <%= Number(_sc.total) || 5 %>;
+  var brandSheet = document.getElementById('maBrandSheet');
+  var brandForm = document.getElementById('maBrandForm');
+  var brandAccent = document.getElementById('maBrandAccent');
+  var brandErr = document.getElementById('maBrandErr');
 
   function postStep(stepId) {
     if (!base || !stepId) return Promise.resolve({ ok: false });
@@ -84,10 +176,10 @@
     if (check) check.textContent = '✓';
     var cta = item.querySelector('.ma-onboard__cta');
     if (cta) {
-      var href = cta.getAttribute('href') || base + '/';
+      var href = base + '/';
       if (stepId === 'review_links') href = base + '/review/settings';
       if (stepId === 'profile') href = base + '/profile';
-      if (stepId === 'banner') href = base + '/#ma-onboarding-banner';
+      if (stepId === 'branding') href = base + '/#maOnboarding';
       var done = document.createElement('a');
       done.className = 'ma-onboard__done-label';
       done.setAttribute('data-ma-onboard-done', '');
@@ -98,15 +190,113 @@
     refreshProgress();
   }
 
-  var heroInput = document.getElementById('maOnboardHeroInput');
-  var heroForm = document.getElementById('maOnboardHeroForm');
-  if (heroInput && heroForm) {
-    heroInput.addEventListener('change', function () {
-      if (!heroInput.files || !heroInput.files.length) return;
-      if (heroForm.requestSubmit) heroForm.requestSubmit();
-      else heroForm.submit();
+  function openBrandSheet() {
+    if (!brandSheet) return;
+    brandSheet.hidden = false;
+    document.body.style.overflow = 'hidden';
+    var nameInput = document.getElementById('maBrandAppName');
+    if (nameInput) setTimeout(function () { nameInput.focus(); }, 50);
+  }
+
+  function closeBrandSheet() {
+    if (!brandSheet) return;
+    brandSheet.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  root.querySelectorAll('[data-ma-onboard-action="branding"]').forEach(function (btn) {
+    btn.addEventListener('click', function () { openBrandSheet(); });
+  });
+  root.querySelectorAll('[data-ma-brand-close]').forEach(function (el) {
+    el.addEventListener('click', function () { closeBrandSheet(); });
+  });
+
+  root.querySelectorAll('[data-ma-brand-swatch]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var hex = btn.getAttribute('data-ma-brand-swatch') || '';
+      if (brandAccent && hex) brandAccent.value = hex;
+      root.querySelectorAll('[data-ma-brand-swatch]').forEach(function (b) {
+        b.classList.toggle('is-on', b === btn);
+      });
+    });
+  });
+
+  if (brandForm) {
+    brandForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (brandErr) {
+        brandErr.hidden = true;
+        brandErr.textContent = '';
+      }
+      var fd = new FormData(brandForm);
+      var submitBtn = brandForm.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.setAttribute('aria-busy', 'true');
+      }
+      fetch(brandForm.action, {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (res) {
+          return res.json().then(function (data) {
+            return { ok: res.ok && data && data.success !== false, data: data };
+          }).catch(function () { return { ok: false, data: {} }; });
+        })
+        .then(function (parsed) {
+          if (!parsed.ok) {
+            var msg = (parsed.data && parsed.data.error) || 'Could not save branding.';
+            if (brandErr) {
+              brandErr.textContent = msg;
+              brandErr.hidden = false;
+            }
+            return;
+          }
+          root.setAttribute('data-ma-branding-complete', '1');
+          root.setAttribute('data-ma-install-locked', '0');
+          markLocal('branding');
+          // Unlock install CTA if it was remapped to branding.
+          var installItem = root.querySelector('[data-ma-onboard-step="home_screen"]:not(.is-done)');
+          if (installItem) {
+            var lockedCta = installItem.querySelector('[data-ma-onboard-action="branding"]');
+            if (lockedCta) {
+              lockedCta.setAttribute('data-ma-onboard-action', 'install');
+              lockedCta.setAttribute('data-ma-install-open', '');
+              lockedCta.textContent = 'Save as app';
+              var hint = installItem.querySelector('.ma-onboard__step-hint');
+              if (hint) hint.textContent = 'Save the branded app icon so Reviews is one tap away';
+            }
+          }
+          closeBrandSheet();
+          // Soft reload so accent / name / icon refresh in chrome.
+          window.location.href = base + '/?ok=branding_saved';
+        })
+        .catch(function () {
+          if (brandErr) {
+            brandErr.textContent = 'Could not save branding.';
+            brandErr.hidden = false;
+          }
+        })
+        .finally(function () {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-busy');
+          }
+        });
     });
   }
+
+  // Intercept install opens while branding is locked.
+  document.addEventListener('click', function (e) {
+    var openBtn = e.target.closest('[data-ma-install-open]');
+    if (!openBtn) return;
+    if (root.getAttribute('data-ma-install-locked') !== '1') return;
+    e.preventDefault();
+    e.stopPropagation();
+    openBrandSheet();
+  }, true);
 
   root.querySelectorAll('[data-ma-onboard-action="notifications"]').forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -128,7 +318,6 @@
     });
   });
 
-  // Push subscribe route marks the step server-side; refresh UI when permission lands.
   window.addEventListener('ma-push-enabled', function () {
     postStep('notifications').then(function () { markLocal('notifications'); });
   });
@@ -141,7 +330,6 @@
     }
   });
 
-  // Already running as installed PWA — count Home Screen step as done.
   var standalone =
     (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
     window.navigator.standalone === true;
@@ -149,6 +337,15 @@
     postStep('home_screen').then(function (r) {
       if (r && r.ok) markLocal('home_screen');
     });
+  }
+
+  // Deep-link from email / checklist / install invite before branding is done.
+  if (
+    location.hash === '#ma-brand-setup' ||
+    /[?&]brand=1(?:&|$)/.test(location.search) ||
+    (root.getAttribute('data-ma-install-locked') === '1' && /[?&]install=1(?:&|$)/.test(location.search))
+  ) {
+    openBrandSheet();
   }
 })();
 </script>

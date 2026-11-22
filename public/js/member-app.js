@@ -138,7 +138,12 @@
     params.get('install') === 'true';
   // Only open the sheet when ?install=1 (invite / Get the app links) or the user
   // taps “Save as a phone app” in Settings — never auto-nag on Home or deep links.
-  var forceInstall = forceQuery;
+  // First-time setup locks install until branding (name/image/colors) is saved.
+  function installLockedByOnboarding() {
+    var card = document.getElementById('maOnboarding');
+    return !!(card && card.getAttribute('data-ma-install-locked') === '1');
+  }
+  var forceInstall = forceQuery && !installLockedByOnboarding();
 
   try { localStorage.removeItem(LEGACY_KEY); } catch (e) { /* private mode */ }
 

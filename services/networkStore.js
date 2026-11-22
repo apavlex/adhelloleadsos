@@ -239,6 +239,20 @@ function normalizeMember(raw) {
     portalCode: cleanText(m.portalCode, 16).toLowerCase(),
     /** ISO stamp when a free-app member uploaded their own Home hero image. */
     heroUpdatedAt: cleanText(m.heroUpdatedAt, 40),
+    /**
+     * Free-app Home Screen branding (onboarding before Add to Home Screen).
+     * brandAppName → PWA name; brandAccent → accent/theme; brandSavedAt when set.
+     */
+    brandAppName: cleanText(m.brandAppName, 60),
+    brandAccent: (() => {
+      const raw = String(m.brandAccent == null ? '' : m.brandAccent).trim();
+      const hex = raw.match(/^#?([0-9a-f]{3}|[0-9a-f]{6})$/i);
+      if (!hex) return '';
+      let h = hex[1].toLowerCase();
+      if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+      return `#${h}`;
+    })(),
+    brandSavedAt: cleanText(m.brandSavedAt, 40),
     invitedByMemberId: cleanText(m.invitedByMemberId, 40),
     /**
      * Workspace team app from Get the app (staff login). Not a referral partner —
@@ -251,16 +265,18 @@ function normalizeMember(raw) {
      */
     ghlAlertsEnabled: m.ghlAlertsEnabled === true,
     /**
-     * Reviews-app Home setup checklist (profile, review links, banner, alerts,
+     * Reviews-app Home setup checklist (profile, branding, review links, alerts,
      * Home Screen). See services/memberAppOnboarding.js.
      */
     setupChecklist: (() => {
       const raw = m.setupChecklist && typeof m.setupChecklist === 'object' ? m.setupChecklist : {};
       const markedIn = raw.marked && typeof raw.marked === 'object' ? raw.marked : {};
       const marked = {};
-      ['profile', 'review_links', 'banner', 'notifications', 'home_screen'].forEach((id) => {
+      ['profile', 'branding', 'banner', 'review_links', 'notifications', 'home_screen'].forEach((id) => {
         if (markedIn[id]) marked[id] = cleanText(markedIn[id], 40);
       });
+      // Older checklists marked banner; treat that as branding progress.
+      if (!marked.branding && marked.banner) marked.branding = marked.banner;
       return {
         dismissedAt: cleanText(raw.dismissedAt, 40),
         firstOpenedAt: cleanText(raw.firstOpenedAt, 40),

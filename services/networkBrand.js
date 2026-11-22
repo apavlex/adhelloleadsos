@@ -108,19 +108,21 @@ function brandView(network, member, opts = {}) {
   const brand = normalizeBrand(net.brand);
   const plan = member ? String(member.plan || '') : '';
   const free = !!(opts.freeApp || plan === 'app_free' || plan === 'app_flooring');
-  const companyName = free && member ? cleanText(member.companyName, 60) : '';
-  // Free app never inherits the host agency network name — product is Reviews App.
-  // Signup company stays on the hero subtitle so members still see their business.
+  const companyName = member ? cleanText(member.companyName, 60) : '';
+  // Member brand kit (Reviews front-gate for free + paid) overrides defaults once saved.
+  const explicitBrand = member ? cleanText(member.brandAppName, 60) : '';
+  const memberAccent = member ? normalizeHex(member.brandAccent) : '';
   const appName = free
-    ? FREE_APP_NAME
-    : (brand.appName || cleanText(net.name, 60) || 'Partner network');
-  // Home hero prefers the signup company; chrome / install use Reviews App.
-  const heroName = free ? (companyName || FREE_APP_NAME) : appName;
-  const accent = free ? DEFAULT_ACCENT : brand.accent;
+    ? (explicitBrand || FREE_APP_NAME)
+    : (explicitBrand || brand.appName || cleanText(net.name, 60) || 'Partner network');
+  const heroName = free
+    ? (explicitBrand || companyName || FREE_APP_NAME)
+    : (explicitBrand || appName);
+  const accent = memberAccent || (free ? DEFAULT_ACCENT : brand.accent);
   // Always show a photo banner — never a bare gradient — until they upload their own.
-  let heroUrl = free
-    ? normalizeImageUrl(opts.heroUrl) || DEFAULT_HERO_URL
-    : normalizeImageUrl(brand.heroUrl) || normalizeImageUrl(opts.heroUrl) || DEFAULT_HERO_URL;
+  // Member hero (setup branding) wins over network default for this install.
+  let heroUrl = normalizeImageUrl(opts.heroUrl)
+    || (free ? DEFAULT_HERO_URL : (normalizeImageUrl(brand.heroUrl) || DEFAULT_HERO_URL));
   const freeSubtitle = companyName
     ? `${companyName} · Reviews, customers & network`
     : 'Reviews, customers & network';
@@ -144,7 +146,30 @@ function brandView(network, member, opts = {}) {
     statSuffix: free ? '' : brand.statSuffix,
     initials: initials(heroName || appName),
     isFreeApp: !!free,
+    memberBranded: !!(member && (member.brandSavedAt || explicitBrand || memberAccent)),
   };
+}
+
+/** Overlay a member's Reviews brand kit onto a workspace/network brand view. */
+function applyMemberBrandOverlay(brand, member) {
+  const base = brand && typeof brand === 'object' ? brand : {};
+  if (!member) return base;
+  const name = cleanText(member.brandAppName, 60);
+  const accent = normalizeHex(member.brandAccent);
+  if (!name && !accent && !member.brandSavedAt) return base;
+  const next = { ...base };
+  if (name) {
+    next.appName = name;
+    next.heroName = name;
+    next.shortName = name.length <= 12 ? name : name.split(/\s+/)[0].slice(0, 12);
+    next.initials = initials(name);
+  }
+  if (accent) {
+    next.accent = accent;
+    next.onAccent = onAccentColor(accent);
+  }
+  next.memberBranded = true;
+  return next;
 }
 
 function escapeXml(value) {
@@ -237,6 +262,7 @@ module.exports = {
   normalizeImageUrl,
   onAccentColor,
   brandView,
+  applyMemberBrandOverlay,
   logoNeedsAccentTile,
   renderIcon,
   prepareImage,

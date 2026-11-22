@@ -32,11 +32,13 @@ function isOwnerMember(member, network) {
  */
 async function applyWorkspaceBrand(brand, network, member) {
   const base = brand && typeof brand === 'object' ? brand : networkBrand.brandView(network, member);
-  if (base.isFreeApp) return base;
-  if (!network || !network.ownerWorkspaceId) return base;
+  if (base.isFreeApp) return networkBrand.applyMemberBrandOverlay(base, member);
+  if (!network || !network.ownerWorkspaceId) {
+    return networkBrand.applyMemberBrandOverlay(base, member);
+  }
 
   const ws = await dbService.getWorkspace(network.ownerWorkspaceId);
-  if (!ws) return base;
+  if (!ws) return networkBrand.applyMemberBrandOverlay(base, member);
 
   const wl = whiteLabel.brandForWorkspace(ws);
   const accent =
@@ -55,7 +57,7 @@ async function applyWorkspaceBrand(brand, network, member) {
   // Teammates/partners inherit the workspace look (accent + name + logo).
   // Only the owner can edit White-label; everyone else just sees the same brand.
   if (!isOwnerMember(member, network)) {
-    return {
+    const inherited = {
       ...base,
       appName: businessName,
       heroName: businessName,
@@ -68,9 +70,10 @@ async function applyWorkspaceBrand(brand, network, member) {
       initials: networkBrand.initials(businessName),
       fromWorkspace: true,
     };
+    return networkBrand.applyMemberBrandOverlay(inherited, member);
   }
 
-  return {
+  const withWorkspace = {
     ...base,
     appName: businessName,
     heroName: businessName,
@@ -84,6 +87,8 @@ async function applyWorkspaceBrand(brand, network, member) {
     initials: networkBrand.initials(businessName),
     fromWorkspace: true,
   };
+  // Reviews is the front gate — member brand kit (saved in-app) wins for this install.
+  return networkBrand.applyMemberBrandOverlay(withWorkspace, member);
 }
 
 /** Load logo buffer for owner icons when brand points at /brand/ws/… */
@@ -98,7 +103,7 @@ async function workspaceLogoForBrand(brand, network) {
  * Owner-only: update Workspace → White label from the member app Profile.
  * Logo also mirrors onto the network brand so Home’s badge stays in sync.
  *
- * @param {{ appName?: string, logoBuffer?: Buffer|null, removeLogo?: boolean }} patch
+ * @param {{ appName?: string, accent?: string, logoBuffer?: Buffer|null, removeLogo?: boolean }} patch
  */
 async function saveOwnerWorkspaceBranding(network, member, patch = {}) {
   if (!network || !network.ownerWorkspaceId) {
@@ -122,7 +127,16 @@ async function saveOwnerWorkspaceBranding(network, member, patch = {}) {
     next.logoVersion = await whiteLabel.saveLogo(wid, patch.logoBuffer);
   }
 
-  await dbService.saveWorkspace(wid, { ...ws, whiteLabel: next });
+  const accentPatch = networkBrand.normalizeHex(patch.accent);
+  const accentText = accentPatch ? networkBrand.onAccentColor(accentPatch) : '';
+  const wsNext = {
+    ...ws,
+    whiteLabel: next,
+    ...(accentPatch
+      ? { accentColor: accentPatch, accentTextColor: accentText }
+      : {}),
+  };
+  await dbService.saveWorkspace(wid, wsNext);
 
   // Keep Network brand logo aligned so Home badge + partners see the same mark.
   const brand = { ...(network.brand || {}) };
@@ -138,15 +152,20 @@ async function saveOwnerWorkspaceBranding(network, member, patch = {}) {
     brand.appName = next.appName;
   }
   // Keep Network accent aligned so teammates match the owner app color.
-  if (networkBrand.normalizeHex(ws.accentColor)) {
-    brand.accent = networkBrand.normalizeHex(ws.accentColor);
-  }
-  if (networkBrand.normalizeHex(ws.accentTextColor)) {
-    brand.onAccent = networkBrand.normalizeHex(ws.accentTextColor);
-  }
+  const accent =
+    accentPatch ||
+    networkBrand.normalizeHex(wsNext.accentColor) ||
+    networkBrand.normalizeHex(ws.accentColor);
+  if (accent) brand.accent = accent;
+  const onAccent =
+    accentText ||
+    networkBrand.normalizeHex(wsNext.accentTextColor) ||
+    networkBrand.normalizeHex(ws.accentTextColor) ||
+    networkBrand.onAccentColor(accent || networkBrand.DEFAULT_ACCENT);
+  if (onAccent) brand.onAccent = onAccent;
   const savedNet = await networkStore.saveNetwork({ ...network, brand });
-  const brandView = whiteLabel.brandForWorkspace({ ...ws, id: wid, whiteLabel: next });
-  return { ok: true, workspace: { ...ws, id: wid, whiteLabel: next }, network: savedNet, brand: brandView };
+  const brandView = whiteLabel.brandForWorkspace({ ...wsNext, id: wid, whiteLabel: next });
+  return { ok: true, workspace: { ...wsNext, id: wid, whiteLabel: next }, network: savedNet, brand: brandView };
 }
 
 module.exports = {
