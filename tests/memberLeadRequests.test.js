@@ -102,8 +102,16 @@ describe('memberLeadRequests', () => {
     assert.match(home, /href="<%= base %>\/leads"/);
     assert.doesNotMatch(home, /Claim pool/);
     assert.doesNotMatch(home, /leads\?view=pool/);
+    // Home: callout after Network actions (bottom of page).
+    assert.ok(home.lastIndexOf('ma-dash-actions') < home.lastIndexOf('_lead_request_callout'));
     assert.match(referrals, /_lead_request_callout/);
+    // Leads/Calendar: callout after Create project / inbox content.
+    assert.ok(referrals.indexOf('maCreateProject') < referrals.lastIndexOf('_lead_request_callout'));
+    const legacyLeads = fs.readFileSync(path.join(__dirname, '../views/member_app/leads.ejs'), 'utf8');
+    assert.match(legacyLeads, /_lead_request_callout/);
+    assert.ok(legacyLeads.lastIndexOf('Referral pool') < legacyLeads.lastIndexOf('_lead_request_callout'));
     assert.match(referrals, /Website &amp; agency/);
+    assert.match(css, /\.ma-shell > \.ma-leadask:last-child/);
     assert.match(callout, /Need more leads/);
     assert.match(callout, /Request leads/);
     assert.match(callout, /monthly workspace/);

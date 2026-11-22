@@ -414,12 +414,22 @@ describe('member app install modal and tab bar', () => {
     assert.match(page, /Timeline/);
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_lead_request_callout/);
-    assert.match(page, /href="<%= base %>\/send"/);
+    assert.match(page, /maCreateProject|Create project/);
+    assert.match(page, /Pick a customer|New name/);
+    assert.doesNotMatch(page, /Send a referral/);
+    // Leads inbox segments: Inbox · Pool · Sent (Calendar is its own bottom tab).
+    assert.match(page, /ma-seg ma-seg--3" aria-label="Lead views"/);
+    const leadSeg = page.slice(page.indexOf('aria-label="Lead views"'), page.indexOf('</nav>', page.indexOf('aria-label="Lead views"')) + 6);
+    assert.match(leadSeg, /Inbox/);
+    assert.match(leadSeg, /Pool/);
+    assert.match(leadSeg, /Sent/);
+    assert.doesNotMatch(leadSeg, /Calendar/);
     assert.match(route, /portalLeadsPath:\s*`\$\{ctx\.base\}\/leads`/);
     assert.match(route, /redirect\(303,\s*`\$\{ctx\.base\}\/leads/);
     assert.match(route, /scheduleReferralJob/);
     assert.match(route, /leads\/from-referral\/:id\/schedule/);
     assert.match(route, /'timeline'/);
+    assert.match(route, /projectCustomers/);
   });
 
   it('Home stays responsive: defer GHL sync, skip icon decode, idle install modal', () => {

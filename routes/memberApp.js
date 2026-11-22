@@ -1608,6 +1608,11 @@ async function renderReferrals(req, res, ctx, flash, status) {
     durations: DURATIONS.map((m) => ({ value: m, label: durationLabel(m) })),
     hrefFor: (params) => leadsHref(ctx.base, params),
     canSendReferral: !referralsLocked && !freeAppSignup.isAppFreeMember(ctx.member),
+    projectCustomers: customers
+      .slice()
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')))
+      .slice(0, 200)
+      .map((c) => ({ id: c.id, name: c.name || 'Customer', phone: c.phone || '' })),
   }, status);
 }
 
