@@ -9,12 +9,13 @@ const assert = require('node:assert/strict');
 const memberAppOnboarding = require('../services/memberAppOnboarding');
 const push = require('../services/pushNotifications');
 
-test('setup checklist has the five signup steps', () => {
+test('setup checklist brands before Home Screen', () => {
   assert.equal(memberAppOnboarding.STEPS.length, 5);
   assert.deepEqual(
     memberAppOnboarding.STEPS.map((s) => s.id),
-    ['profile', 'review_links', 'banner', 'notifications', 'home_screen'],
+    ['profile', 'branding', 'review_links', 'notifications', 'home_screen'],
   );
+  assert.ok(memberAppOnboarding.BRAND_ACCENT_PRESETS.length >= 5);
 });
 
 test('buildChecklist marks profile and review links from member data', () => {
@@ -38,20 +39,24 @@ test('buildChecklist marks profile and review links from member data', () => {
   assert.equal(list.show, true);
   assert.equal(list.steps.find((s) => s.id === 'profile').done, true);
   assert.equal(list.steps.find((s) => s.id === 'review_links').done, true);
-  assert.equal(list.steps.find((s) => s.id === 'banner').done, false);
-  assert.equal(list.steps.find((s) => s.id === 'notifications').done, false);
-  assert.equal(list.doneCount, 2);
-  assert.equal(list.next.id, 'banner');
+  assert.equal(list.steps.find((s) => s.id === 'branding').done, false);
+  assert.equal(list.installLocked, true);
+  assert.equal(list.steps.find((s) => s.id === 'home_screen').installLocked, true);
+  assert.equal(list.steps.find((s) => s.id === 'home_screen').action, 'branding');
+  assert.equal(list.next.id, 'branding');
 });
 
-test('banner and notifications complete from hero stamp and push subscription', () => {
+test('brandingComplete after name, accent, and image', () => {
   const member = {
-    id: 'm_push',
-    companyName: 'Acme',
+    id: 'm_brand',
+    companyName: 'Acme HVAC',
     contactName: 'Pat',
     phone: '555',
     reviewLinks: { google: 'https://g.page/x/review', other: [] },
-    heroUpdatedAt: '2026-10-23T00:00:00.000Z',
+    brandAppName: 'Acme Reviews',
+    brandAccent: '#0EA5E9',
+    brandSavedAt: '2026-11-22T00:00:00.000Z',
+    heroUpdatedAt: '2026-11-22T00:00:00.000Z',
     joinedAt: new Date().toISOString(),
     plan: 'app_free',
     setupChecklist: { dismissedAt: '', marked: {} },
@@ -61,26 +66,50 @@ test('banner and notifications complete from hero stamp and push subscription', 
       endpoint: 'https://push.example.com/onboard',
       keys: { p256dh: 'p', auth: 'a' },
     },
-    networkId: 'n_push',
-    memberId: 'm_push',
+    networkId: 'n_brand',
+    memberId: 'm_brand',
   });
   const list = memberAppOnboarding.buildChecklist({
     member,
-    network: { id: 'n_push' },
+    network: { id: 'n_brand' },
     base: '/m/tok',
   });
-  assert.equal(list.steps.find((s) => s.id === 'banner').done, true);
+  assert.equal(list.brandingComplete, true);
+  assert.equal(list.installLocked, false);
+  assert.equal(list.steps.find((s) => s.id === 'branding').done, true);
   assert.equal(list.steps.find((s) => s.id === 'notifications').done, true);
   assert.equal(list.steps.find((s) => s.id === 'home_screen').done, false);
+  assert.equal(list.steps.find((s) => s.id === 'home_screen').action, 'install');
 
   const marked = memberAppOnboarding.markStep(member.setupChecklist, 'home_screen');
   const after = memberAppOnboarding.buildChecklist({
     member: { ...member, setupChecklist: marked },
-    network: { id: 'n_push' },
+    network: { id: 'n_brand' },
     base: '/m/tok',
   });
   assert.equal(after.allDone, true);
   assert.equal(after.show, false);
+});
+
+test('paid partners skip personal branding before install', () => {
+  const member = {
+    id: 'm_partner',
+    companyName: 'Partner Co',
+    contactName: 'Sam',
+    phone: '555',
+    reviewLinks: {},
+    joinedAt: new Date().toISOString(),
+    plan: '',
+    setupChecklist: { dismissedAt: '', marked: {} },
+  };
+  const list = memberAppOnboarding.buildChecklist({
+    member,
+    network: { id: 'n1' },
+    base: '/m/tok',
+  });
+  assert.equal(list.brandingComplete, true);
+  assert.equal(list.installLocked, false);
+  assert.equal(list.steps.find((s) => s.id === 'branding').done, true);
 });
 
 test('dismiss hides the checklist', () => {
@@ -134,38 +163,60 @@ test('checklist only shows for new first-time members', () => {
   );
 });
 
-test('Home and routes expose the setup checklist', () => {
+test('Home and routes expose branding-before-install setup', () => {
   const home = fs.readFileSync(path.join(__dirname, '../views/member_app/home.ejs'), 'utf8');
   const partial = fs.readFileSync(path.join(__dirname, '../views/member_app/_onboarding.ejs'), 'utf8');
   const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
   const css = fs.readFileSync(path.join(__dirname, '../public/css/member-app.css'), 'utf8');
   const service = fs.readFileSync(path.join(__dirname, '../services/memberAppOnboarding.js'), 'utf8');
+  const js = fs.readFileSync(path.join(__dirname, '../public/js/member-app.js'), 'utf8');
   assert.match(home, /_onboarding/);
-  assert.match(home, /id="ma-onboarding-banner"/);
   assert.match(partial, /Get set up/);
-  assert.match(partial, /data-ma-onboard-step/);
-  assert.match(partial, /data-ma-onboard-action="notifications"/);
-  assert.match(partial, /data-ma-install-open/);
-  assert.match(partial, /data-ma-onboard-done/);
-  assert.match(partial, /data-ma-onboard-progress/);
-  assert.match(service, /Fill out your profile/);
-  assert.match(service, /Add review links/);
-  assert.match(service, /banner image/i);
-  assert.match(service, /phone alerts/i);
-  assert.match(service, /Home Screen/);
-  assert.match(service, /isNewFirstTimeMember|firstOpenedAt|SHOW_DAYS/);
-  assert.match(route, /setupChecklist/);
-  assert.match(route, /markFirstOpened/);
-  assert.match(route, /\/setup\/step/);
-  assert.match(route, /\/setup\/dismiss/);
-  assert.match(css, /\.ma-onboard__/);
+  assert.match(partial, /Brand your Reviews app/);
+  assert.match(partial, /data-ma-onboard-action="branding"/);
+  assert.match(partial, /data-ma-install-locked/);
+  assert.match(partial, /maBrandSheet/);
+  assert.match(partial, /brandAccent/);
+  assert.match(service, /Brand your app/);
+  assert.match(service, /installLocked/);
+  assert.match(service, /brandingComplete/);
+  assert.match(route, /setup\/branding/);
+  assert.match(route, /brandSavedAt/);
+  assert.match(route, /Finish branding/);
+  assert.match(css, /\.ma-brand-sheet/);
+  assert.match(js, /installLockedByOnboarding/);
 });
 
-test('Reviews email Day 1 points at the in-app setup checklist', () => {
+test('Reviews email Day 1 asks for branding before Home Screen', () => {
   const cfg = require('../services/reviewsOnboardingConfig');
   assert.match(cfg.DEFAULT_STEPS[0].body, /profile/i);
-  assert.match(cfg.DEFAULT_STEPS[0].body, /review links/i);
-  assert.match(cfg.DEFAULT_STEPS[0].body, /banner/i);
-  assert.match(cfg.DEFAULT_STEPS[0].body, /alerts/i);
+  assert.match(cfg.DEFAULT_STEPS[0].body, /Brand your app/i);
+  assert.match(cfg.DEFAULT_STEPS[0].body, /colors/i);
   assert.match(cfg.DEFAULT_STEPS[0].body, /Home Screen/i);
+  assert.match(cfg.DEFAULT_STEPS[0].body, /before you save it to your phone/i);
+});
+
+test('free-app brandView uses saved name and accent', () => {
+  const networkBrand = require('../services/networkBrand');
+  const brand = networkBrand.brandView(
+    { id: 'n1', name: 'Host Agency', brand: { appName: 'Agency', accent: '#111111' } },
+    {
+      plan: 'app_free',
+      companyName: 'Acme HVAC',
+      brandAppName: 'Acme Pro',
+      brandAccent: '#0ea5e9',
+    },
+  );
+  assert.equal(brand.appName, 'Acme Pro');
+  assert.equal(brand.heroName, 'Acme Pro');
+  assert.equal(brand.accent, '#0ea5e9');
+  assert.equal(brand.isFreeApp, true);
+
+  const unset = networkBrand.brandView(
+    { id: 'n1', name: 'Host Agency' },
+    { plan: 'app_free', companyName: 'Sunrise HVAC' },
+  );
+  assert.equal(unset.appName, 'AdHello Reviews App');
+  assert.equal(unset.heroName, 'Sunrise HVAC');
+  assert.equal(unset.accent, '#FFDB3A');
 });

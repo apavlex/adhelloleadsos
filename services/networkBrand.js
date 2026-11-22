@@ -109,14 +109,15 @@ function brandView(network, member, opts = {}) {
   const plan = member ? String(member.plan || '') : '';
   const free = !!(opts.freeApp || plan === 'app_free' || plan === 'app_flooring');
   const companyName = free && member ? cleanText(member.companyName, 60) : '';
-  // Free app never inherits the host agency network name — product is Reviews App.
-  // Signup company stays on the hero subtitle so members still see their business.
+  // Free app chrome stays “AdHello Reviews App” until they save an explicit brand
+  // name in onboarding / setup. Hero subtitle still shows their company.
+  const explicitBrand = free && member ? cleanText(member.brandAppName, 60) : '';
   const appName = free
-    ? FREE_APP_NAME
+    ? (explicitBrand || FREE_APP_NAME)
     : (brand.appName || cleanText(net.name, 60) || 'Partner network');
-  // Home hero prefers the signup company; chrome / install use Reviews App.
-  const heroName = free ? (companyName || FREE_APP_NAME) : appName;
-  const accent = free ? DEFAULT_ACCENT : brand.accent;
+  const heroName = free ? (explicitBrand || companyName || FREE_APP_NAME) : appName;
+  const memberAccent = free && member ? normalizeHex(member.brandAccent) : '';
+  const accent = free ? (memberAccent || DEFAULT_ACCENT) : brand.accent;
   // Always show a photo banner — never a bare gradient — until they upload their own.
   let heroUrl = free
     ? normalizeImageUrl(opts.heroUrl) || DEFAULT_HERO_URL

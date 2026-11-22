@@ -14,8 +14,9 @@ const DEFAULT_STEPS = [
     subject: 'Day 1: Finish setting up your Reviews app',
     body:
       'Hi {{first_name}},\n\nWelcome to the Reviews app! On Home you’ll see a short setup checklist:\n\n' +
-      '1) Fill out your profile\n2) Add Google/Yelp review links\n3) Upload a banner photo\n' +
-      '4) Turn on phone alerts\n5) Add the app to your Home Screen\n\n' +
+      '1) Fill out your profile\n2) Brand your app (name, image, colors)\n3) Add Google/Yelp review links\n' +
+      '4) Turn on phone alerts\n5) Add the branded app to your Home Screen\n\n' +
+      'Set branding before you save it to your phone so the icon matches your business.\n\n' +
       'Open the app and knock those out: {{app_link}}\n\n' +
       'Your review page: {{review_link}}' +
       SIGN_OFF,
@@ -27,7 +28,7 @@ const DEFAULT_STEPS = [
     body:
       'Hi {{first_name}},\n\nToday: pin the Reviews app to your phone Home Screen so it’s one tap away on every job.\n\n' +
       'On iPhone: open {{app_link}} → Share → Add to Home Screen.\n\n' +
-      'Still finishing setup? The checklist on Home walks you through profile, review links, banner, and alerts.\n\n' +
+      'Still finishing setup? The checklist on Home walks you through profile, branding, review links, and alerts — brand first, then save to your phone.\n\n' +
       'Your review page stays here: {{review_link}}' +
       SIGN_OFF,
   },

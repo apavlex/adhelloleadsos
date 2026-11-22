@@ -2986,6 +2986,94 @@ html[data-ma-theme="dark"] .ma-appt {
 .ma-onboard__hero-form { position: absolute; width: 0; height: 0; overflow: hidden; }
 html[data-ma-theme="dark"] .ma-onboard__card { box-shadow: none; border-color: transparent; }
 
+/* Branding sheet — name / image / colors before Add to Home Screen */
+.ma-brand-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.ma-brand-sheet[hidden] { display: none !important; }
+.ma-brand-sheet__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.ma-brand-sheet__panel {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 440px);
+  max-height: min(92vh, 720px);
+  overflow: auto;
+  background: var(--card, #fff);
+  color: var(--ink, #000);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.18);
+}
+.ma-brand-sheet__x {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--muted, #6e6e73);
+}
+.ma-brand-sheet__title {
+  margin: 4px 0 6px;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+.ma-brand-sheet__lead {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--muted, #6e6e73);
+  line-height: 1.4;
+}
+.ma-brand-sheet__form .ma-field { margin-bottom: 14px; }
+.ma-brand-colors { border: 0; padding: 0; margin: 0 0 14px; }
+.ma-brand-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 8px 0 12px;
+}
+.ma-brand-swatch {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background: var(--swatch, #FFDB3A);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+  padding: 0;
+}
+.ma-brand-swatch.is-on {
+  border-color: var(--ink, #000);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--swatch) 35%, #fff);
+}
+.ma-brand-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ma-brand-color-input {
+  width: 48px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+html[data-ma-theme="dark"] .ma-brand-sheet__backdrop { background: rgba(0, 0, 0, 0.65); }
+html[data-ma-theme="dark"] .ma-brand-swatch.is-on { border-color: #fff; }
+
 /* Job photos + review-ask status */
 .ma-photos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0 0 14px}
 .ma-photos__item{position:relative;margin:0;border-radius:14px;overflow:hidden;background:color-mix(in srgb,var(--muted) 12%,transparent)}
