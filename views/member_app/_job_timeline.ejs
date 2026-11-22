@@ -1,0 +1,84 @@
+<%#
+  Estimated Gantt timeline for a Reviews job (plan projects).
+  Expects: job, base, timeline (presentTimeline result or null)
+%>
+<% const _tl = typeof timeline !== 'undefined' ? timeline : null; %>
+<% const _job = typeof job !== 'undefined' ? job : null; %>
+<% if (_job) { %>
+<section class="ma-card ma-gantt" id="maJobTimeline" aria-label="Estimated project timeline">
+  <div class="ma-gantt__head">
+    <div class="ma-gantt__title-row">
+      <span class="ma-gantt__icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5"/><path d="M4 19h16"/><rect x="7" y="8" width="5" height="3" rx="1.2" fill="currentColor" stroke="none"/><rect x="10" y="13" width="8" height="3" rx="1.2" fill="currentColor" stroke="none"/></svg>
+      </span>
+      <h2 class="ma-gantt__title">Estimated Gantt Timeline</h2>
+      <% if (_tl && _tl.totalLabel) { %>
+      <span class="ma-gantt__badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><%= _tl.totalLabel %></span>
+      <% } %>
+    </div>
+    <p class="ma-gantt__hint"><%= (_tl && _tl.hint) || 'Add a trade timeline to estimate how long this project will take — overlapping bars run in parallel.' %></p>
+  </div>
+
+  <% if (!_tl) { %>
+  <form method="post" action="<%= base %>/customers/jobs/<%= _job.id %>/timeline/seed" class="ma-gantt__empty">
+    <p class="ma-hint" style="margin:0 0 12px">Build a PNW kitchen/bath remodel schedule with Demo → rough-ins → drywall → finishes. Edit durations later as you confirm with trades.</p>
+    <button type="submit" class="ma-btn ma-btn--block" name="template" value="kitchen_remodel">Add estimated timeline</button>
+  </form>
+  <% } else { %>
+  <div class="ma-gantt__chart" role="img" aria-label="Project schedule spanning <%= _tl.totalLabel %>">
+    <div class="ma-gantt__ticks" style="--gantt-span: <%= _tl.spanDays || 1 %>">
+      <% (_tl.tickDays || []).forEach(function (d) { %>
+      <span class="ma-gantt__tick" style="left: <%= Math.round((d / Math.max(_tl.spanDays, 1)) * 1000) / 10 %>%">Day <%= d %></span>
+      <% }); %>
+    </div>
+    <ol class="ma-gantt__rows">
+      <% (_tl.steps || []).forEach(function (s, idx) { %>
+      <li class="ma-gantt__row<%= s.done ? ' is-done' : '' %>">
+        <div class="ma-gantt__label">
+          <span class="ma-gantt__num"><%= idx + 1 %>.</span>
+          <span class="ma-gantt__name"><%= s.label %></span>
+        </div>
+        <div class="ma-gantt__track">
+          <span
+            class="ma-gantt__bar"
+            style="left: <%= s.barLeftPct %>%; width: <%= s.barWidthPct %>%; background: <%= s.color %>"
+            title="<%= s.label %>: <%= s.durationLabel %>"
+          ><% if (s.barWidthPct >= 14) { %><%= s.barLabel %><% } %></span>
+        </div>
+      </li>
+      <% }); %>
+    </ol>
+  </div>
+
+  <div class="ma-gantt__steps" aria-label="Project steps">
+    <% (_tl.steps || []).forEach(function (s, idx) { %>
+    <form method="post" action="<%= base %>/customers/jobs/<%= _job.id %>/timeline/steps/<%= encodeURIComponent(s.id) %>" class="ma-gantt__step<%= s.done ? ' is-done' : '' %>">
+      <button type="submit" name="done" value="<%= s.done ? '0' : '1' %>" class="ma-gantt__check" aria-pressed="<%= s.done ? 'true' : 'false' %>" aria-label="<%= s.done ? 'Mark incomplete' : 'Mark complete' %>: <%= s.label %>">
+        <% if (s.done) { %><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><% } %>
+      </button>
+      <div class="ma-gantt__step-body">
+        <div class="ma-gantt__step-meta">
+          <span class="ma-gantt__step-num">Step <%= idx + 1 %></span>
+          <span class="ma-gantt__chip" style="--chip: <%= s.color %>"><%= s.label %></span>
+          <span class="ma-gantt__chip ma-gantt__chip--soft"><%= s.durationLabel %></span>
+        </div>
+        <p class="ma-gantt__step-title"><%= s.detail || s.label %></p>
+        <% if (s.description) { %><p class="ma-gantt__step-desc"><%= s.description %></p><% } %>
+      </div>
+    </form>
+    <% }); %>
+  </div>
+
+  <div class="ma-gantt__actions">
+    <% if (_job.date) { %>
+    <a class="ma-btn ma-btn--soft" href="<%= base %>/customers?view=calendar&amp;m=<%= _job.date.slice(0, 7) %>&amp;d=<%= _job.date %>"><%- (typeof icons !== 'undefined' && icons.calendar) ? icons.calendar : '' %> Open calendar</a>
+    <% } else { %>
+    <a class="ma-btn ma-btn--soft" href="<%= base %>/customers?view=calendar"><%- (typeof icons !== 'undefined' && icons.calendar) ? icons.calendar : '' %> Open calendar</a>
+    <% } %>
+    <form method="post" action="<%= base %>/customers/jobs/<%= _job.id %>/timeline/clear" data-ma-confirm="Remove the estimated timeline from this project?">
+      <button type="submit" class="ma-btn ma-btn--ghost">Clear timeline</button>
+    </form>
+  </div>
+  <% } %>
+</section>
+<% } %>

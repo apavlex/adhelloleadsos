@@ -3572,6 +3572,230 @@ a.ma-refdash__who {
   width: 100%;
 }
 
+/* Plan projects — calendar + estimated Gantt on Reviews jobs */
+.ma-plan-tools { margin: 0 0 14px; }
+.ma-plan-tools__title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.ma-plan-tools__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ma-plan-tools__row .ma-btn { flex: 1 1 8rem; justify-content: center; }
+
+.ma-gantt { margin: 0 0 14px; overflow: hidden; }
+.ma-gantt__head { margin-bottom: 12px; }
+.ma-gantt__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.ma-gantt__icon {
+  display: inline-flex;
+  color: #22c55e;
+}
+.ma-gantt__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  flex: 1 1 auto;
+}
+.ma-gantt__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #22c55e 16%, var(--card));
+  color: #15803d;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+html[data-ma-theme="dark"] .ma-gantt__badge {
+  color: #86efac;
+  background: color-mix(in srgb, #22c55e 22%, var(--card));
+}
+.ma-gantt__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.ma-gantt__empty { margin-top: 4px; }
+.ma-gantt__chart {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 10px 10px 8px;
+  background: color-mix(in srgb, var(--bg) 65%, var(--card));
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.ma-gantt__ticks {
+  position: relative;
+  height: 18px;
+  margin: 0 0 6px 0;
+  min-width: 280px;
+  margin-left: 108px;
+}
+.ma-gantt__tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.ma-gantt__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 280px;
+}
+.ma-gantt__row {
+  display: grid;
+  grid-template-columns: 108px minmax(160px, 1fr);
+  gap: 6px;
+  align-items: center;
+  min-height: 28px;
+}
+.ma-gantt__row.is-done { opacity: 0.55; }
+.ma-gantt__label {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.ma-gantt__num { color: var(--muted); flex-shrink: 0; }
+.ma-gantt__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ma-gantt__track {
+  position: relative;
+  height: 22px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+}
+.ma-gantt__bar {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  min-width: 10px;
+}
+.ma-gantt__steps {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ma-gantt__step {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 0;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.ma-gantt__step.is-done .ma-gantt__step-title { text-decoration: line-through; color: var(--muted); }
+.ma-gantt__check {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: transparent;
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0;
+  margin-top: 2px;
+}
+.ma-gantt__step.is-done .ma-gantt__check {
+  border-color: #16a34a;
+  background: color-mix(in srgb, #22c55e 18%, var(--card));
+}
+.ma-gantt__step-body { min-width: 0; flex: 1; }
+.ma-gantt__step-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.ma-gantt__step-num {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.ma-gantt__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--chip, var(--acc)) 22%, var(--card));
+  color: color-mix(in srgb, var(--chip, var(--acc)) 70%, var(--ink));
+}
+.ma-gantt__chip--soft {
+  --chip: #94a3b8;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 12%, var(--card));
+}
+.ma-gantt__step-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.ma-gantt__step-desc {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.ma-gantt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.ma-gantt__actions .ma-btn,
+.ma-gantt__actions form { margin: 0; }
+
 /* Leads schedule — day-by-day timeline */
 .ma-agenda {
   display: flex;

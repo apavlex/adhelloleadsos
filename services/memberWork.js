@@ -391,6 +391,7 @@ function findCustomerMatch(customers, { ghlContactId, email, phone } = {}) {
 
 function normalizeJob(raw) {
   const j = raw && typeof raw === 'object' ? raw : {};
+  const { sanitizeTimeline } = require('./projectTimeline');
   return {
     id: String(j.id || ''),
     customerId: String(j.customerId || ''),
@@ -402,6 +403,8 @@ function normalizeJob(raw) {
     durationMins: cleanDuration(j.durationMins),
     notes: cleanBlock(j.notes, 2000),
     photos: normalizePhotos(j.photos),
+    /** Estimated trade Gantt (kitchen remodel template, etc.). */
+    timeline: sanitizeTimeline(j.timeline) || null,
     remindOwnerBeforeMins: cleanRemindMins(j.remindOwnerBeforeMins),
     remindCustomerBeforeMins: cleanRemindMins(j.remindCustomerBeforeMins),
     ownerRemindedAt: j.ownerRemindedAt ? String(j.ownerRemindedAt) : '',
@@ -856,6 +859,47 @@ async function writeJob(networkId, memberId, job) {
   const next = normalizeJob({ ...job, updatedAt: new Date().toISOString() });
   await dbService.putStorageKey(`${jobPrefix(networkId, memberId)}${next.id}`, next);
   return next;
+}
+
+/** Seed or replace the estimated Gantt timeline on a job. */
+async function seedJobTimeline(networkId, memberId, jobId, { template } = {}) {
+  const job = await getJob(networkId, memberId, jobId);
+  if (!job) return { ok: false, error: 'Job not found.' };
+  const {
+    pickTemplateForTitle,
+    buildKitchenRemodelTimeline,
+    sanitizeTimeline,
+  } = require('./projectTimeline');
+  const steps =
+    template === 'kitchen_remodel'
+      ? buildKitchenRemodelTimeline()
+      : pickTemplateForTitle(job.title);
+  const timeline = sanitizeTimeline({
+    template: template || 'kitchen_remodel',
+    startDate: job.date || '',
+    steps,
+    updatedAt: Date.now(),
+  });
+  const next = await writeJob(networkId, memberId, { ...job, timeline });
+  return { ok: true, job: next };
+}
+
+async function clearJobTimeline(networkId, memberId, jobId) {
+  const job = await getJob(networkId, memberId, jobId);
+  if (!job) return { ok: false, error: 'Job not found.' };
+  const next = await writeJob(networkId, memberId, { ...job, timeline: null });
+  return { ok: true, job: next };
+}
+
+async function toggleJobTimelineStep(networkId, memberId, jobId, stepId, done) {
+  const job = await getJob(networkId, memberId, jobId);
+  if (!job) return { ok: false, error: 'Job not found.' };
+  if (!job.timeline) return { ok: false, error: 'Add an estimated timeline first.' };
+  const { toggleStepDone } = require('./projectTimeline');
+  const timeline = toggleStepDone(job.timeline, stepId, done);
+  if (!timeline) return { ok: false, error: 'Could not update that step.' };
+  const next = await writeJob(networkId, memberId, { ...job, timeline });
+  return { ok: true, job: next };
 }
 
 async function writeCustomer(networkId, memberId, customer) {
@@ -1553,6 +1597,9 @@ module.exports = {
   getJob,
   saveJob,
   writeJob,
+  seedJobTimeline,
+  clearJobTimeline,
+  toggleJobTimelineStep,
   ensureOpenJobForPhotos,
   copyJobPhotosToShared,
   syncSharedCustomerPhotos,
