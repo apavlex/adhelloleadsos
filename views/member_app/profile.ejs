@@ -168,8 +168,11 @@
         <a class="ma-settings-row" href="<%= base %>/crm">
           <span class="ma-settings-row__icon"><%- icons.settings %></span>
           <span class="ma-settings-row__text">
-            <strong>CRM / GHL sub-account</strong>
-            <span>Link your sub-account for two-way lead sync</span>
+            <strong>CRM / GHL</strong>
+            <% const _pcrm = typeof crm !== 'undefined' && crm ? crm : {}; %>
+            <span><%= _pcrm.connected
+              ? (_pcrm.viaWorkspace ? 'Connected · workspace GHL' : 'Connected · your sub-account')
+              : (_pcrm.workspaceReady ? 'Add a Location ID or finish workspace GHL' : 'Link GHL for two-way lead sync') %></span>
           </span>
           <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
         </a>

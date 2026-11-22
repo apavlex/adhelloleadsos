@@ -18,10 +18,13 @@
       <details class="ma-fold ma-cust-tools" id="maCustTools">
         <summary>Bring in customers</summary>
         <div class="ma-fold__body">
+          <% const _ccrm = typeof crm !== 'undefined' && crm ? crm : {}; %>
           <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
           <p class="ma-hint ma-cust-tools__lead">Upload a list or add customers manually. CRM sync unlocks with a monthly workspace plan.</p>
+          <% } else if (_ccrm.connected) { %>
+          <p class="ma-hint ma-cust-tools__lead"><%= _ccrm.viaWorkspace ? 'Already connected to workspace GHL — Reviews and Agency OS share this CRM.' : 'Connected to your GHL sub-account.' %> Imports homeowners; contacts tagged <strong>Referral partner</strong> or <strong>GB: Referral Network</strong> stay out of this list. <a href="<%= base %>/crm">CRM settings</a></p>
           <% } else { %>
-          <p class="ma-hint ma-cust-tools__lead">Two-way sync with <a href="<%= base %>/crm">your GHL sub-account</a> when linked (otherwise the workspace CRM). Imports homeowners; contacts tagged <strong>Referral partner</strong> or <strong>GB: Referral Network</strong> stay out of this list.</p>
+          <p class="ma-hint ma-cust-tools__lead">Two-way sync with <a href="<%= base %>/crm">GHL</a> when the workspace CRM is connected (or a sub-account is linked). Imports homeowners; contacts tagged <strong>Referral partner</strong> or <strong>GB: Referral Network</strong> stay out of this list.</p>
           <% } %>
           <div class="ma-settings-list">
             <% if (typeof crmSyncLocked !== 'undefined' && crmSyncLocked) { %>
@@ -38,7 +41,9 @@
               <span class="ma-settings-row__icon"><%- icons.settings %></span>
               <span class="ma-settings-row__text">
                 <strong>CRM settings</strong>
-                <span>Link your GHL sub-account</span>
+                <span><%= _ccrm.connected
+                  ? (_ccrm.viaWorkspace ? 'Connected · workspace GHL' : 'Connected · sub-account')
+                  : 'Connect or finish workspace GHL' %></span>
               </span>
               <span class="ma-settings-row__chev" aria-hidden="true"><%- icons.chevronRight %></span>
             </a>

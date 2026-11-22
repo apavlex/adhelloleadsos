@@ -86,22 +86,58 @@ function ghlTargetLabel(integrationEnv) {
   return 'your workspace CRM';
 }
 
-function memberCrmStatus(member, workspaceEnvConfigured) {
+/**
+ * CRM connection status for Reviews settings.
+ * Second arg may be a boolean (API key present) or the resolved workspace
+ * integration env — when the workspace already has GHL key + location, Reviews
+ * shows “already connected” without requiring a separate Location ID paste.
+ */
+function memberCrmStatus(member, workspaceEnvOrReady) {
   const m = member && typeof member === 'object' ? member : {};
-  const locationId = String(m.ghlLocationId || '').trim();
+  const memberLocationId = String(m.ghlLocationId || '').trim();
   const syncEnabled = m.ghlSyncEnabled !== false;
+
+  let workspaceEnv = null;
+  let workspaceReady = false;
+  let workspaceLocationId = '';
+  let workspaceConfigured = false;
+  if (workspaceEnvOrReady && typeof workspaceEnvOrReady === 'object') {
+    workspaceEnv = workspaceEnvOrReady;
+    const key = String(workspaceEnv.GHL_API_KEY || '').trim();
+    workspaceLocationId = String(workspaceEnv.GHL_LOCATION_ID || '')
+      .replace(/\s+/g, '')
+      .trim();
+    workspaceReady = !!(key && key !== 'trial-disabled' && key !== 'demo-disabled');
+    workspaceConfigured = workspaceReady && !!workspaceLocationId;
+  } else {
+    workspaceReady = !!workspaceEnvOrReady;
+  }
+
+  const source = memberLocationId
+    ? 'subaccount'
+    : workspaceConfigured
+      ? 'workspace'
+      : 'none';
+  const locationId = memberLocationId || (source === 'workspace' ? workspaceLocationId : '');
+  const linked = source !== 'none';
   const url =
     String(m.ghlSubaccountUrl || '').trim() ||
-    (locationId
-      ? ghlLocationDashboardUrl({ locationId })
-      : '');
+    (locationId ? ghlLocationDashboardUrl({ locationId }) : '');
+
   return {
-    linked: !!locationId,
+    linked,
+    connected: linked && syncEnabled && workspaceReady,
+    source,
     locationId,
+    memberLocationId,
+    workspaceLocationId,
+    workspaceConfigured,
+    viaWorkspace: source === 'workspace',
     url,
     syncEnabled,
-    workspaceReady: !!workspaceEnvConfigured,
-    ready: !!workspaceEnvConfigured && syncEnabled && !!locationId,
+    workspaceReady,
+    /** Sync can run: workspace API key + sync on + (member loc OR workspace loc). */
+    ready: workspaceReady && syncEnabled && (!!memberLocationId || workspaceConfigured),
     error: String(m.ghlError || '').trim(),
     attemptedAt: String(m.ghlAttemptedAt || '').trim(),
   };
