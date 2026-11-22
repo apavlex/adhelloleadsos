@@ -58,7 +58,7 @@
     <% } else if (_scheduleView) { %>
     <p class="ma-page-sub">Schedule visits from your leads, then follow the day-by-day timeline.</p>
     <% } else { %>
-    <p class="ma-page-sub">Website forms, contacts you mark as leads, and network referrals — schedule them on Calendar.</p>
+    <p class="ma-page-sub">Website forms, contacts you mark as leads, and network referrals.</p>
     <% } %>
 
     <% if (_scheduleView) { %>
@@ -68,9 +68,8 @@
     </nav>
     <p class="ma-hint" style="margin:8px 0 0"><a href="<%= _hrefFor({}) %>">← Back to Leads inbox</a></p>
     <% } else { %>
-    <nav class="ma-seg ma-seg--4" aria-label="Lead views">
+    <nav class="ma-seg ma-seg--3" aria-label="Lead views">
       <a href="<%= _hrefFor({}) %>" class="<%= view === 'received' ? 'is-on' : '' %>" <%= view === 'received' ? 'aria-current=page' : '' %>>Inbox (<%= _inboxCount %>)</a>
-      <a href="<%= _hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>><%- icons.calendar %><span>Calendar</span></a>
       <a href="<%= _hrefFor({ view: 'pool' }) %>" class="<%= view === 'pool' ? 'is-on' : '' %>" <%= view === 'pool' ? 'aria-current=page' : '' %>>Pool (<%= pool.length %>)</a>
       <a href="<%= _hrefFor({ view: 'sent' }) %>" class="<%= view === 'sent' ? 'is-on' : '' %>" <%= view === 'sent' ? 'aria-current=page' : '' %>>Sent (<%= sent.length %>)</a>
     </nav>
