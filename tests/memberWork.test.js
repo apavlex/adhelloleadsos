@@ -171,12 +171,12 @@ test('customers: mark-as-lead routes put contact on Leads Received', async () =>
 
     const marked = await post(`${A}/customers/c/${saved.customer.id}/mark-lead`, {});
     assert.equal(marked.status, 303);
-    assert.match(marked.headers.get('location') || '', /\/referrals\?ok=marked_lead/);
+    assert.match(marked.headers.get('location') || '', /\/leads\?ok=marked_lead/);
 
     const after = await work.getCustomer(network.id, member.id, saved.customer.id);
     assert.equal(after.isLead, true);
 
-    const leadsPage = await (await fetch(`${A}/referrals`)).text();
+    const leadsPage = await (await fetch(`${A}/leads`)).text();
     assert.match(leadsPage, /Leads from contacts and online forms/);
     assert.match(leadsPage, /Inbound Texter/);
     assert.match(leadsPage, /contact-lead-/);
@@ -464,6 +464,20 @@ test('a received referral converts into a customer and job once', async () => {
   const again = await work.convertReferral(NET, MEM_A, referral, { tradeLabel: 'Flooring', today: '2026-10-01' });
   assert.equal(again.existing, true);
   assert.equal(again.job.id, first.job.id);
+
+  const scheduled = await work.scheduleReferralJob(NET, MEM_A, referral, {
+    tradeLabel: 'Flooring',
+    today: '2026-10-01',
+    date: '2026-10-20',
+    time: '14:00',
+    durationMins: 90,
+  });
+  assert.equal(scheduled.ok, true);
+  assert.equal(scheduled.job.id, first.job.id);
+  assert.equal(scheduled.job.date, '2026-10-20');
+  assert.equal(scheduled.job.time, '14:00');
+  assert.equal(scheduled.job.durationMins, 90);
+  assert.equal(scheduled.job.status, 'scheduled');
 });
 
 test('customerSourceLabel covers manual, website form, referral, agency, csv, crm', () => {
@@ -1053,11 +1067,11 @@ test('free app_free members see Join tab, benefits page, and referrals upgrade g
     assert.match(join, /href="\/signup"/);
     assert.match(join, /ma-join-card/);
 
-    const refs = await (await fetch(`${base}/referrals?view=pool`)).text();
+    const refs = await (await fetch(`${base}/leads?view=pool`)).text();
     assert.match(refs, /Unlock lead details/);
     assert.match(refs, /Upgrade to unlock/);
     assert.match(refs, /href="\/signup"/);
-    assert.match(refs, /Leads &amp; Referrals|Leads & Referrals/);
+    assert.match(refs, /ma-page-title">Leads</);
     assert.match(refs, /River Remodel/);
     assert.doesNotMatch(refs, /503-555-9999/);
     assert.doesNotMatch(refs, /secret@example\.com/);

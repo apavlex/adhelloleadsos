@@ -1,0 +1,10 @@
+<%
+  // Top switcher on Leads + Send: Leads (inbox) | Referrals (send/request/analytics).
+  const _section = typeof leadsSection !== 'undefined' && leadsSection === 'referrals'
+    ? 'referrals'
+    : 'leads';
+%>
+<nav class="ma-seg ma-seg--2" aria-label="Leads or referrals">
+  <a href="<%= base %>/leads" class="<%= _section === 'leads' ? 'is-on' : '' %>" <%= _section === 'leads' ? 'aria-current=page' : '' %>>Leads</a>
+  <a href="<%= base %>/send" class="<%= _section === 'referrals' ? 'is-on' : '' %>" <%= _section === 'referrals' ? 'aria-current=page' : '' %>>Referrals</a>
+</nav>

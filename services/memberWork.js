@@ -1108,6 +1108,48 @@ async function convertReferral(networkId, memberId, referral, { tradeLabel, toda
 }
 
 /**
+ * Convert a received referral into a scheduled job (calendar).
+ * Accepts optional date/time/duration; defaults to today when scheduling.
+ */
+async function scheduleReferralJob(
+  networkId,
+  memberId,
+  referral,
+  { tradeLabel, today, date, time, durationMins } = {},
+) {
+  const converted = await convertReferral(networkId, memberId, referral, { tradeLabel, today });
+  if (!converted.ok) return converted;
+  const job = converted.job;
+  if (!job) return { ok: false, error: 'Could not create a job for that lead.' };
+  const scheduleDate = cleanDate(date) || cleanDate(today);
+  if (!scheduleDate) return { ok: false, error: 'Pick a date to schedule this lead.' };
+  const saved = await saveJob(
+    networkId,
+    memberId,
+    {
+      customerId: job.customerId,
+      title: job.title,
+      status: 'scheduled',
+      value: job.value,
+      date: scheduleDate,
+      time: cleanTime(time) || job.time || '',
+      durationMins: cleanDuration(durationMins) || job.durationMins || 60,
+      notes: job.notes,
+      remindOwnerBeforeMins: job.remindOwnerBeforeMins,
+      remindCustomerBeforeMins: job.remindCustomerBeforeMins,
+    },
+    { id: job.id, referralId: job.referralId || referral.id },
+  );
+  if (!saved.ok) return saved;
+  return {
+    ok: true,
+    existing: converted.existing,
+    customer: converted.customer,
+    job: saved.job,
+  };
+}
+
+/**
  * Share a contact/lead with a teammate — copies the customer and every project
  * (job) for that lead onto their book. Calendars stay separate. Idempotent.
  */
@@ -1567,6 +1609,7 @@ module.exports = {
   setJobStatus,
   deleteJob,
   convertReferral,
+  scheduleReferralJob,
   shareCustomerWithTeammate,
   shareJobWithTeammate,
   writeCustomer,

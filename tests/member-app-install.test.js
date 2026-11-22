@@ -396,21 +396,64 @@ describe('member app install modal and tab bar', () => {
     assert.match(css, /--tabbar-content-gap:\s*20px/);
   });
 
-  it('referrals tab is labeled Leads; page title is Leads & Referrals', () => {
+  it('Leads + Calendar tabs; Send referral is no longer a bottom tab', () => {
     const tabbar = fs.readFileSync(path.join(root, 'views/member_app/_tabbar.ejs'), 'utf8');
     const page = fs.readFileSync(path.join(root, 'views/member_app/referrals.ejs'), 'utf8');
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     assert.match(tabbar, /id:\s*'referrals',\s*label:\s*'Leads'/);
     assert.doesNotMatch(tabbar, /id:\s*'referrals',\s*label:\s*'Referrals'/);
-    // One Leads tab — website/agency leads render on /referrals (legacy /leads redirects).
     assert.doesNotMatch(tabbar, /id:\s*'leads'/);
-    assert.match(page, /pageTitle:\s*'Leads & Referrals'/);
-    assert.match(page, /topTitle:\s*'Leads & Referrals'/);
-    assert.match(page, /ma-page-title">Leads &amp; Referrals</);
+    assert.match(tabbar, /href:\s*base \+ '\/leads'/);
+    // Paid members: Calendar tab (not Referrals/Send) → /leads?view=calendar
+    assert.match(tabbar, /id:\s*'calendar',\s*label:\s*'Calendar'/);
+    assert.match(tabbar, /leads\?view=calendar/);
+    assert.doesNotMatch(tabbar, /id:\s*'send',\s*label:\s*'Referrals'/);
+    assert.match(page, /pageTitle:\s*_isScheduleHead \? 'Calendar' : 'Leads'|pageTitle:\s*'Leads'/);
+    assert.match(page, /view === 'calendar'|view === 'timeline'/);
+    assert.match(page, /Schedule on calendar/);
+    assert.doesNotMatch(page, /Schedule visit<\/summary>/);
+    assert.match(page, /href="sms:/);
+    assert.match(page, /> SMS</);
+    assert.match(page, /Timeline/);
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_lead_request_callout/);
-    assert.match(route, /portalLeadsPath:\s*`\$\{ctx\.base\}\/referrals`/);
-    assert.match(route, /redirect\(303,\s*`\$\{ctx\.base\}\/referrals/);
+    assert.match(page, /maCreateProject|Create project/);
+    assert.doesNotMatch(page, /id="maCreateProject"[^>]*\sopen(?:\s|>)|_scheduleView \? 'open'/);
+    assert.match(page, /topPlus:\s*\{\s*href:\s*'#maCreateProject'/);
+    assert.match(page, /data-ma-open-details="maCreateProject"/);
+    const top = fs.readFileSync(path.join(root, 'views/member_app/_top.ejs'), 'utf8');
+    assert.match(top, /topPlus/);
+    assert.match(top, /data-ma-open-details/);
+    const appJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    assert.match(appJs, /function openDetailsById/);
+    assert.match(appJs, /data-ma-open-details/);
+    assert.match(page, /ma-create-project__summary-inner/);
+    assert.match(page, /data-ma-customer-pick/);
+    assert.match(page, /data-ma-new-value="new"/);
+    assert.match(page, /Search or type a new name/);
+    assert.match(page, /newCustomerName/);
+    assert.doesNotMatch(page, /Send a referral/);
+    // Top: Leads | Referrals; inbox: Inbox · Pool · Sent (Calendar is its own bottom tab).
+    assert.match(page, /_leads_section_tabs|aria-label="Leads or referrals"/);
+    assert.match(page, /ma-seg ma-seg--3" aria-label="Lead views"/);
+    const leadSeg = page.slice(page.indexOf('aria-label="Lead views"'), page.indexOf('</nav>', page.indexOf('aria-label="Lead views"')) + 6);
+    assert.match(leadSeg, /Inbox/);
+    assert.match(leadSeg, /Pool/);
+    assert.match(leadSeg, /Sent/);
+    assert.doesNotMatch(leadSeg, /Calendar/);
+    const send = fs.readFileSync(path.join(root, 'views/member_app/send.ejs'), 'utf8');
+    const sectionTabs = fs.readFileSync(path.join(root, 'views/member_app/_leads_section_tabs.ejs'), 'utf8');
+    assert.match(sectionTabs, />Leads</);
+    assert.match(sectionTabs, />Referrals</);
+    assert.match(send, /_leads_section_tabs/);
+    assert.match(send, /topTitle:\s*'Leads'/);
+    assert.match(route, /active:\s*'referrals'/);
+    assert.match(route, /portalLeadsPath:\s*`\$\{ctx\.base\}\/leads`/);
+    assert.match(route, /redirect\(303,\s*`\$\{ctx\.base\}\/leads/);
+    assert.match(route, /scheduleReferralJob/);
+    assert.match(route, /leads\/from-referral\/:id\/schedule/);
+    assert.match(route, /'timeline'/);
+    assert.match(route, /projectCustomers/);
   });
 
   it('Home stays responsive: defer GHL sync, skip icon decode, idle install modal', () => {

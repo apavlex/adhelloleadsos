@@ -415,7 +415,7 @@ async function notifyReferralRecipient({ network, referral, member, baseUrl }) {
     kind: 'referral',
     title: 'New referral',
     body: summary,
-    href: `${app}/referrals`,
+    href: `${app}/leads`,
   });
   // Home-screen / phone popup when the partner turned on alerts (linked package).
   pushMemberReferralAlert({
@@ -442,7 +442,7 @@ async function notifyReferralPool({ network, referral, baseUrl }) {
   let sent = 0;
   await Promise.all(eligible.map(async (member) => {
     const app = memberPortalLink(baseUrl, network, member);
-    const poolUrl = `${app}/referrals?view=pool`;
+    const poolUrl = `${app}/leads?view=pool`;
     const detailsAllowed = await memberLeadRequests.planAllowsLeadDetails(network, member)
       .catch(() => false);
     const result = await messageMember(network, member, detailsAllowed ? {
@@ -460,7 +460,7 @@ async function notifyReferralPool({ network, referral, baseUrl }) {
       kind: 'pool',
       title: 'Open referral in the pool',
       body: summary,
-      href: `${app}/referrals?view=pool`,
+      href: `${app}/leads?view=pool`,
     });
     pushMemberReferralAlert({
       network, member, baseUrl, referral, summary, kind: 'pool',
@@ -482,7 +482,7 @@ async function pushMemberReferralAlert({ network, member, baseUrl, referral, sum
     : null;
   const push = require('./pushNotifications');
   const app = memberPortalLink(baseUrl, network, member);
-  const url = kind === 'pool' ? `${app}/referrals?view=pool` : `${app}/referrals`;
+  const url = kind === 'pool' ? `${app}/leads?view=pool` : `${app}/leads`;
   const title = kind === 'pool' ? 'Open referral in the pool' : 'New referral';
   const body = String(summary || homeownerSummary(referral, network) || 'Open your app').slice(0, 200);
   return push.sendMemberPush(
@@ -537,7 +537,7 @@ async function resolveFormLeadProfileUrl({
   } catch (err) {
     console.warn('[network] form-lead profile resolve failed:', err && err.message);
   }
-  return `${app}/referrals`;
+  return `${app}/leads`;
 }
 
 async function pushMemberFormLeadAlert({

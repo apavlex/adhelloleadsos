@@ -16,7 +16,12 @@
     <% if (typeof topSettings !== 'undefined' && topSettings && topSettings.href) { %>
     <a class="ma-iconbtn <%= topSettings.on ? 'is-on' : '' %>" href="<%= topSettings.href %>" aria-label="<%= topSettings.label || 'Settings' %>" title="<%= topSettings.label || 'Settings' %>" <%= topSettings.on ? 'aria-current=page' : '' %>><%- icons.settings %></a>
     <% } %>
-    <a class="ma-iconbtn" href="<%= base %>/customers/new" aria-label="Add a customer" title="Add a customer"><%- icons.plus %></a>
+    <%
+      const _topPlus = typeof topPlus !== 'undefined' && topPlus ? topPlus : null;
+      const _plusHref = _topPlus && _topPlus.href ? _topPlus.href : (base + '/customers/new');
+      const _plusLabel = _topPlus && _topPlus.label ? _topPlus.label : 'Add a customer';
+    %>
+    <a class="ma-iconbtn" href="<%= _plusHref %>" aria-label="<%= _plusLabel %>" title="<%= _plusLabel %>" <%= _plusHref.indexOf('#') === 0 ? 'data-ma-open-details="' + _plusHref.slice(1) + '"' : '' %>><%- icons.plus %></a>
     <div class="ma-bell" id="maBellRoot" data-base="<%= base %>" data-push="1">
       <button type="button" class="ma-iconbtn ma-bell__btn" data-ma-bell-open aria-label="Lead notifications" title="Lead notifications" aria-expanded="false" aria-controls="maBellPanel">
         <%- icons.bell %>
@@ -51,7 +56,7 @@
         <div class="ma-bell__foot">
           <a href="<%= base %>/notifications" data-ma-bell-history>History</a>
           <a href="<%= base %>/news" data-ma-bell-news>News &amp; updates</a>
-          <a href="<%= base %>/referrals" data-ma-bell-all>All leads &amp; referrals</a>
+          <a href="<%= base %>/leads" data-ma-bell-all>All leads</a>
         </div>
       </div>
     </div>

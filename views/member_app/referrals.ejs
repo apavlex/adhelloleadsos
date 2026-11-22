@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <%- include('_head', { pageTitle: 'Leads & Referrals' }) %>
+  <% const _isScheduleHead = typeof view !== 'undefined' && (view === 'calendar' || view === 'timeline'); %>
+  <%- include('_head', { pageTitle: _isScheduleHead ? 'Calendar' : 'Leads' }) %>
 </head>
 <body>
   <main class="ma-shell">
-    <%- include('_top', { topTitle: 'Leads & Referrals' }) %>
-    <h1 class="ma-page-title">Leads &amp; Referrals</h1>
+    <%- include('_top', { topTitle: _isScheduleHead ? 'Calendar' : 'Leads', topPlus: { href: '#maCreateProject', label: 'Create project' } }) %>
     <%
       const _locked = typeof referralsLocked !== 'undefined' && referralsLocked;
       const _formLeads = typeof formLeads !== 'undefined' && Array.isArray(formLeads) ? formLeads : [];
@@ -17,31 +17,230 @@
         + _formLeads.filter(function (l) { return l.status !== 'closed'; }).length
         + _contactLeads.length
         + _contactQuotesTop.length;
+      const _hrefFor = typeof hrefFor === 'function' ? hrefFor : function (params) {
+        const qs = new URLSearchParams();
+        Object.keys(params || {}).forEach(function (k) {
+          if (params[k] != null && params[k] !== '') qs.set(k, params[k]);
+        });
+        const s = qs.toString();
+        return base + '/leads' + (s ? '?' + s : '');
+      };
+      const _today = typeof today !== 'undefined' ? today : '';
+      const _durations = typeof durations !== 'undefined' && Array.isArray(durations) ? durations : [
+        { value: 60, label: '1 hour' },
+      ];
+      const _grid = typeof grid !== 'undefined' ? grid : null;
+      const _dayJobs = typeof dayJobs !== 'undefined' && Array.isArray(dayJobs) ? dayJobs : [];
+      const _upcoming = typeof upcomingLeadJobs !== 'undefined' && Array.isArray(upcomingLeadJobs) ? upcomingLeadJobs : [];
+      const _timelineDays = typeof timelineDays !== 'undefined' && Array.isArray(timelineDays) ? timelineDays : [];
+      const _selected = typeof selected !== 'undefined' ? selected : _today;
+      const _selectedLabel = typeof selectedLabel !== 'undefined' ? selectedLabel : 'Today';
+      const _scheduleView = view === 'calendar' || view === 'timeline';
+      const _canSend = typeof canSendReferral !== 'undefined' && canSendReferral;
+      const _projectCustomers = typeof projectCustomers !== 'undefined' && Array.isArray(projectCustomers) ? projectCustomers : [];
+      const _createDate = _scheduleView && _selected ? _selected : _today;
     %>
+    <div class="ma-titlebar">
+      <h1 class="ma-page-title"><%= _scheduleView ? 'Calendar' : 'Leads' %></h1>
+      <% if (!_locked) { %>
+      <a class="ma-iconbtn ma-iconbtn--fill" href="#maCreateProject" aria-label="Create project" data-ma-open-details="maCreateProject"><%- icons.plus %></a>
+      <% } %>
+    </div>
     <% if (_locked) { %>
-    <p class="ma-page-sub">See new project names as they come in — upgrade to unlock contact details and claim jobs. Contacts you mark as leads<% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %> or quote requests<% } %> still show below.</p>
+    <p class="ma-page-sub">See new project names as they come in — upgrade to unlock contact details, claim jobs, and schedule. Contacts you mark as leads<% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %> or quote requests<% } %> still show below.</p>
     <%- include('_flash') %>
     <%- include('_upgrade_gate', {
       upgradeTitle: 'Unlock lead details',
-      upgradeBody: 'Free and trial accounts only see the project name. Join on a paid plan to get phones, notes, and claim buttons.',
+      upgradeBody: 'Free and trial accounts only see the project name. Join on a paid plan to get phones, notes, claim buttons, and scheduling.',
       upgradeHref: typeof upgradeHref !== 'undefined' ? upgradeHref : '/signup',
       upgradeIcon: 'referrals',
     }) %>
+    <% } else if (_scheduleView) { %>
+    <p class="ma-page-sub">Schedule visits from your leads, then follow the day-by-day timeline.</p>
     <% } else { %>
-    <p class="ma-page-sub">Website forms, contacts you mark as leads, and network referrals you receive, claim, or send.</p>
+    <p class="ma-page-sub">Website forms, contacts you mark as leads, and network referrals.</p>
     <% } %>
 
-    <nav class="ma-seg ma-seg--3" aria-label="Lead and referral lists">
-      <a href="<%= base %>/referrals?view=pool" class="<%= view === 'pool' ? 'is-on' : '' %>">Pool (<%= pool.length %>)</a>
-      <a href="<%= base %>/referrals" class="<%= view === 'received' ? 'is-on' : '' %>">Received (<%= _inboxCount %>)</a>
-      <a href="<%= base %>/referrals?view=sent" class="<%= view === 'sent' ? 'is-on' : '' %>">Sent (<%= sent.length %>)</a>
+    <% if (_scheduleView) { %>
+    <nav class="ma-seg ma-seg--2" aria-label="Schedule views">
+      <a href="<%= _hrefFor({ view: 'calendar' }) %>" class="<%= view === 'calendar' ? 'is-on' : '' %>" <%= view === 'calendar' ? 'aria-current=page' : '' %>><%- icons.calendar %><span>Calendar</span></a>
+      <a href="<%= _hrefFor({ view: 'timeline' }) %>" class="<%= view === 'timeline' ? 'is-on' : '' %>" <%= view === 'timeline' ? 'aria-current=page' : '' %>><%- icons.pending %><span>Timeline</span></a>
     </nav>
+    <p class="ma-hint" style="margin:8px 0 0"><a href="<%= _hrefFor({}) %>">← Back to Leads inbox</a></p>
+    <% } else { %>
+    <%- include('_leads_section_tabs', { leadsSection: 'leads', base: base }) %>
+    <nav class="ma-seg ma-seg--3" aria-label="Lead views">
+      <a href="<%= _hrefFor({}) %>" class="<%= view === 'received' ? 'is-on' : '' %>" <%= view === 'received' ? 'aria-current=page' : '' %>>Inbox (<%= _inboxCount %>)</a>
+      <a href="<%= _hrefFor({ view: 'pool' }) %>" class="<%= view === 'pool' ? 'is-on' : '' %>" <%= view === 'pool' ? 'aria-current=page' : '' %>>Pool (<%= pool.length %>)</a>
+      <a href="<%= _hrefFor({ view: 'sent' }) %>" class="<%= view === 'sent' ? 'is-on' : '' %>" <%= view === 'sent' ? 'aria-current=page' : '' %>>Sent (<%= sent.length %>)</a>
+    </nav>
+    <% } %>
 
     <% if (!_locked) { %><%- include('_flash') %><% } %>
 
-    <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'referrals', base: base, icons: icons }) %>
+    <% if (!_locked) { %>
+    <details class="ma-card ma-create-project" id="maCreateProject">
+      <summary class="ma-create-project__summary">
+        <%# Inner wrap: Safari can blank flex layouts applied directly on <summary>. %>
+        <span class="ma-create-project__summary-inner">
+          <%- icons.plus %>
+          <span>
+            <strong>Create project</strong>
+            <em>New name or pick from your customers</em>
+          </span>
+        </span>
+      </summary>
+      <form method="post" action="<%= base %>/customers/jobs/new" class="ma-create-project__form" autocomplete="off">
+        <input type="hidden" name="status" value="scheduled">
+        <%
+          const _custPayload = _projectCustomers.map(function (c) {
+            return { id: c.id, name: c.name || '', phone: c.phone || '', email: c.email || '' };
+          });
+        %>
+        <div class="ma-field" data-ma-customer-pick data-ma-new-value="new" data-ma-add-customer-href="<%= base %>/customers/new">
+          <input type="hidden" name="customerId" id="lpCustomerId" value="">
+          <div data-ma-ask-search>
+            <label class="ma-label" for="lpCustomer">Customer</label>
+            <div class="ma-typeahead">
+              <input
+                id="lpCustomer"
+                type="text"
+                inputmode="search"
+                class="ma-input"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="lpCustomerList"
+                placeholder="Search or type a new name…"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                value=""
+              >
+              <ul id="lpCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
+            </div>
+            <p class="ma-hint">Pick a saved customer, or type a new name. <a href="<%= base %>/customers/new">Add new customer</a></p>
+          </div>
+          <div class="ma-ask-selected" data-ma-ask-selected hidden>
+            <span class="ma-ask-selected__avatar" aria-hidden="true" data-ma-ask-selected-avatar>?</span>
+            <span class="ma-ask-selected__body">
+              <strong data-ma-ask-selected-name></strong>
+              <span data-ma-ask-selected-meta></span>
+            </span>
+            <button type="button" class="ma-btn ma-btn--sm ma-btn--ghost" data-ma-ask-clear>Change</button>
+          </div>
+          <script type="application/json" id="lpCustomerData"><%- JSON.stringify(_custPayload).replace(/</g, '\\u003c') %></script>
+        </div>
+        <div class="ma-grid2" data-ma-ask-manual hidden>
+          <div class="ma-field">
+            <label class="ma-label" for="lpNewName">New name</label>
+            <input id="lpNewName" name="newCustomerName" class="ma-input" maxlength="120" autocapitalize="words" placeholder="Customer name">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="lpNewPhone">Phone</label>
+            <input id="lpNewPhone" name="newCustomerPhone" type="tel" inputmode="tel" maxlength="40" class="ma-input" placeholder="Optional">
+          </div>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="lpTitle">Project</label>
+          <input id="lpTitle" name="title" class="ma-input" maxlength="120" required placeholder="e.g. Kitchen floor install">
+        </div>
+        <div class="ma-grid2">
+          <div class="ma-field">
+            <label class="ma-label" for="lpDate">Date</label>
+            <input id="lpDate" name="date" type="date" class="ma-input" value="<%= _createDate || '' %>" min="2000-01-01" max="2100-12-31">
+          </div>
+          <div class="ma-field">
+            <label class="ma-label" for="lpTime">Start time</label>
+            <input id="lpTime" name="time" type="time" class="ma-input" step="900">
+          </div>
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="lpDuration">Duration</label>
+          <select id="lpDuration" name="durationMins" class="ma-select">
+            <option value="">Not set</option>
+            <% _durations.forEach(function (d) { %>
+            <option value="<%= d.value %>" <%= Number(d.value) === 60 ? 'selected' : '' %>><%= d.label %></option>
+            <% }); %>
+          </select>
+        </div>
+        <button type="submit" class="ma-btn ma-btn--block"><%- icons.completed %> Create project</button>
+      </form>
+    </details>
+    <% } %>
 
-    <% if (view === 'pool') { %>
+    <% if (view === 'calendar') { %>
+      <% if (_grid) { %>
+      <section class="ma-card ma-cal" aria-label="<%= _grid.label %>">
+        <div class="ma-cal__head">
+          <a class="ma-iconbtn" href="<%= _hrefFor({ view: 'calendar', m: _grid.prev }) %>" aria-label="Previous month"><%- icons.chevronLeft %></a>
+          <h2><%= _grid.label %></h2>
+          <a class="ma-iconbtn" href="<%= _hrefFor({ view: 'calendar', m: _grid.next }) %>" aria-label="Next month"><%- icons.chevronRight %></a>
+        </div>
+        <div class="ma-cal__grid" role="grid">
+          <% ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(function (d) { %><span class="ma-cal__dow" aria-hidden="true"><%= d %></span><% }); %>
+          <% _grid.weeks.forEach(function (week) { week.forEach(function (d) { %>
+          <a class="ma-cal__day<%= d.inMonth ? '' : ' is-out' %><%= d.isToday ? ' is-today' : '' %><%= d.isSelected ? ' is-sel' : '' %>"
+             href="<%= _hrefFor({ view: 'calendar', m: d.date.slice(0, 7), d: d.date }) %>"
+             aria-label="<%= d.date %><%= d.count ? ', ' + d.count + ' job' + (d.count === 1 ? '' : 's') : '' %>" <%= d.isSelected ? 'aria-current=date' : '' %>>
+            <span><%= d.day %></span>
+            <% if (d.count) { %><i class="ma-cal__dots<%= d.open ? '' : ' is-done' %>"><% for (var k = 0; k < Math.min(d.count, 3); k++) { %><b></b><% } %></i><% } %>
+          </a>
+          <% }); }); %>
+        </div>
+      </section>
+      <% } %>
+
+      <section class="ma-section">
+        <div class="ma-section__head">
+          <h2><%= _selectedLabel %></h2>
+          <a href="<%= base %>/customers/jobs/new?date=<%= _selected %>">+ Schedule</a>
+        </div>
+        <% if (_dayJobs.length) { %>
+        <div class="ma-list">
+          <% _dayJobs.forEach(function (j) { %><%- include('_job_row', { j: j, hideWhen: true }) %><% }); %>
+        </div>
+        <% } else { %>
+        <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new?date=<%= _selected %>"><%- icons.calendar %><p>Nothing scheduled. Tap to add a visit, or schedule a lead from Inbox.</p></a>
+        <% } %>
+      </section>
+
+      <% if (_upcoming.length) { %>
+      <section class="ma-section">
+        <div class="ma-section__head">
+          <h2>Coming up</h2>
+          <a href="<%= _hrefFor({ view: 'timeline' }) %>">Timeline</a>
+        </div>
+        <div class="ma-list">
+          <% _upcoming.forEach(function (j) { %><%- include('_job_row', { j: j }) %><% }); %>
+        </div>
+      </section>
+      <% } %>
+
+    <% } else if (view === 'timeline') { %>
+      <% if (!_timelineDays.length) { %>
+      <a class="ma-card ma-empty ma-empty--tap" href="<%= base %>/customers/jobs/new"><%- icons.calendar %><p>Nothing on your timeline yet. Schedule a lead from Inbox, or tap to add a visit.</p></a>
+      <% } else { %>
+      <div class="ma-agenda" aria-label="Upcoming schedule timeline">
+        <% _timelineDays.forEach(function (day) { %>
+        <section class="ma-agenda__day">
+          <div class="ma-section__head">
+            <h2><%= day.label %></h2>
+            <a href="<%= _hrefFor({ view: 'calendar', m: String(day.date).slice(0, 7), d: day.date }) %>">Month</a>
+          </div>
+          <div class="ma-list">
+            <% day.jobs.forEach(function (j) { %><%- include('_job_row', { j: j }) %><% }); %>
+          </div>
+        </section>
+        <% }); %>
+      </div>
+      <% } %>
+      <p class="ma-hint" style="margin-top:14px">
+        <a href="<%= base %>/customers/jobs/new">+ Schedule work</a>
+        · <a href="<%= _hrefFor({}) %>">Open Leads inbox</a>
+      </p>
+
+    <% } else if (view === 'pool') { %>
       <% if (!pool.length) { %>
       <div class="ma-card ma-empty"><%- icons.referrals %><p>No open referrals in the pool for your trades right now. When one comes in unmatched, you’ll get a text and can claim it here.</p></div>
       <% } %>
@@ -270,7 +469,10 @@
             </div>
           </a>
           <div class="ma-actions">
-            <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
+            <% if (lead.phone) { %>
+            <a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="sms:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>"><%- icons.sms %> SMS</a>
+            <% } %>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.href %>">Open</a>
             <% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.quoteHref || (base + '/quote?customer=' + encodeURIComponent(lead.id)) %>">Quote</a>
@@ -317,10 +519,13 @@
 
           <div class="ma-actions">
             <% if (r.jobHref) { %>
-            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= r.jobHref %>"><%- icons.customers %> View job</a>
+            <a class="ma-btn ma-btn--sm" href="<%= r.jobHref %>"><%- icons.customers %> View job</a>
+            <% if (r.jobDate) { %>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= _hrefFor({ view: 'calendar', m: String(r.jobDate).slice(0, 7), d: r.jobDate }) %>"><%- icons.calendar %> On calendar</a>
+            <% } %>
             <% } else if (r.convertible) { %>
             <form method="post" action="<%= base %>/customers/from-referral/<%= r.id %>">
-              <input type="hidden" name="back" value="<%= base %>/referrals">
+              <input type="hidden" name="back" value="<%= base %>/leads">
               <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft"><%- icons.customers %> Add to Customers</button>
             </form>
             <% } %>
@@ -331,6 +536,21 @@
             </form>
             <% }); %>
           </div>
+          <% if (r.scheduleable && !r.jobDate) { %>
+          <details style="margin-top:8px">
+            <summary class="ma-card__meta" style="cursor:pointer;font-weight:700"><%- icons.calendar %> Schedule on calendar</summary>
+            <form method="post" action="<%= base %>/leads/from-referral/<%= r.id %>/schedule" class="ma-inline" style="margin-top:8px;flex-wrap:wrap;gap:8px">
+              <input class="ma-input" type="date" name="date" value="<%= _today %>" required aria-label="Date">
+              <input class="ma-input" type="time" name="time" aria-label="Time">
+              <select class="ma-select" name="durationMins" aria-label="Duration">
+                <% _durations.forEach(function (d) { %>
+                <option value="<%= d.value %>" <%= d.value === 60 ? 'selected' : '' %>><%= d.label %></option>
+                <% }); %>
+              </select>
+              <button type="submit" class="ma-btn ma-btn--sm">Schedule</button>
+            </form>
+          </details>
+          <% } %>
           <% if (r.actions.indexOf('win') >= 0) { %>
           <form method="post" action="<%= base %>/referrals/<%= r.id %>" class="ma-inline" style="margin-top:8px">
             <input type="hidden" name="action" value="win">
@@ -352,13 +572,13 @@
       </section>
       <% } %>
 
-      <% if (!_formLeads.length && !_contactLeads.length && !received.length) { %>
+      <% if (!_formLeads.length && !_contactLeads.length && !_contactQuotes.length && !received.length) { %>
       <div class="ma-card ma-empty">
         <%- icons.leads %>
         <p><% if (_hasAppt) { %>No website, agency, contact, or network leads yet. Form submissions and leads your agency sends show here with an alert. Mark a contact as a lead from Customers when someone texts or calls.<% } else { %>No leads yet. Mark a contact as a lead from Customers when someone texts or calls, or check the Pool for open network jobs.<% } %></p>
         <div class="ma-actions" style="margin-top:8px;justify-content:center">
           <a class="ma-btn ma-btn--sm" href="<%= base %>/customers">Open contacts</a>
-          <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= base %>/referrals?view=pool">Open pool</a>
+          <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= _hrefFor({ view: 'pool' }) %>">Open pool</a>
         </div>
       </div>
       <% } %>
@@ -378,6 +598,8 @@
       </article>
       <% }); %>
     <% } %>
+
+    <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'leads', base: base, icons: icons }) %>
   </main>
   <%- include('_tabbar') %>
   <% if (!_locked) { %>
