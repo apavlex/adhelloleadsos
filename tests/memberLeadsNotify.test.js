@@ -1,5 +1,5 @@
 /**
- * Website/agency form leads land on Leads & Referrals; phone push + SMS deep-link there.
+ * Website/agency form leads land on Leads; phone push + SMS deep-link there.
  * Network referrals also fire home-screen push when the partner has alerts on.
  */
 const { describe, it, beforeEach, mock } = require('node:test');
@@ -15,7 +15,7 @@ describe('member leads + referral notifications', () => {
     mock.restoreAll();
   });
 
-  it('Leads & Referrals page renders website/agency form leads and lead alerts', () => {
+  it('Leads page renders website/agency form leads and lead alerts', () => {
     const page = fs.readFileSync(path.join(root, 'views/member_app/referrals.ejs'), 'utf8');
     const route = fs.readFileSync(path.join(root, 'routes/memberApp.js'), 'utf8');
     assert.match(page, /Website &amp; agency/);
@@ -114,7 +114,7 @@ describe('member leads + referral notifications', () => {
     assert.match(notify, /pushMemberFormLeadAlert/);
     assert.match(notify, /async function notifyMemberFormLead/);
     assert.match(notify, /websiteFormLabel/);
-    assert.match(pkgs, /notifyUrl = `\$\{memberUrl\}\/referrals`/);
+    assert.match(pkgs, /notifyUrl = `\$\{memberUrl\}\/leads`/);
     assert.match(pkgs, /attachFormLead/);
     assert.match(pkgs, /notifyContractorNewLead/);
     assert.match(pkgs, /notifyMemberFormLead/);
@@ -169,8 +169,8 @@ describe('member leads + referral notifications', () => {
 
     assert.equal(result.sent, 1);
     assert.match(sent[0].body.title, /New referral/i);
-    assert.match(sent[0].body.url, /\/referrals/);
-    assert.doesNotMatch(sent[0].body.url, /\/leads$/);
+    assert.match(sent[0].body.url, /\/leads$/);
+    assert.doesNotMatch(sent[0].body.url, /\/referrals/);
   });
 
   it('pushMemberFormLeadAlert sends a phone popup for website form leads', async () => {

@@ -6,19 +6,20 @@
   // Review tab always lands on QR / share — not the GHL send form (?ask=1).
   const _reviewHref = base + '/review';
   // Review keeps the raised round FAB; label font/baseline match every other tab.
-  // Flooring partners: Quote (material request) replaces Send.
-  // Free members: Join replaces Send (upgrade path).
-  // Leads tab → /referrals (website + agency + network referrals in one place).
+  // Flooring partners: Quote (material request) replaces Calendar.
+  // Free members: Join replaces Calendar (upgrade path).
+  // Paid: Calendar tab → /leads calendar + timeline (Send referral lives on Leads).
+  // Leads tab → /leads inbox (website + agency + network).
   const _sendTab = _isFlooring
     ? { id: 'quote', label: 'Quote', href: base + '/quote', icon: icons.send }
     : (_isFree
       ? { id: 'join', label: 'Join', href: base + '/join', icon: icons.enroll }
-      : { id: 'send', label: 'Referrals', href: base + '/send', icon: icons.send });
+      : { id: 'calendar', label: 'Calendar', href: base + '/leads?view=calendar', icon: icons.calendar });
   const _tabs = [
     { id: 'home', label: 'Home', href: base, icon: icons.home },
     { id: 'customers', label: 'Customers', href: base + '/customers', icon: icons.customers },
     { id: 'review', label: 'Review', href: _reviewHref, icon: icons.review, fab: true },
-    { id: 'referrals', label: 'Leads', href: base + '/referrals', icon: icons.referrals },
+    { id: 'referrals', label: 'Leads', href: base + '/leads', icon: icons.referrals },
     _sendTab,
   ];
   const _appName = (brand && brand.appName) ? brand.appName : 'this app';

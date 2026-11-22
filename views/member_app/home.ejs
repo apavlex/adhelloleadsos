@@ -92,7 +92,7 @@
         <p class="ma-tile__value"><%= _appt.openLeadCount %></p>
         <p class="ma-tile__label">Open leads</p>
       </a>
-      <a class="ma-tile" href="<%= base %>/referrals">
+      <a class="ma-tile" href="<%= base %>/leads">
         <span class="ma-tile__icon"><%- icons.pending %></span>
         <p class="ma-tile__value"><%= (tiles.find(function (t) { return t.key === 'pending'; }) || {}).value || 0 %></p>
         <p class="ma-tile__label">Pending refs</p>
@@ -129,10 +129,10 @@
     <section class="ma-section">
       <div class="ma-section__head">
         <h2>Needs attention</h2>
-        <% if (waiting.length) { %><a href="<%= base %>/referrals">Leads</a><% } else if (_appt) { %><a href="<%= _appt.portalLeadsPath %>">Leads</a><% } else { %><a href="<%= base %>/customers">Customers</a><% } %>
+        <% if (waiting.length) { %><a href="<%= base %>/leads">Leads</a><% } else if (_appt) { %><a href="<%= _appt.portalLeadsPath %>">Leads</a><% } else { %><a href="<%= base %>/customers">Customers</a><% } %>
       </div>
       <% waiting.forEach(function (r) { %>
-      <a class="ma-card" style="display:block;text-decoration:none" href="<%= base %>/referrals#ref-<%= r.id %>">
+      <a class="ma-card" style="display:block;text-decoration:none" href="<%= base %>/leads#ref-<%= r.id %>">
         <div class="ma-card__row">
           <div style="min-width:0">
             <p class="ma-card__title"><%= r.customer.name || 'Customer' %></p>
@@ -176,7 +176,7 @@
       </div>
       <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'home', base: base, icons: icons }) %>
       <div class="ma-dash-actions">
-        <a class="ma-btn ma-btn--soft" href="<%= base %>/referrals"><%- icons.leads %> Leads</a>
+        <a class="ma-btn ma-btn--soft" href="<%= base %>/leads"><%- icons.leads %> Leads</a>
         <% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
         <a class="ma-btn ma-btn--soft" href="<%= base %>/quote"><%- icons.send %> Material quote</a>
         <% } else { %>
