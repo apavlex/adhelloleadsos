@@ -9,9 +9,10 @@
 </head>
 <body>
   <main class="ma-shell">
-    <%- include('_top', { topTitle: 'Referrals' }) %>
+    <%- include('_top', { topTitle: 'Leads' }) %>
     <% if (typeof referralsLocked !== 'undefined' && referralsLocked) { %>
     <h1 class="ma-page-title">Send a referral</h1>
+    <%- include('_leads_section_tabs', { leadsSection: 'referrals', base: base }) %>
     <p class="ma-page-sub">Pass jobs to trusted partners in the network.</p>
     <%- include('_flash') %>
     <%- include('_upgrade_gate', {
@@ -43,6 +44,7 @@
       const _setupOpen = typeof referralSetupOpen !== 'undefined' && referralSetupOpen;
     %>
     <h1 class="ma-page-title"><%= _title %></h1>
+    <%- include('_leads_section_tabs', { leadsSection: 'referrals', base: base }) %>
     <nav class="ma-seg ma-seg--3" aria-label="Send referral options">
       <a href="<%= base %>/send" class="<%= _view === 'lead' ? 'is-on' : '' %>">Send</a>
       <a href="<%= base %>/send?view=request" class="<%= _view === 'link' ? 'is-on' : '' %>">Request</a>
@@ -281,6 +283,7 @@
     </form>
     <% } %>
     <% } %>
+    <%- include('_lead_request_callout', { leadRequest: typeof leadRequest !== 'undefined' ? leadRequest : null, back: 'leads', base: base, icons: icons }) %>
   </main>
   <%- include('_tabbar') %>
 </body>

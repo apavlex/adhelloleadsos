@@ -106,6 +106,8 @@ describe('customer referral unique links', () => {
     const route = fs.readFileSync(path.join(__dirname, '../routes/memberApp.js'), 'utf8');
     const publicRoute = fs.readFileSync(path.join(__dirname, '../routes/customerReferralPublic.js'), 'utf8');
     const setup = fs.readFileSync(path.join(__dirname, '../views/member_app/_referral_setup.ejs'), 'utf8');
+    assert.match(send, /_leads_section_tabs|aria-label="Leads or referrals"/);
+    assert.match(send, /topTitle:\s*'Leads'/);
     assert.match(send, />Send</);
     assert.match(send, /view=request/);
     assert.match(send, /view=analytics/);
@@ -114,6 +116,7 @@ describe('customer referral unique links', () => {
     assert.doesNotMatch(send, />Script</);
     assert.doesNotMatch(send, /ma-seg--4/);
     assert.match(send, /ma-seg--3/);
+    assert.match(send, /_lead_request_callout/);
     assert.match(send, /ma-fold/);
     assert.match(send, /id="maRefScript"/);
     assert.match(send, /SMS script/);
