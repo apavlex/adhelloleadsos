@@ -38,13 +38,16 @@ test('workspace switch warms leads and skips chrome extras', () => {
   // 1.0.700: Reviews/Q&A inbox.json must share the same non-blocking chrome as HTML.
   assert.match(mw, /appJsonFastPath/);
   assert.match(mw, /const navFastPath = htmlNavFastPath \|\| appJsonFastPath;/);
-  // 1.0.776+: no HTML stub workspaces; 1.0.781 prefers warm cache for light HTML hops.
+  // 1.0.776+: no HTML stub workspaces; 1.0.781+ prefers warm cache for light HTML hops.
+  // 1.0.782: inbox.json shares preferCache so hydrate does not 503-loop after scrape.
   assert.doesNotMatch(mw, /lightHtmlFailFast/);
   assert.match(mw, /inboxHydrateFailFast/);
   assert.match(mw, /lightHtmlPreferCache/);
   assert.match(mw, /preferCache/);
+  assert.match(mw, /inboxHydrateFailFast \|\| lightHtmlPreferCache/);
   assert.match(mw, /isSqliteBusyError/);
   assert.match(mw, /invalidateWorkspaceDocCache/);
+  assert.match(mw, /primeWorkspaceDocCache/);
   const storeBusy = fs.readFileSync(path.join(__dirname, '../lib/sqliteSessionStore.js'), 'utf8');
   assert.match(storeBusy, /_withBusyRetry/);
   assert.match(storeBusy, /_runFailFast/);
@@ -65,7 +68,7 @@ test('workspace switch warms leads and skips chrome extras', () => {
   assert.match(shell, /getAttribute\('action'\) !== '\/workspaces\/switch'/);
 
   const nav = fs.readFileSync(path.join(__dirname, '../views/partials/navbar.ejs'), 'utf8');
-  assert.match(nav, /sidebarShell\.js\?v=sidebar13/);
+  assert.match(nav, /sidebarShell\.js\?v=sidebar17/);
 
   // 1.0.748+: never await switcher build on nav/inbox hops (747's 400ms race re-froze hydrate).
   assert.doesNotMatch(mw, /Promise\.race/);

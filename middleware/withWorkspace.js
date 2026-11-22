@@ -125,6 +125,14 @@ function invalidateWorkspaceDocCache(wid) {
   if (wid) _workspaceDocCache.delete(String(wid));
 }
 
+/** After a known-good workspace write, warm the cache so Reviews/Q&A hydrate
+ *  can preferCache instead of re-reading under follow-on lead KV writes. */
+function primeWorkspaceDocCache(wid, ws) {
+  const id = String(wid || (ws && ws.id) || '');
+  if (!id || !ws || typeof ws !== 'object') return;
+  _workspaceDocCache.set(id, { at: Date.now(), ws });
+}
+
 function readSwitcherCache(email, activeWorkspaceId, liveDemo) {
   const sk = switcherCacheKey(email);
   const hit = sk && _switcherCache.get(sk);
@@ -178,6 +186,9 @@ async function withWorkspace(req, res, next) {
       !/^\/mcp(?:\/|$)/.test(original);
     // Reviews/Q&A inbox hydrate: never wait on busy_timeout while Directory scrape
     // holds the SQLite writer — throw SQLITE_BUSY → 503 pending (client retries).
+    // Also prefer warm/stale workspace cache (same as light HTML): after a scrape
+    // save invalidates nothing useful if we re-read under deferred lead writes —
+    // cold failFast then 503-loops and the shell stays on "Loading…".
     const inboxHydrateFailFast =
       appJsonFastPath &&
       (/\/(?:seo-qa|business-reviews)\/inbox\.json/.test(original) ||
@@ -272,9 +283,10 @@ async function withWorkspace(req, res, next) {
       wid = ids[0] || null;
     }
 
-    const wsReadOpts = inboxHydrateFailFast
-      ? { failFast: true }
-      : lightHtmlPreferCache
+    // Inbox hydrate shares preferCache with light HTML — warm shell + hydrate
+    // must not both punch SQLite while deferred Directory lead writes run.
+    const wsReadOpts =
+      inboxHydrateFailFast || lightHtmlPreferCache
         ? { preferCache: true, failFast: true }
         : {};
     let ws = null;
@@ -311,8 +323,8 @@ async function withWorkspace(req, res, next) {
         }
       }
     }
-    // Light HTML + busy + no cache: one normal read (may wait briefly) beats a blank nav.
-    if (lightHtmlPreferCache && wsBusy && !ws && wid) {
+    // Light HTML / inbox + busy + no cache: one normal read (may wait briefly) beats a blank nav.
+    if ((lightHtmlPreferCache || inboxHydrateFailFast) && wsBusy && !ws && wid) {
       try {
         ws = await getWorkspaceCached(wid, {});
         wsBusy = false;
@@ -520,5 +532,6 @@ withWorkspace.cacheSwitcherSummaries = (email, built) => {
   });
 };
 withWorkspace.invalidateWorkspaceDocCache = invalidateWorkspaceDocCache;
+withWorkspace.primeWorkspaceDocCache = primeWorkspaceDocCache;
 
 module.exports = withWorkspace;
