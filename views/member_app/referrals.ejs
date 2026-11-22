@@ -6,7 +6,7 @@
 </head>
 <body>
   <main class="ma-shell">
-    <%- include('_top', { topTitle: _isScheduleHead ? 'Calendar' : 'Leads' }) %>
+    <%- include('_top', { topTitle: _isScheduleHead ? 'Calendar' : 'Leads', topPlus: { href: '#maCreateProject', label: 'Create project' } }) %>
     <%
       const _locked = typeof referralsLocked !== 'undefined' && referralsLocked;
       const _formLeads = typeof formLeads !== 'undefined' && Array.isArray(formLeads) ? formLeads : [];
@@ -43,7 +43,7 @@
     <div class="ma-titlebar">
       <h1 class="ma-page-title"><%= _scheduleView ? 'Calendar' : 'Leads' %></h1>
       <% if (!_locked) { %>
-      <a class="ma-iconbtn ma-iconbtn--fill" href="#maCreateProject" aria-label="Create project"><%- icons.plus %></a>
+      <a class="ma-iconbtn ma-iconbtn--fill" href="#maCreateProject" aria-label="Create project" data-ma-open-details="maCreateProject"><%- icons.plus %></a>
       <% } %>
     </div>
     <% if (_locked) { %>
@@ -79,7 +79,7 @@
     <% if (!_locked) { %><%- include('_flash') %><% } %>
 
     <% if (!_locked) { %>
-    <details class="ma-card ma-create-project" id="maCreateProject" <%= _scheduleView ? 'open' : '' %>>
+    <details class="ma-card ma-create-project" id="maCreateProject">
       <summary class="ma-create-project__summary">
         <%# Inner wrap: Safari can blank flex layouts applied directly on <summary>. %>
         <span class="ma-create-project__summary-inner">

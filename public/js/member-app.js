@@ -397,6 +397,32 @@
     }
   } catch (e) { /* old browser */ }
 
+  /** Open a <details> target (e.g. Create project) from top-bar / title + links. */
+  function openDetailsById(id) {
+    if (!id) return false;
+    var el = document.getElementById(id);
+    if (!el || String(el.tagName || '').toLowerCase() !== 'details') return false;
+    el.open = true;
+    try { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (err) { /* ignore */ }
+    var focus = el.querySelector('input, select, textarea, button');
+    if (focus) {
+      try { focus.focus({ preventScroll: true }); } catch (err2) { try { focus.focus(); } catch (err3) { /* ignore */ } }
+    }
+    return true;
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-ma-open-details]') : null;
+    if (!btn) return;
+    var id = btn.getAttribute('data-ma-open-details') || '';
+    if (!id) return;
+    if (openDetailsById(id)) {
+      e.preventDefault();
+    }
+  });
+  if (location.hash && location.hash.length > 1) {
+    openDetailsById(location.hash.slice(1));
+  }
+
   var customerSelect = document.querySelector('[data-ma-newcust]');
   var newCustomer = document.getElementById('maNewCustomer');
   if (customerSelect && newCustomer) {

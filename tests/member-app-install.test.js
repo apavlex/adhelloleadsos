@@ -418,6 +418,15 @@ describe('member app install modal and tab bar', () => {
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_lead_request_callout/);
     assert.match(page, /maCreateProject|Create project/);
+    assert.doesNotMatch(page, /id="maCreateProject"[^>]*\sopen(?:\s|>)|_scheduleView \? 'open'/);
+    assert.match(page, /topPlus:\s*\{\s*href:\s*'#maCreateProject'/);
+    assert.match(page, /data-ma-open-details="maCreateProject"/);
+    const top = fs.readFileSync(path.join(root, 'views/member_app/_top.ejs'), 'utf8');
+    assert.match(top, /topPlus/);
+    assert.match(top, /data-ma-open-details/);
+    const appJs = fs.readFileSync(path.join(root, 'public/js/member-app.js'), 'utf8');
+    assert.match(appJs, /function openDetailsById/);
+    assert.match(appJs, /data-ma-open-details/);
     assert.match(page, /ma-create-project__summary-inner/);
     assert.match(page, /data-ma-customer-pick/);
     assert.match(page, /data-ma-new-value="new"/);
