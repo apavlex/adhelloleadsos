@@ -75,6 +75,7 @@ function buildDirectoryPagePrompt({
    - 404 state when the slug is missing
    - Lead request form on the profile (required): name, phone, email, short project message. On submit POST JSON to lead_form_url from the detail feed (or ${leadForm} with {slug} replaced). CORS is open. Show a thank-you state on success. Do not invent a third-party form service — this posts into AdHello so the business gets a Reviews-app notification + deep link.
    - Leave a review CTA (required when review_page_url is present): prominent “Leave a review” / “Rate your experience” button linking to business.review_page_url (or top-level review_page_url). That opens the Reviews star-rating page with the Google/Yelp/etc. links the business set up in the Reviews app. Do not invent separate Google links — use review_page_url (and optional review_links[] for display only).
+   - Partner / biz dashboard (when reviews_app_url is present): each business may have a private dashboard surface unique to that biz. There, show an “Open Reviews app” button linking to business.reviews_app_url (unique login for that contractor’s Reviews app). Do not put reviews_app_url on public shopper profile pages — shoppers use review_page_url / lead form only.
 
 ## Data: Leads OS Directory API (required)
 This site is a frontend only. Content is curated per workspace in Leads OS → SEO → Directory (each workspace has its own directory + publish token).
@@ -83,7 +84,7 @@ This site is a frontend only. Content is curated per workspace in Leads OS → S
    GET ${feed || '[SAVE SETTINGS ON SEO → Directory TO GET FEED URL]'}
    CORS is open. Response includes:
    - page: { title, business_name, page_url, path_prefix }
-   - businesses: [{ slug, name, category, city, state, address, phone, website, rating, review_count, review_sentiment, review_summary, reviews: [{ text }], image_url, description, blurb, review_page_url, review_link_count, … }]
+   - businesses: [{ slug, name, category, city, state, address, phone, website, rating, review_count, review_sentiment, review_summary, reviews: [{ text }], image_url, description, blurb, review_page_url, review_link_count, reviews_app_url, reviews_linked, … }]
    - item_list_schema: ItemList JSON-LD object
    - counts, seo_note
 
@@ -91,9 +92,11 @@ This site is a frontend only. Content is curated per workspace in Leads OS → S
    GET ${detail}
    Replace {slug} with the route param.
    Response includes:
-   - business: { …same fields including category, description, review_sentiment, reviews, review_page_url, review_slug, review_links: [{ key, label, url }], review_link_count… }
+   - business: { …same fields including category, description, review_sentiment, reviews, review_page_url, review_slug, review_links: [{ key, label, url }], review_link_count, reviews_app_url, reviews_linked… }
    - review_page_url: public Reviews page (https://reviews.adhello.io/rv/{slug}) — star rating + platform links from the Reviews app
    - review_links: platforms the business configured (Google, Yelp, …) — prefer linking shoppers to review_page_url so the Reviews flow runs
+   - reviews_app_url: unique Reviews-app login for this business (https://reviews.adhello.io/m/…) — use on that biz’s private dashboard only (“Open Reviews app”). Empty when not linked in Leads OS Directory.
+   - reviews_linked: true when reviews_app_url is present
    - lead_form_url: POST endpoint for the profile lead form
    - local_business_schema: LocalBusiness JSON-LD (may include aggregateRating + review[] + sameAs review page)
 

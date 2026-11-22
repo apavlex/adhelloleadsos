@@ -174,6 +174,8 @@ async function getPublicFeed(token) {
       ...view,
       review_page_url: review.review_page_url || '',
       review_link_count: review.review_link_count || 0,
+      reviews_app_url: review.reviews_app_url || '',
+      reviews_linked: !!review.reviews_linked,
     };
   });
   return {
@@ -190,7 +192,7 @@ async function getPublicFeed(token) {
       draft: directoryStore.inboxSummary(bundle).draft,
     },
     seo_note:
-      'Render these businesses in HTML on your directory index and inject item_list_schema as JSON-LD. Each business detail page should load /businesses/{slug}.json and inject local_business_schema. When review_page_url is set, link “Leave a review” to that Reviews page.',
+      'Render these businesses in HTML on your directory index and inject item_list_schema as JSON-LD. Each business detail page should load /businesses/{slug}.json and inject local_business_schema. When review_page_url is set, link “Leave a review” to that Reviews page. When reviews_app_url is set, use it only on that business’s private partner dashboard (Open Reviews app) — never on public shopper pages.',
   };
 }
 
@@ -226,16 +228,20 @@ async function getPublicBusiness(token, slug, { origin } = {}) {
       review_slug: review.review_slug || '',
       review_links: review.review_links || [],
       review_link_count: review.review_link_count || 0,
+      reviews_app_url: review.reviews_app_url || '',
+      reviews_linked: !!review.reviews_linked,
     },
     review_page_url: review.review_page_url || '',
     review_links: review.review_links || [],
+    reviews_app_url: review.reviews_app_url || '',
+    reviews_linked: !!review.reviews_linked,
     lead_form_url: formUrl,
     local_business_schema: buildLocalBusinessSchema(
       { ...view, review_page_url: review.review_page_url || '' },
       pageUrl,
     ),
     seo_note:
-      'Render this business in HTML and inject local_business_schema as JSON-LD on the detail page. When review_page_url is set, show a “Leave a review” button that opens the Reviews page (star rating + Google/Yelp links from the Reviews app). POST name/phone/email/message to lead_form_url for quote leads.',
+      'Render this business in HTML and inject local_business_schema as JSON-LD on the detail page. When review_page_url is set, show a “Leave a review” button that opens the Reviews page (star rating + Google/Yelp links from the Reviews app). When reviews_app_url is set, show “Open Reviews app” only on that business’s private partner/dashboard surface (unique login for this biz) — never on the public shopper profile. POST name/phone/email/message to lead_form_url for quote leads.',
   };
 }
 

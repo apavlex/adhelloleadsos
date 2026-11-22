@@ -242,6 +242,8 @@ function normalizeListing(raw, fallbackId) {
   return {
     id,
     leadKey,
+    /** Explicit Reviews-app network member (preferred over soft leadKey/name match). */
+    memberId: clean(row.memberId, 80),
     slug,
     name,
     category: isJobTypeCategorySlug(categoryRaw) ? '' : categoryRaw,
@@ -386,6 +388,7 @@ function lightListing(raw, fallbackId) {
   return {
     id,
     leadKey: clean(row.leadKey, 200),
+    memberId: clean(row.memberId, 80),
     slug: clean(row.slug, 120) || slugify(row.name || id),
     name: clean(row.name, 160) || 'Business',
     category: isJobTypeCategorySlug(categoryRaw) ? '' : categoryRaw,

@@ -15,6 +15,9 @@ const { isSqliteBusyError } = require('../lib/isSqliteBusyError');
 const reviewHunt = require('../services/reviewHunt');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const outscraper = require('../services/outscraperClient');
+const networkStore = require('../services/networkStore');
+const directoryMemberLink = require('../services/directoryMemberLink');
+const networkNotify = require('../services/networkNotify');
 
 /** Cap per request — Outscraper is ~$0.08/business after free tier. */
 const SCRAPE_REVIEWS_MAX = Math.min(
@@ -367,6 +370,7 @@ function slimListingForInbox(row) {
   return {
     id: row.id || '',
     leadKey: row.leadKey || '',
+    memberId: row.memberId || '',
     slug: row.slug || '',
     name: row.name || '',
     category: row.category || '',
@@ -387,6 +391,40 @@ function slimListingForInbox(row) {
   };
 }
 
+function slimNetworkMember(m) {
+  if (!m || typeof m !== 'object') return null;
+  const id = String(m.id || '').trim();
+  if (!id) return null;
+  return {
+    id,
+    companyName: String(m.companyName || '').trim(),
+    contactName: String(m.contactName || '').trim(),
+    phone: String(m.phone || '').trim(),
+    email: String(m.email || '').trim(),
+    leadKey: String(m.leadKey || '').trim(),
+    status: String(m.status || '').trim() || 'active',
+    label: directoryMemberLink.memberPickerLabel(m),
+  };
+}
+
+async function listingPortalContext(req, listingId) {
+  const bundle = await directoryStore.load(req.workspaceId, { normalize: false });
+  const id = String(listingId || '').trim();
+  const listing = (bundle.listings && bundle.listings[id]) || null;
+  if (!listing) {
+    const err = new Error('Listing not found.');
+    err.code = 'NOT_FOUND';
+    throw err;
+  }
+  const linked = await directoryMemberLink.resolveMemberForListing(req.workspaceId, listing);
+  if (!linked || !linked.member) {
+    const err = new Error('No Reviews app member linked to this listing yet.');
+    err.code = 'NO_MEMBER';
+    throw err;
+  }
+  return { listing, network: linked.network, member: linked.member, match: linked.match };
+}
+
 router.get('/', async (req, res, next) => {
   try {
     // Shell-first always: paint chrome from req.workspace, hydrate listings from
@@ -405,6 +443,8 @@ router.get('/', async (req, res, next) => {
         publish: 'Publish state updated.',
         removed: 'Listing removed.',
         refreshed: 'Listing refreshed from the lead.',
+        portal_sent: 'Reviews app login link sent.',
+        portal_fail: 'Could not send Reviews app link.',
       };
       locals.flash = { ok: map[ok] || 'Done.' };
     }
@@ -672,7 +712,7 @@ router.post('/listings/:id', async (req, res, next) => {
           .map((s) => s.trim())
           .filter(Boolean)
           .slice(0, 5);
-    const row = await directoryStore.updateListing(req.workspaceId, req.params.id, {
+    const patch = {
       name: body.name,
       slug: body.slug,
       category: body.category,
@@ -690,13 +730,91 @@ router.post('/listings/:id', async (req, res, next) => {
       reviewSnippets,
       imageUrl: body.imageUrl,
       published: body.published,
-    });
+    };
+    // Explicit Reviews member link (empty string clears).
+    if (Object.prototype.hasOwnProperty.call(body, 'memberId')) {
+      patch.memberId = body.memberId == null ? '' : String(body.memberId).trim();
+    }
+    const row = await directoryStore.updateListing(req.workspaceId, req.params.id, patch);
     if (wantsJsonResponse(req)) return res.json({ success: true, listing: row });
     return res.redirect('/directory?ok=saved');
   } catch (e) {
     if (wantsJsonResponse(req)) {
       const status = e.code === 'NOT_FOUND' ? 404 : 400;
       return res.status(status).json({ success: false, error: e.message || 'Save failed' });
+    }
+    next(e);
+  }
+});
+
+/** Reviews-app members for the Directory → member picker. */
+router.get('/reviews-members.json', async (req, res, next) => {
+  try {
+    const network = await networkStore.getNetworkForWorkspace(req.workspaceId);
+    if (!network) {
+      return res.json({ success: true, networkId: null, members: [] });
+    }
+    const members = (await networkStore.listMembers(network.id))
+      .filter((m) => m && m.status !== 'paused')
+      .map(slimNetworkMember)
+      .filter(Boolean)
+      .sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
+    return res.json({ success: true, networkId: network.id, members });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/listings/:id/portal-link', async (req, res, next) => {
+  try {
+    const ctx = await listingPortalContext(req, req.params.id);
+    const baseUrl = baseUrlFromReq(req);
+    const url = await networkNotify.memberPortalShortLink(baseUrl, ctx.network, ctx.member);
+    const fullUrl = networkNotify.memberPortalLink(baseUrl, ctx.network, ctx.member);
+    return res.json({
+      success: true,
+      url,
+      fullUrl,
+      memberId: ctx.member.id,
+      companyName: ctx.member.companyName || '',
+      match: ctx.match || '',
+      listingId: ctx.listing.id,
+    });
+  } catch (e) {
+    if (e.code === 'NOT_FOUND' || e.code === 'NO_MEMBER') {
+      return res.status(e.code === 'NOT_FOUND' ? 404 : 400).json({
+        success: false,
+        error: e.message || 'No Reviews app link',
+      });
+    }
+    next(e);
+  }
+});
+
+router.post('/listings/:id/send-portal-link', async (req, res, next) => {
+  try {
+    const ctx = await listingPortalContext(req, req.params.id);
+    const sent = await networkNotify.sendMemberPortalLink({
+      network: ctx.network,
+      member: ctx.member,
+      baseUrl: baseUrlFromReq(req),
+      welcome: !!(req.body && (req.body.welcome === true || req.body.welcome === '1')),
+    });
+    if (wantsJsonResponse(req)) {
+      return res.json({
+        success: !!sent.ok,
+        ok: !!sent.ok,
+        channel: sent.channel || null,
+        error: sent.ok ? null : sent.error || 'Could not send',
+        memberId: ctx.member.id,
+        companyName: ctx.member.companyName || '',
+      });
+    }
+    return res.redirect(sent.ok ? '/directory?ok=portal_sent' : '/directory?ok=portal_fail');
+  } catch (e) {
+    if (wantsJsonResponse(req)) {
+      const status = e.code === 'NOT_FOUND' ? 404 : e.code === 'NO_MEMBER' ? 400 : 500;
+      return res.status(status).json({ success: false, error: e.message || 'Send failed' });
     }
     next(e);
   }

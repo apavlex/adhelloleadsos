@@ -6,7 +6,8 @@ const networkStore = require('./networkStore');
 const memberAppointmentLink = require('./memberAppointmentLink');
 const appointmentPackages = require('./appointmentPackages');
 const reviewPage = require('./reviewPage');
-const { getReviewPageUrl } = require('../lib/publicBaseUrl');
+const { createMemberPortalToken } = require('./networkLinkSign');
+const { getReviewPageUrl, getReviewPublicBaseUrl } = require('../lib/publicBaseUrl');
 
 function clean(v, max = 500) {
   return String(v == null ? '' : v)
@@ -32,7 +33,8 @@ function namesMatch(a, b) {
 }
 
 /**
- * Prefer leadKey → package → company name.
+ * Prefer explicit listing.memberId → leadKey → package → company name.
+ * Persist memberId from Directory so form leads / push hit the right biz app.
  * @returns {Promise<{ network, member, match, package? }|null>}
  */
 async function resolveMemberForListing(workspaceId, listing) {
@@ -40,6 +42,18 @@ async function resolveMemberForListing(workspaceId, listing) {
   if (!wid || !listing) return null;
   const network = await networkStore.getNetworkForWorkspace(wid);
   if (!network) return null;
+
+  const memberId = clean(listing.memberId, 80);
+  if (memberId) {
+    try {
+      const byId = await networkStore.getMember(network.id, memberId);
+      if (byId && byId.status !== 'paused') {
+        return { network, member: byId, match: 'member_id' };
+      }
+    } catch (_) {
+      /* fall through to soft match */
+    }
+  }
 
   const leadKey = clean(listing.leadKey, 200);
   if (leadKey) {
@@ -98,40 +112,76 @@ async function reviewFieldsByListingId(workspaceId, listings) {
   if (!network || !members.length) return out;
 
   const active = members.filter((m) => m && m.status !== 'paused');
+  const byId = new Map();
   const byLead = new Map();
   for (const m of active) {
+    const mid = clean(m.id, 80);
+    if (mid) byId.set(mid, m);
     const key = clean(m.leadKey, 200);
     if (key && !byLead.has(key)) byLead.set(key, m);
   }
 
   for (const listing of rows) {
     if (!listing || !listing.id) continue;
-    const leadKey = clean(listing.leadKey, 200);
-    let member = leadKey ? byLead.get(leadKey) : null;
+    const linkedId = clean(listing.memberId, 80);
+    let member = linkedId ? byId.get(linkedId) : null;
+    if (!member) {
+      const leadKey = clean(listing.leadKey, 200);
+      member = leadKey ? byLead.get(leadKey) : null;
+    }
     if (!member) {
       member = active.find((m) => namesMatch(m.companyName, listing.name)) || null;
     }
-    const pack = publicReviewFields(member);
-    if (pack.review_page_url) out.set(listing.id, pack);
+    const pack = publicReviewFields(member, network);
+    if (pack.review_page_url || pack.reviews_app_url) out.set(listing.id, pack);
   }
   return out;
 }
 
+/** Label for Directory member picker. */
+function memberPickerLabel(member) {
+  if (!member) return '';
+  const company = clean(member.companyName || member.businessName || member.name, 160);
+  const person = clean(member.contactName || member.firstName, 80);
+  if (company && person) return `${company} (${person})`;
+  return company || person || clean(member.id, 80);
+}
+
 /**
- * Public fields for Directory / HomeElk: Reviews page + platform links from the app.
+ * Unique Reviews-app login URL for a linked member (HomeElk biz dashboard).
+ * Uses the same signed /m/ portal token as SMS “Text app link”.
  */
-function publicReviewFields(member) {
+function reviewsAppUrlForMember(network, member) {
+  if (!network || !member || !network.id || !member.id) return '';
+  try {
+    const token = createMemberPortalToken({
+      networkId: network.id,
+      memberId: member.id,
+    });
+    return `${getReviewPublicBaseUrl()}/m/${encodeURIComponent(token)}`;
+  } catch (_) {
+    return '';
+  }
+}
+
+/**
+ * Public fields for Directory / HomeElk: Reviews page + platform links + app login.
+ */
+function publicReviewFields(member, network) {
   const m = member && typeof member === 'object' ? member : null;
   const slug = clean(m && m.reviewSlug, 80);
   const pageUrl = slug ? getReviewPageUrl(slug) : '';
-  if (!pageUrl) {
-    return {
-      review_page_url: '',
-      review_slug: '',
-      review_links: [],
-      review_link_count: 0,
-    };
-  }
+  const reviews_app_url = reviewsAppUrlForMember(network, m);
+  const reviews_linked = !!(m && m.id && reviews_app_url);
+  const empty = {
+    review_page_url: '',
+    review_slug: '',
+    review_links: [],
+    review_link_count: 0,
+    reviews_app_url,
+    reviews_linked,
+  };
+  if (!pageUrl) return empty;
   const destinations = reviewPage.reviewDestinations(m.reviewLinks, slug);
   const review_links = destinations.map((d) => ({
     key: d.key,
@@ -143,13 +193,15 @@ function publicReviewFields(member) {
     review_slug: slug,
     review_links,
     review_link_count: review_links.length,
+    reviews_app_url,
+    reviews_linked,
   };
 }
 
 async function publicReviewFieldsForListing(workspaceId, listing) {
   const linked = await resolveMemberForListing(workspaceId, listing);
   return {
-    ...publicReviewFields(linked && linked.member),
+    ...publicReviewFields(linked && linked.member, linked && linked.network),
     matched: !!(linked && linked.member),
     match: (linked && linked.match) || '',
   };
@@ -197,6 +249,8 @@ module.exports = {
   publicReviewFields,
   publicReviewFieldsForListing,
   reviewFieldsByListingId,
+  memberPickerLabel,
+  reviewsAppUrlForMember,
   poweredByForWorkspace,
   poweredByForNetwork,
 };

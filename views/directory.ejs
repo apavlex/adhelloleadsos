@@ -158,6 +158,19 @@
         <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Business name</span>
         <input type="text" name="name" required class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
       </label>
+      <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/30 p-3 space-y-3">
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Reviews app member</span>
+          <select name="memberId" id="dirEditMemberId" class="mt-1 w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/60 px-3 py-2.5 text-sm">
+            <option value="">— Not linked (soft match by lead / name) —</option>
+          </select>
+        </label>
+        <p id="dirEditMemberHint" class="text-[11px] text-brand-muted leading-relaxed">Link this listing so Directory form leads and push alerts go to that business Reviews app login.</p>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" id="dirCopyPortal" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest">Copy app link</button>
+          <button type="button" id="dirTextPortal" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest">Text app link</button>
+        </div>
+      </div>
       <div class="grid grid-cols-2 gap-3">
         <label class="block">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Slug</span>
@@ -262,6 +275,8 @@
     var statusEl = document.getElementById('dirStatus');
     var listingsById = {};
     var editOpenId = '';
+    var reviewsMembers = null;
+    var reviewsMembersPromise = null;
     var drawer = document.getElementById('dirEditDrawer');
     var backdrop = document.getElementById('dirEditBackdrop');
     var editForm = document.getElementById('dirEditForm');
@@ -314,6 +329,42 @@
       document.body.classList.toggle('overflow-hidden', !!open);
       if (!open) editOpenId = '';
     }
+    function loadReviewsMembers() {
+      if (reviewsMembers) return Promise.resolve(reviewsMembers);
+      if (reviewsMembersPromise) return reviewsMembersPromise;
+      reviewsMembersPromise = fetch('/directory/reviews-members.json', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+          reviewsMembers = (data && data.success && Array.isArray(data.members)) ? data.members : [];
+          return reviewsMembers;
+        })
+        .catch(function () {
+          reviewsMembers = [];
+          return reviewsMembers;
+        })
+        .finally(function () { reviewsMembersPromise = null; });
+      return reviewsMembersPromise;
+    }
+    function fillMemberSelect(selectedId) {
+      var sel = document.getElementById('dirEditMemberId');
+      if (!sel) return;
+      var keep = selectedId != null ? String(selectedId) : String(sel.value || '');
+      var opts = ['<option value="">— Not linked (soft match by lead / name) —</option>'];
+      (reviewsMembers || []).forEach(function (m) {
+        opts.push(
+          '<option value="' + esc(m.id) + '">' + esc(m.label || m.companyName || m.id) + '</option>'
+        );
+      });
+      sel.innerHTML = opts.join('');
+      if (keep && Array.prototype.some.call(sel.options, function (o) { return o.value === keep; })) {
+        sel.value = keep;
+      } else {
+        sel.value = '';
+      }
+    }
     function fillEditForm(row) {
       if (!editForm || !row) return;
       editForm.querySelector('[name="id"]').value = row.id || '';
@@ -333,16 +384,31 @@
       }
       var published = editForm.querySelector('[name="published"]');
       if (published) published.checked = !!row.published;
+      fillMemberSelect(row.memberId || '');
       var title = document.getElementById('dirEditTitle');
       if (title) title.textContent = row.name || 'Edit business';
       var leadEl = document.getElementById('dirEditLeadKey');
       if (leadEl) leadEl.textContent = row.leadKey ? ('Pipeline lead: ' + row.leadKey) : 'No linked Pipeline lead';
+      var hint = document.getElementById('dirEditMemberHint');
+      if (hint) {
+        hint.textContent = row.memberId
+          ? 'Linked — Directory form leads and pushes go to this Reviews app member.'
+          : 'Link this listing so Directory form leads and push alerts go to that business Reviews app login.';
+      }
       if (editErr) {
         editErr.textContent = '';
         editErr.classList.add('hidden');
       }
     }
     function openEdit(id) {
+      function show(row) {
+        editOpenId = id;
+        fillEditForm(row);
+        setEditOpen(true);
+        loadReviewsMembers().then(function () {
+          if (editOpenId === id) fillMemberSelect(row.memberId || '');
+        });
+      }
       var row = listingsById[id];
       if (!row) {
         say('Loading listing…');
@@ -354,17 +420,36 @@
           .then(function (parsed) {
             if (!parsed.ok || !parsed.data || !parsed.data.listing) throw new Error((parsed.data && parsed.data.error) || 'Listing not found');
             listingsById[id] = parsed.data.listing;
-            editOpenId = id;
-            fillEditForm(parsed.data.listing);
-            setEditOpen(true);
+            show(parsed.data.listing);
             say('');
           })
           .catch(function (err) { say(err.message || 'Could not open listing', false); });
         return;
       }
-      editOpenId = id;
-      fillEditForm(row);
-      setEditOpen(true);
+      show(row);
+    }
+    function copyText(text) {
+      if (!text) return Promise.reject(new Error('Nothing to copy'));
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function (resolve, reject) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          if (!document.execCommand('copy')) throw new Error('Copy failed');
+          resolve();
+        } catch (err) {
+          reject(err);
+        } finally {
+          document.body.removeChild(ta);
+        }
+      });
     }
     function digPhone(phone) {
       return String(phone || '').replace(/[^\d+]/g, '');
@@ -446,6 +531,9 @@
           + '<span class="font-black uppercase tracking-widest ' + pubClass + '">' + (row.published ? 'Published' : 'Draft') + '</span>'
           + ' · /' + esc(row.slug || '')
           + (row.category ? ' · ' + esc(row.category) : '')
+          + (row.memberId
+            ? ' · <span class="font-semibold text-emerald-700 dark:text-emerald-300">Reviews app linked</span>'
+            : '')
           + (row.licenseNumber
             ? ' · ' + esc((row.licenseLabel || 'License') + ' ' + row.licenseNumber)
             : '')
@@ -949,6 +1037,48 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && editOpenId) setEditOpen(false);
     });
+    var copyPortalBtn = document.getElementById('dirCopyPortal');
+    if (copyPortalBtn) {
+      copyPortalBtn.addEventListener('click', function () {
+        var id = editOpenId || (editForm && editForm.querySelector('[name="id"]').value);
+        if (!id) return say('Open a listing first.', false);
+        say('Fetching Reviews app link…');
+        fetch('/directory/listings/' + encodeURIComponent(id) + '/portal-link', {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        })
+          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+          .then(function (parsed) {
+            if (!parsed.ok || !parsed.data || !parsed.data.url) {
+              throw new Error((parsed.data && parsed.data.error) || 'No Reviews app link');
+            }
+            return copyText(parsed.data.url).then(function () {
+              say('Reviews app link copied' + (parsed.data.companyName ? (' for ' + parsed.data.companyName) : '') + '.');
+            });
+          })
+          .catch(function (err) { say(err.message || 'Could not copy link', false); });
+      });
+    }
+    var textPortalBtn = document.getElementById('dirTextPortal');
+    if (textPortalBtn) {
+      textPortalBtn.addEventListener('click', function () {
+        var id = editOpenId || (editForm && editForm.querySelector('[name="id"]').value);
+        if (!id) return say('Open a listing first.', false);
+        say('Texting Reviews app link…');
+        postJson('/directory/listings/' + encodeURIComponent(id) + '/send-portal-link', {})
+          .then(function (data) {
+            if (!data.ok && data.success === false) throw new Error(data.error || 'Send failed');
+            say(
+              data.ok
+                ? ('App link sent' + (data.companyName ? (' to ' + data.companyName) : '') +
+                    (data.channel ? (' by ' + data.channel) : '') + '.')
+                : (data.error || 'Could not send link'),
+              !!data.ok
+            );
+          })
+          .catch(function (err) { say(err.message || 'Could not text link', false); });
+      });
+    }
     if (editForm) {
       editForm.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -957,6 +1087,7 @@
         var fd = new FormData(editForm);
         var body = Object.fromEntries(fd.entries());
         body.published = fd.get('published') ? '1' : '0';
+        body.memberId = fd.get('memberId') != null ? String(fd.get('memberId')) : '';
         if (editErr) {
           editErr.textContent = '';
           editErr.classList.add('hidden');
@@ -986,6 +1117,8 @@
           });
       });
     }
+    // Warm the Reviews member picker so Edit opens with options ready.
+    loadReviewsMembers();
     var editRefresh = document.getElementById('dirEditRefresh');
     if (editRefresh) {
       editRefresh.addEventListener('click', function () {
