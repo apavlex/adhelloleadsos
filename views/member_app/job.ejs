@@ -40,23 +40,65 @@
 
     <section class="ma-section">
       <form method="post" action="<%= base %>/customers/jobs/<%= job ? job.id : 'new' %>" class="ma-card" autocomplete="off">
+        <% if (job) { %>
         <div class="ma-field">
           <label class="ma-label" for="jbCustomer">Customer</label>
-          <select id="jbCustomer" name="customerId" class="ma-select" required data-ma-newcust>
-            <% if (!job) { %><option value="" <%= selectedCustomer ? '' : 'selected' %> disabled>Pick a customer</option><% } %>
+          <select id="jbCustomer" name="customerId" class="ma-select" required>
             <% customers.forEach(function (c) { %><option value="<%= c.id %>" <%= selectedCustomer === c.id ? 'selected' : '' %>><%= c.name %></option><% }); %>
-            <% if (!job) { %><option value="new" <%= selectedCustomer === 'new' ? 'selected' : '' %>>+ New customer</option><% } %>
           </select>
         </div>
-        <% if (!job) { %>
-        <div class="ma-grid2 ma-newcust" id="maNewCustomer" <%= selectedCustomer === 'new' ? '' : 'hidden' %>>
+        <% } else { %>
+        <%
+          const _pickCust = selectedCustomer && selectedCustomer !== 'new'
+            ? (customers.find(function (c) { return c.id === selectedCustomer; }) || null)
+            : null;
+          const _isNewCust = selectedCustomer === 'new';
+          const _custPayload = customers.map(function (c) {
+            return { id: c.id, name: c.name || '', phone: c.phone || '', email: c.email || '' };
+          });
+        %>
+        <div class="ma-field" data-ma-customer-pick data-ma-new-value="new" data-ma-add-customer-href="<%= base %>/customers/new">
+          <input type="hidden" name="customerId" id="jbCustomerId" value="<%= _pickCust ? _pickCust.id : (_isNewCust ? 'new' : '') %>">
+          <div data-ma-ask-search <%= _pickCust ? 'hidden' : '' %>>
+            <label class="ma-label" for="jbCustomer">Customer</label>
+            <div class="ma-typeahead">
+              <input
+                id="jbCustomer"
+                type="text"
+                inputmode="search"
+                class="ma-input"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="jbCustomerList"
+                placeholder="Search or type a new name…"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                value=""
+              >
+              <ul id="jbCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
+            </div>
+            <p class="ma-hint">Search your customers, or add someone new. <a href="<%= base %>/customers/new">Add new customer</a></p>
+          </div>
+          <div class="ma-ask-selected" data-ma-ask-selected <%= _pickCust ? '' : 'hidden' %>>
+            <span class="ma-ask-selected__avatar" aria-hidden="true" data-ma-ask-selected-avatar><%= _pickCust && _pickCust.name ? String(_pickCust.name).charAt(0).toUpperCase() : '?' %></span>
+            <span class="ma-ask-selected__body">
+              <strong data-ma-ask-selected-name><%= _pickCust ? (_pickCust.name || 'Customer') : '' %></strong>
+              <span data-ma-ask-selected-meta><%= _pickCust ? (_pickCust.phone || _pickCust.email || 'Saved customer') : '' %></span>
+            </span>
+            <button type="button" class="ma-btn ma-btn--sm ma-btn--ghost" data-ma-ask-clear>Change</button>
+          </div>
+          <script type="application/json" id="jbCustomerData"><%- JSON.stringify(_custPayload).replace(/</g, '\\u003c') %></script>
+        </div>
+        <div class="ma-grid2" data-ma-ask-manual <%= _isNewCust ? '' : 'hidden' %>>
           <div class="ma-field">
-            <label class="ma-label" for="jbNewName">Customer name</label>
-            <input id="jbNewName" name="newCustomerName" class="ma-input" maxlength="120" value="<%= fv.newCustomerName || '' %>" autocapitalize="words">
+            <label class="ma-label" for="jbNewName">New name</label>
+            <input id="jbNewName" name="newCustomerName" class="ma-input" maxlength="120" value="<%= fv.newCustomerName || '' %>" autocapitalize="words" placeholder="Customer name">
           </div>
           <div class="ma-field">
             <label class="ma-label" for="jbNewPhone">Phone</label>
-            <input id="jbNewPhone" name="newCustomerPhone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.newCustomerPhone || '' %>">
+            <input id="jbNewPhone" name="newCustomerPhone" type="tel" inputmode="tel" maxlength="40" class="ma-input" value="<%= fv.newCustomerPhone || '' %>" placeholder="Optional">
           </div>
         </div>
         <% } %>

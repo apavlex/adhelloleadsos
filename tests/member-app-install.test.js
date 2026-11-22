@@ -410,12 +410,19 @@ describe('member app install modal and tab bar', () => {
     assert.doesNotMatch(tabbar, /id:\s*'send',\s*label:\s*'Referrals'/);
     assert.match(page, /pageTitle:\s*_isScheduleHead \? 'Calendar' : 'Leads'|pageTitle:\s*'Leads'/);
     assert.match(page, /view === 'calendar'|view === 'timeline'/);
-    assert.match(page, /Schedule on calendar|Schedule visit/);
+    assert.match(page, /Schedule on calendar/);
+    assert.doesNotMatch(page, /Schedule visit<\/summary>/);
+    assert.match(page, /href="sms:/);
+    assert.match(page, /> SMS</);
     assert.match(page, /Timeline/);
     assert.match(page, /Website &amp; agency/);
     assert.match(page, /_lead_request_callout/);
     assert.match(page, /maCreateProject|Create project/);
-    assert.match(page, /Pick a customer|New name/);
+    assert.match(page, /ma-create-project__summary-inner/);
+    assert.match(page, /data-ma-customer-pick/);
+    assert.match(page, /data-ma-new-value="new"/);
+    assert.match(page, /Search or type a new name/);
+    assert.match(page, /newCustomerName/);
     assert.doesNotMatch(page, /Send a referral/);
     // Top: Leads | Referrals; inbox: Inbox · Pool · Sent (Calendar is its own bottom tab).
     assert.match(page, /_leads_section_tabs|aria-label="Leads or referrals"/);

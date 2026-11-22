@@ -87,8 +87,20 @@ describe('customerSearch', () => {
     assert.match(app, /function initCustomerPick/);
     assert.match(app, /searchApi\.searchCustomers/);
     assert.match(app, /data-ma-ask-selected/);
+    assert.match(app, /data-ma-new-value/);
+    assert.match(app, /newCustomerName/);
     assert.match(app, /syncMode/);
     assert.match(app, /removeAttribute\('hidden'\)/);
+    const referrals = fs.readFileSync(path.join(__dirname, '../views/member_app/referrals.ejs'), 'utf8');
+    assert.match(referrals, /data-ma-customer-pick[^>]*data-ma-new-value="new"|data-ma-new-value="new"[^>]*data-ma-customer-pick/);
+    assert.match(referrals, /Search or type a new name/);
+    assert.match(app, /data-ma-add-customer-href/);
+    assert.match(app, /Add “|' + esc\(q\) \+ '” as new customer|as new customer/);
+    const job = fs.readFileSync(path.join(__dirname, '../views/member_app/job.ejs'), 'utf8');
+    assert.match(job, /data-ma-customer-pick/);
+    assert.match(job, /data-ma-new-value="new"/);
+    assert.match(job, /data-ma-add-customer-href/);
+    assert.match(job, /Add new customer/);
     assert.match(css, /\.ma-typeahead__list/);
     assert.match(css, /\[data-ma-customer-pick\]\s*\.ma-typeahead__list/);
     assert.match(css, /position:\s*static/);
@@ -99,7 +111,7 @@ describe('customerSearch', () => {
     assert.match(head, /position:static!important/);
     // Customer page Review opens the ask form with customer=id (selected), not send-on-tap.
     const customer = fs.readFileSync(path.join(__dirname, '../views/member_app/customer.ejs'), 'utf8');
-    assert.match(customer, /\/review\?ask=1&amp;customer=/);
+    assert.match(customer, /\/review\?ask=1&(?:amp;)?customer=/);
     assert.doesNotMatch(customer, /method="post"[^>]*request-review|request-review[^>]*method="post"/);
     assert.match(route, /customers\/c\/:id\/request-review/);
     assert.match(route, /customer: data\.customer\.id/);

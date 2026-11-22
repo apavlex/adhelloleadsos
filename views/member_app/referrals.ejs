@@ -81,25 +81,57 @@
     <% if (!_locked) { %>
     <details class="ma-card ma-create-project" id="maCreateProject" <%= _scheduleView ? 'open' : '' %>>
       <summary class="ma-create-project__summary">
-        <%- icons.plus %>
-        <span>
-          <strong>Create project</strong>
-          <em>New name or pick from your customers</em>
+        <%# Inner wrap: Safari can blank flex layouts applied directly on <summary>. %>
+        <span class="ma-create-project__summary-inner">
+          <%- icons.plus %>
+          <span>
+            <strong>Create project</strong>
+            <em>New name or pick from your customers</em>
+          </span>
         </span>
       </summary>
       <form method="post" action="<%= base %>/customers/jobs/new" class="ma-create-project__form" autocomplete="off">
         <input type="hidden" name="status" value="scheduled">
-        <div class="ma-field">
-          <label class="ma-label" for="lpCustomer">Customer</label>
-          <select id="lpCustomer" name="customerId" class="ma-select" required data-ma-newcust>
-            <option value="" selected disabled>Pick a customer…</option>
-            <% _projectCustomers.forEach(function (c) { %>
-            <option value="<%= c.id %>"><%= c.name %><%= c.phone ? ' · ' + c.phone : '' %></option>
-            <% }); %>
-            <option value="new">+ New name</option>
-          </select>
+        <%
+          const _custPayload = _projectCustomers.map(function (c) {
+            return { id: c.id, name: c.name || '', phone: c.phone || '', email: c.email || '' };
+          });
+        %>
+        <div class="ma-field" data-ma-customer-pick data-ma-new-value="new" data-ma-add-customer-href="<%= base %>/customers/new">
+          <input type="hidden" name="customerId" id="lpCustomerId" value="">
+          <div data-ma-ask-search>
+            <label class="ma-label" for="lpCustomer">Customer</label>
+            <div class="ma-typeahead">
+              <input
+                id="lpCustomer"
+                type="text"
+                inputmode="search"
+                class="ma-input"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="false"
+                aria-controls="lpCustomerList"
+                placeholder="Search or type a new name…"
+                autocomplete="off"
+                autocorrect="off"
+                spellcheck="false"
+                value=""
+              >
+              <ul id="lpCustomerList" class="ma-typeahead__list" role="listbox" hidden></ul>
+            </div>
+            <p class="ma-hint">Pick a saved customer, or type a new name. <a href="<%= base %>/customers/new">Add new customer</a></p>
+          </div>
+          <div class="ma-ask-selected" data-ma-ask-selected hidden>
+            <span class="ma-ask-selected__avatar" aria-hidden="true" data-ma-ask-selected-avatar>?</span>
+            <span class="ma-ask-selected__body">
+              <strong data-ma-ask-selected-name></strong>
+              <span data-ma-ask-selected-meta></span>
+            </span>
+            <button type="button" class="ma-btn ma-btn--sm ma-btn--ghost" data-ma-ask-clear>Change</button>
+          </div>
+          <script type="application/json" id="lpCustomerData"><%- JSON.stringify(_custPayload).replace(/</g, '\\u003c') %></script>
         </div>
-        <div class="ma-grid2 ma-newcust" id="maNewCustomer" hidden>
+        <div class="ma-grid2" data-ma-ask-manual hidden>
           <div class="ma-field">
             <label class="ma-label" for="lpNewName">New name</label>
             <input id="lpNewName" name="newCustomerName" class="ma-input" maxlength="120" autocapitalize="words" placeholder="Customer name">
@@ -437,7 +469,10 @@
             </div>
           </a>
           <div class="ma-actions">
-            <% if (lead.phone) { %><a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a><% } %>
+            <% if (lead.phone) { %>
+            <a class="ma-btn ma-btn--sm" href="tel:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>">Call</a>
+            <a class="ma-btn ma-btn--sm ma-btn--soft" href="sms:<%= String(lead.phone).replace(/[^0-9+]/g, '') %>"><%- icons.sms %> SMS</a>
+            <% } %>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.href %>">Open</a>
             <% if (typeof isFlooringPartner !== 'undefined' && isFlooringPartner) { %>
             <a class="ma-btn ma-btn--sm ma-btn--soft" href="<%= lead.quoteHref || (base + '/quote?customer=' + encodeURIComponent(lead.id)) %>">Quote</a>
@@ -446,19 +481,6 @@
               <button type="submit" class="ma-btn ma-btn--sm ma-btn--soft">Remove</button>
             </form>
           </div>
-          <details style="margin-top:8px">
-            <summary class="ma-card__meta" style="cursor:pointer;font-weight:700"><%- icons.calendar %> Schedule visit</summary>
-            <form method="post" action="<%= base %>/leads/contact/<%= encodeURIComponent(lead.id) %>/schedule" class="ma-inline" style="margin-top:8px;flex-wrap:wrap;gap:8px">
-              <input class="ma-input" type="date" name="date" value="<%= _today %>" required aria-label="Date">
-              <input class="ma-input" type="time" name="time" aria-label="Time">
-              <select class="ma-select" name="durationMins" aria-label="Duration">
-                <% _durations.forEach(function (d) { %>
-                <option value="<%= d.value %>" <%= d.value === 60 ? 'selected' : '' %>><%= d.label %></option>
-                <% }); %>
-              </select>
-              <button type="submit" class="ma-btn ma-btn--sm">Schedule</button>
-            </form>
-          </details>
         </article>
         <% }); %>
       </section>
