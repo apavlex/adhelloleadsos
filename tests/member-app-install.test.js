@@ -419,7 +419,10 @@ describe('member app install modal and tab bar', () => {
     assert.match(page, /_lead_request_callout/);
     assert.match(page, /maCreateProject|Create project/);
     assert.match(page, /ma-create-project__summary-inner/);
-    assert.match(page, /Pick a customer|New name/);
+    assert.match(page, /data-ma-customer-pick/);
+    assert.match(page, /data-ma-new-value="new"/);
+    assert.match(page, /Search or type a new name/);
+    assert.match(page, /newCustomerName/);
     assert.doesNotMatch(page, /Send a referral/);
     // Top: Leads | Referrals; inbox: Inbox · Pool · Sent (Calendar is its own bottom tab).
     assert.match(page, /_leads_section_tabs|aria-label="Leads or referrals"/);

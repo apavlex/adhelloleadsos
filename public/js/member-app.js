@@ -2098,18 +2098,27 @@
     var selectedMeta = root.querySelector('[data-ma-ask-selected-meta]');
     var selectedAvatar = root.querySelector('[data-ma-ask-selected-avatar]');
     var clearBtn = root.querySelector('[data-ma-ask-clear]');
-    var manualWrap = document.querySelector('[data-ma-ask-manual]');
+    var formEl = root.closest('form');
+    var manualWrap = (formEl && formEl.querySelector('[data-ma-ask-manual]'))
+      || document.querySelector('[data-ma-ask-manual]');
     var savedOnly = root.getAttribute('data-ma-pick-mode') === 'saved'
       || root.getAttribute('data-ma-saved-only') === '1';
+    // Create project / job forms POST customerId=new + newCustomerName.
+    var newValue = String(root.getAttribute('data-ma-new-value') || '').trim();
     if (!input || !hidden || !list || !dataEl) return;
 
     var customers = [];
     try { customers = JSON.parse(dataEl.textContent || '[]'); } catch (e) { customers = []; }
     if (!Array.isArray(customers)) customers = [];
 
-    var name = document.getElementById('rvAskName');
-    var phone = document.getElementById('rvAskPhone');
-    var email = document.getElementById('rvAskEmail');
+    var name = document.getElementById('rvAskName')
+      || (formEl && formEl.querySelector('[name="newCustomerName"]'))
+      || (formEl && formEl.querySelector('[name="name"]'));
+    var phone = document.getElementById('rvAskPhone')
+      || (formEl && formEl.querySelector('[name="newCustomerPhone"]'))
+      || (formEl && formEl.querySelector('[name="phone"]'));
+    var email = document.getElementById('rvAskEmail')
+      || (formEl && formEl.querySelector('[name="email"]'));
     var active = -1;
     var shown = [];
 
@@ -2136,12 +2145,14 @@
     }
 
     function syncMode() {
-      var picked = !!String(hidden.value || '').trim();
-      if (searchWrap) searchWrap.hidden = picked;
-      if (selectedWrap) selectedWrap.hidden = !picked;
-      if (manualWrap && !savedOnly) manualWrap.hidden = picked;
-      var submit = root.closest('form') && root.closest('form').querySelector('[data-ma-needs-customer]');
-      if (submit) submit.disabled = !picked;
+      var val = String(hidden.value || '').trim();
+      var isNew = !!(newValue && val === newValue);
+      var pickedSaved = !!(val && !isNew);
+      if (searchWrap) searchWrap.hidden = pickedSaved;
+      if (selectedWrap) selectedWrap.hidden = !pickedSaved;
+      if (manualWrap && !savedOnly) manualWrap.hidden = pickedSaved;
+      var submit = formEl && formEl.querySelector('[data-ma-needs-customer]');
+      if (submit) submit.disabled = !(pickedSaved || isNew || (!newValue && !savedOnly));
     }
 
     function showSelected(c) {
@@ -2225,10 +2236,12 @@
         if (savedOnly) return;
         var typed = String(input.value || '').trim();
         clearPick({ keepManual: true });
+        if (newValue) hidden.value = newValue;
         if (typed && name) name.value = typed;
         closeList();
         syncMode();
         if (name) name.focus();
+        else if (phone) phone.focus();
         return;
       }
       var c = shown[idx];
@@ -2238,11 +2251,40 @@
       if (!c) return;
       hidden.value = c.id;
       fillFields(c);
+      // Job/create-project posts newCustomer* only for customerId=new — clear if we picked a saved id.
+      if (name && name.name === 'newCustomerName') name.value = '';
+      if (phone && phone.name === 'newCustomerPhone') phone.value = '';
       showSelected(c);
       input.value = '';
       closeList();
       syncMode();
       try { input.blur(); } catch (err) { /* ignore */ }
+    }
+
+    // If they typed a name and hit Create without tapping a row, treat it as new.
+    if (formEl && newValue && formEl.getAttribute('data-ma-pick-submit') !== '1') {
+      formEl.setAttribute('data-ma-pick-submit', '1');
+      formEl.addEventListener('submit', function (e) {
+        var val = String(hidden.value || '').trim();
+        var typed = String(input.value || '').trim();
+        var named = name && String(name.value || '').trim();
+        if (!val && (typed || named)) {
+          hidden.value = newValue;
+          if (!named && typed && name) name.value = typed;
+          val = newValue;
+          named = name && String(name.value || '').trim();
+        }
+        if (!val) {
+          e.preventDefault();
+          if (input) input.focus();
+          return;
+        }
+        if (val === newValue && !named) {
+          e.preventDefault();
+          if (manualWrap) manualWrap.hidden = false;
+          if (name) name.focus();
+        }
+      });
     }
 
     // Hydrate selected card if the page loaded with a customerId.

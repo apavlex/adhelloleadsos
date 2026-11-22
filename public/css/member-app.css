@@ -3586,7 +3586,8 @@ a.ma-refdash__who {
 .ma-create-project {
   margin: 12px 0 14px;
   padding: 0;
-  overflow: hidden;
+  /* visible so customer typeahead list isn’t clipped inside <details> */
+  overflow: visible;
 }
 .ma-create-project__summary {
   list-style: none;
@@ -3629,6 +3630,7 @@ a.ma-refdash__who {
   display: flex;
   flex-direction: column;
   gap: 0;
+  overflow: visible;
 }
 .ma-create-project[open] .ma-create-project__summary {
   border-bottom: 1px solid var(--line);
