@@ -91,7 +91,7 @@ test('brandingComplete after name, accent, and image', () => {
   assert.equal(after.show, false);
 });
 
-test('paid partners skip personal branding before install', () => {
+test('paid partners also brand before install (Reviews is the front gate)', () => {
   const member = {
     id: 'm_partner',
     companyName: 'Partner Co',
@@ -107,9 +107,24 @@ test('paid partners skip personal branding before install', () => {
     network: { id: 'n1' },
     base: '/m/tok',
   });
-  assert.equal(list.brandingComplete, true);
-  assert.equal(list.installLocked, false);
-  assert.equal(list.steps.find((s) => s.id === 'branding').done, true);
+  assert.equal(list.brandingComplete, false);
+  assert.equal(list.installLocked, true);
+  assert.equal(list.steps.find((s) => s.id === 'branding').done, false);
+
+  const branded = {
+    ...member,
+    brandAppName: 'Partner Co',
+    brandAccent: '#111827',
+    brandSavedAt: '2026-11-22T12:00:00.000Z',
+    profilePhotoUpdatedAt: '2026-11-22T12:00:00.000Z',
+  };
+  const after = memberAppOnboarding.buildChecklist({
+    member: branded,
+    network: { id: 'n1' },
+    base: '/m/tok',
+  });
+  assert.equal(after.brandingComplete, true);
+  assert.equal(after.installLocked, false);
 });
 
 test('dismiss hides the checklist', () => {
@@ -219,4 +234,18 @@ test('free-app brandView uses saved name and accent', () => {
   assert.equal(unset.appName, 'AdHello Reviews App');
   assert.equal(unset.heroName, 'Sunrise HVAC');
   assert.equal(unset.accent, '#FFDB3A');
+
+  const paid = networkBrand.brandView(
+    { id: 'n1', name: 'Agency Net', brand: { appName: 'Agency Net', accent: '#111111' } },
+    {
+      plan: '',
+      companyName: 'Partner Co',
+      brandAppName: 'Partner Pro',
+      brandAccent: '#10b981',
+      brandSavedAt: '2026-11-22T12:00:00.000Z',
+    },
+  );
+  assert.equal(paid.appName, 'Partner Pro');
+  assert.equal(paid.accent, '#10b981');
+  assert.equal(paid.memberBranded, true);
 });

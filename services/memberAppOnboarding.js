@@ -109,8 +109,8 @@ function reviewLinksComplete(member) {
 
 function brandingComplete(member, meta, opts = {}) {
   if (meta && meta.marked && meta.marked.branding) return true;
-  // Paid / partner apps inherit workspace white-label — no personal brand kit.
-  if (!isFreemiumMember(member)) return true;
+  // Reviews app is the front gate for free + paid — require an explicit brand kit
+  // before Add to Home Screen (many never open Workspace).
   if (member && member.brandSavedAt) return true;
   const name = String((member && (member.brandAppName || member.companyName)) || '').trim();
   const accent = networkBrand.normalizeHex(member && member.brandAccent);

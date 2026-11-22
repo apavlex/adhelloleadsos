@@ -198,8 +198,12 @@ test('partner members do not see App branding controls', async () => {
   });
   try {
     const html = await (await fetch(`http://127.0.0.1:${server.address().port}/m/${token}/profile`)).text();
-    assert.doesNotMatch(html, /id="maAppBranding"/);
-    assert.doesNotMatch(html, /profile\/branding/);
+    // Partners brand in Reviews (front gate) — not Workspace white-label forms.
+    assert.match(html, /id="maAppBranding"/);
+    assert.match(html, /Edit branding/);
+    assert.doesNotMatch(html, /action="[^"]*\/profile\/branding"/);
+    assert.doesNotMatch(html, /name="accent"/);
+    assert.match(html, /without opening Workspace/);
   } finally {
     server.close();
   }

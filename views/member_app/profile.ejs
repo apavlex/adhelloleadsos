@@ -49,7 +49,7 @@
     <% if (typeof canEditWorkspaceBrand !== 'undefined' && canEditWorkspaceBrand && workspaceBrand) { %>
     <section class="ma-card" id="maAppBranding" aria-label="App branding">
       <h2 style="font-size:16px;margin:0 0 6px">App branding</h2>
-      <p class="ma-hint" style="margin-top:0">Same as <strong>Workspace → White label</strong>. Logo shows on Home, in the desktop app, and as the icon when you Save as a phone app.</p>
+      <p class="ma-hint" style="margin-top:0">Same as <strong>Workspace → White label</strong>. Logo, name, and color show on Home and as the icon when you Save as a phone app — no Workspace login required.</p>
       <% if (workspaceBrand.hasLogo && workspaceBrand.logoUrl) { %>
       <img class="rv-logo" src="<%= workspaceBrand.logoUrl %>" alt="<%= workspaceBrand.appName %> logo" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:cover;border-radius:50%;background:#f1f5f9">
       <% } else if (brand.logoUrl) { %>
@@ -61,6 +61,10 @@
         <div class="ma-field">
           <label class="ma-label" for="maWlAppName">App name</label>
           <input id="maWlAppName" name="appName" class="ma-input" value="<%= workspaceBrand.customName || brand.appName || '' %>" maxlength="30" autocapitalize="words" placeholder="<%= brand.appName || 'Your business' %>">
+        </div>
+        <div class="ma-field">
+          <label class="ma-label" for="maWlAccent">Brand color</label>
+          <input id="maWlAccent" name="accent" type="color" class="ma-input" value="<%= (brand && brand.accent) || '#FFDB3A' %>" style="max-width:96px;padding:4px;height:44px">
         </div>
         <div class="ma-field">
           <label class="ma-label" for="maWlLogo">Business logo</label>
@@ -75,6 +79,18 @@
         <button type="submit" class="ma-btn ma-btn--ghost ma-btn--block">Remove logo</button>
       </form>
       <% } %>
+    </section>
+    <% } else { %>
+    <section class="ma-card" id="maAppBranding" aria-label="App branding">
+      <h2 style="font-size:16px;margin:0 0 6px">App branding</h2>
+      <p class="ma-hint" style="margin-top:0">Name, logo, and colors for <strong>your</strong> Reviews Home Screen icon — set here without opening Workspace.</p>
+      <% if (typeof profilePhotoUrl !== 'undefined' && profilePhotoUrl) { %>
+      <img class="rv-logo" src="<%= profilePhotoUrl %>" alt="" style="margin:8px auto 12px;max-width:96px;max-height:96px;object-fit:cover;border-radius:50%;background:#f1f5f9">
+      <% } else { %>
+      <div class="rv-initials" aria-hidden="true" style="margin:8px auto 12px"><%= (brand.appName || member.companyName || '?').trim().charAt(0).toUpperCase() %></div>
+      <% } %>
+      <p class="ma-hint" style="margin:0 0 10px">Open Home setup to change name, color, logo, and banner before saving the app to your phone.</p>
+      <a class="ma-btn ma-btn--soft ma-btn--block" href="<%= base %>/?brand=1#ma-brand-setup">Edit branding</a>
     </section>
     <% } %>
 

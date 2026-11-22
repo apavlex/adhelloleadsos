@@ -366,7 +366,8 @@ async function loadContext(token) {
   const pathBase = `/m/${encodeURIComponent(token)}`;
   const free = freeAppSignup.isAppFreeMember(member);
   const flooring = freeAppSignup.isFlooringOffer(member);
-  const memberHeroUrl = free && member.heroUpdatedAt
+  // Personal banner from Reviews setup branding (free + paid — many never open Workspace).
+  const memberHeroUrl = member.heroUpdatedAt
     ? `${pathBase}/hero.jpg?v=${encodeURIComponent(member.heroUpdatedAt)}`
     : '';
   const baseBrand = networkBrand.brandView(network, member, { heroUrl: memberHeroUrl });
@@ -417,7 +418,7 @@ async function maybeEnsureDemoOwnerReviewApp(ctx) {
   const member = await store.getMember(network.id, ctx.member.id) || ctx.member;
   const free = freeAppSignup.isAppFreeMember(member);
   const flooring = freeAppSignup.isFlooringOffer(member);
-  const memberHeroUrl = free && member.heroUpdatedAt
+  const memberHeroUrl = member.heroUpdatedAt
     ? `${ctx.base}/hero.jpg?v=${encodeURIComponent(member.heroUpdatedAt)}`
     : '';
   const baseBrand = networkBrand.brandView(network, member, { heroUrl: memberHeroUrl });
@@ -977,6 +978,17 @@ router.post('/m/login', form, async (req, res) => {
  */
 async function resolveAppIconSource(ctx) {
   const free = !!(ctx.brand && ctx.brand.isFreeApp);
+  // Reviews front-gate brand kit: this member's logo/photo is their Home Screen icon.
+  if (ctx.member && ctx.member.brandSavedAt) {
+    const brandedPhoto = await store.getProfilePhoto(ctx.network.id, ctx.member.id).catch(() => null);
+    if (brandedPhoto && brandedPhoto.buffer) {
+      return {
+        logo: brandedPhoto,
+        mode: 'photo',
+        version: String(ctx.member.profilePhotoUpdatedAt || brandedPhoto.updatedAt || Date.now()),
+      };
+    }
+  }
   if (!free) {
     const wsLogo = await ownerAppBrand.workspaceLogoForBrand(ctx.brand, ctx.network).catch(() => null);
     if (wsLogo && wsLogo.buffer) {
@@ -1281,6 +1293,7 @@ router.post('/m/:token/profile/branding', (req, res, next) => {
   const removeLogo = body.remove_logo === '1' || body.remove_logo === 'on';
   const patch = {
     appName: Object.prototype.hasOwnProperty.call(body, 'appName') ? body.appName : undefined,
+    accent: Object.prototype.hasOwnProperty.call(body, 'accent') ? body.accent : undefined,
     logoBuffer: req.file && req.file.buffer ? req.file.buffer : null,
     removeLogo,
   };
@@ -1404,7 +1417,8 @@ router.get('/m/:token', withMember(async (req, res, ctx) => {
 
 /**
  * Upload or clear the Home banner (hero) image from the member app.
- * Free-app members store a personal hero; paid network members update the shared brand hero.
+ * Personal hero for every member (Reviews is the front gate). Owners can still
+ * push a shared network hero via ?shared=1.
  */
 router.post('/m/:token/brand/hero', (req, res, next) => {
   const ct = String(req.headers['content-type'] || '');
@@ -1413,8 +1427,12 @@ router.post('/m/:token/brand/hero', (req, res, next) => {
 }, withMember(async (req, res, ctx) => {
   const body = req.body || {};
   const free = freeAppSignup.isAppFreeMember(ctx.member);
+  const sharedNetworkHero =
+    !free &&
+    (body.shared === '1' || body.shared === 'on') &&
+    ownerAppBrand.isOwnerMember(ctx.member, ctx.network);
 
-  if (free) {
+  if (!sharedNetworkHero) {
     if (body.remove === '1' || body.remove === 'on') {
       await store.deleteMemberHero(ctx.network.id, ctx.member.id);
       await store.saveMember(ctx.network.id, { ...ctx.member, heroUpdatedAt: '' });
@@ -4700,8 +4718,9 @@ router.post('/m/:token/setup/step', express.json(), withMember(async (req, res, 
 }));
 
 /**
- * First-time branding kit: name + accent + optional logo/banner.
- * Required before Add to Home Screen for freemium Reviews signups.
+ * First-time branding kit: name + accent + logo/banner.
+ * Required before Add to Home Screen for free + paid (Reviews is the front gate).
+ * Workspace owners also sync name/logo/accent into Workspace → White label.
  */
 router.post('/m/:token/setup/branding', withBrandSetupUpload, withMember(async (req, res, ctx) => {
   noStore(res);
@@ -4727,10 +4746,11 @@ router.post('/m/:token/setup/branding', withBrandSetupUpload, withMember(async (
   const files = req.files || {};
   const logoFile = Array.isArray(files.logo) ? files.logo[0] : null;
   const heroFile = Array.isArray(files.hero) ? files.hero[0] : null;
+  const logoBuffer = logoFile && logoFile.buffer ? logoFile.buffer : null;
 
   try {
-    if (logoFile && logoFile.buffer) {
-      const prepared = await networkBrand.prepareImage('logo', logoFile.buffer);
+    if (logoBuffer) {
+      const prepared = await networkBrand.prepareImage('logo', logoBuffer);
       const stamp = await store.saveProfilePhoto(ctx.network.id, member.id, prepared);
       member.profilePhotoUpdatedAt = stamp;
     }
@@ -4747,6 +4767,20 @@ router.post('/m/:token/setup/branding', withBrandSetupUpload, withMember(async (
   const hasImage = !!(member.profilePhotoUpdatedAt || member.heroUpdatedAt);
   if (!hasImage) {
     return fail(400, 'Add a logo/photo or banner image for your Home Screen icon.');
+  }
+
+  // Owners: Reviews is often their only app — keep Workspace white-label in sync.
+  if (
+    !freeAppSignup.isAppFreeMember(member) &&
+    ownerAppBrand.isOwnerMember(member, ctx.network) &&
+    ctx.network.ownerWorkspaceId
+  ) {
+    const synced = await ownerAppBrand.saveOwnerWorkspaceBranding(ctx.network, member, {
+      appName: brandAppName,
+      accent: brandAccent,
+      logoBuffer: logoBuffer || undefined,
+    });
+    if (synced && synced.ok && synced.network) ctx.network = synced.network;
   }
 
   const setupChecklist = memberAppOnboarding.markStep(member.setupChecklist, 'branding');
