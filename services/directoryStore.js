@@ -606,19 +606,24 @@ async function upsertFromLead(workspaceId, leadKey, opts = {}) {
   return saved.listings[row.id];
 }
 
+/** Per-request cap. The pipeline bar posts the full selection in batches of this size. */
+const BULK_UPSERT_MAX = 200;
+
 /**
  * Bulk-add Pipeline leads into this workspace's directory (one load/save).
  * Each workspace keeps its own listings — never crosses workspaces.
  */
 async function upsertManyFromLeads(workspaceId, leadKeys, opts = {}) {
   const wid = String(workspaceId || '').trim();
-  const keys = [
+  const unique = [
     ...new Set(
       (Array.isArray(leadKeys) ? leadKeys : [])
         .map((k) => clean(k, 200))
         .filter(Boolean),
     ),
-  ].slice(0, 200);
+  ];
+  const keys = unique.slice(0, BULK_UPSERT_MAX);
+  const omitted = unique.length - keys.length;
   if (!keys.length) {
     const err = new Error('Select at least one lead.');
     err.code = 'INVALID';
@@ -655,6 +660,7 @@ async function upsertManyFromLeads(workspaceId, leadKeys, opts = {}) {
     added: added.length,
     refreshed: refreshed.length,
     failed: errors.length,
+    omitted,
     listings: [...added, ...refreshed],
     errors,
   };

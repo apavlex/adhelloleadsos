@@ -94,6 +94,42 @@ describe('bulk bar Share/Delete + select-all', () => {
     assert.match(route, /purpose:\s*'select'/);
   });
 
+  it('Directory uses the full Select all set when only the visible page is checked', () => {
+    const bar = fs.readFileSync(bulkBarPath, 'utf8');
+    const src = bar.slice(bar.indexOf('function addKey'), bar.indexOf('function say'));
+    const selectedKeys = new Function(
+      'window',
+      'document',
+      `${src}\nreturn selectedKeys;`,
+    )(
+      {
+        __collectSelectedLeadKeysEarly() {
+          const keys = [];
+          for (let i = 0; i < 120; i += 1) keys.push(`lead:row_${i}`);
+          return keys;
+        },
+      },
+      {
+        querySelectorAll() {
+          const boxes = [];
+          for (let i = 0; i < 50; i += 1) {
+            boxes.push({
+              closest() {
+                return { getAttribute: () => `lead:row_${i}` };
+              },
+              getAttribute: () => '',
+            });
+          }
+          return boxes;
+        },
+      },
+    );
+    const keys = selectedKeys();
+    assert.equal(keys.length, 120);
+    assert.equal(keys[0], 'lead:row_0');
+    assert.equal(keys[119], 'lead:row_119');
+  });
+
   it('includes folder descendants when selecting via folders lead-keys', () => {
     const route = fs.readFileSync(foldersRoutePath, 'utf8');
     assert.match(route, /folderKeysIncludingDescendants/);

@@ -588,6 +588,7 @@ router.post('/listings/bulk', async (req, res) => {
       added: result.added,
       refreshed: result.refreshed,
       failed: result.failed,
+      omitted: result.omitted || 0,
       errors: result.errors,
       directoryUrl: '/directory',
     });
