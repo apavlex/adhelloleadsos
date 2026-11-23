@@ -172,6 +172,7 @@ describe('public business directory', () => {
     );
     assert.equal(result.added, 2);
     assert.equal(result.failed, 1);
+    assert.equal(result.omitted, 0);
     const bundle = await directoryStore.load(WID);
     assert.equal(directoryStore.listListings(bundle, { published: true }).length, 2);
   });
@@ -289,5 +290,17 @@ describe('public business directory', () => {
     assert.ok(bar.indexOf('id="bulkAddDirectoryBtn"', moreIdx) > moreIdx);
     assert.match(bar, /\/directory\/listings\/bulk/);
     assert.match(bar, /__bulkDirectoryBound/);
+    const selectedFn = bar.slice(bar.indexOf('function selectedKeys'), bar.indexOf('function say'));
+    const earlyIdx = selectedFn.indexOf('__collectSelectedLeadKeysEarly');
+    const checkboxIdx = selectedFn.indexOf('input.lead-checkbox:checked');
+    assert.ok(earlyIdx >= 0 && earlyIdx < checkboxIdx, 'Select all keys are read before the visible page');
+    assert.doesNotMatch(selectedFn, /if \(!out\.length && typeof window\.__collectSelectedLeadKeysEarly/);
+    const dirClick = bar.slice(bar.indexOf("closest('#bulkAddDirectoryBtn')"));
+    assert.match(dirClick, /BATCH = 200/);
+    assert.match(dirClick, /function nextBatch/);
+    const store = fs.readFileSync(path.join(root, 'services/directoryStore.js'), 'utf8');
+    assert.match(store, /BULK_UPSERT_MAX = 200/);
+    assert.match(store, /omitted/);
+    assert.match(routes, /omitted: result\.omitted/);
   });
 });

@@ -280,19 +280,29 @@
   function selectedKeys() {
     var out = [];
     var seen = {};
+    // Select all keeps every lead in memory and only checks the visible page.
+    // The pipeline's first paint is 50 rows, so reading checkboxes first published
+    // just that page and dropped the rest of the selection.
+    if (typeof window.__collectSelectedLeadKeysEarly === 'function') {
+      var early = window.__collectSelectedLeadKeysEarly();
+      if (Array.isArray(early) && early.length) {
+        early.forEach(function (key) { addKey(out, seen, key); });
+        if (out.length) return out;
+      }
+    }
+    if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
+      var bulk = window.__getSelectedLeadKeysForBulk();
+      if (Array.isArray(bulk) && bulk.length) {
+        bulk.forEach(function (key) { addKey(out, seen, key); });
+        if (out.length) return out;
+      }
+    }
     document.querySelectorAll('input.lead-checkbox:checked, input.row-checkbox:checked').forEach(function (cb) {
       var row = cb.closest ? cb.closest('tr') : null;
       var key = row ? String(row.getAttribute('data-lead-key') || '').trim() : '';
       if (!key) key = String(cb.getAttribute('data-key') || '').trim();
       addKey(out, seen, key);
     });
-    if (!out.length && typeof window.__collectSelectedLeadKeysEarly === 'function') {
-      window.__collectSelectedLeadKeysEarly().forEach(function (key) { addKey(out, seen, key); });
-    }
-    if (!out.length && typeof window.__getSelectedLeadKeysForBulk === 'function') {
-      var bulk = window.__getSelectedLeadKeysForBulk();
-      if (Array.isArray(bulk)) bulk.forEach(function (key) { addKey(out, seen, key); });
-    }
     return out;
   }
 
@@ -610,42 +620,67 @@
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
     btn.textContent = 'Adding…';
-    fetch('/directory/listings/bulk', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ leadKeys: keys, published: true })
-    }).then(function (res) {
-      return res.json().then(function (data) { return { ok: res.ok, data: data || {} }; }).catch(function () {
-        return { ok: false, data: {} };
-      });
-    }).then(function (result) {
+    // Matches directoryStore BULK_UPSERT_MAX so a long Select all is not cut off.
+    var BATCH = 200;
+    var added = 0;
+    var refreshed = 0;
+    var failed = 0;
+    var omitted = 0;
+    var index = 0;
+    function finish(ok, errText) {
       btn.disabled = false;
       btn.removeAttribute('aria-busy');
-      if (!result.ok || !result.data || !result.data.success) {
+      var n = added + refreshed;
+      if (!ok) {
         btn.textContent = label;
-        say((result.data && result.data.error) || 'Could not add those leads to the directory.', false);
+        var fail = errText || 'Could not add those leads to the directory.';
+        if (n) fail = 'Published ' + n + ', then stopped. ' + fail;
+        say(fail, false);
         return;
       }
-      var added = Number(result.data.added) || 0;
-      var refreshed = Number(result.data.refreshed) || 0;
-      var failed = Number(result.data.failed) || 0;
-      var n = added + refreshed;
       btn.textContent = n ? 'Added' : label;
       var msg = 'Added ' + n + ' to this workspace’s Directory';
       if (added && refreshed) msg = 'Published ' + added + ' new, refreshed ' + refreshed;
       else if (refreshed && !added) msg = 'Refreshed ' + refreshed + ' in this workspace’s Directory';
       else if (added) msg = 'Published ' + added + ' to this workspace’s Directory';
       if (failed) msg += ' (' + failed + ' skipped)';
+      if (omitted) msg += ' (' + omitted + ' still waiting — click Directory again)';
       msg += '. Open SEO → Directory to manage.';
       say(msg, true);
       window.setTimeout(function () { btn.textContent = label; }, 2200);
-    }).catch(function () {
-      btn.disabled = false;
-      btn.removeAttribute('aria-busy');
-      btn.textContent = label;
-      say('Could not add those leads to the directory.', false);
-    });
+    }
+    function nextBatch() {
+      if (index >= keys.length) {
+        finish(true);
+        return;
+      }
+      var chunk = keys.slice(index, index + BATCH);
+      index += chunk.length;
+      if (keys.length > BATCH) btn.textContent = 'Adding ' + Math.min(index, keys.length) + '/' + keys.length;
+      fetch('/directory/listings/bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys: chunk, published: true })
+      }).then(function (res) {
+        return res.json().then(function (data) { return { ok: res.ok, data: data || {} }; }).catch(function () {
+          return { ok: false, data: {} };
+        });
+      }).then(function (result) {
+        if (!result.ok || !result.data || !result.data.success) {
+          finish(false, (result.data && result.data.error) || 'Could not add those leads to the directory.');
+          return;
+        }
+        added += Number(result.data.added) || 0;
+        refreshed += Number(result.data.refreshed) || 0;
+        failed += Number(result.data.failed) || 0;
+        omitted += Number(result.data.omitted) || 0;
+        nextBatch();
+      }).catch(function () {
+        finish(false, 'Could not add those leads to the directory.');
+      });
+    }
+    nextBatch();
   }, true);
 })();
 </script>
