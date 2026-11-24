@@ -135,8 +135,45 @@
         </div>
       </div>
       <p class="px-5 sm:px-6 pt-3 text-[11px] text-brand-muted">Select listings → <strong class="text-brand-dark dark:text-white">Pull reviews</strong> to scrape Google reviews into the lead and Directory (and the public API). Max 15 per run.</p>
+      <div class="px-5 sm:px-6 py-3 border-b border-brand-border/30 dark:border-white/10">
+        <label class="block">
+          <span class="sr-only">Search listings</span>
+          <input id="dirFilterQuery" type="search" list="dirFilterSuggestions" autocomplete="off" placeholder="Search listings — Vancouver, WA or a zip code" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-950/40 px-3 py-2.5 text-sm" />
+        </label>
+        <div class="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <label class="block">
+            <span class="sr-only">City</span>
+            <input id="dirFilterCity" type="text" list="dirCityOptions" autocomplete="off" placeholder="City" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/40 px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="sr-only">State</span>
+            <input id="dirFilterState" type="text" list="dirStateOptions" autocomplete="off" placeholder="State" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/40 px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="sr-only">Zip code</span>
+            <input id="dirFilterZip" type="text" list="dirZipOptions" autocomplete="off" inputmode="text" placeholder="Zip" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/40 px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="sr-only">Published or draft</span>
+            <select id="dirFilterStatus" class="w-full rounded-xl border border-brand-border/50 dark:border-white/15 bg-white dark:bg-slate-950/40 px-3 py-2 text-sm">
+              <option value="">All statuses</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+            </select>
+          </label>
+        </div>
+        <div class="mt-2 flex items-center justify-between gap-3">
+          <p id="dirFilterSummary" class="text-[11px] text-brand-muted">Search by business, city, state, or zip. City and state can be typed together, like Vancouver, WA.</p>
+          <button type="button" id="dirFilterClear" class="hidden shrink-0 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Clear</button>
+        </div>
+        <datalist id="dirFilterSuggestions"></datalist>
+        <datalist id="dirCityOptions"></datalist>
+        <datalist id="dirStateOptions"></datalist>
+        <datalist id="dirZipOptions"></datalist>
+      </div>
       <div id="dirListLoading" class="px-6 py-12 text-center text-sm text-brand-muted<%= (_inboxPending || _inboxHydrate) && !_listings.length ? '' : ' hidden' %>">Loading listings…</div>
       <div id="dirListEmpty" class="px-6 py-12 text-center text-sm text-brand-muted<%= (!_listings.length && !(_inboxPending || _inboxHydrate)) ? '' : ' hidden' %>">No listings yet. Add a Pipeline lead key above.</div>
+      <div id="dirFilterEmpty" class="hidden px-6 py-12 text-center text-sm text-brand-muted">No listings match that search.</div>
       <ul id="dirList" class="divide-y divide-brand-border/30 dark:divide-white/10 m-0 p-0 list-none<%= _listings.length ? '' : ' hidden' %>">
         <%/* Contact + reviews rows are painted by hydrate (renderRow). Shell stays empty. */%>
       </ul>
@@ -270,6 +307,7 @@
   </aside>
 
   <%- include('partials/navbar_scripts') %>
+  <script src="/js/directory-list-filter.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script>
   (function () {
     var statusEl = document.getElementById('dirStatus');
@@ -561,21 +599,124 @@
         return '';
       }
     }
+    function listingBoxes(visibleOnly) {
+      var nodes = document.querySelectorAll('#dirList li[data-listing-id]');
+      var out = [];
+      Array.prototype.forEach.call(nodes, function (li) {
+        if (visibleOnly && li.classList.contains('hidden')) return;
+        var box = li.querySelector('.dir-select');
+        if (box) out.push(box);
+      });
+      return out;
+    }
     function selectedListingIds() {
-      return Array.prototype.map.call(document.querySelectorAll('.dir-select:checked'), function (el) {
+      return listingBoxes(true).filter(function (el) { return el.checked; }).map(function (el) {
         return String(el.value || '').trim();
       }).filter(Boolean);
+    }
+    function listingFiltersActive(filters) {
+      if (!filters) return false;
+      return !!(String(filters.q || '').trim() || String(filters.city || '').trim() || String(filters.state || '').trim() || String(filters.zip || '').trim() || String(filters.status || '').trim());
+    }
+    function readListingFilters() {
+      function val(id) {
+        var el = document.getElementById(id);
+        return el ? String(el.value || '') : '';
+      }
+      return {
+        q: val('dirFilterQuery'),
+        city: val('dirFilterCity'),
+        state: val('dirFilterState'),
+        zip: val('dirFilterZip'),
+        status: val('dirFilterStatus'),
+      };
+    }
+    function fillFilterSuggestions(rows) {
+      if (!window.DirectoryListFilter) return;
+      var places = {};
+      var cities = {};
+      var states = {};
+      var zips = {};
+      (rows || []).forEach(function (row) {
+        if (!row) return;
+        var place = DirectoryListFilter.placeLabel(row);
+        if (place) places[place] = true;
+        var city = String(row.city || '').trim();
+        if (city) cities[city] = true;
+        var state = DirectoryListFilter.stateLabel(row.state);
+        if (state) states[state] = true;
+        var zip = DirectoryListFilter.postalCodeOf(row);
+        if (zip) {
+          zips[zip] = true;
+          places[zip] = true;
+        }
+      });
+      function fill(id, values) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var sorted = Object.keys(values).sort(function (a, b) {
+          return a.localeCompare(b);
+        });
+        el.innerHTML = sorted.map(function (v) {
+          return '<option value="' + esc(v) + '"></option>';
+        }).join('');
+      }
+      fill('dirFilterSuggestions', places);
+      fill('dirCityOptions', cities);
+      fill('dirStateOptions', states);
+      fill('dirZipOptions', zips);
+    }
+    function applyListingFilter() {
+      var list = document.getElementById('dirList');
+      var empty = document.getElementById('dirListEmpty');
+      var filterEmpty = document.getElementById('dirFilterEmpty');
+      var countEl = document.getElementById('dirListCount');
+      var summary = document.getElementById('dirFilterSummary');
+      var clearBtn = document.getElementById('dirFilterClear');
+      var filters = readListingFilters();
+      var active = listingFiltersActive(filters);
+      var items = list ? list.querySelectorAll('li[data-listing-id]') : [];
+      var total = items.length;
+      var shown = 0;
+      var canFilter = !!(window.DirectoryListFilter && typeof DirectoryListFilter.matchesListing === 'function');
+      Array.prototype.forEach.call(items, function (li) {
+        var id = li.getAttribute('data-listing-id');
+        var row = (id && listingsById[id]) || {};
+        var ok = !active || !canFilter || DirectoryListFilter.matchesListing(row, filters);
+        li.classList.toggle('hidden', !ok);
+        if (!ok) {
+          var box = li.querySelector('.dir-select');
+          if (box) box.checked = false;
+        } else {
+          shown += 1;
+        }
+      });
+      if (countEl) {
+        countEl.textContent = active
+          ? (shown + ' of ' + total)
+          : (total + ' item' + (total === 1 ? '' : 's'));
+      }
+      if (list) list.classList.toggle('hidden', total === 0 || shown === 0);
+      if (empty) empty.classList.toggle('hidden', total > 0);
+      if (filterEmpty) filterEmpty.classList.toggle('hidden', !(active && total > 0 && shown === 0));
+      if (clearBtn) clearBtn.classList.toggle('hidden', !active);
+      if (summary) {
+        summary.textContent = active
+          ? ('Showing ' + shown + ' of ' + total + ' listings.')
+          : 'Search by business, city, state, or zip. City and state can be typed together, like Vancouver, WA.';
+      }
+      syncBulkBar();
     }
     function syncBulkBar() {
       var bar = document.getElementById('dirBulkBar');
       var countEl = document.getElementById('dirSelectedCount');
-      var boxes = document.querySelectorAll('.dir-select');
+      var boxes = listingBoxes(true);
       var n = selectedListingIds().length;
       if (bar) bar.classList.toggle('hidden', !boxes.length);
       if (countEl) countEl.textContent = n + ' selected';
       var all = document.getElementById('dirSelectAll');
-      if (all && boxes.length) {
-        all.checked = n > 0 && n === boxes.length;
+      if (all) {
+        all.checked = boxes.length > 0 && n === boxes.length;
         all.indeterminate = n > 0 && n < boxes.length;
       }
     }
@@ -843,7 +984,8 @@
           say('Could not render listings — refresh the page.', false);
         }
       }
-      syncBulkBar();
+      fillFilterSuggestions(rows);
+      applyListingFilter();
     }
 
     // Do not SSR-embed listing JSON into this script (EJS escaping breaks JS and
@@ -971,7 +1113,7 @@
       if (e.target && (e.target.id === 'dirSelectAll' || e.target.classList.contains('dir-select'))) {
         if (e.target.id === 'dirSelectAll') {
           var on = !!e.target.checked;
-          document.querySelectorAll('.dir-select').forEach(function (el) { el.checked = on; });
+          listingBoxes(true).forEach(function (el) { el.checked = on; });
         }
         syncBulkBar();
       }
@@ -983,6 +1125,24 @@
       });
     }
     syncBulkBar();
+    ['dirFilterQuery', 'dirFilterCity', 'dirFilterState', 'dirFilterZip'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', applyListingFilter);
+      el.addEventListener('change', applyListingFilter);
+    });
+    var statusFilter = document.getElementById('dirFilterStatus');
+    if (statusFilter) statusFilter.addEventListener('change', applyListingFilter);
+    var clearFilter = document.getElementById('dirFilterClear');
+    if (clearFilter) {
+      clearFilter.addEventListener('click', function () {
+        ['dirFilterQuery', 'dirFilterCity', 'dirFilterState', 'dirFilterZip', 'dirFilterStatus'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) el.value = '';
+        });
+        applyListingFilter();
+      });
+    }
 
     document.addEventListener('click', function (e) {
       var openBtn = e.target.closest('.js-dir-open');

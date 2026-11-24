@@ -3,6 +3,7 @@
  * Persists under workspace.directory; public sites read via publish token.
  */
 const crypto = require('crypto');
+const { postalCodeOf } = require('../public/js/directory-list-filter');
 const dbService = require('./database');
 const { JOB_TYPES } = require('./scrapeJobTypes');
 const { toPublicReviewSummary, toPublicReviewSnippet } = require('./reviewIntel');
@@ -136,6 +137,16 @@ function leadPublicFields(lead) {
   const city = clean(l.city || (l.addressComponents && l.addressComponents.city), 80);
   const state = clean(l.state || (l.addressComponents && l.addressComponents.state), 40);
   const address = clean(l.address || l.fullAddress || [l.street, city, state].filter(Boolean).join(', '), 240);
+  const postalCode = postalCodeOf({
+    postalCode:
+      l.postalCode ||
+      l.zip ||
+      l.zipCode ||
+      (l.addressComponents && (l.addressComponents.postalCode || l.addressComponents.zip)) ||
+      '',
+    address,
+    state,
+  });
   const category = leadCategoryLabel(l);
   const phone = clean(l.phone || l.phoneNumber || '', 40);
   const website = clean(l.website || l.websiteUrl || l.url || '', 400);
@@ -202,6 +213,7 @@ function leadPublicFields(lead) {
     city,
     state,
     address,
+    postalCode,
     phone,
     website,
     rating,
@@ -250,6 +262,7 @@ function normalizeListing(raw, fallbackId) {
     city: clean(row.city, 80),
     state: clean(row.state, 40),
     address: clean(row.address, 240),
+    postalCode: postalCodeOf(row),
     phone: clean(row.phone, 40),
     website: clean(row.website, 400),
     rating: Number.isFinite(rating) ? rating : null,
@@ -395,6 +408,7 @@ function lightListing(raw, fallbackId) {
     city: clean(row.city, 80),
     state: clean(row.state, 40),
     address: clean(row.address, 240),
+    postalCode: postalCodeOf(row),
     phone: clean(row.phone, 40),
     website: clean(row.website, 400),
     rating: Number.isFinite(ratingRaw) ? ratingRaw : null,
