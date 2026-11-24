@@ -390,6 +390,7 @@ async function resolveWorkspaceIdByToken(token) {
 /**
  * Fast dashboard/inbox projection — no reviewIntel sanitize, no slug rewrite.
  * Full normalizeListing stays for writes / public feed.
+ * Omits description / blurb / image / snippets (Edit loads :id.json).
  */
 function lightListing(raw, fallbackId) {
   const row = raw && typeof raw === 'object' ? raw : {};
@@ -413,14 +414,8 @@ function lightListing(raw, fallbackId) {
     website: clean(row.website, 400),
     rating: Number.isFinite(ratingRaw) ? ratingRaw : null,
     reviewCount: Number.isFinite(countRaw) ? Math.max(0, Math.floor(countRaw)) : null,
-    imageUrl: clean(row.imageUrl, 500),
-    description: clean(row.description, 1200),
-    blurb: clean(row.blurb, 400),
-    reviewSnippets: Array.isArray(row.reviewSnippets)
-      ? row.reviewSnippets.map((s) => clean(s, 400)).filter(Boolean).slice(0, 5)
-      : [],
-    // Strip sales-coaching leftovers without the heavier snippet hunt-label parse.
-    reviewSummary: toPublicReviewSummary(row.reviewSummary || '', 800),
+    // Short list teaser only — full sanitize + long copy stay on public/detail paths.
+    reviewSummary: toPublicReviewSummary(row.reviewSummary || '', 180),
     reviewSentiment: clean(row.reviewSentiment, 40),
     licenseNumber: clean(row.licenseNumber, 80),
     licenseLabel: clean(row.licenseLabel, 40),

@@ -367,6 +367,11 @@ function slimListingForInbox(row) {
   if (!row || typeof row !== 'object') return null;
   const ratingRaw = row.rating != null && row.rating !== '' ? Number(row.rating) : NaN;
   const countRaw = row.reviewCount != null && row.reviewCount !== '' ? Number(row.reviewCount) : NaN;
+  // List rows only — description / blurb / image / snippets load via :id.json on Edit.
+  // Truncate summary so ~1k listings stay a small JSON + cheap client paint.
+  let summary = String(row.reviewSummary || '').trim();
+  if (summary === '[object Object]' || /^paragraph\s*text\.?$/i.test(summary)) summary = '';
+  if (summary.length > 180) summary = `${summary.slice(0, 179).trim()}…`;
   return {
     id: row.id || '',
     leadKey: row.leadKey || '',
@@ -383,11 +388,9 @@ function slimListingForInbox(row) {
     rating: Number.isFinite(ratingRaw) ? ratingRaw : null,
     reviewCount: Number.isFinite(countRaw) ? Math.max(0, Math.floor(countRaw)) : null,
     reviewSentiment: row.reviewSentiment || '',
-    reviewSummary: row.reviewSummary || '',
-    reviewSnippets: Array.isArray(row.reviewSnippets) ? row.reviewSnippets.slice(0, 5) : [],
-    description: row.description || '',
-    blurb: row.blurb || '',
-    imageUrl: row.imageUrl || '',
+    reviewSummary: summary,
+    licenseNumber: row.licenseNumber || '',
+    licenseLabel: row.licenseLabel || '',
     published: row.published === true,
   };
 }
