@@ -377,6 +377,7 @@ function slimListingForInbox(row) {
     city: row.city || '',
     state: row.state || '',
     address: row.address || '',
+    postalCode: row.postalCode || '',
     phone: row.phone || '',
     website: row.website || '',
     rating: Number.isFinite(ratingRaw) ? ratingRaw : null,
