@@ -264,6 +264,15 @@ describe('public business directory', () => {
     assert.match(view, /runHydrate/);
     assert.match(view, /adhello:inbox-hydrated/);
     assert.match(view, /applyInbox/);
+    // Large directories: unlock frost before chunked paint (not after sync map+innerHTML).
+    assert.match(view, /CHUNK\s*=\s*48/);
+    assert.match(view, /insertAdjacentHTML/);
+    assert.match(view, /Inbox rows are slim/);
+    assert.match(routes, /List rows only/);
+    assert.doesNotMatch(
+      routes.slice(routes.indexOf('function slimListingForInbox'), routes.indexOf('function slimNetworkMember')),
+      /description:\s*row\.description/,
+    );
     // A JS comment once contained literal "<%=" and EJS threw on every /directory render.
     assert.equal(
       view.split(/\n/).some((line) => /^\s*\/\//.test(line) && line.includes('<%=')),

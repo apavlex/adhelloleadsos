@@ -447,24 +447,24 @@
           if (editOpenId === id) fillMemberSelect(row.memberId || '');
         });
       }
-      var row = listingsById[id];
-      if (!row) {
-        say('Loading listing…');
-        fetch('/directory/listings/' + encodeURIComponent(id) + '.json', {
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
+      // Inbox rows are slim (no description/blurb/image) — always load :id.json for Edit.
+      var cached = listingsById[id];
+      if (cached) show(cached);
+      else say('Loading listing…');
+      fetch('/directory/listings/' + encodeURIComponent(id) + '.json', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (parsed) {
+          if (!parsed.ok || !parsed.data || !parsed.data.listing) throw new Error((parsed.data && parsed.data.error) || 'Listing not found');
+          listingsById[id] = parsed.data.listing;
+          if (editOpenId === id || !cached) show(parsed.data.listing);
+          say('');
         })
-          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
-          .then(function (parsed) {
-            if (!parsed.ok || !parsed.data || !parsed.data.listing) throw new Error((parsed.data && parsed.data.error) || 'Listing not found');
-            listingsById[id] = parsed.data.listing;
-            show(parsed.data.listing);
-            say('');
-          })
-          .catch(function (err) { say(err.message || 'Could not open listing', false); });
-        return;
-      }
-      show(row);
+        .catch(function (err) {
+          if (!cached) say(err.message || 'Could not open listing', false);
+        });
     }
     function copyText(text) {
       if (!text) return Promise.reject(new Error('Nothing to copy'));
@@ -656,7 +656,7 @@
         if (!el) return;
         var sorted = Object.keys(values).sort(function (a, b) {
           return a.localeCompare(b);
-        });
+        }).slice(0, 120);
         el.innerHTML = sorted.map(function (v) {
           return '<option value="' + esc(v) + '"></option>';
         }).join('');
@@ -974,18 +974,47 @@
       if (countEl) countEl.textContent = rows.length + ' item' + (rows.length === 1 ? '' : 's');
       if (loading) loading.classList.add('hidden');
       if (empty) empty.classList.toggle('hidden', rows.length > 0);
-      if (list) {
-        list.classList.toggle('hidden', rows.length === 0);
+      // Unlock nav frost before painting hundreds of rows — sync map+innerHTML of
+      // ~1k listings froze the main thread and left "stuck loading" after Save.
+      try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
+      try { if (typeof window.hideNavLoading === 'function') window.hideNavLoading(); } catch (_) {}
+      try { if (typeof window.hideNavProgress === 'function') window.hideNavProgress(); } catch (_) {}
+      if (!list) {
+        fillFilterSuggestions(rows);
+        return;
+      }
+      list.classList.toggle('hidden', rows.length === 0);
+      var CHUNK = 48;
+      var paintOffset = 0;
+      function paintChunk() {
         try {
-          list.innerHTML = rows.map(renderRow).join('');
+          if (paintOffset === 0) {
+            list.innerHTML = rows.slice(0, CHUNK).map(renderRow).join('');
+            paintOffset = Math.min(CHUNK, rows.length);
+            fillFilterSuggestions(rows);
+            applyListingFilter();
+          } else {
+            var html = rows.slice(paintOffset, paintOffset + CHUNK).map(renderRow).join('');
+            if (html) list.insertAdjacentHTML('beforeend', html);
+            paintOffset = Math.min(paintOffset + CHUNK, rows.length);
+            applyListingFilter();
+          }
         } catch (err) {
           try { console.warn('[directory] applyInbox list render failed', err); } catch (_) {}
-          list.innerHTML = '';
-          say('Could not render listings — refresh the page.', false);
+          if (paintOffset === 0) {
+            list.innerHTML = '';
+            say('Could not render listings — refresh the page.', false);
+          }
+          return;
+        }
+        if (paintOffset < rows.length) {
+          var schedule = typeof requestAnimationFrame === 'function'
+            ? requestAnimationFrame
+            : function (fn) { setTimeout(fn, 16); };
+          schedule(paintChunk);
         }
       }
-      fillFilterSuggestions(rows);
-      applyListingFilter();
+      paintChunk();
     }
 
     // Do not SSR-embed listing JSON into this script (EJS escaping breaks JS and
@@ -1033,7 +1062,7 @@
               throw new Error((parsed.data && parsed.data.error) || 'Could not load directory');
             }
             applyInbox(parsed.data);
-            try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
+            // applyInbox fires adhello:inbox-hydrated before chunked paint.
           })
           .catch(function (e) {
             clearTimeout(hydrateTimer);
@@ -1055,9 +1084,17 @@
             }
             say(msg, false);
             try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
+            try { if (typeof window.hideNavLoading === 'function') window.hideNavLoading(); } catch (_) {}
+            try { if (typeof window.hideNavProgress === 'function') window.hideNavProgress(); } catch (_) {}
           });
       }
       runHydrate();
+      // Failsafe: never leave menu frost over a painted Directory shell.
+      setTimeout(function () {
+        try { window.dispatchEvent(new Event('adhello:inbox-hydrated')); } catch (_) {}
+        try { if (typeof window.hideNavLoading === 'function') window.hideNavLoading(); } catch (_) {}
+        try { if (typeof window.hideNavProgress === 'function') window.hideNavProgress(); } catch (_) {}
+      }, 8000);
     } else {
       // SSR already has listings — hide the hydrate spinner if present.
       var bootLoading = document.getElementById('dirListLoading');

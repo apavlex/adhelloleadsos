@@ -71,4 +71,7 @@ test('Directory scrape-reviews endpoint reuses reviewHunt and refreshes listings
   assert.match(view, /No review summary yet/);
   assert.match(view, /Contact \+ reviews rows are painted by hydrate/);
   assert.match(route, /slimListingForInbox/);
+  assert.match(view, /CHUNK\s*=\s*48/);
+  assert.match(route, /summary\.length\s*>\s*180/);
+  assert.match(route, /List rows only/);
 });
