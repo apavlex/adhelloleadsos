@@ -177,6 +177,49 @@ describe('public business directory', () => {
     assert.equal(directoryStore.listListings(bundle, { published: true }).length, 2);
   });
 
+  it('bulk publish can unpublish all except a keep set', async () => {
+    await dbService.saveLead({
+      key: 'lead:chimney_keep',
+      workspaceId: WID,
+      title: 'Keep Me Chimney',
+      city: 'Austin',
+      state: 'TX',
+    });
+    await dbService.saveLead({
+      key: 'lead:chimney_drop',
+      workspaceId: WID,
+      title: 'Drop Me Chimney',
+      city: 'Dallas',
+      state: 'TX',
+    });
+    const keep = await directoryStore.upsertFromLead(WID, 'lead:chimney_keep', { published: true });
+    const drop = await directoryStore.upsertFromLead(WID, 'lead:chimney_drop', { published: true });
+    const result = await directoryStore.setPublishedBulk(WID, {
+      listingIds: [keep.id],
+      except: true,
+    });
+    assert.equal(result.changed, 1);
+    assert.equal(result.kept, 1);
+    assert.equal(result.except, true);
+    const bundle = await directoryStore.load(WID);
+    assert.equal(bundle.listings[keep.id].published, true);
+    assert.equal(bundle.listings[drop.id].published, false);
+
+    const republish = await directoryStore.setPublishedBulk(WID, {
+      listingIds: [drop.id],
+      published: true,
+    });
+    assert.equal(republish.changed, 1);
+    const after = await directoryStore.load(WID);
+    assert.equal(after.listings[drop.id].published, true);
+
+    const unpubSel = await directoryStore.setPublishedBulk(WID, {
+      listingIds: [keep.id, drop.id],
+      published: false,
+    });
+    assert.equal(unpubSel.changed, 2);
+  });
+
   it('updates listing fields from the edit drawer save path', async () => {
     const listing = await directoryStore.upsertFromLead(WID, 'lead:chimney_1', { published: true });
     const updated = await directoryStore.updateListing(WID, listing.id, {
@@ -250,6 +293,15 @@ describe('public business directory', () => {
     assert.match(seoNav, /href="\/directory"/);
     assert.match(routes, /\/listings\/bulk/);
     assert.match(routes, /upsertManyFromLeads/);
+    assert.match(routes, /\/listings\/publish-bulk/);
+    assert.match(routes, /setPublishedBulk/);
+    assert.match(view, /dirUnpublishOthersBtn/);
+    assert.match(view, /dirPublishSelectedBtn/);
+    assert.match(view, /dirUnpublishSelectedBtn/);
+    assert.match(view, /runPublishBulk/);
+    const publishBulkAt = routes.indexOf("router.post('/listings/publish-bulk'");
+    const publishOneAt = routes.indexOf("router.post('/listings/:id/publish'");
+    assert.ok(publishBulkAt > 0 && publishOneAt > publishBulkAt);
     // Shell-first + hydrate; never kick category repair on HTML (locks Reviews/Q&A).
     assert.match(routes, /Shell-first always/);
     assert.match(routes, /Never schedule category repair on HTML hops/);

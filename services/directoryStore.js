@@ -727,6 +727,67 @@ async function setPublished(workspaceId, listingId, published) {
   return updateListing(workspaceId, listingId, { published: !!published });
 }
 
+/**
+ * Bulk publish / unpublish. One load + one save (no N× updateListing).
+ * - except=false: set `published` on listingIds only
+ * - except=true: unpublish every listing whose id is NOT in listingIds (keep selected)
+ */
+async function setPublishedBulk(workspaceId, { listingIds = [], published = true, except = false } = {}) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) {
+    const err = new Error('Workspace required.');
+    err.code = 'BAD_REQUEST';
+    throw err;
+  }
+  const want = new Set(
+    (Array.isArray(listingIds) ? listingIds : [])
+      .map((id) => String(id || '').trim())
+      .filter(Boolean),
+  );
+  if (!except && !want.size) {
+    const err = new Error('Select at least one listing.');
+    err.code = 'BAD_REQUEST';
+    throw err;
+  }
+  if (except && !want.size) {
+    const err = new Error('Select the listings to keep published first.');
+    err.code = 'BAD_REQUEST';
+    throw err;
+  }
+  const bundle = await load(wid);
+  const now = new Date().toISOString();
+  const nextListings = { ...(bundle.listings || {}) };
+  let changed = 0;
+  for (const [id, row] of Object.entries(nextListings)) {
+    if (!row || typeof row !== 'object') continue;
+    const inSet = want.has(String(id));
+    const touch = except ? !inSet : inSet;
+    if (!touch) continue;
+    const nextPub = except ? false : !!published;
+    if (!!row.published === nextPub) continue;
+    nextListings[id] = normalizeListing(
+      {
+        ...row,
+        id,
+        published: nextPub,
+        publishedAt: nextPub ? row.publishedAt || now : null,
+        updatedAt: now,
+      },
+      id,
+    );
+    changed += 1;
+  }
+  if (changed) {
+    await save(wid, { listings: nextListings, settings: bundle.settings || {} });
+  }
+  return {
+    changed,
+    kept: except ? want.size : 0,
+    published: except ? false : !!published,
+    except: !!except,
+  };
+}
+
 async function removeListing(workspaceId, listingId) {
   const bundle = await load(workspaceId);
   const id = String(listingId || '');
@@ -770,6 +831,7 @@ module.exports = {
   upsertManyFromLeads,
   updateListing,
   setPublished,
+  setPublishedBulk,
   removeListing,
   findBySlug,
   deriveReviewSentiment,

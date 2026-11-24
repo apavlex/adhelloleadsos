@@ -131,10 +131,13 @@
             Select all
           </label>
           <span id="dirSelectedCount" class="text-[10px] font-bold text-brand-muted tabular-nums">0 selected</span>
+          <button type="button" id="dirPublishSelectedBtn" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest" title="Publish the checked listings to the public feed">Publish</button>
+          <button type="button" id="dirUnpublishSelectedBtn" class="btn-pill border border-brand-border dark:border-white/20 px-3 py-2 text-[10px] font-black uppercase tracking-widest" title="Unpublish the checked listings">Unpublish</button>
+          <button type="button" id="dirUnpublishOthersBtn" class="btn-pill border border-amber-400/50 text-amber-900 dark:text-amber-200 px-3 py-2 text-[10px] font-black uppercase tracking-widest" title="Keep the checked listings published; unpublish every other listing in this directory">Unpublish others</button>
           <button type="button" id="dirPullReviewsBtn" class="btn-pill btn-primary px-4 py-2 text-[10px] font-black uppercase tracking-widest" title="Outscraper pulls ~25 Google reviews per business (~$0.08 after free tier)">Pull reviews</button>
         </div>
       </div>
-      <p class="px-5 sm:px-6 pt-3 text-[11px] text-brand-muted">Select listings → <strong class="text-brand-dark dark:text-white">Pull reviews</strong> to scrape Google reviews into the lead and Directory (and the public API). Max 15 per run.</p>
+      <p class="px-5 sm:px-6 pt-3 text-[11px] text-brand-muted">Select listings → <strong class="text-brand-dark dark:text-white">Publish / Unpublish</strong>, <strong class="text-brand-dark dark:text-white">Unpublish others</strong> (keep selected, draft the rest), or <strong class="text-brand-dark dark:text-white">Pull reviews</strong> (max 15 per run).</p>
       <div class="px-5 sm:px-6 py-3 border-b border-brand-border/30 dark:border-white/10">
         <label class="block">
           <span class="sr-only">Search listings</span>
@@ -1155,6 +1158,81 @@
         syncBulkBar();
       }
     });
+    function refreshInboxAfterBulk() {
+      return fetch('/directory/inbox.json', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.success) applyInbox(data);
+          syncBulkBar();
+        });
+    }
+    function runPublishBulk(opts) {
+      var ids = selectedListingIds();
+      if (!ids.length) {
+        say('Select at least one listing.', false);
+        return Promise.resolve();
+      }
+      var except = !!(opts && opts.except);
+      var published = !(opts && opts.published === false);
+      if (except) {
+        var total = Object.keys(listingsById || {}).length;
+        var rest = Math.max(0, total - ids.length);
+        if (!window.confirm(
+          'Keep ' + ids.length + ' selected published and unpublish the other ' + rest +
+          ' listing' + (rest === 1 ? '' : 's') + ' in this directory?'
+        )) {
+          return Promise.resolve();
+        }
+      }
+      say(except ? 'Unpublishing others…' : (published ? 'Publishing…' : 'Unpublishing…'));
+      var btns = [
+        document.getElementById('dirPublishSelectedBtn'),
+        document.getElementById('dirUnpublishSelectedBtn'),
+        document.getElementById('dirUnpublishOthersBtn'),
+      ];
+      btns.forEach(function (b) { if (b) b.disabled = true; });
+      return postJson('/directory/listings/publish-bulk', {
+        listingIds: ids,
+        published: except ? false : published,
+        except: except,
+      })
+        .then(function (data) {
+          var n = data && data.changed != null ? data.changed : 0;
+          if (except) {
+            say('Kept ' + ids.length + ' selected · unpublished ' + n + ' other' + (n === 1 ? '' : 's') + '.', true);
+          } else {
+            say((published ? 'Published ' : 'Unpublished ') + n + ' listing' + (n === 1 ? '' : 's') + '.', true);
+          }
+          return refreshInboxAfterBulk();
+        })
+        .catch(function (err) {
+          say(err.message || 'Bulk publish failed', false);
+        })
+        .finally(function () {
+          btns.forEach(function (b) { if (b) b.disabled = false; });
+        });
+    }
+    var publishSelectedBtn = document.getElementById('dirPublishSelectedBtn');
+    if (publishSelectedBtn) {
+      publishSelectedBtn.addEventListener('click', function () {
+        void runPublishBulk({ published: true });
+      });
+    }
+    var unpublishSelectedBtn = document.getElementById('dirUnpublishSelectedBtn');
+    if (unpublishSelectedBtn) {
+      unpublishSelectedBtn.addEventListener('click', function () {
+        void runPublishBulk({ published: false });
+      });
+    }
+    var unpublishOthersBtn = document.getElementById('dirUnpublishOthersBtn');
+    if (unpublishOthersBtn) {
+      unpublishOthersBtn.addEventListener('click', function () {
+        void runPublishBulk({ except: true });
+      });
+    }
     var pullBtn = document.getElementById('dirPullReviewsBtn');
     if (pullBtn) {
       pullBtn.addEventListener('click', function () {

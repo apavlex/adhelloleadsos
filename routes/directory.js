@@ -607,6 +607,44 @@ router.post('/listings/bulk', async (req, res) => {
 });
 
 /**
+ * Bulk publish / unpublish selected listings, or unpublish everyone except the keep set.
+ * Registered before /listings/:id so "publish-bulk" is not captured as an id.
+ */
+router.post('/listings/publish-bulk', async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    const body = req.body || {};
+    const listingIds = Array.isArray(body.listingIds)
+      ? body.listingIds
+      : String(body.listingIds || '')
+          .split(/[\n,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+    const except =
+      body.except === true || body.except === '1' || body.except === 'true' || body.mode === 'except';
+    const published =
+      body.published === undefined
+        ? true
+        : body.published === true || body.published === '1' || body.published === 'on';
+    const result = await directoryStore.setPublishedBulk(req.workspaceId, {
+      listingIds,
+      published: except ? false : published,
+      except,
+    });
+    return res.json({
+      success: true,
+      changed: result.changed,
+      kept: result.kept,
+      published: result.published,
+      except: result.except,
+    });
+  } catch (e) {
+    const status = e.code === 'BAD_REQUEST' ? 400 : e.code === 'NOT_FOUND' ? 404 : 400;
+    return res.status(status).json({ success: false, error: e.message || 'Bulk publish failed' });
+  }
+});
+
+/**
  * Pull Google reviews for selected Directory listings (Outscraper + optional AI summary).
  * Returns immediately and runs in the background — the sync 768 path froze the whole app
  * while Outscraper polled (up to minutes) and saveWorkspace locked SQLite.
