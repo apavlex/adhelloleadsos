@@ -789,6 +789,7 @@ app.use('/sales', salesRoutes);
 app.use('/coach', coachRoutes);
 app.use('/sequences', sequencesRoutes);
 app.use('/workspace', workspaceRoutes);
+app.use('/api/search-engine', require('./routes/searchEngine'));
 app.use('/workspaces', workspacesRoutes);
 app.use('/pipeline', pipelineRoutes);
 app.use('/activation', activationRoutes);

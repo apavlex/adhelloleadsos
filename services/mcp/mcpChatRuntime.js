@@ -25,6 +25,7 @@ async function pavlexChatWithCrmTools({
   const ctx = {
     workspaceId: req.workspaceId,
     userEmail: userEmail(req),
+    workspace: req.workspace,
   };
 
   const llmOpts = { preferredOpenRouterModels, preferredXaiModels, integrationEnv };

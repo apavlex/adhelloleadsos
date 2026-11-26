@@ -20,6 +20,7 @@ const {
   normalizeContext,
 } = require('../services/directMailPlaybooks');
 const kieImageClient = require('../services/kieImageClient');
+const tregUgc = require('../services/tregUgc');
 const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
 const {
   sanitizeDesignImagePrompt,
@@ -860,6 +861,7 @@ router.get('/', async (req, res, next) => {
       activePage: 'direct-mail',
       lobReady: ready,
       kieImageReady: kieImageClient.isConfigured(),
+      tregUgcReady: tregUgc.isConfigured(),
       kieImageModels: kieImageClient.listImageModels(),
       kieDefaultModelKey: kieImageClient.DEFAULT_MODEL_KEY,
       mailableLeads,
@@ -2005,6 +2007,82 @@ router.post('/api/save-to-drive', express.json(), async (req, res, next) => {
       });
     }
     next(err);
+  }
+});
+
+function ugcError(err, res, next) {
+  const status = err && err.status;
+  if (status && status >= 400 && status < 500) {
+    return res.status(status).json({ success: false, error: err.message });
+  }
+  return next(err);
+}
+
+router.post('/api/ugc/trends', async (req, res, next) => {
+  try {
+    if (req.workspace && req.workspace.isDemo) {
+      return res.status(403).json({ success: false, error: 'Demo workspaces cannot spend the Treg balance.' });
+    }
+    const result = await tregUgc.searchTrends(req.body || {}, { workspaceId: req.workspaceId });
+    res.json({ success: true, videos: result.videos, callId: result.callId, costMicro: result.costMicro });
+  } catch (err) {
+    ugcError(err, res, next);
+  }
+});
+
+router.post('/api/ugc/character', async (req, res, next) => {
+  try {
+    if (req.workspace && req.workspace.isDemo) {
+      return res.status(403).json({ success: false, error: 'Demo workspaces cannot spend the Treg balance.' });
+    }
+    const job = await tregUgc.startCharacter(req.body || {}, { workspaceId: req.workspaceId });
+    res.json({
+      success: true,
+      jobId: job.id,
+      status: job.status,
+      estimateUsd: job.estimateUsd,
+      imageUrl: job.imageUrl || '',
+    });
+  } catch (err) {
+    ugcError(err, res, next);
+  }
+});
+
+router.post('/api/ugc/clip', async (req, res, next) => {
+  try {
+    if (req.workspace && req.workspace.isDemo) {
+      return res.status(403).json({ success: false, error: 'Demo workspaces cannot spend the Treg balance.' });
+    }
+    const job = await tregUgc.startClip(req.body || {}, { workspaceId: req.workspaceId });
+    res.json({
+      success: true,
+      jobId: job.id,
+      status: job.status,
+      estimateUsd: job.estimateUsd,
+      duration: job.duration,
+      resolution: job.resolution,
+      videoUrl: job.videoUrl || '',
+    });
+  } catch (err) {
+    ugcError(err, res, next);
+  }
+});
+
+router.get('/api/ugc/jobs/:jobId', async (req, res, next) => {
+  try {
+    const job = await tregUgc.refreshJob(req.workspaceId, req.params.jobId);
+    res.json({
+      success: true,
+      jobId: job.id,
+      kind: job.kind,
+      status: job.status,
+      imageUrl: job.imageUrl || '',
+      videoUrl: job.videoUrl || '',
+      estimateUsd: job.estimateUsd || 0,
+      error: job.error || '',
+    });
+  } catch (err) {
+    ugcError(err, res, next);
   }
 });
 

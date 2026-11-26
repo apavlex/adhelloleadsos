@@ -53,7 +53,7 @@ router.post('/', apiKeyAuth, express.json({ limit: '1mb' }), async (req, res, ne
     if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).json({
         success: false,
-        error: 'Maps search not configured. Set RAPIDAPI_KEY or similar.',
+        error: mapsSearch.notConfiguredMessage(integrationEnv),
       });
     }
 

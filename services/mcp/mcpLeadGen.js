@@ -439,7 +439,7 @@ async function findLeads(ctx, input = {}) {
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
   if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
     throw invalid(
-      'Lead search is not configured for this workspace. Add a RapidAPI, SearchAPI.io, SerpAPI, Outscraper, Monid, or Apify key under Workspace → API integrations.',
+      mapsSearch.notConfiguredMessage(integrationEnv),
       'PROVIDER_NOT_CONFIGURED',
     );
   }

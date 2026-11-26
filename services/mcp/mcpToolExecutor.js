@@ -258,6 +258,10 @@ async function executeCrmTool(rawCtx, toolName, args) {
           result = await seoTools.executeSeoTool(ctx, name, input);
           break;
         }
+        if (require('../tregChatTools').TOOL_NAMES.includes(name)) {
+          result = await require('../tregChatTools').execute(ctx, name, input);
+          break;
+        }
         const err = new Error(`Unknown tool: ${name}`);
         err.code = 'UNKNOWN_TOOL';
         throw err;

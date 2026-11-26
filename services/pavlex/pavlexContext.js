@@ -12,6 +12,7 @@ const {
   formatFolderCatalog,
 } = require('./pavlexPageContext');
 const { getEmployee, DEFAULT_EMPLOYEE_ID } = require('./pavlexEmployees');
+const tregChatTools = require('../tregChatTools');
 
 const CHAT_PAGE_FORMAT = `
 CHAT PAGE FORMATTING (markdown is rendered):
@@ -129,6 +130,7 @@ async function buildPavlexContext(
   const folderCatalog = formatFolderCatalog(folders);
 
   const toolsList = (mcpConfig.availableTools || []).join(', ');
+  const tregOn = tregChatTools.enabledForWorkspace(auth.workspaceId, req.workspace);
   const workspaceName = String((req.workspace && req.workspace.name) || '').trim();
   const businessProfile = describeBusinessProfile(req.workspace);
 
@@ -166,6 +168,7 @@ RULES:
 - If the user is vague ("these leads", "here", "this folder", "clean this up"), use the Looking at / Open folder / Selected leads lines in SESSION.
 - "Leads in Vancouver / zip 98682 / Camas" already in the CRM → search_leads with that query (not find_leads). find_leads is only for scraping new businesses.
 - Do exactly what was asked with the matching tool. If nothing matches, say so plainly instead of doing something similar.
+${tregOn ? tregChatTools.systemNote() : ''}
 - Run lead searches (find_leads) without asking for confirmation; mention they finish in the background.
 - Immediate action over analysis.
 - Never show your reasoning, plans or tool-call markup to the user — call tools, then reply with the result.

@@ -5,6 +5,7 @@
  * trying each tool-capable model in resolvePavlexToolLlmChain() until one succeeds.
  */
 const { executeCrmTool, getOpenAiFunctionTools } = require('./mcpToolExecutor');
+const tregChatTools = require('../tregChatTools');
 const { resolvePavlexToolLlmChain } = require('../pavlex/pavlexLlmConfig');
 const {
   stripThinking,
@@ -223,7 +224,7 @@ async function inlineCrmToolChat({
     };
   }
 
-  const tools = getOpenAiFunctionTools();
+  const tools = tregChatTools.appendTools(getOpenAiFunctionTools(), integrationEnv);
   const toolNames = new Set(tools.map((t) => t.function.name));
 
   mcpLogger.toolsDiscovered({

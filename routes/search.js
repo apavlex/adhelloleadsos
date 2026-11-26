@@ -109,8 +109,7 @@ router.post('/', async (req, res, next) => {
             console.error('[SEARCH-BG] No Maps provider for workspace:', activationWorkspaceId);
             await dbService.clearActiveJob({
               failed: true,
-              error:
-                'Maps search is not configured. Add a RapidAPI key under Workspace → API integrations (or SearchAPI.io / SerpAPI / Outscraper / Apify for Auto fallback).',
+              error: mapsSearch.notConfiguredMessage(integrationEnv),
             });
             cleared = true;
             return;
@@ -276,8 +275,7 @@ router.post('/', async (req, res, next) => {
 
     if (mode !== 'schedule' && !mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).render('error', {
-        message:
-          'Maps search is not configured for this workspace. Add a RapidAPI key under Workspace → API integrations, or set RAPIDAPI_KEY on the server.',
+        message: mapsSearch.notConfiguredMessage(integrationEnv),
         activePage: 'search',
       });
     }

@@ -6456,7 +6456,7 @@ router.post('/:key/gbp-audit', async (req, res, next) => {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
 
     if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
-      return res.status(503).json({ success: false, error: 'Maps search not configured.' });
+      return res.status(503).json({ success: false, error: mapsSearch.notConfiguredMessage(integrationEnv) });
     }
 
     const businessName = String(req.body.businessName || lead.title || '').trim();

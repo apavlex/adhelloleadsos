@@ -273,7 +273,7 @@ router.post('/gbp', apiKeyAuth, express.json(), async (req, res, next) => {
     if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).json({
         success: false,
-        error: 'Maps search not configured. Set RAPIDAPI_KEY or similar.',
+        error: mapsSearch.notConfiguredMessage(integrationEnv),
       });
     }
 
@@ -392,7 +392,7 @@ router.get('/gbp/quick', apiKeyAuth, async (req, res, next) => {
     if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).json({
         success: false,
-        error: 'Maps search not configured.',
+        error: mapsSearch.notConfiguredMessage(integrationEnv),
       });
     }
 

@@ -15,6 +15,19 @@ const { viewDateFormatters } = require('../services/workspaceTimezone');
 const whiteLabel = require('../services/whiteLabel');
 const publicDemo = require('../services/publicDemo');
 const trials = require('../services/trials');
+const tregSearchMode = require('../services/tregSearchMode');
+const tregClient = require('../services/tregClient');
+
+function attachSearchEngine(res, ws) {
+  try {
+    const demo = !!(ws && ws.isDemo);
+    res.locals.searchEngine = demo ? 'default' : tregSearchMode.getMode(ws && ws.id);
+    res.locals.searchEngineReady = tregClient.isConfigured();
+  } catch (_) {
+    res.locals.searchEngine = 'default';
+    res.locals.searchEngineReady = false;
+  }
+}
 
 function attachWorkspaceQuickLog(res, ws) {
   const agencySales = isAgencySalesWorkspace(ws);
@@ -235,6 +248,7 @@ async function withWorkspace(req, res, next) {
       attachWorkspaceQuickLog(res, ws);
       res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
       res.locals.customMenuLinks = normalizeCustomMenuLinks(ws.customMenuLinks);
+      attachSearchEngine(res, ws);
       return next();
     }
 
@@ -493,6 +507,7 @@ async function withWorkspace(req, res, next) {
     attachWorkspaceQuickLog(res, ws);
     res.locals.scriptSignOffProfile = resolveScriptSignOffProfile({ user: req.user, workspace: ws });
     res.locals.customMenuLinks = normalizeCustomMenuLinks(ws.customMenuLinks);
+    attachSearchEngine(res, ws);
 
     next();
   } catch (err) {
