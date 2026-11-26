@@ -8,6 +8,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const tregSearchMode = require('../services/tregSearchMode');
 const tregChatTools = require('../services/tregChatTools');
+const tregClient = require('../services/tregClient');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { executeCrmTool } = require('../services/mcp/mcpToolExecutor');
 
 function mockResponse({ status = 200, headers = {}, json = {} }) {
@@ -20,6 +22,30 @@ function mockResponse({ status = 200, headers = {}, json = {} }) {
     text: async () => JSON.stringify(json),
   };
 }
+
+test('a workspace Treg key is sent when the server has none', async () => {
+  const previous = process.env.TREG_TOKEN;
+  delete process.env.TREG_TOKEN;
+  assert.ok(workspaceIntegrations.INTEGRATION_FIELDS.includes('tregToken'));
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push(init);
+    return mockResponse({ json: { ok: true } });
+  };
+  try {
+    await tregClient.tregCall('treg.web.search', {
+      method: 'POST',
+      body: { q: 'roofers' },
+      integrationEnv: { TREG_TOKEN: 'treg_from_workspace' },
+      workspaceId: 'ws-key',
+      fetchImpl,
+    });
+    assert.equal(calls[0].headers['X-Treg-Token'], 'treg_from_workspace');
+  } finally {
+    if (previous == null) delete process.env.TREG_TOKEN;
+    else process.env.TREG_TOKEN = previous;
+  }
+});
 
 test('chat tools appear only while the workspace is on Treg', () => {
   const previous = process.env.TREG_TOKEN;

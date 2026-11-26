@@ -63,6 +63,18 @@
     <p class="int-shared-note">Using shared keys from your other workspaces (or AdHello agency) for <strong><%= _shared.join(', ') %></strong>. Leave those fields blank to keep sharing, or paste this workspace’s own key to replace one. CRM, SMS, email, and direct mail stay per-workspace.</p>
     <% } %>
     <div id="integration-find-leads" class="scroll-mt-28" data-int-group>
+      <section id="integration-treg" class="rounded-2xl border-2 border-emerald-400/40 dark:border-emerald-400/25 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 mb-4">
+        <header>
+          <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Treg</h3>
+          <p class="text-xs text-brand-muted mt-1 leading-relaxed">One token for the top-bar Treg switch. Search, chat, and the chatbot use the Treg catalog with this key. Get an org token from <code class="text-[11px]">treg org agent-new</code>.</p>
+        </header>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="tregToken">API key</label>
+          <% if (masks.tregToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.tregToken %></p><% } %>
+          <input id="tregToken" type="password" name="tregToken" autocomplete="off" placeholder="Paste Treg token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          <% if (masks.tregToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="tregToken_clear" value="1" /> Remove saved key</label><% } %>
+        </div>
+      </section>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Lead scrapers</p>
       <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Where new leads come from. <strong>Find Leads</strong> searches Google Maps, permits and listings with these. In <strong>Auto</strong> mode it tries them in order until one returns results.</p>
       <div class="space-y-4">
@@ -1218,9 +1230,29 @@
     });
   });
 
+  function focusIntegration(hash) {
+    var target = null;
+    try { target = document.querySelector(hash); } catch (_) { return; }
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.classList.add('ring-2', 'ring-brand-yellow/50', 'shadow-lg');
+    window.setTimeout(function () {
+      target.classList.remove('ring-2', 'ring-brand-yellow/50', 'shadow-lg');
+    }, 2200);
+    var focusEl = target.querySelector(
+      'input[type="password"], input[type="text"]:not([type="checkbox"]), input[type="email"], input[type="url"], select, textarea'
+    );
+    if (focusEl) {
+      window.setTimeout(function () {
+        focusEl.focus({ preventScroll: true });
+      }, 450);
+    }
+  }
+
   if (window.location.hash) {
     var hashLink = document.querySelector('.js-integration-connect[href="' + window.location.hash + '"]');
     if (hashLink) hashLink.click();
+    else focusIntegration(window.location.hash);
   }
 
   var form = document.querySelector('form[action="/workspace/integrations"]');

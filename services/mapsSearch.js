@@ -35,7 +35,7 @@ function searchEngineIsTreg(integrationEnv) {
 
 function isMapsSearchConfigured(integrationEnv) {
   if (searchEngineIsTreg(integrationEnv)) {
-    return require('./tregClient').isConfigured();
+    return require('./tregClient').isConfigured({ integrationEnv });
   }
   return (
     rapidapi.isConfigured(integrationEnv) ||
@@ -49,7 +49,7 @@ function isMapsSearchConfigured(integrationEnv) {
 
 function notConfiguredMessage(integrationEnv) {
   if (searchEngineIsTreg(integrationEnv)) {
-    return 'Treg is on for searches, but TREG_TOKEN is not set on the server. Add the token, or switch the top bar back to Default.';
+    return 'Treg is on for searches, but this workspace has no Treg API key. Add it under Workspace → Integrations, or switch the top bar back to Default.';
   }
   return 'Maps search is not configured. Add a RapidAPI key under Workspace → API integrations (or SearchAPI.io / SerpAPI / Outscraper / Apify).';
 }

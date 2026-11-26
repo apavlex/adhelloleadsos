@@ -306,7 +306,7 @@
           <p class="dm-drawer-desc">The <a href="https://treg.to/ugc" target="_blank" rel="noopener noreferrer">treg.to/ugc</a> workflow: study a niche, make a character, then a short talking-head clip. Each button shows its price and bills the Treg balance. No subscription.</p>
           <p id="dmUgcStatus" class="dm-ugc-status" aria-live="polite"></p>
           <% if (!(typeof tregUgcReady !== 'undefined' && tregUgcReady)) { %>
-          <p class="dm-ugc-warn">Add <code>TREG_TOKEN</code> on the server before this studio can call Treg.</p>
+          <p class="dm-ugc-warn">Add a Treg API key under <a href="/workspace/integrations#integration-treg">Workspace → Integrations</a> before this studio can call Treg.</p>
           <% } %>
 
           <section class="dm-ugc-step">

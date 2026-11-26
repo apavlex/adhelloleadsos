@@ -235,7 +235,7 @@ test('default builds do not call treg', async () => {
     delete process.env.TREG_TOKEN;
     assert.equal(mapsSearch.isMapsSearchConfigured({ SEARCH_ENGINE: 'treg' }), false);
     if (token != null) process.env.TREG_TOKEN = token;
-    assert.match(mapsSearch.notConfiguredMessage({ SEARCH_ENGINE: 'treg' }), /TREG_TOKEN/);
+    assert.match(mapsSearch.notConfiguredMessage({ SEARCH_ENGINE: 'treg' }), /Integrations/);
     assert.match(mapsSearch.notConfiguredMessage({}), /API integrations/);
   } finally {
     rapidapi.searchGoogleMaps = original;
