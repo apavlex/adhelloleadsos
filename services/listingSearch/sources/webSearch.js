@@ -36,6 +36,9 @@ function searchapiKey(integrationEnv) {
 }
 
 function isConfigured(integrationEnv) {
+  if (String((integrationEnv && integrationEnv.SEARCH_ENGINE) || '').trim().toLowerCase() === 'treg') {
+    return require('../../tregClient').isConfigured();
+  }
   return Boolean(serpapiKey(integrationEnv) || searchapiKey(integrationEnv));
 }
 
@@ -141,6 +144,9 @@ async function fetchSearchapiOrganic(params, integrationEnv, cap) {
 
 async function searchWebSearch(params) {
   const integrationEnv = params.integrationEnv;
+  if (String((integrationEnv && integrationEnv.SEARCH_ENGINE) || '').trim().toLowerCase() === 'treg') {
+    return require('../../tregSearches').searchWebListings(params);
+  }
   const cap = Math.max(1, parseInt(params.maxResults, 10) || 20);
   const perProvider = Math.max(5, Math.ceil(cap / 2));
   let rows = [];
@@ -177,4 +183,6 @@ module.exports = {
   label: 'Web search (Google)',
   isConfigured,
   search: searchWebSearch,
+  buildSearchQuery,
+  isLikelyListingUrl,
 };

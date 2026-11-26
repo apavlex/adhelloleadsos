@@ -97,6 +97,11 @@ async function searchListings(params) {
   const integrationEnv = params.integrationEnv;
   const anyConfigured = ALL_SOURCES.some((s) => s.isConfigured(integrationEnv));
   if (!anyConfigured) {
+    if (String((integrationEnv && integrationEnv.SEARCH_ENGINE) || '').trim().toLowerCase() === 'treg') {
+      throw new Error(
+        'Treg is on for searches, but TREG_TOKEN is not set on the server. Add the token, or switch the top bar back to Default.',
+      );
+    }
     throw new Error(
       'No listing sources configured. Add APIFY_API_TOKEN and/or SERPAPI_API_KEY / SEARCHAPI_API_KEY under Workspace → API integrations.'
     );

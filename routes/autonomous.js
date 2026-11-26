@@ -162,7 +162,7 @@ router.post('/search', apiKeyAuth, express.json(), async (req, res, next) => {
     if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).json({
         success: false,
-        error: 'Maps search not configured. Set RAPIDAPI_KEY / SEARCHAPI_API_KEY / SERPAPI_API_KEY / OUTSCRAPER_API_KEY / APIFY_API_TOKEN.',
+        error: mapsSearch.notConfiguredMessage(integrationEnv),
       });
     }
 
@@ -1231,7 +1231,7 @@ router.post('/audit/run', apiKeyAuth, express.json({ limit: '10mb' }), async (re
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
-      return res.status(503).json({ success: false, error: 'Maps search not configured.' });
+      return res.status(503).json({ success: false, error: mapsSearch.notConfiguredMessage(integrationEnv) });
     }
 
     // 1. Search for the target business on Google Maps

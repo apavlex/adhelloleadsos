@@ -3,6 +3,8 @@
 <% const _ws = typeof workspace !== 'undefined' && workspace ? workspace : null; %>
 <% const _wsList = typeof workspaceSwitcherList !== 'undefined' && workspaceSwitcherList ? workspaceSwitcherList : []; %>
 <% const _wsAccent = typeof workspaceAccent !== 'undefined' && workspaceAccent ? workspaceAccent : '#CA8A04'; %>
+<% const _searchEngine = (typeof searchEngine !== 'undefined' && searchEngine === 'treg') ? 'treg' : 'default'; %>
+<% const _searchEngineReady = (typeof searchEngineReady !== 'undefined' && searchEngineReady) ? '1' : '0'; %>
 <% const _wsCount = _wsList.length; %>
 <% const _wsSubLabel = _wsCount > 1 ? (_wsCount + ' workspaces') : 'Agency OS'; %>
 <% const _hasContextSidebar = !!(
@@ -83,6 +85,24 @@
       <button type="button" id="navLeadSearchMobileBtn" class="md:hidden w-10 h-10 flex items-center justify-center text-brand-dark bg-brand-cream/70 hover:bg-brand-cream dark:text-gray-300 dark:bg-slate-800/80 dark:hover:bg-slate-700 rounded-full transition-colors border border-brand-border/60 dark:border-white/10" title="Search existing leads" aria-label="Search existing leads" aria-expanded="false" aria-controls="navLeadSearchMobileRow">
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
       </button>
+      <div id="searchEngineDesktop" class="search-engine relative hidden md:block<%= _searchEngine === 'treg' ? ' is-treg' : '' %>" data-search-engine-root data-mode="<%= _searchEngine %>" data-ready="<%= _searchEngineReady %>">
+        <button type="button" id="searchEngineBtn" class="search-engine-btn inline-flex items-center gap-1.5 h-10 rounded-full border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800/90 px-3 text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 transition-colors" aria-haspopup="menu" aria-expanded="false" aria-controls="searchEnginePanel" title="Choose Treg or the built-in search providers">
+          <span id="searchEngineLabel" class="text-[10px] font-black uppercase tracking-widest"><%= _searchEngine === 'treg' ? 'Treg' : 'Default' %></span>
+          <svg class="w-3.5 h-3.5 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        <div id="searchEnginePanel" class="search-engine-panel hidden absolute right-0 top-full mt-2 w-72 rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl p-2 z-[120] text-left" role="menu" aria-label="Search engine">
+          <p class="px-2 pt-1 pb-2 text-[10px] font-black uppercase tracking-widest text-brand-muted">Searches</p>
+          <button type="button" class="search-engine-choice" data-search-engine="default" role="menuitemradio" aria-checked="<%= _searchEngine === 'default' ? 'true' : 'false' %>">
+            <span class="search-engine-choice-title">Default builds</span>
+            <span class="search-engine-choice-copy">RapidAPI, Outscraper, DataForSEO, and the other providers already connected.</span>
+          </button>
+          <button type="button" class="search-engine-choice" data-search-engine="treg" role="menuitemradio" aria-checked="<%= _searchEngine === 'treg' ? 'true' : 'false' %>">
+            <span class="search-engine-choice-title">Treg</span>
+            <span class="search-engine-choice-copy">Maps and web searches go through treg.to. Directories, marketplaces, permits, and SEO stay on the built-in providers.</span>
+          </button>
+          <p class="search-engine-note px-2 pt-2 pb-1 text-[10px] leading-snug text-brand-muted"></p>
+        </div>
+      </div>
       <a href="/leads/find" id="navFindLeadsBtn" class="hidden md:inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-yellow px-3 sm:px-4 py-2 h-10 text-[10px] sm:text-[11px] font-black uppercase tracking-widest shadow-lg shadow-brand-yellow/40 hover:shadow-xl hover:shadow-brand-yellow/55 hover:brightness-105 active:scale-[0.98] transition-all border border-brand-yellow/30 <%= np === 'find' ? 'ring-2 ring-brand-yellow ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : '' %>" title="Search and import prospects" aria-label="Find prospects">
         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
         <span class="hidden sm:inline">Find prospects</span>
@@ -263,6 +283,16 @@
         </div>
       </div>
 
+      <% if (user) { %>
+      <div id="searchEngineMobile" class="search-engine px-2 pb-3<%= _searchEngine === 'treg' ? ' is-treg' : '' %>" data-search-engine-root data-mode="<%= _searchEngine %>" data-ready="<%= _searchEngineReady %>">
+        <p class="px-1 pb-1.5 text-[10px] font-black uppercase tracking-widest text-[#6B7280] dark:text-slate-400">Searches</p>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button type="button" class="search-engine-choice search-engine-choice--compact" data-search-engine="default" aria-pressed="<%= _searchEngine === 'default' ? 'true' : 'false' %>">Default</button>
+          <button type="button" class="search-engine-choice search-engine-choice--compact" data-search-engine="treg" aria-pressed="<%= _searchEngine === 'treg' ? 'true' : 'false' %>">Treg</button>
+        </div>
+        <p class="search-engine-note px-1 pt-1.5 text-[10px] leading-snug text-[#6B7280] dark:text-slate-400"></p>
+      </div>
+      <% } %>
       <div class="grid grid-cols-2 gap-1.5 px-2 pb-3">
         <button type="button" class="theme-toggle-btn sidebar-nav-link justify-center border border-[#E5E7EB] dark:border-white/10" aria-label="Toggle theme">
           <svg class="sidebar-nav-icon hidden dark:block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05L5.636 5.636m12.728 0l-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z" /></svg>

@@ -125,6 +125,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
           <span>Copy</span>
         </button>
+        <button type="button" class="dm-rail-btn" data-dm-tab="ugc" title="UGC clips">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-2.36a.75.75 0 011.28.53v6.66a.75.75 0 01-1.28.53l-4.72-2.36M4.5 6.75h9a1.5 1.5 0 011.5 1.5v7.5a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 013 15.75v-7.5a1.5 1.5 0 011.5-1.5z"/></svg>
+          <span>UGC</span>
+        </button>
         <button type="button" class="dm-rail-btn" data-dm-tab="history" title="Generated graphics">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <span>History</span>
@@ -294,6 +298,60 @@
               <p class="text-[11px] text-brand-muted">Loading playbooks…</p>
             </div>
           </div>
+        </div>
+
+        <!-- UGC clips — treg.to/ugc, one paid step at a time -->
+        <div class="dm-drawer-panel dm-ugc-panel" data-dm-panel="ugc" hidden id="dmUgcPanel" data-treg-ready="<%= typeof tregUgcReady !== 'undefined' && tregUgcReady ? '1' : '0' %>">
+          <h2 class="dm-drawer-title">UGC clips</h2>
+          <p class="dm-drawer-desc">The <a href="https://treg.to/ugc" target="_blank" rel="noopener noreferrer">treg.to/ugc</a> workflow: study a niche, make a character, then a short talking-head clip. Each button shows its price and bills the Treg balance. No subscription.</p>
+          <p id="dmUgcStatus" class="dm-ugc-status" aria-live="polite"></p>
+          <% if (!(typeof tregUgcReady !== 'undefined' && tregUgcReady)) { %>
+          <p class="dm-ugc-warn">Add <code>TREG_TOKEN</code> on the server before this studio can call Treg.</p>
+          <% } %>
+
+          <section class="dm-ugc-step">
+            <h3>1 · Hooks</h3>
+            <label class="dm-field-label" for="dmUgcNiche">Niche</label>
+            <input id="dmUgcNiche" type="text" class="dm-input" placeholder="roofers, lead gen, kitchen remodel" maxlength="160" />
+            <button type="button" id="dmUgcTrendsBtn" class="dm-studio-topbtn dm-studio-topbtn--primary w-full justify-center" <%= (typeof tregUgcReady !== 'undefined' && tregUgcReady) ? '' : 'disabled' %>>Find hooks · about $0.02</button>
+            <ul id="dmUgcTrends" class="dm-ugc-list"></ul>
+          </section>
+
+          <section class="dm-ugc-step">
+            <h3>2 · Character</h3>
+            <label class="dm-field-label" for="dmUgcProduct">Product</label>
+            <input id="dmUgcProduct" type="text" class="dm-input" placeholder="What they are talking about" maxlength="180" />
+            <label class="dm-field-label" for="dmUgcPresenter">Presenter</label>
+            <input id="dmUgcPresenter" type="text" class="dm-input" placeholder="A person in their early 30s" maxlength="180" />
+            <label class="dm-field-label" for="dmUgcCharacterPrompt">Portrait prompt</label>
+            <textarea id="dmUgcCharacterPrompt" rows="4" class="dm-input" placeholder="Leave blank to use the selfie prompt, or paste your own."></textarea>
+            <button type="button" id="dmUgcCharacterBtn" class="dm-studio-topbtn dm-studio-topbtn--primary w-full justify-center" <%= (typeof tregUgcReady !== 'undefined' && tregUgcReady) ? '' : 'disabled' %>>Create character · about $0.03</button>
+            <img id="dmUgcCharacterImg" class="dm-ugc-still hidden" alt="Generated UGC character" />
+          </section>
+
+          <section class="dm-ugc-step">
+            <h3>3 · Clip</h3>
+            <label class="dm-field-label" for="dmUgcHook">Line they say</label>
+            <textarea id="dmUgcHook" rows="3" class="dm-input" placeholder="Recruiters charge $20,000 to fill one job, and I just did the same thing from my couch" maxlength="500"></textarea>
+            <label class="dm-field-label" for="dmUgcAudio">Voice reference URL</label>
+            <input id="dmUgcAudio" type="url" class="dm-input" placeholder="Optional https link to a short mp3" />
+            <div class="dm-ugc-row">
+              <label class="dm-field-label" for="dmUgcDuration">Length</label>
+              <select id="dmUgcDuration" class="dm-select">
+                <option value="5" selected>5 seconds</option>
+                <option value="8">8 seconds</option>
+              </select>
+              <label class="dm-field-label" for="dmUgcResolution">Quality</label>
+              <select id="dmUgcResolution" class="dm-select">
+                <option value="480p" selected>480p · about $0.12/s</option>
+                <option value="720p">720p · about $0.27/s</option>
+              </select>
+            </div>
+            <p id="dmUgcPrice" class="dm-ugc-price">About $0.59 for a 5s 480p clip. Failed takes are not billed.</p>
+            <button type="button" id="dmUgcClipBtn" class="dm-studio-topbtn dm-studio-topbtn--primary w-full justify-center" <%= (typeof tregUgcReady !== 'undefined' && tregUgcReady) ? '' : 'disabled' %>>Generate clip</button>
+            <video id="dmUgcVideo" class="dm-ugc-video hidden" controls playsinline></video>
+            <a id="dmUgcVideoLink" class="dm-ugc-link hidden" target="_blank" rel="noopener noreferrer">Open clip</a>
+          </section>
         </div>
 
         <!-- History panel -->
@@ -792,6 +850,7 @@
   <script src="/js/google-drive-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <% } %>
   <script src="/js/direct-mail.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/dm-ugc.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <%- include('/partials/app_shell_close') %>
 </body>
 </html>

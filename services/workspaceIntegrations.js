@@ -8,6 +8,7 @@
  */
 
 const dbService = require('./database');
+const tregSearchMode = require('./tregSearchMode');
 const { emailAliases } = require('./workspaceService');
 const { decryptIntegrations, encryptIntegrations, isEncryptionAvailable } = require('./workspaceIntegrationSecrets');
 
@@ -197,6 +198,13 @@ async function getResolvedIntegrationEnv(workspaceId) {
       const v = fromWs[field];
       if (!(typeof v === 'string' && v.trim())) out[envName] = TRIAL_DISABLED;
     }
+  }
+  try {
+    tregSearchMode.applyToEnv(wid, out, ws);
+  } catch (err) {
+    out.SEARCH_ENGINE = 'default';
+    if (wid) out.ADHELLO_WORKSPACE_ID = String(wid);
+    console.warn('[integrations] search engine preference unread:', err && err.message ? err.message : err);
   }
   return out;
 }

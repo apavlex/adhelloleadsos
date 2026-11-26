@@ -81,7 +81,7 @@ async function runNightlyPrep(workspaceId, opts = {}) {
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
   if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
-    const msg = 'Maps search not configured (API keys).';
+    const msg = mapsSearch.notConfiguredMessage(integrationEnv);
     await patchNightlyPrepMeta(wid, {
       lastRunAt: new Date().toISOString(),
       lastStatus: 'error',

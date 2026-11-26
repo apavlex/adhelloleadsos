@@ -29,7 +29,14 @@ function oxylabsConfigured(integrationEnv) {
   return oxylabsGoogleLocal.isConfigured(integrationEnv);
 }
 
+function searchEngineIsTreg(integrationEnv) {
+  return String((integrationEnv && integrationEnv.SEARCH_ENGINE) || '').trim().toLowerCase() === 'treg';
+}
+
 function isMapsSearchConfigured(integrationEnv) {
+  if (searchEngineIsTreg(integrationEnv)) {
+    return require('./tregClient').isConfigured();
+  }
   return (
     rapidapi.isConfigured(integrationEnv) ||
     outscraper.isConfigured(integrationEnv) ||
@@ -38,6 +45,13 @@ function isMapsSearchConfigured(integrationEnv) {
     apifyConfigured(integrationEnv) ||
     oxylabsConfigured(integrationEnv)
   );
+}
+
+function notConfiguredMessage(integrationEnv) {
+  if (searchEngineIsTreg(integrationEnv)) {
+    return 'Treg is on for searches, but TREG_TOKEN is not set on the server. Add the token, or switch the top bar back to Default.';
+  }
+  return 'Maps search is not configured. Add a RapidAPI key under Workspace → API integrations (or SearchAPI.io / SerpAPI / Outscraper / Apify).';
 }
 
 function resolvePrimary(integrationEnv) {
@@ -244,6 +258,10 @@ async function runPrimaryThenOutscraperMapsSearch(params, integrationEnv, primar
  */
 async function searchGoogleMaps(params) {
   const integrationEnv = params.integrationEnv || null;
+  // Top-bar Treg switch covers every Maps search, including a saved provider preset.
+  if (searchEngineIsTreg(integrationEnv)) {
+    return require('./tregSearches').searchGoogleMaps(params);
+  }
   const override = String(params.mapsProvider || '').toLowerCase().trim();
 
   // Auto / unset → workspace primary (default RapidAPI) → Outscraper.
@@ -349,6 +367,7 @@ function getMapsProviderStatusList(integrationEnv) {
 module.exports = {
   searchGoogleMaps,
   isMapsSearchConfigured,
+  notConfiguredMessage,
   resolvePrimary,
   getMapsProviderStatusList,
   filterMapsResults,
