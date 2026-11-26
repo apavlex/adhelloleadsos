@@ -25,7 +25,38 @@ describe('integrationProviderTests', () => {
     assert.equal(PROVIDERS.rapidapi.fields.length, 5);
   });
 
-  test('resolveProviderId matches camelCase rapidapiWebsite', () => {
+  test('treg Test & save checks the catalog with the pasted key', async () => {
+  const { runProviderTest } = require('../services/integrationProviderTests');
+  const previous = process.env.TREG_TOKEN;
+  delete process.env.TREG_TOKEN;
+  const original = global.fetch;
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push({ url: String(url), token: init && init.headers && init.headers['X-Treg-Token'] });
+    return new Response(JSON.stringify({ results: [{ id: 'treg.web.search', name: 'web search' }] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  };
+  try {
+    const missing = await runProviderTest('treg', {});
+    assert.equal(missing.ok, false);
+    assert.match(missing.message, /Treg API key/);
+    const result = await runProviderTest('treg', { TREG_TOKEN: 'treg_test_key' });
+    assert.equal(result.ok, true);
+    assert.equal(result.provider, 'treg');
+    assert.match(result.message, /web search/);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].url, /\/catalog\/search\?q=web/);
+    assert.equal(calls[0].token, 'treg_test_key');
+  } finally {
+    global.fetch = original;
+    if (previous == null) delete process.env.TREG_TOKEN;
+    else process.env.TREG_TOKEN = previous;
+  }
+});
+
+test('resolveProviderId matches camelCase rapidapiWebsite', () => {
     const { resolveProviderId } = require('../services/integrationProviderTests');
     assert.equal(resolveProviderId('rapidapiWebsite'), 'rapidapiWebsite');
     assert.equal(resolveProviderId('rapidapiwebsite'), 'rapidapiWebsite');

@@ -10410,21 +10410,6 @@ html.dark .opp-cal button:hover { background: rgba(255, 255, 255, 0.08); }
   height: 0.95rem;
 }
 
-.search-engine-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 0.65rem;
-  padding: 0.1rem 0.7rem 0.45rem;
-}
-
-.search-engine-links a {
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: rgb(100 116 139);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 .search-engine-choice {
   display: flex;
   flex-direction: column;

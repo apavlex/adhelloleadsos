@@ -25,6 +25,7 @@ const saperlyClient = require('./saperlyClient');
 const tikHubClient = require('./tikHubClient');
 const monidClient = require('./monidClient');
 const moltsetsClient = require('./moltsetsClient');
+const tregClient = require('./tregClient');
 
 const SAMPLE_SEARCH = {
   keyword: 'coffee shop',
@@ -35,6 +36,7 @@ const SAMPLE_SEARCH = {
 
 /** @type {Record<string, { label: string, fields: string[] }>} */
 const PROVIDERS = {
+  treg: { label: 'Treg', fields: ['tregToken'] },
   rapidapi: {
     label: 'RapidAPI Maps',
     fields: [
@@ -461,6 +463,20 @@ async function testOpenRouter(integrationEnv) {
   return { message: `Connected${modelHint}` };
 }
 
+async function testTreg(integrationEnv) {
+  if (!tregClient.isConfigured({ integrationEnv })) {
+    throw new Error('Missing Treg API key — paste an org token from treg org agent-new.');
+  }
+  const body = await tregClient.tregGet('/catalog/search?q=web&limit=1', {
+    integrationEnv,
+    feature: 'integration-test',
+  });
+  const rows = body && Array.isArray(body.results) ? body.results : [];
+  if (!rows.length) return { message: 'Connected — catalog search answered' };
+  const name = String(rows[0].name || rows[0].id || 'tool').slice(0, 48);
+  return { message: `Connected — catalog answered, e.g. "${name}"` };
+}
+
 async function testInstantly(integrationEnv) {
   if (!instantlyClient.isConfigured(integrationEnv)) {
     throw new Error('Missing INSTANTLY_API_KEY — paste your v2 API key above or save first.');
@@ -471,6 +487,7 @@ async function testInstantly(integrationEnv) {
 }
 
 const RUNNERS = {
+  treg: () => testTreg,
   rapidapi: () => testRapidapi,
   rapidapiwebsite: () => testRapidapiWebsite,
   searchapi: () => testSearchapi,
