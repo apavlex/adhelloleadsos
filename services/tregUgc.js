@@ -183,9 +183,10 @@ function newJob(workspaceId, fields) {
   };
 }
 
-function assertReady() {
-  if (!isConfigured()) {
-    const err = new Error('Treg is not set up on this server yet. Add TREG_TOKEN, then generate from the studio.');
+async function assertReady(opts) {
+  const apiToken = await require('./tregClient').resolveToken(opts || {});
+  if (!apiToken) {
+    const err = new Error('Add a Treg API key under Workspace → Integrations, then generate from the studio.');
     err.status = 409;
     err.code = 'TREG_NOT_CONFIGURED';
     throw err;
@@ -193,7 +194,7 @@ function assertReady() {
 }
 
 async function searchTrends(input, opts = {}) {
-  assertReady();
+  await assertReady(opts);
   const q = cleanLine(input && input.q, 160);
   if (!q) {
     const err = new Error('Add a niche or keyword to study.');
@@ -213,7 +214,7 @@ async function searchTrends(input, opts = {}) {
 }
 
 async function startCharacter(input, opts = {}) {
-  assertReady();
+  await assertReady(opts);
   const prompt = characterPrompt(input);
   const { body, callId } = await tregCall(IMAGE_ENDPOINT, {
     method: 'POST',
@@ -248,7 +249,7 @@ async function startCharacter(input, opts = {}) {
 }
 
 async function startClip(input, opts = {}) {
-  assertReady();
+  await assertReady(opts);
   const hook = cleanLine(input && input.hook, 500);
   if (!hook) {
     const err = new Error('Write the line the person should say.');

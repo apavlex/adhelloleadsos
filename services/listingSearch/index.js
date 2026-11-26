@@ -99,7 +99,7 @@ async function searchListings(params) {
   if (!anyConfigured) {
     if (String((integrationEnv && integrationEnv.SEARCH_ENGINE) || '').trim().toLowerCase() === 'treg') {
       throw new Error(
-        'Treg is on for searches, but TREG_TOKEN is not set on the server. Add the token, or switch the top bar back to Default.',
+        'Treg is on for searches, but this workspace has no Treg API key. Add it under Workspace → Integrations, or switch the top bar back to Default.',
       );
     }
     throw new Error(

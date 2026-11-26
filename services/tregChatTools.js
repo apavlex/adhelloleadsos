@@ -16,13 +16,19 @@ const MAX_CALLS = 6;
 const RESULT_CHARS = 8000;
 
 function enabled(integrationEnv) {
-  return tregSearchMode.isOn(integrationEnv) && tregClient.isConfigured();
+  return tregSearchMode.isOn(integrationEnv) && tregClient.isConfigured({ integrationEnv });
 }
 
 function enabledForWorkspace(workspaceId, workspace) {
-  if (!tregClient.isConfigured()) return false;
   if (workspace && workspace.isDemo) return false;
-  return tregSearchMode.getMode(workspaceId) === 'treg';
+  if (tregSearchMode.getMode(workspaceId) !== 'treg') return false;
+  if (tregClient.isConfigured()) return true;
+  try {
+    const fields = require('./workspaceIntegrations').decryptedFromWorkspace(workspace);
+    return Boolean(String(fields.tregToken || '').trim());
+  } catch {
+    return false;
+  }
 }
 
 function systemNote() {

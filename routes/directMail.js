@@ -861,7 +861,13 @@ router.get('/', async (req, res, next) => {
       activePage: 'direct-mail',
       lobReady: ready,
       kieImageReady: kieImageClient.isConfigured(),
-      tregUgcReady: tregUgc.isConfigured(),
+      tregUgcReady: tregUgc.isConfigured({
+        integrationEnv: {
+          TREG_TOKEN: String(
+            workspaceIntegrations.decryptedFromWorkspace(req.workspace).tregToken || process.env.TREG_TOKEN || '',
+          ),
+        },
+      }),
       kieImageModels: kieImageClient.listImageModels(),
       kieDefaultModelKey: kieImageClient.DEFAULT_MODEL_KEY,
       mailableLeads,

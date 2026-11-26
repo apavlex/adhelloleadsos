@@ -23,7 +23,7 @@
 
   function defaultNote() {
     if (!ready) {
-      return 'Treg needs a TREG_TOKEN on the server before it can run searches.';
+      return 'Add a Treg API key with the settings icon.';
     }
     if (mode === 'treg') {
       return 'Search, chat, and the chatbot use the Treg catalog. Directories, marketplaces, permits, and SEO stay on the built-in providers.';

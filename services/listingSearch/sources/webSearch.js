@@ -37,7 +37,7 @@ function searchapiKey(integrationEnv) {
 
 function isConfigured(integrationEnv) {
   if (String((integrationEnv && integrationEnv.SEARCH_ENGINE) || '').trim().toLowerCase() === 'treg') {
-    return require('../../tregClient').isConfigured();
+    return require('../../tregClient').isConfigured({ integrationEnv });
   }
   return Boolean(serpapiKey(integrationEnv) || searchapiKey(integrationEnv));
 }

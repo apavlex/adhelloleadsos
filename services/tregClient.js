@@ -17,12 +17,32 @@ function baseUrl() {
   return String(process.env.TREG_BASE_URL || DEFAULT_BASE).replace(/\/$/, '');
 }
 
-function token() {
+const DISABLED_TOKENS = new Set(['demo-disabled', 'trial-disabled']);
+
+function token(opts) {
+  const env = opts && opts.integrationEnv;
+  const fromWorkspace = env && String(env.TREG_TOKEN || '').trim();
+  if (fromWorkspace && !DISABLED_TOKENS.has(fromWorkspace)) return fromWorkspace;
   return String(process.env.TREG_TOKEN || '').trim();
 }
 
-function isConfigured() {
-  return Boolean(token());
+function isConfigured(opts) {
+  return Boolean(token(opts));
+}
+
+/** Workspace key saved under Integrations, then the server env var. */
+async function resolveToken(opts) {
+  const direct = token(opts);
+  if (direct) return direct;
+  const wid = opts && opts.workspaceId ? String(opts.workspaceId).trim() : '';
+  if (!wid || wid === 'workspace') return '';
+  try {
+    const integrations = require('./workspaceIntegrations');
+    const env = await integrations.getResolvedIntegrationEnv(wid);
+    return token({ integrationEnv: env });
+  } catch {
+    return '';
+  }
 }
 
 /** Tag values may be letters, digits, and . _ - : — never an email. */
@@ -89,7 +109,7 @@ function safeUserMessage(status, tregError, body) {
       return 'Treg search hit its spend limit for now. Try again later, or switch the top bar back to Default.';
     }
     if (status === 403) return 'Treg refused this search for this workspace.';
-    if (status === 401) return 'Treg rejected the API token. Check TREG_TOKEN on the server.';
+    if (status === 401) return 'Treg rejected the API token. Check the key under Workspace → Integrations.';
     return 'Treg could not run this search.';
   }
   const msg = body && (body.message || body.error || body.status_message);
@@ -104,8 +124,9 @@ function safeUserMessage(status, tregError, body) {
  * @param {{ method?: string, query?: object, body?: object, feature?: string, workspaceId?: string, integrationEnv?: object, maxCostUsd?: number, idempotencyKey?: string, timeoutMs?: number, fetchImpl?: typeof fetch }} [opts]
  */
 async function tregCall(endpointId, opts = {}) {
-  if (!isConfigured()) {
-    const err = new Error('Treg is turned on, but TREG_TOKEN is not set on the server.');
+  const apiToken = await resolveToken(opts);
+  if (!apiToken) {
+    const err = new Error('Add a Treg API key under Workspace → Integrations.');
     err.code = 'TREG_NOT_CONFIGURED';
     err.status = 409;
     throw err;
@@ -124,7 +145,7 @@ async function tregCall(endpointId, opts = {}) {
   const feature = featureTag(opts.feature);
   const customer = customerTag(workspaceIdFrom(opts));
   const headers = {
-    'X-Treg-Token': token(),
+    'X-Treg-Token': apiToken,
     'X-Treg-Meta': `customer=${customer}, feature=${feature}`,
     Accept: 'application/json',
     'Idempotency-Key':
@@ -216,8 +237,9 @@ async function tregGet(pathname, opts = {}) {
   if (!path.startsWith('/catalog/')) {
     throw new Error('Invalid Treg catalog path.');
   }
-  if (!isConfigured()) {
-    const err = new Error('Treg is turned on, but TREG_TOKEN is not set on the server.');
+  const apiToken = await resolveToken(opts);
+  if (!apiToken) {
+    const err = new Error('Add a Treg API key under Workspace → Integrations.');
     err.code = 'TREG_NOT_CONFIGURED';
     err.status = 409;
     throw err;
@@ -232,7 +254,7 @@ async function tregGet(pathname, opts = {}) {
     res = await fetchImpl(`${baseUrl()}${path}`, {
       method: 'GET',
       headers: {
-        'X-Treg-Token': token(),
+        'X-Treg-Token': apiToken,
         'X-Treg-Meta': `customer=${customer}, feature=${feature}`,
         Accept: 'application/json',
       },
@@ -271,6 +293,8 @@ module.exports = {
   isConfigured,
   customerTag,
   featureTag,
+  token,
+  resolveToken,
   tregCall,
   tregGet,
   lastUsage,

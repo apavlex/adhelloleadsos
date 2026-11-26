@@ -17,12 +17,14 @@ const publicDemo = require('../services/publicDemo');
 const trials = require('../services/trials');
 const tregSearchMode = require('../services/tregSearchMode');
 const tregClient = require('../services/tregClient');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 
 function attachSearchEngine(res, ws) {
   try {
     const demo = !!(ws && ws.isDemo);
+    const ownKey = String(workspaceIntegrations.decryptedFromWorkspace(ws).tregToken || '').trim();
     res.locals.searchEngine = demo ? 'default' : tregSearchMode.getMode(ws && ws.id);
-    res.locals.searchEngineReady = tregClient.isConfigured();
+    res.locals.searchEngineReady = !demo && (tregClient.isConfigured() || Boolean(ownKey));
   } catch (_) {
     res.locals.searchEngine = 'default';
     res.locals.searchEngineReady = false;

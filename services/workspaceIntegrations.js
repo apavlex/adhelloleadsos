@@ -78,6 +78,7 @@ const INTEGRATION_FIELDS = [
   'xaiApiKey',
   'xaiModel',
   'smsPrimary',
+  'tregToken',
 ];
 
 /** Map stored field → process.env name used by provider clients */
@@ -146,6 +147,7 @@ const FIELD_TO_ENV = {
   xaiApiKey: 'XAI_API_KEY',
   xaiModel: 'XAI_MODEL',
   smsPrimary: 'SMS_PRIMARY',
+  tregToken: 'TREG_TOKEN',
 };
 
 /**
@@ -235,6 +237,7 @@ const SHARED_GROUPS = [
   ['monidApiKey', 'monidApiBase'],
   ['openrouterApiKey', 'openrouterModel'],
   ['xaiApiKey', 'xaiModel'],
+  ['tregToken'],
 ];
 
 const SHARED_SOURCE_SLUG = 'adhello-agency';
@@ -405,6 +408,7 @@ async function sharedProvidersFor(workspaceId) {
     monidApiKey: 'Monid',
     openrouterApiKey: 'OpenRouter AI',
     xaiApiKey: 'xAI / Grok',
+    tregToken: 'Treg',
   };
   return SHARED_GROUPS.filter((group) => !group.some((f) => hasValue(own[f])) && hasValue(pooled[group[0]])).map(
     (group) => labels[group[0]] || group[0],
@@ -509,6 +513,7 @@ function integrationMasks(workspace) {
     'monidApiKey',
     'openrouterApiKey',
     'xaiApiKey',
+    'tregToken',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];

@@ -10377,6 +10377,54 @@ html.dark .opp-cal button:hover { background: rgba(255, 255, 255, 0.08); }
   color: #fff;
 }
 
+.search-engine-option {
+  position: relative;
+}
+
+.search-engine-gear {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.35rem;
+  z-index: 1;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: rgb(100 116 139);
+}
+
+.search-engine-gear:hover {
+  background: rgb(241 245 249);
+  color: rgb(15 23 42);
+}
+
+.dark .search-engine-gear:hover {
+  background: rgb(255 255 255 / 0.08);
+  color: #fff;
+}
+
+.search-engine-gear svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.search-engine-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.65rem;
+  padding: 0.1rem 0.7rem 0.45rem;
+}
+
+.search-engine-links a {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: rgb(100 116 139);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .search-engine-choice {
   display: flex;
   flex-direction: column;
@@ -10386,7 +10434,7 @@ html.dark .opp-cal button:hover { background: rgba(255, 255, 255, 0.08); }
   text-align: left;
   border-radius: 0.85rem;
   border: 1px solid transparent;
-  padding: 0.55rem 0.65rem;
+  padding: 0.55rem 2.15rem 0.55rem 0.65rem;
   color: rgb(15 23 42);
 }
 
