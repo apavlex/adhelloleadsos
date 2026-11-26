@@ -245,7 +245,7 @@
       if (aiToggle) {
         var toggleLabel = aiMode ? 'Back to prospect search' : 'Ask Alex (AI)';
         aiToggle.setAttribute('aria-pressed', aiMode ? 'true' : 'false');
-        aiToggle.setAttribute('title', toggleLabel);
+        aiToggle.removeAttribute('title');
         aiToggle.setAttribute('aria-label', toggleLabel);
       }
       if (aiMode) {
