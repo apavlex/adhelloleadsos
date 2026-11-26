@@ -5,6 +5,7 @@
  */
 const { chatCompletion, openRouterProviders, legacyProviders, looksLikeContextLengthError } = require('../llmClient');
 const { executeCrmTool, getOpenAiFunctionTools } = require('../mcp/mcpToolExecutor');
+const tregChatTools = require('../tregChatTools');
 const {
   stripThinking,
   looksLikeLeakedReasoning,
@@ -107,7 +108,7 @@ async function pavlexGeneralChat({
   const providers = [...xaiProviders, ...preferredProviders, ...baseOpenRouter, ...legacyProviders()];
   if (!providers.length) return { content: null, error: true, detail: 'No LLM providers configured' };
 
-  const tools = getOpenAiFunctionTools();
+  const tools = tregChatTools.appendTools(getOpenAiFunctionTools(), integrationEnv);
   const toolNames = new Set(tools.map((t) => t.function.name));
   const canRunTools = Boolean(ctx && ctx.workspaceId && ctx.userEmail);
 

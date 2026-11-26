@@ -1,6 +1,6 @@
 /**
  * Workspace switch for searches: "default" keeps the built-in providers,
- * "treg" sends Maps and web searches through treg.to.
+ * "treg" sends Maps and web searches through treg.to, and lets chat use the catalog.
  * Stored per workspace so folder runs, schedules, and MCP tools follow the top bar.
  */
 

@@ -111,7 +111,12 @@ async function tregCall(endpointId, opts = {}) {
     throw err;
   }
   const id = String(endpointId || '').trim();
-  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(id)) {
+  if (
+    !/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,180}$/.test(id) ||
+    id.includes('..') ||
+    id.includes('//') ||
+    id.includes('://')
+  ) {
     throw new Error('Invalid Treg endpoint.');
   }
 
@@ -202,12 +207,72 @@ async function tregCall(endpointId, opts = {}) {
   return { body, callId, costMicro, servedBy, status: res.status };
 }
 
+/**
+ * Authenticated GET under treg.to, for catalog search and catalog get.
+ * Path must start with /catalog/.
+ */
+async function tregGet(pathname, opts = {}) {
+  const path = String(pathname || '');
+  if (!path.startsWith('/catalog/')) {
+    throw new Error('Invalid Treg catalog path.');
+  }
+  if (!isConfigured()) {
+    const err = new Error('Treg is turned on, but TREG_TOKEN is not set on the server.');
+    err.code = 'TREG_NOT_CONFIGURED';
+    err.status = 409;
+    throw err;
+  }
+  const feature = featureTag(opts.feature || 'catalog');
+  const customer = customerTag(workspaceIdFrom(opts));
+  const fetchImpl = opts.fetchImpl || fetch;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), 30000) : null;
+  let res;
+  try {
+    res = await fetchImpl(`${baseUrl()}${path}`, {
+      method: 'GET',
+      headers: {
+        'X-Treg-Token': token(),
+        'X-Treg-Meta': `customer=${customer}, feature=${feature}`,
+        Accept: 'application/json',
+      },
+      signal: controller ? controller.signal : undefined,
+    });
+  } catch (err) {
+    if (err && (err.name === 'AbortError' || err.code === 'ABORT_ERR')) {
+      const timeout = new Error('Treg catalog timed out.');
+      timeout.code = 'TREG_TIMEOUT';
+      throw timeout;
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  const text = await res.text();
+  let body = {};
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = { message: text.slice(0, 240) };
+    }
+  }
+  if (!res.ok) {
+    const err = new Error(safeUserMessage(res.status, res.headers.get('x-treg-error') === '1', body));
+    err.code = 'TREG_ERROR';
+    err.status = res.status;
+    throw err;
+  }
+  return body;
+}
+
 module.exports = {
   baseUrl,
   isConfigured,
   customerTag,
   featureTag,
   tregCall,
+  tregGet,
   lastUsage,
   safeUserMessage,
 };

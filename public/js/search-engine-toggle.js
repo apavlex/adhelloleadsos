@@ -1,5 +1,5 @@
 /**
- * Top-bar switch: Treg for Maps and web searches, or the built-in providers.
+ * Top-bar switch: Treg for search, chat, and the chatbot, or the built-in providers.
  */
 (function () {
   var roots = document.querySelectorAll('[data-search-engine-root]');
@@ -26,7 +26,7 @@
       return 'Treg needs a TREG_TOKEN on the server before it can run searches.';
     }
     if (mode === 'treg') {
-      return 'Maps and web searches use treg.to. Directories, marketplaces, permits, and SEO stay on the built-in providers.';
+      return 'Search, chat, and the chatbot use the Treg catalog. Directories, marketplaces, permits, and SEO stay on the built-in providers.';
     }
     return 'Every search uses the built-in providers.';
   }
@@ -58,7 +58,7 @@
     if (!last || !last.costMicro) return '';
     var dollars = Number(last.costMicro) / 1000000;
     if (!isFinite(dollars) || dollars <= 0) return '';
-    return ' Last search $' + dollars.toFixed(4).replace(/0+$/, '').replace(/\.$/, '') + '.';
+    return ' Last Treg call $' + dollars.toFixed(4).replace(/0+$/, '').replace(/\.$/, '') + '.';
   }
 
   async function refreshNote() {
