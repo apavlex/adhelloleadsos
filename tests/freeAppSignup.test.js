@@ -449,7 +449,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
       assert.match(html, /pay-per-performance/i);
       assert.match(html, /commission/i);
       assert.match(html, /AdHello × Homeelk/);
-      assert.match(html, /homeelk\.com/);
+      assert.doesNotMatch(html, />homeelk\.com</);
       assert.match(html, /homeelk-logo\.png/);
 
       const rejected = await fetch(`${base}/app`, {
@@ -628,7 +628,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
     assert.match(view, /free_app_brand/);
     const brandPartial = fs.readFileSync(path.join(__dirname, '../views/partials/free_app_brand.ejs'), 'utf8');
     assert.match(brandPartial, /AdHello × Homeelk/);
-    assert.match(brandPartial, /homeelk\.com/);
+    assert.doesNotMatch(brandPartial, /homeelk\.com/);
     assert.match(brandPartial, /homeelk-logo\.png/);
     assert.ok(fs.existsSync(path.join(__dirname, '../public/images/homeelk-logo.png')));
     assert.match(view, /Extras included/);
