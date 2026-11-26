@@ -344,6 +344,7 @@ describe('freeAppSignup', { concurrency: false }, () => {
       assert.equal(get.status, 200);
       const html = await get.text();
       assert.match(html, /Flooring partners/);
+      assert.doesNotMatch(html, /homeelk-logo\.png/);
       assert.match(html, /Keep your account as long as you buy material from us/);
       assert.match(html, /action="\/app\/flooring"/);
       assert.match(html, /Send my app link/);
@@ -447,6 +448,9 @@ describe('freeAppSignup', { concurrency: false }, () => {
       assert.match(html, /Willing to drive/);
       assert.match(html, /pay-per-performance/i);
       assert.match(html, /commission/i);
+      assert.match(html, /AdHello × Homeelk/);
+      assert.match(html, /homeelk\.com/);
+      assert.match(html, /homeelk-logo\.png/);
 
       const rejected = await fetch(`${base}/app`, {
         method: 'POST',
@@ -621,6 +625,12 @@ describe('freeAppSignup', { concurrency: false }, () => {
     assert.match(view, /_flooring/);
     assert.match(view, /buy material from us/i);
     assert.match(view, /Get more reviews for your business!/);
+    assert.match(view, /free_app_brand/);
+    const brandPartial = fs.readFileSync(path.join(__dirname, '../views/partials/free_app_brand.ejs'), 'utf8');
+    assert.match(brandPartial, /AdHello × Homeelk/);
+    assert.match(brandPartial, /homeelk\.com/);
+    assert.match(brandPartial, /homeelk-logo\.png/);
+    assert.ok(fs.existsSync(path.join(__dirname, '../public/images/homeelk-logo.png')));
     assert.match(view, /Extras included/);
     assert.match(view, /reviews-flooring-owner-testimonial\.jpg/);
     assert.match(view, /Flooring business owner/);
